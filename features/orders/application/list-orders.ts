@@ -12,6 +12,20 @@ import {
 
 import type { ExternalApiError } from "@/shared/errors/app-error";
 
+// Public API — re-export the order enums + entity types so other features
+// (routing, etc.) can reach them via application without crossing into
+// orders/domain directly.
+export type {
+  Order,
+  OrderItem,
+  OrderListItem,
+  OrderStatus,
+  OrderStatusEvent,
+  PaymentMethod,
+  PaymentStatus,
+  TimeSlot,
+} from "@/features/orders/domain/order";
+
 export type ListOrdersFailure = ExternalApiError | ValidationError;
 
 export async function listOrders(
