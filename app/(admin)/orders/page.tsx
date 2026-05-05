@@ -1,6 +1,10 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
+import {
+  getDateRangeBounds,
+  isDateRangePreset,
+} from "@/features/orders/application/date-range-presets";
 import { listOrders } from "@/features/orders/application/list-orders";
 import { OrderListFilters } from "@/features/orders/ui/order-list-filters";
 import { OrderTable } from "@/features/orders/ui/order-table";
@@ -10,6 +14,7 @@ import { cn } from "@/lib/utils";
 interface OrdersPageProps {
   searchParams: Promise<{
     status?: string;
+    range?: string;
     scheduled_from?: string;
     scheduled_to?: string;
     page?: string;
@@ -20,10 +25,18 @@ interface OrdersPageProps {
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const params = await searchParams;
 
+  // Resolve the range preset into actual bounds, unless the user picked
+  // "Özel…" — then the explicit scheduled_from/to from the URL win.
+  const preset = isDateRangePreset(params.range) ? params.range : "all";
+  const presetBounds =
+    preset === "custom"
+      ? { from: params.scheduled_from, to: params.scheduled_to }
+      : getDateRangeBounds(preset);
+
   const result = await listOrders({
     status: params.status,
-    scheduled_from: params.scheduled_from,
-    scheduled_to: params.scheduled_to,
+    scheduled_from: presetBounds.from,
+    scheduled_to: presetBounds.to,
     page: params.page,
     pageSize: params.pageSize,
   });
@@ -36,8 +49,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     );
   }
 
+  // Pagination links preserve the user's filter URL params verbatim — no
+  // need to round-trip them through the resolver.
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
+  if (params.range) query.set("range", params.range);
   if (params.scheduled_from) query.set("scheduled_from", params.scheduled_from);
   if (params.scheduled_to) query.set("scheduled_to", params.scheduled_to);
   if (params.pageSize) query.set("pageSize", params.pageSize);
