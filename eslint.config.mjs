@@ -76,14 +76,16 @@ const eslintConfig = defineConfig([
               ],
             },
 
-            // application/: orchestrates domain. May call other features'
-            // application/ as a public API.
+            // application/: orchestrates domain + infrastructure of its own
+            // feature. May call other features' application/ as a public
+            // API. Cannot reach into another feature's infrastructure.
             {
               from: "application",
               allow: [
                 "shared",
                 ["domain", { feature: "${from.feature}" }],
                 ["application", { feature: "${from.feature}" }],
+                ["infrastructure", { feature: "${from.feature}" }],
                 "application", // other features' application — public API
               ],
             },
@@ -98,6 +100,10 @@ const eslintConfig = defineConfig([
             },
 
             // feature-ui/: own application + own domain types + cross-cutting UI.
+            // Per SPEC.md §2 "cross-feature import only via application/" —
+            // a feature's UI may call another feature's application as a
+            // public API surface (e.g., customer form invoking geocoding
+            // server action).
             {
               from: "feature-ui",
               allow: [
@@ -106,10 +112,13 @@ const eslintConfig = defineConfig([
                 "lib",
                 ["application", { feature: "${from.feature}" }],
                 ["domain", { feature: "${from.feature}" }],
+                "application", // other features' application — public API
               ],
             },
 
-            // app/: route shells. Compose feature-ui or call application directly.
+            // app/: route shells. Compose feature-ui or call application
+            // directly. Domain access is for type-only imports — page props,
+            // form default values mapped from domain entities.
             {
               from: "app-route",
               allow: [
@@ -118,6 +127,7 @@ const eslintConfig = defineConfig([
                 "lib",
                 "feature-ui",
                 "application",
+                "domain",
               ],
             },
 

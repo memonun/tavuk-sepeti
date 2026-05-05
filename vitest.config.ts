@@ -5,6 +5,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
+      // The real `server-only` package throws on any import to enforce that
+      // the file isn't bundled into a Client Component. Vitest doesn't have
+      // a Server Component context, so we replace it with a no-op for tests.
+      "server-only": path.resolve(__dirname, "tests/server-only-stub.ts"),
     },
   },
   test: {

@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
-    "db:types": "supabase gen types typescript --db-url \"$SUPABASE_DIRECT_URL\" --schema public > shared/supabase/types.ts",
+    "db:types": "supabase gen types typescript --db-url \"$SUPABASE_DIRECT_URL\" --schema public > shared/supabase/types.ts.tmp && mv shared/supabase/types.ts.tmp shared/supabase/types.ts || (rm -f shared/supabase/types.ts.tmp; echo 'db:types failed — types.ts left unchanged. Is Docker running?'; exit 1)",
     "db:push": "supabase db push --db-url \"$SUPABASE_DIRECT_URL\""
   },
   "dependencies": {
@@ -24,6 +24,8 @@
     "@hookform/resolvers": "^5.2.2",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.3",
+    "@tanstack/react-table": "^8.21.3",
+    "@vis.gl/react-google-maps": "^1.8.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

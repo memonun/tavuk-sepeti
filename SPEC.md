@@ -841,3 +841,56 @@ Bu spec aşağıdakileri sağladığında hazırdır:
 - [x] Phased roadmap ve ilk sprint görev listesi sıralı ✅
 
 **Bu spec Claude Code'a yapıştırılarak Sprint 0'dan başlanabilir.**
+
+---
+
+## 16. Long-Term Vision — Multi-Channel Customer Ingestion
+
+> Bu bölüm uzun vadeli bir north-star. Sprint 1-6 kapsamı dışı, ama mimari kararları bugünden hizalıyor.
+
+### 16.1 Hedef
+
+Müşteri kayıtları **üç farklı kanaldan** sisteme girebilmeli — ama **tek standardize Customer + Address şeması** ile sonuçlanmalı. Hangi kanaldan gelirse gelsin, sipariş alma / harita gösterme / rota optimize etme kodu fark etmemeli.
+
+### 16.2 Kanallar (yakından uzağa)
+
+**Kanal 1 — Admin manual entry** _(şu anki Faz 1 — implementasyonda)_
+- Admin paneli üzerinden form ile giriş.
+- `address_source: 'admin_input'`, `coordinate.source: 'geocoded_auto'` veya `'admin_corrected'`.
+- Cost: yüksek (admin zamanı).
+
+**Kanal 2 — E-commerce customer self-signup** _(Faz 2 storefront)_
+- Müşteri kendisi web sitesi üzerinden hesap açar, adresini kendi yazar.
+- `address_source: 'customer_signup'`, `coordinate.source: 'user_pin'` veya `'geocoded_auto'`.
+- Cost: sıfır admin çabası — müşteri yapıyor.
+- Web altyapısı **Faz 2'de zaten yeterince hazır** (aynı schema, aynı geocoding pipeline, sadece yeni UI route'u gerekecek).
+
+**Kanal 3 — Conversational ingestion (Instagram DM / WhatsApp)** _(Faz 3+ uzun vadeli)_
+- Meta Business API + (LLM ile zenginleştirilmiş) NLP pipeline'ı.
+- Müşteri Instagram'a "merhaba bana 2 paket yumurta + 1 kg peynir lazım, Bağdat Cad No 12'ye gönderebilir misiniz" yazar → sistem ad/soyad/telefon (mesaj kanalından) + adres + sipariş kalemlerini yapılandırılmış veriye dönüştürüp veritabanına düşürür.
+- Ambigous mesajlar bile (eksik adres, hatalı yumurta sayısı) **manual review queue**'ya düşer; admin tek tıkla onaylar.
+- `address_source: 'messaging_inbound'` (Faz 3'te enum'a eklenecek), `coordinate.source: 'geocoded_auto'`.
+- Cost: minimal admin çabası — sadece review.
+
+### 16.3 Mimari implikasyonlar — bugünden hazırlanan
+
+Spec'in şu anki yapısı zaten bu vizyonu destekliyor:
+- `address_source` enum **birden fazla değer** kabul ediyor (`admin_input | customer_signup | bulk_import`); Faz 3'te `messaging_inbound` eklenecek (`alter type` migration).
+- `coordinate.source` enum (`geocoded_auto | geocoded_manual | user_pin | admin_corrected`) hangi kanaldan gelirse gelsin pin'in nasıl elde edildiğini izliyor.
+- Customer schema kanal-agnostik — telefon E.164, isim trimmed, adres geocoding pipeline'ından geçiyor. Admin form'u, storefront sign-up, ya da AI ingestion fark etmez.
+- Geocoding cache + quota guard ortak — üç kanal aynı altyapıyı kullanır.
+
+### 16.4 Faz 3+ için açık tasarım kararları (henüz cevaplanmadı)
+
+- LLM extraction provider — Claude API mı, OpenAI mı, self-hosted mı? (Maliyet + Türkçe kalitesi + privacy)
+- Manual review queue UI — separate route mu, customer detail page'de "review" sekmesi mi?
+- Dedup logic — aynı telefon farklı kanaldan gelirse merge mi, çakıştır uyarısı mı?
+- Mesaj geçmişi audit — Instagram DM thread'i Customer record'a bağlanacak mı? KVKK/GDPR implikasyonu var.
+- Tek kullanıcının birden fazla adresi — Faz 1 single-address'ten Faz 3'te multi-address'e geçiş; schema zaten one-to-many ready.
+
+### 16.5 Birinci ilkeyle uyumu
+
+Bu vizyon **paranoyak karar mekanizmasının** uzun-vadeli sonucu. Faz 1'de admin formu yazarken bile şu sorular sorulmalı:
+- Bu Customer şeması storefront sign-up'tan da gelebilir mi? → Evet, aynı şema.
+- Bu Address coordinate'ı bir AI extraction'dan da gelebilir mi? → Evet, source enum'u kanal göstermek için var.
+- Yeni kanal eklemek mevcut feature'ları değiştirecek mi? → Hayır — open/closed: sadece yeni adapter eklemek.
