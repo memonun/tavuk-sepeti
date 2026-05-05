@@ -17,9 +17,30 @@ const isServer = typeof window === "undefined";
 
 // ---- Schemas ----------------------------------------------------------------
 
+// Postgres connection URLs must use the postgres:// or postgresql:// scheme.
+const postgresUrl = z
+  .string()
+  .min(1)
+  .refine((s) => /^postgres(ql)?:\/\//.test(s), {
+    message: "Must be a postgres:// or postgresql:// URL",
+  });
+
 const serverSchema = z.object({
   // Supabase (server-only secret).
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+
+  // Postgres connection URLs.
+  // - SUPABASE_DB_URL: transaction pooler (port 6543) — used by app runtime
+  //   on Vercel where every request is a fresh serverless invocation. No
+  //   LISTEN/NOTIFY, no prepared statements; fine for our query patterns.
+  // - SUPABASE_DIRECT_URL: direct connection (port 5432) — used by the
+  //   Supabase CLI for migrations and any DDL/admin task that needs
+  //   session-level features.
+  // Most of our reads/writes go through the Supabase JS client → PostgREST,
+  // which is HTTP and bypasses both URLs. These only matter for raw SQL
+  // (postgres.js) and the migration toolchain.
+  SUPABASE_DB_URL: postgresUrl,
+  SUPABASE_DIRECT_URL: postgresUrl,
 
   // Google Maps server-side key (Geocoding + Directions).
   GOOGLE_MAPS_SERVER_KEY: z.string().min(1),
@@ -66,6 +87,8 @@ const rawClient = {
 const rawServer = isServer
   ? {
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_DB_URL: process.env.SUPABASE_DB_URL,
+      SUPABASE_DIRECT_URL: process.env.SUPABASE_DIRECT_URL,
       GOOGLE_MAPS_SERVER_KEY: process.env.GOOGLE_MAPS_SERVER_KEY,
       WAREHOUSE_LAT: process.env.WAREHOUSE_LAT,
       WAREHOUSE_LNG: process.env.WAREHOUSE_LNG,

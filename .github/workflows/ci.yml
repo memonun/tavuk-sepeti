@@ -17,6 +17,8 @@ env:
   NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-stub
   SUPABASE_SERVICE_ROLE_KEY: ci-service-stub
+  SUPABASE_DB_URL: postgresql://stub:stub@stub.example.com:6543/postgres
+  SUPABASE_DIRECT_URL: postgresql://stub:stub@stub.example.com:5432/postgres
   GOOGLE_MAPS_SERVER_KEY: ci-google-server-stub
   NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY: ci-google-browser-stub
   NEXT_PUBLIC_APP_URL: http://localhost:3000
