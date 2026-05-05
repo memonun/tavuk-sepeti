@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Stub values so shared/env.ts validation passes during typecheck/build.
+  # Real secrets are injected per-environment in deploy workflows, not CI.
+  NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-stub
+  SUPABASE_SERVICE_ROLE_KEY: ci-service-stub
+  GOOGLE_MAPS_SERVER_KEY: ci-google-server-stub
+  NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY: ci-google-browser-stub
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  WAREHOUSE_LAT: "41.0082"
+  WAREHOUSE_LNG: "28.9784"
+  GEOCODING_DAILY_LIMIT: "2000"
+  LOG_LEVEL: silent
+  DEFAULT_TIMEZONE: Europe/Istanbul
+  DEFAULT_CURRENCY: TRY
+
+jobs:
+  ci:
+    name: Typecheck · Lint · Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
