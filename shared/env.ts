@@ -43,11 +43,15 @@ const serverSchema = z.object({
   SUPABASE_DIRECT_URL: postgresUrl,
 
   // Google Maps server-side key (Geocoding + Directions).
-  GOOGLE_MAPS_SERVER_KEY: z.string().min(1),
+  // Optional in Sprint 1 (no geocoding yet); the geocoding feature throws at
+  // the call site when this is missing, so the env still fails loud where
+  // it matters.
+  GOOGLE_MAPS_SERVER_KEY: z.string().min(1).optional(),
 
-  // Warehouse origin for daily route planning.
-  WAREHOUSE_LAT: z.coerce.number().gte(-90).lte(90),
-  WAREHOUSE_LNG: z.coerce.number().gte(-180).lte(180),
+  // Warehouse origin for daily route planning. Optional in Sprint 1; the
+  // routing feature (Sprint 5) throws at the call site when missing.
+  WAREHOUSE_LAT: z.coerce.number().gte(-90).lte(90).optional(),
+  WAREHOUSE_LNG: z.coerce.number().gte(-180).lte(180).optional(),
 
   // Quota guard — see SPEC.md §6.3.
   GEOCODING_DAILY_LIMIT: z.coerce.number().int().positive().default(2000),
@@ -70,7 +74,8 @@ const serverSchema = z.object({
 const clientSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-  NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY: z.string().min(1),
+  // Optional in Sprint 1 — see GOOGLE_MAPS_SERVER_KEY.
+  NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_APP_URL: z.string().url(),
 });
 
@@ -110,7 +115,16 @@ function formatIssues(issues: z.ZodIssue[]): string {
     .join("\n");
 }
 
-const clientResult = clientSchema.safeParse(rawClient);
+// Coerce empty strings (common in `.env` placeholders) to undefined so
+// `.optional()` fields don't trip on a blank value.
+const blankToUndefined = (input: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(input).map(([k, v]) =>
+      typeof v === "string" && v.trim() === "" ? [k, undefined] : [k, v],
+    ),
+  );
+
+const clientResult = clientSchema.safeParse(blankToUndefined(rawClient));
 if (!clientResult.success) {
   throw new Error(
     `❌ Invalid public environment variables (NEXT_PUBLIC_*):\n${formatIssues(
@@ -121,7 +135,7 @@ if (!clientResult.success) {
 
 let serverParsed: z.infer<typeof serverSchema> | undefined;
 if (isServer) {
-  const serverResult = serverSchema.safeParse(rawServer);
+  const serverResult = serverSchema.safeParse(blankToUndefined(rawServer));
   if (!serverResult.success) {
     throw new Error(
       `❌ Invalid server environment variables:\n${formatIssues(

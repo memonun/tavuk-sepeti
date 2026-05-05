@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    setupFiles: ["./tests/setup-env.ts"],
     include: ["tests/**/*.test.ts", "features/**/*.test.ts", "shared/**/*.test.ts"],
     coverage: {
       provider: "v8",
