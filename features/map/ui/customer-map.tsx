@@ -3,24 +3,19 @@
 /**
  * Customer-pin map view with Google MarkerClusterer.
  *
- * Cluster-and-marker pattern from @vis.gl/react-google-maps + the official
- * `@googlemaps/markerclusterer`:
- *   - useMap() exposes the underlying google.maps.Map.
- *   - Each AdvancedMarker registers its element via a ref callback.
- *   - A MarkerClusterer instance owns those markers and re-clusters on
- *     change. Cleared when the data changes.
+ * Markers are created imperatively in an effect rather than via
+ * <AdvancedMarker> components. The ref-callback pattern that React docs
+ * suggest triggers an infinite cleanup-then-setup loop under React 19
+ * with strict mode + the inline-arrow ref pattern, because each render
+ * recreates the ref callback and React 19 treats that as a re-attach.
  *
- * Initial bounds: fit to all pins once on first load. Default view (no pins)
- * is Istanbul.
+ * The imperative pattern is well-trodden for Google Maps + React: the
+ * component owns a single effect that creates markers, hands them to
+ * the clusterer, and cleans up on unmount or when `pins` changes.
  */
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
-import {
-  AdvancedMarker,
-  APIProvider,
-  Map,
-  useMap,
-} from "@vis.gl/react-google-maps";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { APIProvider, Map, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
+import { useEffect, useRef, useState } from "react";
 
 import { CustomerPinCard } from "@/features/map/ui/customer-pin-card";
 
@@ -48,7 +43,7 @@ export function CustomerMap({ apiKey, pins }: CustomerMapProps) {
           disableDefaultUI={false}
           style={{ width: "100%", height: 600 }}
         >
-          <ClusteredMarkers pins={pins} onSelect={setSelectedId} />
+          <ClusteredMarkerLayer pins={pins} onSelect={setSelectedId} />
         </Map>
 
         {selected ? (
@@ -59,71 +54,62 @@ export function CustomerMap({ apiKey, pins }: CustomerMapProps) {
   );
 }
 
-interface ClusteredMarkersProps {
+interface ClusteredMarkerLayerProps {
   pins: MapPin[];
   onSelect: (id: string) => void;
 }
 
-function ClusteredMarkers({ pins, onSelect }: ClusteredMarkersProps) {
+/**
+ * Owns the imperative marker lifecycle. Whenever `pins` (or the underlying
+ * Map) changes, this effect:
+ *   1. Tears down the previous clusterer + markers.
+ *   2. Builds new AdvancedMarkerElement instances directly.
+ *   3. Hands them to a fresh MarkerClusterer.
+ * On unmount, the cleanup empties the cluster and detaches the markers
+ * from the map (set marker.map = null).
+ */
+function ClusteredMarkerLayer({ pins, onSelect }: ClusteredMarkerLayerProps) {
   const map = useMap();
-  const clusterer = useRef<MarkerClusterer | null>(null);
-  const markersRef = useRef<
-    Map<string, google.maps.marker.AdvancedMarkerElement>
-  >(new globalThis.Map());
-  const [, forceUpdate] = useState(0);
+  // The "marker" library is lazy-loaded by @vis.gl/react-google-maps; until
+  // it resolves, AdvancedMarkerElement is undefined. The "core" library
+  // (LatLngBounds) is also lazy-loaded.
+  const markerLibrary = useMapsLibrary("marker");
+  const coreLibrary = useMapsLibrary("core");
 
-  // Initialize the clusterer once the Map is available.
+  const onSelectRef = useRef(onSelect);
   useEffect(() => {
-    if (!map) return;
-    clusterer.current = new MarkerClusterer({ map });
-    return () => {
-      clusterer.current?.clearMarkers();
-      clusterer.current = null;
-    };
-  }, [map]);
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
-  // Fit bounds to pins on first render with data.
+  // Did the bounds-fit run already? Avoids re-zooming on every prop change.
   const fitOnceRef = useRef(false);
+
   useEffect(() => {
-    if (!map || pins.length === 0 || fitOnceRef.current) return;
-    fitOnceRef.current = true;
-    const bounds = new google.maps.LatLngBounds();
-    for (const pin of pins) bounds.extend({ lat: pin.lat, lng: pin.lng });
-    map.fitBounds(bounds, 64);
-  }, [map, pins]);
+    if (!map || !markerLibrary || !coreLibrary) return;
 
-  // Hand markers to the clusterer whenever the set changes.
-  useEffect(() => {
-    if (!clusterer.current) return;
-    clusterer.current.clearMarkers();
-    clusterer.current.addMarkers(Array.from(markersRef.current.values()));
-  });
+    const markers = pins.map((pin) => {
+      const marker = new markerLibrary.AdvancedMarkerElement({
+        position: { lat: pin.lat, lng: pin.lng },
+        title: `${pin.first_name} ${pin.last_name}`,
+      });
+      marker.addListener("click", () => onSelectRef.current(pin.customer_id));
+      return marker;
+    });
 
-  const setMarkerRef = useCallback(
-    (
-      marker: google.maps.marker.AdvancedMarkerElement | null,
-      id: string,
-    ) => {
-      if (marker && markersRef.current.get(id) === marker) return;
-      if (!marker && !markersRef.current.has(id)) return;
-      if (marker) markersRef.current.set(id, marker);
-      else markersRef.current.delete(id);
-      forceUpdate((n) => n + 1);
-    },
-    [],
-  );
+    const clusterer = new MarkerClusterer({ map, markers });
 
-  return (
-    <>
-      {pins.map((pin) => (
-        <AdvancedMarker
-          key={pin.customer_id}
-          position={{ lat: pin.lat, lng: pin.lng }}
-          ref={(marker) => setMarkerRef(marker, pin.customer_id)}
-          onClick={() => onSelect(pin.customer_id)}
-          title={`${pin.first_name} ${pin.last_name}`}
-        />
-      ))}
-    </>
-  );
+    if (!fitOnceRef.current && pins.length > 0) {
+      fitOnceRef.current = true;
+      const bounds = new coreLibrary.LatLngBounds();
+      for (const pin of pins) bounds.extend({ lat: pin.lat, lng: pin.lng });
+      map.fitBounds(bounds, 64);
+    }
+
+    return () => {
+      clusterer.clearMarkers();
+      for (const marker of markers) marker.map = null;
+    };
+  }, [map, markerLibrary, coreLibrary, pins]);
+
+  return null;
 }
