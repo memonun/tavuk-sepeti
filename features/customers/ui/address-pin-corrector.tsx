@@ -69,7 +69,7 @@ export function AddressPinCorrector({
             defaultZoom={low ? 14 : 17}
             gestureHandling="greedy"
             disableDefaultUI={false}
-            style={{ width: "100%", height: 280 }}
+            style={{ width: "100%", height: "clamp(220px, 45vh, 320px)" }}
           >
             <AdvancedMarker
               position={{ lat, lng }}

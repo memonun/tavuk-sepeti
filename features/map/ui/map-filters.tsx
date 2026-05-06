@@ -43,7 +43,7 @@ export function MapFilters({ totalActive, shown }: MapFiltersProps) {
           disabled={pending}
           onClick={() => setRecentOnly(false)}
           className={cn(
-            "h-7",
+            "h-9",
             !recentOnly && "bg-accent text-accent-foreground",
           )}
         >
@@ -56,7 +56,7 @@ export function MapFilters({ totalActive, shown }: MapFiltersProps) {
           disabled={pending}
           onClick={() => setRecentOnly(true)}
           className={cn(
-            "h-7",
+            "h-9",
             recentOnly && "bg-accent text-accent-foreground",
           )}
         >

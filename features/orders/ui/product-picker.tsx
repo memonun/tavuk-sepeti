@@ -39,14 +39,14 @@ function LineRow({ product, draft, onQuantity, onRemove }: LineRowProps) {
   const lineTotal = draft.quantity * product.current_unit_price_minor;
 
   return (
-    <div className="grid grid-cols-12 items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm">
-      <div className="col-span-5">
+    <div className="grid grid-cols-1 items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm sm:grid-cols-12">
+      <div className="sm:col-span-5">
         <p className="font-medium">{product.display_name}</p>
         <p className="text-xs text-muted-foreground">
           {formatTRY(product.current_unit_price_minor)} / {product.unit_label}
         </p>
       </div>
-      <div className="col-span-3 flex items-center gap-2">
+      <div className="flex items-center gap-2 sm:col-span-3">
         <Input
           type="number"
           inputMode="decimal"
@@ -61,23 +61,21 @@ function LineRow({ product, draft, onQuantity, onRemove }: LineRowProps) {
         />
         <span className="text-xs text-muted-foreground">{product.unit_label}</span>
       </div>
-      <p className="col-span-3 text-right font-mono text-sm">
-        {formatTRY(lineTotal)}
-      </p>
-      <div className="col-span-1 flex justify-end">
+      <div className="flex items-center justify-between sm:col-span-4 sm:justify-end sm:gap-2">
+        <p className="font-mono text-sm sm:text-right">{formatTRY(lineTotal)}</p>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 w-7 px-0 text-destructive"
+          className="h-10 w-10 px-0 text-destructive"
           onClick={onRemove}
           aria-label={`${product.display_name} satırını kaldır`}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
       {(stepInvalid || minInvalid) && (
-        <p className="col-span-12 text-xs text-destructive">
+        <p className="text-xs text-destructive sm:col-span-12">
           {minInvalid
             ? `Minimum ${product.min_qty} ${product.unit_label} gerekli.`
             : `Miktar ${product.step} ${product.unit_label} katı olmalı.`}

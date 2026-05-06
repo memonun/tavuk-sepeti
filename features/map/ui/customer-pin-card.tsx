@@ -21,7 +21,7 @@ interface CustomerPinCardProps {
  */
 export function CustomerPinCard({ pin, onClose }: CustomerPinCardProps) {
   return (
-    <div className="pointer-events-auto absolute right-3 top-3 w-72 rounded-lg border bg-card p-4 text-card-foreground shadow-lg">
+    <div className="pointer-events-auto absolute inset-x-2 top-2 rounded-lg border bg-card p-4 text-card-foreground shadow-lg sm:inset-x-auto sm:right-3 sm:top-3 sm:w-72">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-semibold leading-tight">
@@ -35,11 +35,11 @@ export function CustomerPinCard({ pin, onClose }: CustomerPinCardProps) {
           type="button"
           variant="ghost"
           size="sm"
-          className="-mr-1 h-6 w-6 px-0"
+          className="-mr-1 h-10 w-10 px-0"
           onClick={onClose}
           aria-label="Kapat"
         >
-          <X className="h-3 w-3" />
+          <X className="h-4 w-4" />
         </Button>
       </div>
 

@@ -46,7 +46,8 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "msw"
     ]
   },
   "devDependencies": {

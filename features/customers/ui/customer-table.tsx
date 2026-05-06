@@ -77,16 +77,16 @@ export function CustomerTable({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border overflow-hidden">
+      <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Müşteri</TableHead>
               <TableHead>Telefon</TableHead>
-              <TableHead>E-posta</TableHead>
-              <TableHead>Şehir</TableHead>
+              <TableHead className="hidden md:table-cell">E-posta</TableHead>
+              <TableHead className="hidden sm:table-cell">Şehir</TableHead>
               <TableHead>Durum</TableHead>
-              <TableHead className="text-right">Eklenme</TableHead>
+              <TableHead className="hidden sm:table-cell text-right">Eklenme</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -98,10 +98,10 @@ export function CustomerTable({
                 <TableCell className="font-mono text-xs">
                   {formatTRPhone(c.phone)}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="hidden md:table-cell text-muted-foreground">
                   {c.email ?? "—"}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="hidden sm:table-cell text-muted-foreground">
                   {c.city ?? "—"}
                 </TableCell>
                 <TableCell>
@@ -109,7 +109,7 @@ export function CustomerTable({
                     {STATUS_LABEL[c.status]}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right text-muted-foreground">
+                <TableCell className="hidden sm:table-cell text-right text-muted-foreground">
                   {formatDate(c.created_at)}
                 </TableCell>
               </ClickableTableRow>

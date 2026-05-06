@@ -41,7 +41,7 @@ export function CustomerMap({ apiKey, pins }: CustomerMapProps) {
           defaultZoom={11}
           gestureHandling="greedy"
           disableDefaultUI={false}
-          style={{ width: "100%", height: 600 }}
+          style={{ width: "100%", height: "clamp(320px, 65vh, 600px)" }}
         >
           <ClusteredMarkerLayer pins={pins} onSelect={setSelectedId} />
         </Map>

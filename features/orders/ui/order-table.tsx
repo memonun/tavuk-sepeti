@@ -88,15 +88,15 @@ export function OrderTable({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>No</TableHead>
               <TableHead>Müşteri</TableHead>
-              <TableHead>Teslim</TableHead>
+              <TableHead className="hidden sm:table-cell">Teslim</TableHead>
               <TableHead>Durum</TableHead>
-              <TableHead>Ödeme</TableHead>
+              <TableHead className="hidden md:table-cell">Ödeme</TableHead>
               <TableHead className="text-right">Tutar</TableHead>
             </TableRow>
           </TableHeader>
@@ -117,7 +117,7 @@ export function OrderTable({
                     {o.customer_name}
                   </Link>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="hidden sm:table-cell text-muted-foreground">
                   {formatDate(o.scheduled_for)}
                   {o.time_slot ? (
                     <span className="ml-1 text-xs">
@@ -130,7 +130,7 @@ export function OrderTable({
                     {STATUS_LABEL[o.status]}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="hidden md:table-cell text-muted-foreground">
                   {PAYMENT_LABEL[o.payment_status]}
                 </TableCell>
                 <TableCell className="text-right font-mono">

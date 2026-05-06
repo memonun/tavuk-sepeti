@@ -59,8 +59,8 @@ export function CustomerSearchBar() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="relative flex-1 min-w-[240px]">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="relative flex-1 sm:min-w-[240px]">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={text}
@@ -74,17 +74,17 @@ export function CustomerSearchBar() {
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 px-0"
+            className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 px-0"
             onClick={() => setText("")}
             aria-label="Aramayı temizle"
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
           </Button>
         ) : null}
       </div>
 
       <Select value={status} onValueChange={setStatus}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

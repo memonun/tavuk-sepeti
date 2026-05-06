@@ -129,8 +129,10 @@ export function DriverMode({
             ≈ {formatHHmm(route.finish_time_iso)} bitiş
           </p>
         </div>
-        {/* Spacer mirroring the back link width so the title stays centered. */}
-        <span className="invisible flex items-center gap-1 text-sm">
+        {/* Spacer mirroring the back link width so the title stays centered.
+            Hidden on narrow screens — the centered text gives up perfect
+            symmetry rather than fighting for pixels. */}
+        <span className="invisible hidden items-center gap-1 text-sm sm:flex">
           <ChevronLeft className="h-4 w-4" />
           Çıkış
         </span>

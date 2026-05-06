@@ -69,7 +69,7 @@ export function RouteControls({
   };
 
   return (
-    <div className="flex flex-wrap items-end gap-3 border-b pb-4">
+    <div className="grid grid-cols-2 gap-3 border-b pb-4 sm:flex sm:flex-wrap sm:items-end">
       <div className="flex flex-col gap-1.5">
         <Label className="text-xs">Tarih</Label>
         <Input
@@ -97,6 +97,7 @@ export function RouteControls({
           size="sm"
           onClick={reset}
           disabled={pending}
+          className="col-span-2 sm:col-auto"
         >
           {pending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -109,7 +110,7 @@ export function RouteControls({
           size="sm"
           onClick={optimize}
           disabled={pending || !hasOrders}
-          className="gap-1.5"
+          className="col-span-2 gap-1.5 sm:col-auto"
         >
           {pending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
