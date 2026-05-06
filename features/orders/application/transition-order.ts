@@ -18,6 +18,7 @@ import {
   findOrderById,
   persistTransition,
 } from "@/features/orders/infrastructure/order.repository";
+import { logAudit } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
 
 import type { OrderStatus } from "@/features/orders/domain/order";
@@ -67,6 +68,16 @@ export async function transitionOrderAction(
   if (!persisted.ok) {
     return { status: "error", message: persisted.error.message };
   }
+
+  await logAudit({
+    actor_id: user.id,
+    action: "order.transitioned",
+    entity_type: "order",
+    entity_id: input.order_id,
+    before: { status: orderResult.value.status },
+    after: { status: input.to_status },
+    ...(input.reason ? { metadata: { reason: input.reason } } : {}),
+  });
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${input.order_id}`);

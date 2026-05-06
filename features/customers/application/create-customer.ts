@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache";
 import { customerFormSchema } from "@/features/customers/domain/customer.schema";
 import { createCustomer as repoCreate } from "@/features/customers/infrastructure/customer.repository";
 import { getCurrentUser } from "@/features/auth/application/get-session";
+import { logAudit } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
 
 export type CreateCustomerActionState =
@@ -89,6 +90,19 @@ export async function createCustomerAction(
     logger.error({ code: created.error.code }, "create_customer_failed");
     return { status: "error", message: created.error.message };
   }
+
+  await logAudit({
+    actor_id: user.id,
+    action: "customer.created",
+    entity_type: "customer",
+    entity_id: created.value.id,
+    after: {
+      first_name: created.value.first_name,
+      last_name: created.value.last_name,
+      status: created.value.status,
+      address_city: created.value.address.city,
+    },
+  });
 
   revalidatePath("/customers");
   return { status: "success", customerId: created.value.id };

@@ -16,6 +16,7 @@ import { getCurrentUser } from "@/features/auth/application/get-session";
 import { orderFormSchema } from "@/features/orders/domain/order.schema";
 import { createOrder as repoCreate } from "@/features/orders/infrastructure/order.repository";
 import { listActiveProducts } from "@/features/products/application/list-products";
+import { logAudit } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
 
 export type CreateOrderActionState =
@@ -136,6 +137,21 @@ export async function createOrderAction(
     logger.error({ code: created.error.code }, "create_order_failed");
     return { status: "error", message: created.error.message };
   }
+
+  await logAudit({
+    actor_id: user.id,
+    action: "order.created",
+    entity_type: "order",
+    entity_id: created.value.id,
+    after: {
+      order_number: created.value.order_number,
+      customer_id: created.value.customer_id,
+      scheduled_for: created.value.scheduled_for,
+      total_minor: created.value.total_minor,
+      items_count: created.value.items.length,
+      payment_method: created.value.payment_method,
+    },
+  });
 
   revalidatePath("/orders");
   return { status: "success", orderId: created.value.id };

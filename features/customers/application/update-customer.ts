@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 
 import { customerFormSchema } from "@/features/customers/domain/customer.schema";
-import { updateCustomer as repoUpdate } from "@/features/customers/infrastructure/customer.repository";
+import {
+  findCustomerById,
+  updateCustomer as repoUpdate,
+} from "@/features/customers/infrastructure/customer.repository";
 import { getCurrentUser } from "@/features/auth/application/get-session";
+import { logAudit } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
 
 export type UpdateCustomerActionState =
@@ -70,10 +74,37 @@ export async function updateCustomerAction(
     },
   });
 
+  // Snapshot the pre-update row for the audit "before" payload. Best-
+  // effort: if it can't be loaded for some reason, we still log the
+  // "after" + skip "before" rather than blocking the update.
+  const beforeRow = await findCustomerById(customerId);
+  const beforeSnapshot = beforeRow.ok
+    ? {
+        first_name: beforeRow.value.first_name,
+        last_name: beforeRow.value.last_name,
+        status: beforeRow.value.status,
+        phone: beforeRow.value.phone,
+      }
+    : null;
+
   if (!updated.ok) {
     logger.error({ code: updated.error.code, customerId }, "update_customer_failed");
     return { status: "error", message: updated.error.message };
   }
+
+  await logAudit({
+    actor_id: user.id,
+    action: "customer.updated",
+    entity_type: "customer",
+    entity_id: customerId,
+    before: beforeSnapshot,
+    after: {
+      first_name: updated.value.first_name,
+      last_name: updated.value.last_name,
+      status: updated.value.status,
+      phone: updated.value.phone,
+    },
+  });
 
   revalidatePath("/customers");
   revalidatePath(`/customers/${customerId}`);
