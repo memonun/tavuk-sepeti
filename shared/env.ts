@@ -76,6 +76,11 @@ const clientSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   // Optional in Sprint 1 — see GOOGLE_MAPS_SERVER_KEY.
   NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY: z.string().min(1).optional(),
+  // Cloud-based Map Style ID. Set this once the GTA style is created in
+  // Cloud Console + assigned to a Map ID. When unset, each <Map> falls
+  // back to a per-feature placeholder ID and ships with Google's default
+  // light theme. See docs/maps/README.md.
+  NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: z.string().min(1).optional(),
   NEXT_PUBLIC_APP_URL: z.string().url(),
 });
 
@@ -86,6 +91,7 @@ const rawClient = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY:
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY,
+  NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
 };
 

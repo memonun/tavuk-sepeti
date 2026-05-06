@@ -42,7 +42,7 @@ export function RouteDriverMap({
     <APIProvider apiKey={apiKey}>
       <div className="overflow-hidden rounded-lg border">
         <Map
-          mapId="route-driver"
+          mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "route-driver"}
           defaultCenter={origin}
           defaultZoom={13}
           gestureHandling="greedy"
@@ -118,11 +118,12 @@ function DriverLayer({
       );
     }
 
-    // Driver position pin — emerald dot when coords available.
+    // Driver position pin — GTA-style bright cyan-blue dot with a
+    // pulsing violet halo. zIndex up so it sits over polyline + stops.
     if (driverCoords) {
       const driverEl = document.createElement("div");
       driverEl.className =
-        "h-3 w-3 rounded-full bg-emerald-500 shadow ring-4 ring-emerald-500/30";
+        "h-3.5 w-3.5 rounded-full bg-blue-500 shadow ring-4 ring-violet-500/40";
       created.push(
         new markerLib.AdvancedMarkerElement({
           position: { lat: driverCoords.lat, lng: driverCoords.lng },
@@ -140,12 +141,15 @@ function DriverLayer({
       for (const encoded of stepPolylines) {
         path.push(...geometryLib.encoding.decodePath(encoded));
       }
+      // GTA-style GPS waypoint route — vivid violet, slightly thicker
+      // for driver-mode legibility on small screens.
       polyline = new google.maps.Polyline({
         path,
         map,
-        strokeColor: "#3b82f6",
-        strokeOpacity: 0.9,
-        strokeWeight: 4,
+        strokeColor: "#7C3AED",
+        strokeOpacity: 0.95,
+        strokeWeight: 5,
+        zIndex: 5,
       });
     }
 

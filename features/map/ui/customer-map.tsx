@@ -36,7 +36,7 @@ export function CustomerMap({ apiKey, pins }: CustomerMapProps) {
     <APIProvider apiKey={apiKey}>
       <div className="relative overflow-hidden rounded-lg border">
         <Map
-          mapId="customer-overview"
+          mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "customer-overview"}
           defaultCenter={ISTANBUL_CENTER}
           defaultZoom={11}
           gestureHandling="greedy"
@@ -87,10 +87,33 @@ function ClusteredMarkerLayer({ pins, onSelect }: ClusteredMarkerLayerProps) {
   useEffect(() => {
     if (!map || !markerLibrary || !coreLibrary) return;
 
+    // Custom GTA-style pin: violet circle with white inner dot + tail.
+    // Built with DOM elements per marker because AdvancedMarkerElement
+    // wants raw HTMLElement, not React.
+    const buildPinElement = (recent: boolean): HTMLElement => {
+      const wrap = document.createElement("div");
+      wrap.className = "relative flex flex-col items-center";
+      const circle = document.createElement("div");
+      circle.className = recent
+        ? "flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 shadow ring-2 ring-violet-500/40"
+        : "flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/80 shadow ring-2 ring-violet-500/30";
+      const dot = document.createElement("div");
+      dot.className = recent ? "h-2 w-2 rounded-full bg-white" : "h-1.5 w-1.5 rounded-full bg-white";
+      circle.appendChild(dot);
+      const tail = document.createElement("div");
+      tail.className = recent
+        ? "-mt-0.5 h-0 w-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-violet-600"
+        : "-mt-0.5 h-0 w-0 border-x-[4px] border-t-[5px] border-x-transparent border-t-violet-500/80";
+      wrap.appendChild(circle);
+      wrap.appendChild(tail);
+      return wrap;
+    };
+
     const markers = pins.map((pin) => {
       const marker = new markerLibrary.AdvancedMarkerElement({
         position: { lat: pin.lat, lng: pin.lng },
         title: `${pin.first_name} ${pin.last_name}`,
+        content: buildPinElement(pin.has_recent_order),
       });
       marker.addListener("click", () => onSelectRef.current(pin.customer_id));
       return marker;

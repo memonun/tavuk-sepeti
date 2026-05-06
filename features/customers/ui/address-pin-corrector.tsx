@@ -63,7 +63,7 @@ export function AddressPinCorrector({
 
         <div className="overflow-hidden rounded-lg border">
           <Map
-            mapId="customer-address"
+            mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "customer-address"}
             defaultCenter={{ lat, lng }}
             center={{ lat, lng }}
             defaultZoom={low ? 14 : 17}
@@ -83,7 +83,17 @@ export function AddressPinCorrector({
                   source: "admin_corrected",
                 });
               }}
-            />
+            >
+              {/* GTA-style waypoint marker — vivid violet circle with
+                  inner white dot + glow ring. Pin shape under it via
+                  thin tail using a CSS triangle. */}
+              <div className="relative flex flex-col items-center">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 shadow-lg ring-4 ring-violet-500/40">
+                  <div className="h-2.5 w-2.5 rounded-full bg-white" />
+                </div>
+                <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-violet-600" />
+              </div>
+            </AdvancedMarker>
           </Map>
         </div>
       </div>

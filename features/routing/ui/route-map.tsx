@@ -41,7 +41,7 @@ export function RouteMap({
     <APIProvider apiKey={apiKey}>
       <div className="overflow-hidden rounded-lg border">
         <Map
-          mapId="route-overview"
+          mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "route-overview"}
           defaultCenter={origin}
           defaultZoom={12}
           gestureHandling="greedy"
@@ -113,12 +113,15 @@ function RouteLayer({ origin, stops, stepPolylines }: RouteLayerProps) {
         const segment = geometryLib.encoding.decodePath(encoded);
         path.push(...segment);
       }
+      // GTA-style GPS waypoint route: vivid blue-purple. The slight
+      // glow comes from a wider, more transparent under-stroke.
       polyline = new google.maps.Polyline({
         path,
         map,
-        strokeColor: "#3b82f6",
-        strokeOpacity: 0.9,
-        strokeWeight: 4,
+        strokeColor: "#7C3AED",
+        strokeOpacity: 0.95,
+        strokeWeight: 5,
+        zIndex: 5,
       });
     }
 
