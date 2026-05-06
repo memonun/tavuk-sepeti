@@ -4,15 +4,18 @@
 import "@/shared/env";
 
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Inter is the SaaS-dashboard standard — designed for screen UI, excellent
+// at small sizes, full Turkish diacritic support (ğ, İ/ı, ş, ç, ü, ö).
+// We expose it as `--font-sans` so Tailwind's font-sans utility picks it up.
+const interSans = Inter({
+  variable: "--font-sans",
+  subsets: ["latin", "latin-ext"],
 });
 
 const geistMono = Geist_Mono({
@@ -42,7 +45,7 @@ export default function RootLayout({
     <html
       lang="tr"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${interSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider
