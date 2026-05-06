@@ -41,3 +41,32 @@ export function toIstanbulDateString(input: Date | string): string {
 export function formatHHmm(input: Date | string): string {
   return formatInTimeZone(asDate(input), TZ, "HH:mm");
 }
+
+/**
+ * Compares two YYYY-MM-DD date strings (both interpreted as Istanbul
+ * calendar days) and returns the day delta: 0 = same, 1 = b is one day
+ * after a, -1 = b is one day before a.
+ *
+ * Istanbul has no DST since 2016 and stays at UTC+3, so UTC-day arithmetic
+ * matches Istanbul-day arithmetic exactly.
+ */
+export function ymdDayDiff(a: string, b: string): number {
+  const aDate = new Date(`${a}T00:00:00Z`);
+  const bDate = new Date(`${b}T00:00:00Z`);
+  const ms = bDate.getTime() - aDate.getTime();
+  return Math.round(ms / 86_400_000);
+}
+
+/** Adds (or subtracts) `days` to a YYYY-MM-DD string, returning another
+ *  YYYY-MM-DD string in Istanbul-calendar terms. */
+export function addDaysToYmd(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Today's date in Istanbul calendar, as YYYY-MM-DD. Convenience over
+ *  `toIstanbulDateString(new Date())`. */
+export function todayInIstanbul(): string {
+  return toIstanbulDateString(new Date());
+}

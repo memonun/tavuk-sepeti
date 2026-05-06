@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { RouteControls } from "@/features/routing/ui/route-controls";
+import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
 import { RouteMap } from "@/features/routing/ui/route-map";
 import { buttonVariants } from "@/components/ui/button";
@@ -11,7 +12,6 @@ import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
 import {
   formatHHmm,
-  formatLongDate,
   toIstanbulDateString,
 } from "@/shared/utils/date";
 
@@ -104,11 +104,13 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
 
   return (
     <div className="space-y-5">
+      <RouteDatePager date={date} />
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Rota</h2>
           <p className="text-sm text-muted-foreground">
-            {formatLongDate(date)} — {dayOrders.length} sipariş
+            {dayOrders.length} sipariş
             {optimized
               ? ` · ${formatDistance(optimized.total_distance_m)} · ${formatDuration(optimized.total_duration_s)} · ≈ ${formatHHmm(optimized.finish_time_iso)} bitiş`
               : ""}
