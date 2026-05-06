@@ -36,3 +36,8 @@ export function formatLongDate(input: Date | string): string {
 export function toIstanbulDateString(input: Date | string): string {
   return formatInTimeZone(asDate(input), TZ, "yyyy-MM-dd");
 }
+
+/** `14:32` — Istanbul wall-clock time. Used for ETA chips on the route list. */
+export function formatHHmm(input: Date | string): string {
+  return formatInTimeZone(asDate(input), TZ, "HH:mm");
+}

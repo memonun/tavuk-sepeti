@@ -6,10 +6,12 @@
  * Imperative marker + polyline lifecycle in a single effect (same pattern
  * as the customer-pin map — React 19 ref-callback churn forced this in
  * Sprint 3). Markers are numbered HTML pills so the driver can read the
- * sequence at a glance. The polyline is decoded from Google's encoded
- * overview_polyline via the `geometry` library.
+ * sequence at a glance.
  *
- * The warehouse renders as a separate, distinct origin pin.
+ * Polyline rendering: each leg's per-step encoded polyline is decoded and
+ * concatenated into a single LatLng path — gives road-level fidelity
+ * (no corner-cutting at street zoom) versus Google's simplified
+ * overview_polyline.
  */
 import {
   APIProvider,
@@ -25,15 +27,15 @@ interface RouteMapProps {
   apiKey: string;
   origin: RouteOrigin;
   stops: readonly RouteStop[];
-  /** Encoded polyline from Google Directions; null when not optimized yet. */
-  overviewPolyline: string | null;
+  /** Per-step encoded polylines in route order. Empty when not optimized. */
+  stepPolylines: readonly string[];
 }
 
 export function RouteMap({
   apiKey,
   origin,
   stops,
-  overviewPolyline,
+  stepPolylines,
 }: RouteMapProps) {
   return (
     <APIProvider apiKey={apiKey}>
@@ -49,7 +51,7 @@ export function RouteMap({
           <RouteLayer
             origin={origin}
             stops={stops}
-            overviewPolyline={overviewPolyline}
+            stepPolylines={stepPolylines}
           />
         </Map>
       </div>
@@ -60,10 +62,10 @@ export function RouteMap({
 interface RouteLayerProps {
   origin: RouteOrigin;
   stops: readonly RouteStop[];
-  overviewPolyline: string | null;
+  stepPolylines: readonly string[];
 }
 
-function RouteLayer({ origin, stops, overviewPolyline }: RouteLayerProps) {
+function RouteLayer({ origin, stops, stepPolylines }: RouteLayerProps) {
   const map = useMap();
   const markerLib = useMapsLibrary("marker");
   const coreLib = useMapsLibrary("core");
@@ -100,9 +102,17 @@ function RouteLayer({ origin, stops, overviewPolyline }: RouteLayerProps) {
       created.push(marker);
     }
 
+    // Stitch step polylines into one road-fidelity path. Decode each step's
+    // encoded points; concat the LatLngs end-to-end (no de-duplication
+    // needed because consecutive steps share an endpoint that just looks
+    // like a single waypoint — visually fine).
     let polyline: google.maps.Polyline | null = null;
-    if (overviewPolyline && geometryLib) {
-      const path = geometryLib.encoding.decodePath(overviewPolyline);
+    if (geometryLib && stepPolylines.length > 0) {
+      const path: google.maps.LatLng[] = [];
+      for (const encoded of stepPolylines) {
+        const segment = geometryLib.encoding.decodePath(encoded);
+        path.push(...segment);
+      }
       polyline = new google.maps.Polyline({
         path,
         map,
@@ -124,7 +134,7 @@ function RouteLayer({ origin, stops, overviewPolyline }: RouteLayerProps) {
       for (const m of created) m.map = null;
       polyline?.setMap(null);
     };
-  }, [map, markerLib, coreLib, geometryLib, origin, stops, overviewPolyline]);
+  }, [map, markerLib, coreLib, geometryLib, origin, stops, stepPolylines]);
 
   return null;
 }

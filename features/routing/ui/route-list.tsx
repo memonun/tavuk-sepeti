@@ -6,6 +6,7 @@
 import Link from "next/link";
 
 import { MarkDeliveredButton } from "@/features/routing/ui/mark-delivered-button";
+import { formatHHmm } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 import { formatTRPhone } from "@/shared/utils/phone";
 
@@ -49,6 +50,8 @@ export function RouteList({ rows }: RouteListProps) {
           totalMinor: stop.total_minor,
           legDistance: stop.leg_distance_m,
           legDuration: stop.leg_duration_s,
+          etaIso: stop.eta_iso as string | null,
+          cumulativeDuration: stop.cumulative_duration_s as number | null,
         }))
       : rows.orders.map((order, idx) => ({
           key: order.order_id,
@@ -62,6 +65,8 @@ export function RouteList({ rows }: RouteListProps) {
           totalMinor: order.total_minor,
           legDistance: null,
           legDuration: null,
+          etaIso: null,
+          cumulativeDuration: null,
         }));
 
   if (items.length === 0) {
@@ -104,10 +109,23 @@ export function RouteList({ rows }: RouteListProps) {
               <p className="text-xs text-muted-foreground">{item.notes}</p>
             ) : null}
             {rows.kind === "optimized" ? (
-              <p className="text-xs text-muted-foreground">
-                {item.sequence === 1 ? "Depodan" : "Önceki duraktan"}: {" "}
-                {formatDistance(item.legDistance)} · {formatDuration(item.legDuration)}
-              </p>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {item.etaIso ? (
+                  <span className="font-medium text-foreground">
+                    ≈ {formatHHmm(item.etaIso)}
+                  </span>
+                ) : null}
+                <span>
+                  {item.sequence === 1 ? "Depodan" : "Önceki duraktan"}:{" "}
+                  {formatDistance(item.legDistance)} ·{" "}
+                  {formatDuration(item.legDuration)}
+                </span>
+                {item.cumulativeDuration !== null ? (
+                  <span>
+                    Toplam yolda: {formatDuration(item.cumulativeDuration)}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2">

@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 
 interface RouteControlsProps {
   date: string;
+  startHHmm: string;
   optimized: boolean;
   hasOrders: boolean;
 }
 
 export function RouteControls({
   date,
+  startHHmm,
   optimized,
   hasOrders,
 }: RouteControlsProps) {
@@ -36,9 +38,21 @@ export function RouteControls({
     );
   };
 
+  const setStart = (next: string) => {
+    if (!next) return;
+    const updated = new URLSearchParams(params.toString());
+    updated.set("start", next);
+    // Re-optimize so ETA recalculates against the new start time. We KEEP
+    // ?optimize=1 if it was set so the user doesn't have to click again.
+    startTransition(() =>
+      router.replace(`${pathname}?${updated.toString()}`),
+    );
+  };
+
   const optimize = () => {
     const updated = new URLSearchParams(params.toString());
     updated.set("date", date);
+    updated.set("start", startHHmm);
     updated.set("optimize", "1");
     startTransition(() =>
       router.replace(`${pathname}?${updated.toString()}`),
@@ -62,6 +76,16 @@ export function RouteControls({
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
+          disabled={pending}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-xs">Başlangıç saati</Label>
+        <Input
+          type="time"
+          value={startHHmm}
+          onChange={(e) => setStart(e.target.value)}
           disabled={pending}
         />
       </div>

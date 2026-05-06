@@ -2,10 +2,11 @@
  * Daily delivery route domain types.
  *
  * RouteStop is the unit a driver works through: which order, where, in
- * what sequence, and how far/long the leg from the previous stop took.
- * OptimizedRoute is the full plan for a calendar day.
+ * what sequence, how far/long the leg from the previous stop took, and
+ * the cumulative arrival ETA. OptimizedRoute is the full plan for a
+ * calendar day.
  *
- * Polyline is Google's encoded format — the UI passes it straight to
+ * Polylines are Google's encoded format — the UI passes them straight to
  * google.maps.geometry.encoding.decodePath() for rendering.
  */
 export interface RouteStop {
@@ -24,6 +25,12 @@ export interface RouteStop {
   readonly leg_distance_m: number | null;
   /** Driving duration from the previous stop (seconds). */
   readonly leg_duration_s: number | null;
+  /** Total distance from the warehouse to this stop. */
+  readonly cumulative_distance_m: number;
+  /** Total driving duration to this stop, in seconds. */
+  readonly cumulative_duration_s: number;
+  /** Arrival ETA = start_time + cumulative_duration. ISO-8601 UTC. */
+  readonly eta_iso: string;
 }
 
 export interface RouteOrigin {
@@ -35,8 +42,19 @@ export interface OptimizedRoute {
   readonly date: string; // YYYY-MM-DD (Europe/Istanbul)
   readonly origin: RouteOrigin;
   readonly stops: readonly RouteStop[];
-  /** Google's encoded polyline; decoded client-side for rendering. */
+  /** Simplified summary polyline; kept for low-zoom contexts. */
   readonly overview_polyline: string;
+  /**
+   * Per-step encoded polylines, in route order. Decode each, concat the
+   * resulting LatLng arrays, and render as a single Polyline for road-level
+   * fidelity (no corner-cutting at street zoom). This is the path consumers
+   * should prefer.
+   */
+  readonly step_polylines: readonly string[];
+  /** Anchor for ETA calculations. ISO-8601 UTC. */
+  readonly start_time_iso: string;
+  /** ETA of the final return-to-warehouse leg. */
+  readonly finish_time_iso: string;
   readonly total_distance_m: number;
   readonly total_duration_s: number;
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { ClickableTableRow } from "@/components/clickable-table-row";
 import {
   Table,
   TableBody,
@@ -101,13 +102,14 @@ export function OrderTable({
           </TableHeader>
           <TableBody>
             {items.map((o) => (
-              <TableRow key={o.id}>
+              <ClickableTableRow key={o.id} href={`/orders/${o.id}`}>
                 <TableCell className="font-mono text-xs">
-                  <Link href={`/orders/${o.id}`} className="hover:underline">
-                    {o.order_number}
-                  </Link>
+                  {o.order_number}
                 </TableCell>
                 <TableCell>
+                  {/* Inner link wins click — ClickableTableRow detects the
+                      anchor and lets the browser navigate to the customer
+                      instead of the order detail. */}
                   <Link
                     href={`/customers/${o.customer_id}`}
                     className="hover:underline"
@@ -134,7 +136,7 @@ export function OrderTable({
                 <TableCell className="text-right font-mono">
                   {formatTRY(o.total_minor)}
                 </TableCell>
-              </TableRow>
+              </ClickableTableRow>
             ))}
           </TableBody>
         </Table>

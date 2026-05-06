@@ -23,9 +23,17 @@ const TIMEOUT_MS = 10_000;
 
 // ---- Wire schema (subset we consume) -------------------------------------
 
+// Each step's polyline.points is a per-segment encoded polyline that follows
+// the road exactly. The route's overview_polyline is a simplified summary
+// that visibly cuts corners at high zoom — we use the steps for rendering.
+const directionsStepSchema = z.object({
+  polyline: z.object({ points: z.string() }),
+});
+
 const directionsLegSchema = z.object({
   distance: z.object({ value: z.number() }),
   duration: z.object({ value: z.number() }),
+  steps: z.array(directionsStepSchema).default([]),
 });
 
 const directionsRouteSchema = z.object({
@@ -62,8 +70,13 @@ export interface DirectionsRequest {
 export interface DirectionsResult {
   /** Indices into `waypoints` in the optimized visit order. */
   waypointOrder: number[];
-  /** Encoded polyline for the full route (origin → ... → destination). */
+  /** Simplified overview polyline (origin → ... → destination). Kept as a
+   *  fallback for low-zoom views; high-fidelity rendering uses stepPolylines. */
   overviewPolyline: string;
+  /** Flat list of every leg's every step's encoded polyline, in route order.
+   *  Decode each, concatenate the LatLng arrays, render as a single Polyline
+   *  for road-level fidelity (no corner-cutting at street zoom). */
+  stepPolylines: string[];
   /** legs[i] is the segment from stop i to stop i+1 (origin = stop 0). */
   legs: Array<{ distanceM: number; durationS: number }>;
 }
@@ -166,9 +179,18 @@ export async function callGoogleDirections(
     );
   }
 
+  // Flatten leg.steps[*].polyline.points across all legs in route order.
+  const stepPolylines: string[] = [];
+  for (const leg of route.legs) {
+    for (const step of leg.steps) {
+      stepPolylines.push(step.polyline.points);
+    }
+  }
+
   return ok({
     waypointOrder: route.waypoint_order,
     overviewPolyline: route.overview_polyline.points,
+    stepPolylines,
     legs: route.legs.map((leg) => ({
       distanceM: leg.distance.value,
       durationS: leg.duration.value,

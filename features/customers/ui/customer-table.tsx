@@ -7,6 +7,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { ClickableTableRow } from "@/components/clickable-table-row";
 import {
   Table,
   TableBody,
@@ -90,14 +91,9 @@ export function CustomerTable({
           </TableHeader>
           <TableBody>
             {items.map((c) => (
-              <TableRow
-                key={c.id}
-                className="cursor-pointer"
-              >
+              <ClickableTableRow key={c.id} href={`/customers/${c.id}`}>
                 <TableCell className="font-medium">
-                  <Link href={`/customers/${c.id}`} className="hover:underline">
-                    {c.first_name} {c.last_name}
-                  </Link>
+                  {c.first_name} {c.last_name}
                 </TableCell>
                 <TableCell className="font-mono text-xs">
                   {formatTRPhone(c.phone)}
@@ -116,7 +112,7 @@ export function CustomerTable({
                 <TableCell className="text-right text-muted-foreground">
                   {formatDate(c.created_at)}
                 </TableCell>
-              </TableRow>
+              </ClickableTableRow>
             ))}
           </TableBody>
         </Table>

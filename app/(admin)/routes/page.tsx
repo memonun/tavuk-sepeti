@@ -1,17 +1,30 @@
+import { Sparkles } from "lucide-react";
+import Link from "next/link";
+
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteList } from "@/features/routing/ui/route-list";
 import { RouteMap } from "@/features/routing/ui/route-map";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
-import { formatLongDate, toIstanbulDateString } from "@/shared/utils/date";
+import {
+  formatHHmm,
+  formatLongDate,
+  toIstanbulDateString,
+} from "@/shared/utils/date";
 
 interface RoutesPageProps {
-  searchParams: Promise<{ date?: string; optimize?: string }>;
+  searchParams: Promise<{ date?: string; optimize?: string; start?: string }>;
 }
 
 function isYmd(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isHHmm(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
 function formatDistance(meters: number): string {
@@ -27,6 +40,18 @@ function formatDuration(seconds: number): string {
   return rem === 0 ? `${h} sa` : `${h} sa ${rem} dk`;
 }
 
+/**
+ * Compose a UTC ISO instant from a YYYY-MM-DD date and HH:mm wall-clock
+ * time, both in Europe/Istanbul. Used to anchor route ETAs.
+ *
+ * Istanbul has no DST since 2016 and stays at UTC+3 year-round, so the
+ * offset is fixed; this avoids a heavyweight tz library at the call site.
+ */
+function istanbulIsoFromDateAndTime(date: string, hhmm: string): string {
+  // YYYY-MM-DDTHH:mm:00+03:00 — explicit offset = Istanbul wall clock.
+  return new Date(`${date}T${hhmm}:00+03:00`).toISOString();
+}
+
 export default async function RoutesPage({ searchParams }: RoutesPageProps) {
   const params = await searchParams;
   const date =
@@ -34,6 +59,16 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
       ? params.date
       : toIstanbulDateString(new Date());
   const wantsOptimize = params.optimize === "1";
+
+  // Default start time = "now" expressed as Istanbul HH:mm.
+  const startHHmm =
+    params.start && isHHmm(params.start)
+      ? params.start
+      : formatHHmm(new Date());
+
+  // For "today" the start is "today HH:mm Istanbul"; for a future date the
+  // user is planning ahead so we use "<date> HH:mm Istanbul".
+  const startTimeIso = istanbulIsoFromDateAndTime(date, startHHmm);
 
   const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
   const warehouseLat = env.WAREHOUSE_LAT;
@@ -56,11 +91,16 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
 
   const routeResult =
     wantsOptimize && warehouseConfigured && dayOrders.length > 0
-      ? await getDayRoute(date)
+      ? await getDayRoute(date, { startTimeIso })
       : null;
   const optimized = routeResult?.ok ? routeResult.value : null;
   const optimizeError =
     routeResult && !routeResult.ok ? routeResult.error.message : null;
+
+  // Build the /routes/drive URL so the CTA carries the same date + start.
+  const driveQuery = new URLSearchParams();
+  driveQuery.set("date", date);
+  driveQuery.set("start", startHHmm);
 
   return (
     <div className="space-y-5">
@@ -70,14 +110,24 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
           <p className="text-sm text-muted-foreground">
             {formatLongDate(date)} — {dayOrders.length} sipariş
             {optimized
-              ? ` · ${formatDistance(optimized.total_distance_m)} · ${formatDuration(optimized.total_duration_s)}`
+              ? ` · ${formatDistance(optimized.total_distance_m)} · ${formatDuration(optimized.total_duration_s)} · ≈ ${formatHHmm(optimized.finish_time_iso)} bitiş`
               : ""}
           </p>
         </div>
+        {optimized ? (
+          <Link
+            href={`/routes/drive?${driveQuery.toString()}`}
+            className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
+          >
+            <Sparkles className="h-4 w-4" />
+            Rotayı Başlat
+          </Link>
+        ) : null}
       </div>
 
       <RouteControls
         date={date}
+        startHHmm={startHHmm}
         optimized={!!optimized}
         hasOrders={dayOrders.length > 0}
       />
@@ -100,7 +150,7 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
           apiKey={mapsKey}
           origin={optimized.origin}
           stops={optimized.stops}
-          overviewPolyline={optimized.overview_polyline}
+          stepPolylines={optimized.step_polylines}
         />
       ) : null}
 
