@@ -3,6 +3,10 @@
  * the server action (application). Anything reaching the DB has been parsed
  * by these.
  *
+ * Address is structured (TR postal convention): il / ilçe / mahalle /
+ * cadde / bina no / daire no / posta kodu / tarif. raw_text is composed
+ * server-side from these parts; the form never sets it directly.
+ *
  * Phone: accepts loose user input ("0532 123 45 67"), normalizes to E.164.
  * Email: accepts blank → null (so the DB unique-when-present constraint
  * doesn't trip).
@@ -21,6 +25,12 @@ const trimmedString = (min: number, max: number, message: string) =>
     .trim()
     .min(min, message)
     .max(max, `En fazla ${max} karakter olabilir.`);
+
+const optionalShortText = (max: number) =>
+  z.preprocess(
+    blankToNull,
+    z.string().trim().max(max, `En fazla ${max} karakter olabilir.`).nullable(),
+  );
 
 const phoneTR = z
   .string()
@@ -51,11 +61,6 @@ const notesOrNull = z.preprocess(
   z.string().max(2000, "Not en fazla 2000 karakter olabilir.").nullable(),
 );
 
-const descriptionOrNull = z.preprocess(
-  blankToNull,
-  z.string().max(500, "Açıklama en fazla 500 karakter olabilir.").nullable(),
-);
-
 /**
  * What the customer-create form posts. Address pin is provided by the
  * geocoding pipeline (auto) or the pin corrector (manual) — both routes
@@ -71,8 +76,15 @@ export const customerFormSchema = z.object({
     .enum(["active", "inactive", "blocked"])
     .default("active"),
   address: z.object({
-    raw_text: trimmedString(1, 500, "Adres gerekli."),
-    description: descriptionOrNull,
+    // Structured fields — TR postal convention.
+    city: trimmedString(1, 100, "İl gerekli."),
+    district: trimmedString(1, 100, "İlçe gerekli."),
+    neighborhood: trimmedString(1, 100, "Mahalle gerekli."),
+    street: optionalShortText(150),
+    building_no: optionalShortText(20),
+    apartment_no: optionalShortText(20),
+    postal_code: optionalShortText(10),
+    description: optionalShortText(500),
     // Lat/lng come from the pin (auto-geocoded or admin-corrected).
     ...latLngSchema.shape,
     source: coordinateSourceSchema,

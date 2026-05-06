@@ -12,11 +12,18 @@ export type CustomerStatus = "active" | "inactive" | "blocked";
 export interface CustomerAddress {
   readonly id: string;
   readonly customer_id: string;
+  /** Composed single-line address — derived from structured fields on
+   *  every write. Kept for legacy display + fallback search. */
   readonly raw_text: string;
   readonly description: string | null;
   readonly coordinate: Coordinate;
-  readonly city: string | null;
-  readonly district: string | null;
+  // Structured fields (TR postal convention).
+  readonly city: string | null;          // İl
+  readonly district: string | null;      // İlçe
+  readonly neighborhood: string | null;  // Mahalle
+  readonly street: string | null;        // Cadde / Sokak
+  readonly building_no: string | null;   // Bina no
+  readonly apartment_no: string | null;  // Daire no
   readonly postal_code: string | null;
   readonly country: string;
   readonly is_primary: boolean;

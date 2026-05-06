@@ -18,6 +18,7 @@ import { createCustomer as repoCreate } from "@/features/customers/infrastructur
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { logAudit } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
+import { composeFullAddress } from "@/shared/utils/address";
 
 export type CreateCustomerActionState =
   | { status: "idle" }
@@ -44,7 +45,13 @@ export async function createCustomerAction(
     notes: formData.get("notes"),
     status: formData.get("status") ?? "active",
     address: {
-      raw_text: formData.get("address.raw_text"),
+      city: formData.get("address.city"),
+      district: formData.get("address.district"),
+      neighborhood: formData.get("address.neighborhood"),
+      street: formData.get("address.street"),
+      building_no: formData.get("address.building_no"),
+      apartment_no: formData.get("address.apartment_no"),
+      postal_code: formData.get("address.postal_code"),
       description: formData.get("address.description"),
       lat: Number(formData.get("address.lat")),
       lng: Number(formData.get("address.lng")),
@@ -61,6 +68,11 @@ export async function createCustomerAction(
     };
   }
 
+  // Compose the legacy raw_text from the structured fields. Stored for
+  // table display + search fallback; the structured fields remain the
+  // source of truth.
+  const rawText = composeFullAddress(parsed.data.address);
+
   const created = await repoCreate({
     first_name: parsed.data.first_name,
     last_name: parsed.data.last_name,
@@ -70,8 +82,15 @@ export async function createCustomerAction(
     status: parsed.data.status,
     created_by: user.id,
     address: {
-      raw_text: parsed.data.address.raw_text,
+      raw_text: rawText,
       description: parsed.data.address.description,
+      city: parsed.data.address.city,
+      district: parsed.data.address.district,
+      neighborhood: parsed.data.address.neighborhood,
+      street: parsed.data.address.street,
+      building_no: parsed.data.address.building_no,
+      apartment_no: parsed.data.address.apartment_no,
+      postal_code: parsed.data.address.postal_code,
       coordinate: {
         lat: parsed.data.address.lat,
         lng: parsed.data.address.lng,

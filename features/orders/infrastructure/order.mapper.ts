@@ -54,6 +54,12 @@ function rowToSnapshot(value: unknown): DeliveryAddressSnapshot {
     source: (asString(obj.source) as Coordinate["source"]) ?? "geocoded_auto",
     city: asString(obj.city),
     district: asString(obj.district),
+    // Added 2026-05-06 — pre-existing snapshots default these to null.
+    neighborhood: asString(obj.neighborhood),
+    street: asString(obj.street),
+    building_no: asString(obj.building_no),
+    apartment_no: asString(obj.apartment_no),
+    postal_code: asString(obj.postal_code),
   };
 }
 

@@ -13,6 +13,8 @@ export type Database = {
         Row: {
           accuracy: Database["public"]["Enums"]["coordinate_accuracy"]
           address_source: Database["public"]["Enums"]["address_source"]
+          apartment_no: string | null
+          building_no: string | null
           city: string | null
           coordinate: unknown
           country: string
@@ -26,16 +28,20 @@ export type Database = {
           is_primary: boolean
           lat: number
           lng: number
+          neighborhood: string | null
           postal_code: string | null
           raw_text: string
           source: Database["public"]["Enums"]["coordinate_source"]
+          street: string | null
           updated_at: string
         }
         Insert: {
           accuracy: Database["public"]["Enums"]["coordinate_accuracy"]
           address_source?: Database["public"]["Enums"]["address_source"]
+          apartment_no?: string | null
+          building_no?: string | null
           city?: string | null
-          coordinate: unknown
+          coordinate?: unknown
           country?: string
           created_at?: string
           customer_id: string
@@ -47,14 +53,18 @@ export type Database = {
           is_primary?: boolean
           lat: number
           lng: number
+          neighborhood?: string | null
           postal_code?: string | null
           raw_text: string
           source: Database["public"]["Enums"]["coordinate_source"]
+          street?: string | null
           updated_at?: string
         }
         Update: {
           accuracy?: Database["public"]["Enums"]["coordinate_accuracy"]
           address_source?: Database["public"]["Enums"]["address_source"]
+          apartment_no?: string | null
+          building_no?: string | null
           city?: string | null
           coordinate?: unknown
           country?: string
@@ -68,9 +78,11 @@ export type Database = {
           is_primary?: boolean
           lat?: number
           lng?: number
+          neighborhood?: string | null
           postal_code?: string | null
           raw_text?: string
           source?: Database["public"]["Enums"]["coordinate_source"]
+          street?: string | null
           updated_at?: string
         }
         Relationships: [

@@ -47,6 +47,10 @@ export interface CreateCustomerInput {
     coordinate: Coordinate;
     city?: string | null;
     district?: string | null;
+    neighborhood?: string | null;
+    street?: string | null;
+    building_no?: string | null;
+    apartment_no?: string | null;
     postal_code?: string | null;
   };
 }
@@ -64,6 +68,10 @@ export interface UpdateCustomerInput {
     coordinate?: Coordinate;
     city?: string | null;
     district?: string | null;
+    neighborhood?: string | null;
+    street?: string | null;
+    building_no?: string | null;
+    apartment_no?: string | null;
     postal_code?: string | null;
   };
 }
@@ -121,15 +129,13 @@ export async function createCustomer(
     geocoder_response_hash: input.address.coordinate.geocoder_response_hash,
     city: input.address.city ?? null,
     district: input.address.district ?? null,
+    neighborhood: input.address.neighborhood ?? null,
+    street: input.address.street ?? null,
+    building_no: input.address.building_no ?? null,
+    apartment_no: input.address.apartment_no ?? null,
     postal_code: input.address.postal_code ?? null,
     is_primary: true,
     address_source: "admin_input",
-    // Migration 015 gave `coordinate` a (0,0) DEFAULT — the lat/lng-sync
-    // trigger overwrites it with the real Point on insert. We pass null
-    // so the auto-generated type's required-coordinate check is satisfied
-    // until Docker is up and `pnpm db:types` regenerates with the default
-    // reflected.
-    coordinate: null,
   });
 
   if (addressError) {
@@ -287,6 +293,14 @@ export async function updateCustomer(
     if (input.address.city !== undefined) addressPatch.city = input.address.city;
     if (input.address.district !== undefined)
       addressPatch.district = input.address.district;
+    if (input.address.neighborhood !== undefined)
+      addressPatch.neighborhood = input.address.neighborhood;
+    if (input.address.street !== undefined)
+      addressPatch.street = input.address.street;
+    if (input.address.building_no !== undefined)
+      addressPatch.building_no = input.address.building_no;
+    if (input.address.apartment_no !== undefined)
+      addressPatch.apartment_no = input.address.apartment_no;
     if (input.address.postal_code !== undefined)
       addressPatch.postal_code = input.address.postal_code;
 

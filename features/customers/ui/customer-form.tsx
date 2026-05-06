@@ -3,13 +3,14 @@
 /**
  * Customer create / edit form.
  *
- * Behavior:
- *   - Address text blur (debounced) calls `geocodeAddressAction` and
- *     populates lat/lng/source/accuracy.
- *   - The pin corrector lets the admin drag the marker; that flips source
- *     to "admin_corrected".
- *   - Submit dispatches the createCustomer or updateCustomer Server Action.
+ * Address is captured as a Türkiye-standard structured payload:
+ * il / ilçe / mahalle / cadde / bina no / daire no / posta kodu / tarif.
+ * The form is the single source of truth — when enough fields are present
+ * (city + district + neighborhood-or-street), the composed string is sent
+ * to `geocodeAddressAction` to fetch a coordinate, and the pin corrector
+ * lets the admin drag the marker if Google's auto-pin is off.
  *
+ * Submit dispatches the createCustomer or updateCustomer Server Action.
  * Form state is managed by react-hook-form with the same Zod schema the
  * server action uses — invariants stay aligned across the boundary.
  */
@@ -34,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { composeGeocoderQuery, hasGeocodableShape } from "@/shared/utils/address";
 
 import type {
   CustomerFormInput,
@@ -74,7 +76,13 @@ export function CustomerForm({ mapsBrowserKey, mode }: CustomerFormProps) {
           notes: "",
           status: "active",
           address: {
-            raw_text: "",
+            city: "",
+            district: "",
+            neighborhood: "",
+            street: "",
+            building_no: "",
+            apartment_no: "",
+            postal_code: "",
             description: "",
             lat: 0,
             lng: 0,
@@ -92,26 +100,45 @@ export function CustomerForm({ mapsBrowserKey, mode }: CustomerFormProps) {
     formState: { errors },
   } = form;
 
-  const addressText = watch("address.raw_text");
-  const addressLat = watch("address.lat");
-  const addressLng = watch("address.lng");
-  const addressSource = watch("address.source");
-  const addressAccuracy = watch("address.accuracy");
+  // Watch the structured subset that drives geocoding. We deliberately
+  // omit description / apartment_no / postal_code from the trigger so an
+  // admin tweaking those alone doesn't burn a Google call.
+const city = watch("address.city");
+const district = watch("address.district");
+const neighborhood = watch("address.neighborhood");
+const street = watch("address.street");
+const buildingNo = watch("address.building_no");
+const apartmentNo = watch("address.apartment_no");
+const postalCode = watch("address.postal_code");
+const addressLat = watch("address.lat");
+const addressLng = watch("address.lng");
+const addressSource = watch("address.source");
+const addressAccuracy = watch("address.accuracy");
+
   const hasCoordinate =
     typeof addressLat === "number" &&
     typeof addressLng === "number" &&
     !(addressLat === 0 && addressLng === 0);
 
-  // Debounced geocoding on address text change.
+  // Debounced geocoding when the structured shape becomes geocodable.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!addressText || addressText.trim().length < 5) {
+    const parts = {
+      city,
+      district,
+      neighborhood,
+      street,
+      building_no: buildingNo,
+      apartment_no: apartmentNo,
+      postal_code: postalCode,
+    };
+    if (!hasGeocodableShape(parts)) {
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setGeocodingState({ kind: "loading" });
-      const result = await geocodeAddressAction(addressText);
+      const result = await geocodeAddressAction(composeGeocoderQuery(parts));
       if (result.ok) {
         // Don't overwrite an admin's manual pin correction.
         if (addressSource === "admin_corrected") {
@@ -130,10 +157,10 @@ export function CustomerForm({ mapsBrowserKey, mode }: CustomerFormProps) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-    // addressSource is intentionally omitted: we only want to re-geocode when
-    // the user types, not when the source flag flips after a pin drag.
+    // addressSource is intentionally omitted: we only want to re-geocode
+    // when the admin types, not when source flips after a pin drag.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addressText, setValue]);
+  }, [city, district, neighborhood, street, buildingNo, apartmentNo, postalCode, setValue]);
 
   const onPinChange = (next: {
     lat: number;
@@ -160,7 +187,13 @@ export function CustomerForm({ mapsBrowserKey, mode }: CustomerFormProps) {
       formData.set("phone", parsed.phone);
       formData.set("notes", parsed.notes ?? "");
       formData.set("status", parsed.status);
-      formData.set("address.raw_text", parsed.address.raw_text);
+      formData.set("address.city", parsed.address.city);
+      formData.set("address.district", parsed.address.district);
+      formData.set("address.neighborhood", parsed.address.neighborhood);
+      formData.set("address.street", parsed.address.street ?? "");
+      formData.set("address.building_no", parsed.address.building_no ?? "");
+      formData.set("address.apartment_no", parsed.address.apartment_no ?? "");
+      formData.set("address.postal_code", parsed.address.postal_code ?? "");
       formData.set("address.description", parsed.address.description ?? "");
       formData.set("address.lat", String(parsed.address.lat));
       formData.set("address.lng", String(parsed.address.lng));
@@ -228,16 +261,78 @@ export function CustomerForm({ mapsBrowserKey, mode }: CustomerFormProps) {
       </section>
 
       <section className="space-y-3">
-        <Field label="Adres" error={errors.address?.raw_text?.message}>
-          <textarea
-            id="address.raw_text"
-            rows={3}
-            className="flex w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none"
-            {...register("address.raw_text")}
+        <h3 className="text-sm font-semibold">Adres</h3>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="İl" error={errors.address?.city?.message}>
+            <Input
+              id="address.city"
+              placeholder="İstanbul"
+              {...register("address.city")}
+            />
+          </Field>
+          <Field label="İlçe" error={errors.address?.district?.message}>
+            <Input
+              id="address.district"
+              placeholder="Sarıyer"
+              {...register("address.district")}
+            />
+          </Field>
+          <Field label="Mahalle" error={errors.address?.neighborhood?.message}>
+            <Input
+              id="address.neighborhood"
+              placeholder="Maslak"
+              {...register("address.neighborhood")}
+            />
+          </Field>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-[1fr_120px_120px_120px]">
+          <Field
+            label="Cadde / Sokak (opsiyonel)"
+            error={errors.address?.street?.message}
+          >
+            <Input
+              id="address.street"
+              placeholder="Büyükdere Caddesi"
+              {...register("address.street")}
+            />
+          </Field>
+          <Field label="Bina No" error={errors.address?.building_no?.message}>
+            <Input
+              id="address.building_no"
+              placeholder="123"
+              {...register("address.building_no")}
+            />
+          </Field>
+          <Field label="Daire" error={errors.address?.apartment_no?.message}>
+            <Input
+              id="address.apartment_no"
+              placeholder="5"
+              {...register("address.apartment_no")}
+            />
+          </Field>
+          <Field
+            label="Posta Kodu"
+            error={errors.address?.postal_code?.message}
+          >
+            <Input
+              id="address.postal_code"
+              placeholder="34398"
+              {...register("address.postal_code")}
+            />
+          </Field>
+        </div>
+
+        <Field
+          label="Adres tarifi (kapı kodu, bina rengi vb.)"
+          error={errors.address?.description?.message}
+        >
+          <Input
+            id="address.description"
+            placeholder="Mavi kapı, zilde Yılmaz yazıyor"
+            {...register("address.description")}
           />
-        </Field>
-        <Field label="Adres notu (kapı, bina rengi vb.)" error={errors.address?.description?.message}>
-          <Input id="address.description" {...register("address.description")} />
         </Field>
 
         {geocodingState.kind === "loading" ? (

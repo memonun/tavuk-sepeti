@@ -10,6 +10,7 @@ import {
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { logAudit } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
+import { composeFullAddress } from "@/shared/utils/address";
 
 export type UpdateCustomerActionState =
   | { status: "idle" }
@@ -35,7 +36,13 @@ export async function updateCustomerAction(
     notes: formData.get("notes"),
     status: formData.get("status") ?? "active",
     address: {
-      raw_text: formData.get("address.raw_text"),
+      city: formData.get("address.city"),
+      district: formData.get("address.district"),
+      neighborhood: formData.get("address.neighborhood"),
+      street: formData.get("address.street"),
+      building_no: formData.get("address.building_no"),
+      apartment_no: formData.get("address.apartment_no"),
+      postal_code: formData.get("address.postal_code"),
       description: formData.get("address.description"),
       lat: Number(formData.get("address.lat")),
       lng: Number(formData.get("address.lng")),
@@ -52,6 +59,8 @@ export async function updateCustomerAction(
     };
   }
 
+  const rawText = composeFullAddress(parsed.data.address);
+
   const updated = await repoUpdate(customerId, {
     first_name: parsed.data.first_name,
     last_name: parsed.data.last_name,
@@ -60,8 +69,15 @@ export async function updateCustomerAction(
     notes: parsed.data.notes,
     status: parsed.data.status,
     address: {
-      raw_text: parsed.data.address.raw_text,
+      raw_text: rawText,
       description: parsed.data.address.description,
+      city: parsed.data.address.city,
+      district: parsed.data.address.district,
+      neighborhood: parsed.data.address.neighborhood,
+      street: parsed.data.address.street,
+      building_no: parsed.data.address.building_no,
+      apartment_no: parsed.data.address.apartment_no,
+      postal_code: parsed.data.address.postal_code,
       coordinate: {
         lat: parsed.data.address.lat,
         lng: parsed.data.address.lng,

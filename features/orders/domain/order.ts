@@ -17,7 +17,11 @@ export type OrderSource =
   | "recurring_generated";
 
 /** Frozen address snapshot — what the customer's address looked like AT
- *  order time. Independent of any later customer.address mutation. */
+ *  order time. Independent of any later customer.address mutation.
+ *
+ *  Pre-2026-05-06 orders may be missing the neighborhood / street /
+ *  building_no / apartment_no / postal_code keys; the mapper defaults
+ *  them to null so reads don't break. */
 export interface DeliveryAddressSnapshot {
   readonly raw_text: string;
   readonly description: string | null;
@@ -27,6 +31,11 @@ export interface DeliveryAddressSnapshot {
   readonly source: Coordinate["source"];
   readonly city: string | null;
   readonly district: string | null;
+  readonly neighborhood: string | null;
+  readonly street: string | null;
+  readonly building_no: string | null;
+  readonly apartment_no: string | null;
+  readonly postal_code: string | null;
 }
 
 export interface OrderItem {
