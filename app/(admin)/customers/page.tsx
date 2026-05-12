@@ -1,8 +1,9 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
+import { getCustomerFilterOptions } from "@/features/customers/application/get-filter-options";
 import { listCustomers } from "@/features/customers/application/list-customers";
-import { CustomerSearchBar } from "@/features/customers/ui/customer-search-bar";
+import { CustomerFilterBar } from "@/features/customers/ui/customer-filter-bar";
 import { CustomerTable } from "@/features/customers/ui/customer-table";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,34 +12,65 @@ interface CustomersPageProps {
   searchParams: Promise<{
     q?: string;
     status?: string;
+    city?: string;
+    tag?: string;
+    account_type?: string;
+    legacy_segment?: string;
+    sort?: string;
+    order?: string;
     page?: string;
     pageSize?: string;
   }>;
 }
 
+// URL params the table propagates into pagination links so the user
+// doesn't lose their sort/filter state when paging.
+const PRESERVE_KEYS: (keyof Awaited<CustomersPageProps["searchParams"]>)[] = [
+  "q",
+  "status",
+  "city",
+  "tag",
+  "account_type",
+  "legacy_segment",
+  "sort",
+  "order",
+  "pageSize",
+];
+
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   const params = await searchParams;
 
-  const result = await listCustomers({
-    q: params.q,
-    status: params.status,
-    page: params.page,
-    pageSize: params.pageSize,
-  });
+  const [listResult, filterOptions] = await Promise.all([
+    listCustomers({
+      q: params.q,
+      status: params.status,
+      city: params.city,
+      tag: params.tag,
+      account_type: params.account_type,
+      legacy_segment: params.legacy_segment,
+      sort: params.sort,
+      order: params.order,
+      page: params.page,
+      pageSize: params.pageSize,
+    }),
+    getCustomerFilterOptions(),
+  ]);
 
-  if (!result.ok) {
+  if (!listResult.ok) {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-6 text-sm text-destructive">
-        Müşteriler yüklenemedi: {result.error.message}
+        Müşteriler yüklenemedi: {listResult.error.message}
       </div>
     );
   }
 
-  // Reconstruct the URLSearchParams the table needs for pagination link-building.
+  // Reconstruct the URLSearchParams the table needs for pagination link-
+  // building. Includes sort/filter so the user doesn't lose state.
   const query = new URLSearchParams();
-  if (params.q) query.set("q", params.q);
-  if (params.status) query.set("status", params.status);
-  if (params.pageSize) query.set("pageSize", params.pageSize);
+  for (const key of PRESERVE_KEYS) {
+    const value = params[key];
+    if (value) query.set(key, value);
+  }
 
   return (
     <div className="space-y-5">
@@ -46,7 +78,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Müşteriler</h2>
           <p className="text-sm text-muted-foreground">
-            Toplam {result.value.total} kayıt.
+            Toplam {listResult.value.total} kayıt.
           </p>
         </div>
         <Link
@@ -58,13 +90,17 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         </Link>
       </div>
 
-      <CustomerSearchBar />
+      <CustomerFilterBar
+        cities={filterOptions.cities}
+        tags={filterOptions.tags}
+        legacySegments={filterOptions.legacySegments}
+      />
 
       <CustomerTable
-        items={result.value.items}
-        total={result.value.total}
-        page={result.value.page}
-        pageSize={result.value.pageSize}
+        items={listResult.value.items}
+        total={listResult.value.total}
+        page={listResult.value.page}
+        pageSize={listResult.value.pageSize}
         basePath="/customers"
         query={query}
       />

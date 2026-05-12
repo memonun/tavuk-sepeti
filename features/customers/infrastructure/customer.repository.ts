@@ -201,17 +201,33 @@ export async function listCustomers(
   const from = (query.page - 1) * query.pageSize;
   const to = from + query.pageSize - 1;
 
+  // City filter pivots on the embedded addresses row, so we need an INNER
+  // join semantics — addresses!inner ensures customers with no matching
+  // address row drop out (won't happen in Faz 1 but the semantics are
+  // correct).
+  const addressJoin = query.city ? "addresses!inner" : "addresses";
+
   let builder = supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      `id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, ${addressJoin}(city, is_primary)`,
       { count: "exact" },
     )
-    .order("created_at", { ascending: false })
+    .order(query.sort, { ascending: query.order === "asc" })
     .range(from, to);
 
-  if (query.status) {
-    builder = builder.eq("status", query.status);
+  if (query.status) builder = builder.eq("status", query.status);
+  if (query.tag) builder = builder.eq("tag", query.tag);
+  if (query.account_type) builder = builder.eq("account_type", query.account_type);
+  if (query.legacy_segment)
+    builder = builder.eq("legacy_segment", query.legacy_segment);
+  if (query.city) {
+    // Filter on the inner-joined addresses table; restrict to the primary
+    // address so a (future) multi-address customer doesn't get pulled in
+    // by a secondary address row.
+    builder = builder
+      .eq("addresses.city", query.city)
+      .eq("addresses.is_primary", true);
   }
 
   if (query.q) {

@@ -1,13 +1,17 @@
 /**
  * Customer table — Server Component. Takes a fetched page from the
- * application layer and renders rows + a pagination footer. Search is in
- * a sibling Client Component (customer-search-bar).
+ * application layer and renders rows + a pagination footer. Search +
+ * filters live in a sibling Client Component (customer-filter-bar).
+ *
+ * Column headers are click-to-sort (SortableHeader). State lives in the
+ * URL so the Server Component re-fetches when the user changes sort.
  */
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ClickableTableRow } from "@/components/clickable-table-row";
+import { SortableHeader } from "@/features/customers/ui/sortable-header";
 import {
   Table,
   TableBody,
@@ -20,7 +24,11 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRPhone } from "@/shared/utils/phone";
 
-import type { CustomerListItem, CustomerStatus } from "@/features/customers/domain/customer";
+import type {
+  CustomerAccountType,
+  CustomerListItem,
+  CustomerStatus,
+} from "@/features/customers/domain/customer";
 
 interface CustomerTableProps {
   items: CustomerListItem[];
@@ -44,6 +52,13 @@ const STATUS_LABEL: Record<CustomerStatus, string> = {
   active: "Aktif",
   inactive: "Pasif",
   blocked: "Engelli",
+};
+
+const ACCOUNT_TYPE_LABEL: Record<CustomerAccountType, string> = {
+  individual: "Birey",
+  business: "İşletme",
+  charity: "Vakıf",
+  bazaar_vendor: "Pazar",
 };
 
 export function CustomerTable({
@@ -81,12 +96,33 @@ export function CustomerTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Müşteri</TableHead>
-              <TableHead>Telefon</TableHead>
-              <TableHead className="hidden md:table-cell">E-posta</TableHead>
+              <TableHead>
+                <SortableHeader column="first_name" label="Müşteri" />
+              </TableHead>
+              <TableHead>
+                <SortableHeader column="phone" label="Telefon" />
+              </TableHead>
               <TableHead className="hidden sm:table-cell">Şehir</TableHead>
-              <TableHead>Durum</TableHead>
-              <TableHead className="hidden sm:table-cell text-right">Eklenme</TableHead>
+              <TableHead className="hidden md:table-cell">
+                <SortableHeader column="tag" label="Kanal" />
+              </TableHead>
+              <TableHead className="hidden lg:table-cell">
+                <SortableHeader column="account_type" label="Tip" />
+              </TableHead>
+              <TableHead className="hidden xl:table-cell">
+                <SortableHeader column="legacy_segment" label="Segment" />
+              </TableHead>
+              <TableHead>
+                <SortableHeader column="status" label="Durum" />
+              </TableHead>
+              <TableHead className="hidden sm:table-cell text-right">
+                <SortableHeader
+                  column="created_at"
+                  label="Eklenme"
+                  align="right"
+                  defaultOrder="desc"
+                />
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -98,11 +134,17 @@ export function CustomerTable({
                 <TableCell className="font-mono text-xs">
                   {formatTRPhone(c.phone)}
                 </TableCell>
-                <TableCell className="hidden md:table-cell text-muted-foreground">
-                  {c.email ?? "—"}
-                </TableCell>
                 <TableCell className="hidden sm:table-cell text-muted-foreground">
                   {c.city ?? "—"}
+                </TableCell>
+                <TableCell className="hidden md:table-cell text-muted-foreground">
+                  {c.tag ?? "—"}
+                </TableCell>
+                <TableCell className="hidden lg:table-cell text-muted-foreground">
+                  {ACCOUNT_TYPE_LABEL[c.account_type]}
+                </TableCell>
+                <TableCell className="hidden xl:table-cell text-muted-foreground">
+                  {c.legacy_segment ?? "—"}
                 </TableCell>
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[c.status]}>

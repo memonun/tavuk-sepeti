@@ -95,10 +95,32 @@ export const customerFormSchema = z.object({
 export type CustomerFormInput = z.input<typeof customerFormSchema>;
 export type CustomerFormParsed = z.output<typeof customerFormSchema>;
 
+/** Sortable columns on the customer list. Constrained set so the URL
+ *  param can't ask the DB to sort by an unindexed / sensitive column. */
+export const customerSortFieldSchema = z.enum([
+  "first_name",
+  "last_name",
+  "phone",
+  "status",
+  "account_type",
+  "tag",
+  "legacy_segment",
+  "created_at",
+]);
+export type CustomerSortField = z.output<typeof customerSortFieldSchema>;
+
 /** Search/list query parameters for the customer table. */
 export const customerListQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   status: z.enum(["active", "inactive", "blocked"]).optional(),
+  city: z.string().trim().max(100).optional(),
+  tag: z.string().trim().max(100).optional(),
+  account_type: z
+    .enum(["individual", "business", "charity", "bazaar_vendor"])
+    .optional(),
+  legacy_segment: z.string().trim().max(100).optional(),
+  sort: customerSortFieldSchema.default("created_at"),
+  order: z.enum(["asc", "desc"]).default("desc"),
   page: z.coerce.number().int().positive().default(1),
   // CLAUDE.md §9: max 100, default 25.
   pageSize: z.coerce.number().int().positive().max(100).default(25),
