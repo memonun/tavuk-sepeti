@@ -17,7 +17,7 @@ import { formatTRPhone } from "@/shared/utils/phone";
 export interface CustomerSearchHit {
   id: string;
   name: string;
-  phone: string;
+  phone: string; // already display-formatted; "—" if customer has no phone
   city: string | null;
 }
 

@@ -204,7 +204,7 @@ export async function listCustomers(
   let builder = supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
       { count: "exact" },
     )
     .order("created_at", { ascending: false })

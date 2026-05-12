@@ -37,8 +37,9 @@ export function StopCard({ stop, totalStops, driverCoords }: StopCardProps) {
     : null;
 
   // OS-native deep links — work on iOS Safari, Android Chrome, and fall
-  // back to web maps on desktop.
-  const telHref = `tel:${stop.customer_phone}`;
+  // back to web maps on desktop. Phone may be null for CSV-imported
+  // customers; the "Ara" button is then hidden.
+  const telHref = stop.customer_phone ? `tel:${stop.customer_phone}` : null;
   const navHref = `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}&travelmode=driving`;
 
   return (
@@ -105,17 +106,19 @@ export function StopCard({ stop, totalStops, driverCoords }: StopCardProps) {
         </p>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2">
-        <a
-          href={telHref}
-          className={cn(
-            buttonVariants({ variant: "outline", size: "lg" }),
-            "h-12 gap-2",
-          )}
-        >
-          <Phone className="h-4 w-4" />
-          {formatTRPhone(stop.customer_phone)}
-        </a>
+      <div className={cn("grid gap-2", telHref ? "grid-cols-2" : "grid-cols-1")}>
+        {telHref ? (
+          <a
+            href={telHref}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "h-12 gap-2",
+            )}
+          >
+            <Phone className="h-4 w-4" />
+            {formatTRPhone(stop.customer_phone)}
+          </a>
+        ) : null}
         <a
           href={navHref}
           target="_blank"

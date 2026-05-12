@@ -16,7 +16,7 @@ export interface DayOrder {
   readonly customer_id: string;
   readonly customer_first_name: string;
   readonly customer_last_name: string;
-  readonly customer_phone: string;
+  readonly customer_phone: string | null;
   readonly lat: number;
   readonly lng: number;
   readonly delivery_notes: string | null;
@@ -32,7 +32,7 @@ interface RpcRow {
   customer_id: string;
   customer_first_name: string;
   customer_last_name: string;
-  customer_phone: string;
+  customer_phone: string | null;
   address_lat: number;
   address_lng: number;
   delivery_notes: string | null;

@@ -10,10 +10,25 @@ import type { Coordinate } from "@/shared/geo/coordinate";
 
 import type {
   Customer,
+  CustomerAccountType,
   CustomerAddress,
   CustomerListItem,
   CustomerStatus,
 } from "@/features/customers/domain/customer";
+
+const ACCOUNT_TYPES: ReadonlySet<CustomerAccountType> = new Set([
+  "individual",
+  "business",
+  "charity",
+  "bazaar_vendor",
+]);
+
+function asAccountType(value: string | null): CustomerAccountType {
+  if (value && ACCOUNT_TYPES.has(value as CustomerAccountType)) {
+    return value as CustomerAccountType;
+  }
+  return "individual";
+}
 
 type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
 type AddressRow = Database["public"]["Tables"]["addresses"]["Row"];
@@ -66,6 +81,9 @@ export function rowToCustomer(row: CustomerWithAddressRow): Customer {
     phone: row.phone,
     notes: row.notes,
     status: row.status as CustomerStatus,
+    account_type: asAccountType(row.account_type),
+    tag: row.tag,
+    legacy_segment: row.legacy_segment,
     address: rowToAddress(primary),
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
@@ -77,9 +95,12 @@ interface ListProjectionRow {
   id: string;
   first_name: string;
   last_name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   status: CustomerStatus;
+  account_type: string | null;
+  tag: string | null;
+  legacy_segment: string | null;
   created_at: string;
   addresses: Pick<AddressRow, "city" | "is_primary">[];
 }
@@ -93,6 +114,9 @@ export function rowToListItem(row: ListProjectionRow): CustomerListItem {
     phone: row.phone,
     email: row.email,
     status: row.status,
+    account_type: asAccountType(row.account_type),
+    tag: row.tag,
+    legacy_segment: row.legacy_segment,
     city: primary?.city ?? null,
     created_at: new Date(row.created_at),
   };

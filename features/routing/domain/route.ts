@@ -16,7 +16,7 @@ export interface RouteStop {
   readonly order_number: string;
   readonly customer_id: string;
   readonly customer_name: string;
-  readonly customer_phone: string;
+  readonly customer_phone: string | null;
   readonly lat: number;
   readonly lng: number;
   readonly delivery_notes: string | null;

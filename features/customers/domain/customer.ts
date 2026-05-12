@@ -31,14 +31,26 @@ export interface CustomerAddress {
   readonly updated_at: Date;
 }
 
+export type CustomerAccountType =
+  | "individual"
+  | "business"
+  | "charity"
+  | "bazaar_vendor";
+
 export interface Customer {
   readonly id: string;
   readonly first_name: string;
   readonly last_name: string;
   readonly email: string | null;
-  readonly phone: string;          // E.164 (+90...)
+  /** E.164 (+90...). Nullable because some imported / pazar customers
+   *  legitimately have no phone on file. New admin-created customers
+   *  are still phone-required via the form schema. */
+  readonly phone: string | null;
   readonly notes: string | null;
   readonly status: CustomerStatus;
+  readonly account_type: CustomerAccountType;
+  readonly tag: string | null;
+  readonly legacy_segment: string | null;
   readonly address: CustomerAddress;
   readonly created_at: Date;
   readonly updated_at: Date;
@@ -50,9 +62,12 @@ export interface CustomerListItem {
   readonly id: string;
   readonly first_name: string;
   readonly last_name: string;
-  readonly phone: string;
+  readonly phone: string | null;
   readonly email: string | null;
   readonly status: CustomerStatus;
+  readonly account_type: CustomerAccountType;
+  readonly tag: string | null;
+  readonly legacy_segment: string | null;
   readonly city: string | null;
   readonly created_at: Date;
 }

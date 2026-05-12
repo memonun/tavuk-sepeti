@@ -36,8 +36,9 @@ export function normalizeTRPhone(input: string): string | null {
   return `+90${subscriber}`;
 }
 
-/** `+905321234567` → `+90 532 123 45 67` for display. */
-export function formatTRPhone(e164: string): string {
+/** `+905321234567` → `+90 532 123 45 67` for display. `null` → `"—"`. */
+export function formatTRPhone(e164: string | null | undefined): string {
+  if (!e164) return "—";
   if (!isE164TR(e164)) return e164;
   const s = e164.slice(3); // drop +90
   const a = s.slice(0, 3);

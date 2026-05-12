@@ -30,11 +30,13 @@ export default async function CustomerEditPage({ params }: CustomerEditPageProps
 
   // Domain entity → form input shape. The form's Zod schema accepts strings
   // for nullable fields (blank → null), so we coerce nulls to "" for inputs.
+  // Phone is null for some CSV-imported customers (pazar etc.); the form
+  // still requires it, so the admin types one in before saving.
   const defaultValues: CustomerFormInput = {
     first_name: customer.first_name,
     last_name: customer.last_name,
     email: customer.email ?? "",
-    phone: customer.phone,
+    phone: customer.phone ?? "",
     notes: customer.notes ?? "",
     status: customer.status,
     address: {

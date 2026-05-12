@@ -121,39 +121,48 @@ export type Database = {
       }
       customers: {
         Row: {
+          account_type: string | null
           created_at: string
           created_by: string | null
           email: string | null
           first_name: string
           id: string
           last_name: string
+          legacy_segment: string | null
           notes: string | null
-          phone: string
+          phone: string | null
           status: Database["public"]["Enums"]["customer_status"]
+          tag: string | null
           updated_at: string
         }
         Insert: {
+          account_type?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
           first_name: string
           id?: string
           last_name: string
+          legacy_segment?: string | null
           notes?: string | null
-          phone: string
+          phone?: string | null
           status?: Database["public"]["Enums"]["customer_status"]
+          tag?: string | null
           updated_at?: string
         }
         Update: {
+          account_type?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
           first_name?: string
           id?: string
           last_name?: string
+          legacy_segment?: string | null
           notes?: string | null
-          phone?: string
+          phone?: string | null
           status?: Database["public"]["Enums"]["customer_status"]
+          tag?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -730,7 +739,7 @@ export type Database = {
           customer_first_name: string
           customer_id: string
           customer_last_name: string
-          customer_phone: string
+          customer_phone: string | null
           delivery_notes: string
           order_id: string
           order_number: string

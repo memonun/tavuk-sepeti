@@ -48,3 +48,8 @@ next-env.d.ts
 
 # Claude Code local settings (machine-specific)
 .claude/
+
+# PII / customer data — never push real customer CSVs to a public repo.
+Customers.csv
+customers*.csv
+/scripts/data/
