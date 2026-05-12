@@ -16,6 +16,7 @@ interface CustomersPageProps {
     tag?: string;
     account_type?: string;
     legacy_segment?: string;
+    location?: string;
     sort?: string;
     order?: string;
     page?: string;
@@ -32,6 +33,7 @@ const PRESERVE_KEYS: (keyof Awaited<CustomersPageProps["searchParams"]>)[] = [
   "tag",
   "account_type",
   "legacy_segment",
+  "location",
   "sort",
   "order",
   "pageSize",
@@ -48,6 +50,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       tag: params.tag,
       account_type: params.account_type,
       legacy_segment: params.legacy_segment,
+      location: params.location,
       sort: params.sort,
       order: params.order,
       page: params.page,

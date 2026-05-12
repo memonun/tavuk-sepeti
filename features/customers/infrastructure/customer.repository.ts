@@ -201,11 +201,14 @@ export async function listCustomers(
   const from = (query.page - 1) * query.pageSize;
   const to = from + query.pageSize - 1;
 
-  // City filter pivots on the embedded addresses row, so we need an INNER
-  // join semantics — addresses!inner ensures customers with no matching
-  // address row drop out (won't happen in Faz 1 but the semantics are
-  // correct).
-  const addressJoin = query.city ? "addresses!inner" : "addresses";
+  // City + location filters pivot on the embedded addresses row, so we
+  // need INNER join semantics — addresses!inner drops customers that
+  // don't have a matching primary address row (won't happen in Faz 1 but
+  // the semantics are correct). When the inner join is active we always
+  // restrict to is_primary=true so a future multi-address customer can't
+  // get pulled in by a secondary address row.
+  const needsInnerAddressJoin = Boolean(query.city) || Boolean(query.location);
+  const addressJoin = needsInnerAddressJoin ? "addresses!inner" : "addresses";
 
   let builder = supabase
     .from("customers")
@@ -221,13 +224,27 @@ export async function listCustomers(
   if (query.account_type) builder = builder.eq("account_type", query.account_type);
   if (query.legacy_segment)
     builder = builder.eq("legacy_segment", query.legacy_segment);
+  // Always restrict the inner-joined embed to the primary address (when
+  // the inner join is active). Hoisted out of the per-filter blocks so a
+  // future filter that also pivots on addresses doesn't have to remember
+  // to re-add this constraint.
+  if (needsInnerAddressJoin) {
+    builder = builder.eq("addresses.is_primary", true);
+  }
+
   if (query.city) {
-    // Filter on the inner-joined addresses table; restrict to the primary
-    // address so a (future) multi-address customer doesn't get pulled in
-    // by a secondary address row.
-    builder = builder
-      .eq("addresses.city", query.city)
-      .eq("addresses.is_primary", true);
+    builder = builder.eq("addresses.city", query.city);
+  }
+
+  if (query.location) {
+    // "accurate" = pin we can route to without further admin action;
+    // "approximate" = sitting on a city-center placeholder (CSV import)
+    // or a low-confidence Google response.
+    const accuracies: Database["public"]["Enums"]["coordinate_accuracy"][] =
+      query.location === "accurate"
+        ? ["rooftop", "range_interpolated"]
+        : ["approximate", "geometric_center", "unknown"];
+    builder = builder.in("addresses.accuracy", accuracies);
   }
 
   if (query.q) {

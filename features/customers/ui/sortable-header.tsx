@@ -64,7 +64,7 @@ export function SortableHeader({
     next.delete("page");
     const search = next.toString();
     startTransition(() =>
-      router.replace(search ? `${pathname}?${search}` : pathname),
+      router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false }),
     );
   };
 

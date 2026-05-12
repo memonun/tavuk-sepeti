@@ -1,21 +1,21 @@
 /**
- * Fetches the distinct values currently in use across the customer table —
+ * Returns the distinct values currently in use across the customer table —
  * fuels the filter bar dropdowns so the admin only sees options that
  * actually appear in the data (no empty-result selections).
  *
- * Three parallel queries:
- *   - distinct primary-address cities
- *   - distinct customer tags
- *   - distinct legacy_segment values
+ * Implementation: a single RPC (`customer_filter_options`, migration 024)
+ * computes cities + tags + legacy_segments server-side with DISTINCT +
+ * ORDER BY, then hands back three small arrays. One round-trip, instead
+ * of three SELECTs that returned every row.
  *
- * Account types are a fixed enum so we don't query them — the UI hard-
- * codes the four values + their TR labels.
- *
- * Best-effort: any error falls back to an empty list so the page still
- * renders. The query layer's filters still work; the dropdown just won't
- * have suggestions.
+ * Caching: wrapped in Next 16's `unstable_cache` with a stable tag so the
+ * dropdowns aren't recomputed on every list-page hit. Customer create /
+ * update server actions call `revalidateTag(CUSTOMER_FILTER_TAG)` so a
+ * new tag or city appears immediately in the dropdown.
  */
 import "server-only";
+
+import { unstable_cache } from "next/cache";
 
 import { logger } from "@/shared/logger";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
@@ -26,46 +26,30 @@ export interface CustomerFilterOptions {
   readonly legacySegments: readonly string[];
 }
 
-function uniqueNonEmpty(values: ReadonlyArray<string | null>): string[] {
-  const seen = new Set<string>();
-  for (const v of values) {
-    const t = (v ?? "").trim();
-    if (t) seen.add(t);
-  }
-  return [...seen].sort((a, b) => a.localeCompare(b, "tr"));
-}
+/** Tag used by customer write paths to invalidate the cached dropdowns. */
+export const CUSTOMER_FILTER_TAG = "customer-filter-options";
 
-export async function getCustomerFilterOptions(): Promise<CustomerFilterOptions> {
+async function fetchFilterOptions(): Promise<CustomerFilterOptions> {
   const supabase = await createSupabaseServerClient();
-
-  const [citiesResult, tagsResult, segmentsResult] = await Promise.all([
-    supabase
-      .from("addresses")
-      .select("city")
-      .eq("is_primary", true)
-      .not("city", "is", null),
-    supabase
-      .from("customers")
-      .select("tag")
-      .not("tag", "is", null),
-    supabase
-      .from("customers")
-      .select("legacy_segment")
-      .not("legacy_segment", "is", null),
-  ]);
-
-  if (citiesResult.error)
-    logger.warn({ code: citiesResult.error.code }, "filter_cities_failed");
-  if (tagsResult.error)
-    logger.warn({ code: tagsResult.error.code }, "filter_tags_failed");
-  if (segmentsResult.error)
-    logger.warn({ code: segmentsResult.error.code }, "filter_segments_failed");
-
+  const { data, error } = await supabase.rpc("customer_filter_options");
+  if (error || !data) {
+    logger.warn(
+      { code: error?.code, message: error?.message },
+      "filter_options_rpc_failed",
+    );
+    return { cities: [], tags: [], legacySegments: [] };
+  }
+  const row = data[0];
   return {
-    cities: uniqueNonEmpty((citiesResult.data ?? []).map((r) => r.city)),
-    tags: uniqueNonEmpty((tagsResult.data ?? []).map((r) => r.tag)),
-    legacySegments: uniqueNonEmpty(
-      (segmentsResult.data ?? []).map((r) => r.legacy_segment),
-    ),
+    cities: row?.cities ?? [],
+    tags: row?.tags ?? [],
+    legacySegments: row?.legacy_segments ?? [],
   };
 }
+
+/** Cached entry point — call this from page-level Server Components. */
+export const getCustomerFilterOptions = unstable_cache(
+  fetchFilterOptions,
+  [CUSTOMER_FILTER_TAG],
+  { tags: [CUSTOMER_FILTER_TAG] },
+);

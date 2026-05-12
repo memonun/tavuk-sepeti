@@ -719,6 +719,14 @@ export type Database = {
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      customer_filter_options: {
+        Args: never
+        Returns: {
+          cities: string[]
+          tags: string[]
+          legacy_segments: string[]
+        }[]
+      }
       find_customers_within_radius: {
         Args: { center_lat: number; center_lng: number; radius_meters: number }
         Returns: {

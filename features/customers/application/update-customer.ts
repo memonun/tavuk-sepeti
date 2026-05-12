@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
+import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
 import { customerFormSchema } from "@/features/customers/domain/customer.schema";
 import {
   findCustomerById,
@@ -124,5 +125,7 @@ export async function updateCustomerAction(
 
   revalidatePath("/customers");
   revalidatePath(`/customers/${customerId}`);
+  // Tag/city/segment may have changed → bust the cached filter dropdowns.
+  updateTag(CUSTOMER_FILTER_TAG);
   return { status: "success", customerId };
 }

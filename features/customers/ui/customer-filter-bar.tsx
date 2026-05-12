@@ -48,7 +48,15 @@ interface CustomerFilterBarProps {
 }
 
 // Which URL keys count as "filters" — used by the Clear button.
-const FILTER_KEYS = ["q", "status", "city", "tag", "account_type", "legacy_segment"];
+const FILTER_KEYS = [
+  "q",
+  "status",
+  "city",
+  "tag",
+  "account_type",
+  "legacy_segment",
+  "location",
+];
 
 export function CustomerFilterBar({
   cities,
@@ -71,7 +79,7 @@ export function CustomerFilterBar({
       next.delete("page");
       const search = next.toString();
       const url = search ? `${pathname}?${search}` : pathname;
-      startTransition(() => router.replace(url));
+      startTransition(() => router.replace(url, { scroll: false }));
     }, 300);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,6 +90,7 @@ export function CustomerFilterBar({
   const tag = params.get("tag") ?? "all";
   const accountType = params.get("account_type") ?? "all";
   const legacySegment = params.get("legacy_segment") ?? "all";
+  const location = params.get("location") ?? "all";
 
   const setParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(params.toString());
@@ -90,7 +99,7 @@ export function CustomerFilterBar({
     next.delete("page");
     const search = next.toString();
     startTransition(() =>
-      router.replace(search ? `${pathname}?${search}` : pathname),
+      router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false }),
     );
   };
 
@@ -101,7 +110,7 @@ export function CustomerFilterBar({
     setText("");
     const search = next.toString();
     startTransition(() =>
-      router.replace(search ? `${pathname}?${search}` : pathname),
+      router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false }),
     );
   };
 
@@ -111,7 +120,8 @@ export function CustomerFilterBar({
     city !== "all" ||
     tag !== "all" ||
     accountType !== "all" ||
-    legacySegment !== "all";
+    legacySegment !== "all" ||
+    location !== "all";
 
   return (
     <div className="flex flex-col gap-2">
@@ -200,6 +210,18 @@ export function CustomerFilterBar({
           pending={pending}
           width="w-44"
           emptyHint={legacySegments.length === 0}
+        />
+
+        <FilterSelect
+          value={location}
+          onChange={(v) => setParam("location", v)}
+          options={[
+            { value: "all", label: "Tüm konumlar" },
+            { value: "accurate", label: "Konum doğru" },
+            { value: "approximate", label: "Konum belirsiz" },
+          ]}
+          pending={pending}
+          width="w-40"
         />
 
         {hasAnyFilter ? (

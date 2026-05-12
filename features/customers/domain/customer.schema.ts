@@ -119,6 +119,11 @@ export const customerListQuerySchema = z.object({
     .enum(["individual", "business", "charity", "bazaar_vendor"])
     .optional(),
   legacy_segment: z.string().trim().max(100).optional(),
+  /** Primary-address pin accuracy bucket. "accurate" = pin reliable enough
+   *  to route to (rooftop / range_interpolated). "approximate" = the row
+   *  is sitting on a city-center placeholder or a low-confidence geocode
+   *  and needs admin attention before it can ship an order. */
+  location: z.enum(["accurate", "approximate"]).optional(),
   sort: customerSortFieldSchema.default("created_at"),
   order: z.enum(["asc", "desc"]).default("desc"),
   page: z.coerce.number().int().positive().default(1),
