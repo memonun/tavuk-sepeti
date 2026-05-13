@@ -10,15 +10,22 @@
  *
  * Caching: wrapped in Next 16's `unstable_cache` with a stable tag so the
  * dropdowns aren't recomputed on every list-page hit. Customer create /
- * update server actions call `revalidateTag(CUSTOMER_FILTER_TAG)` so a
- * new tag or city appears immediately in the dropdown.
+ * update server actions call `updateTag(CUSTOMER_FILTER_TAG)` so a new
+ * tag or city appears immediately in the dropdown.
+ *
+ * Client choice — IMPORTANT: this function uses the admin (service-role)
+ * client deliberately. `unstable_cache` forbids reading any dynamic data
+ * source (cookies, headers, the SSR client's auth session) inside its
+ * scope, otherwise the cache key would silently drift per-user. The
+ * filter options are non-PII aggregates (~50 strings), so bypassing RLS
+ * via the admin client is the right semantic anyway.
  */
 import "server-only";
 
 import { unstable_cache } from "next/cache";
 
 import { logger } from "@/shared/logger";
-import { createSupabaseServerClient } from "@/shared/supabase/server";
+import { getSupabaseAdminClient } from "@/shared/supabase/admin";
 
 export interface CustomerFilterOptions {
   readonly cities: readonly string[];
@@ -30,7 +37,9 @@ export interface CustomerFilterOptions {
 export const CUSTOMER_FILTER_TAG = "customer-filter-options";
 
 async function fetchFilterOptions(): Promise<CustomerFilterOptions> {
-  const supabase = await createSupabaseServerClient();
+  // Admin client (no cookies) — unstable_cache forbids dynamic data
+  // sources inside its scope.
+  const supabase = getSupabaseAdminClient();
   const { data, error } = await supabase.rpc("customer_filter_options");
   if (error || !data) {
     logger.warn(
