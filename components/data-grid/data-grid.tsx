@@ -24,14 +24,26 @@ import {
   flexRender,
   getCoreRowModel,
   getExpandedRowModel,
+  getGroupedRowModel,
+  getSortedRowModel,
   type ColumnPinningState,
   type ColumnSizingState,
   type ExpandedState,
+  type GroupingState,
   type SortingState,
   type VisibilityState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, ClipboardPaste, GripVertical, Plus, Trash2, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ClipboardPaste,
+  GripVertical,
+  Layers,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   type ClipboardEvent,
   Fragment,
@@ -43,8 +55,14 @@ import {
   useState,
 } from "react";
 
+import {
+  AGGREGATE_LABELS,
+  type AggregateKind,
+  computeAggregate,
+} from "@/components/data-grid/calculations";
 import { ColumnVisibilityMenu } from "@/components/data-grid/column-visibility-menu";
 import { DataGridHeaderCell } from "@/components/data-grid/column-header";
+import { GroupByMenu } from "@/components/data-grid/group-by-menu";
 import {
   EMPTY_COLUMN_PREFS,
   type CellAddress,
@@ -120,7 +138,7 @@ export function DataGrid<TRow extends object, TPatch>({
   onCellSuccess,
   entityLabel = "kayıt",
 }: DataGridProps<TRow, TPatch> & DataGridExtraProps) {
-  const { prefs, setSizes, setOrder, setHidden, setPinning } = useColumnPrefs(
+  const { prefs, setSizes, setOrder, setHidden, setPinning, setAggregate } = useColumnPrefs(
     tableId,
     initialPrefsFromColumns(columns),
   );
@@ -129,6 +147,7 @@ export function DataGrid<TRow extends object, TPatch>({
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [grouping, setGrouping] = useState<GroupingState>([]);
 
   const columnVisibility: VisibilityState = useMemo(
     () => Object.fromEntries(prefs.hidden.map((id) => [id, false])),
@@ -184,9 +203,11 @@ export function DataGrid<TRow extends object, TPatch>({
       columnSizing,
       columnPinning,
       expanded,
+      grouping,
       ...(prefs.order.length > 0 ? { columnOrder: [...prefs.order] } : {}),
     },
     onSortingChange: setSorting,
+    onGroupingChange: setGrouping,
     onColumnVisibilityChange: (updater) => {
       const next = typeof updater === "function" ? updater(columnVisibility) : updater;
       const hidden = Object.entries(next)
@@ -210,7 +231,9 @@ export function DataGrid<TRow extends object, TPatch>({
     onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getRowCanExpand: () => Boolean(renderRowExpand),
+    getGroupedRowModel: getGroupedRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getRowCanExpand: (row) => Boolean(renderRowExpand) && !row.getIsGrouped(),
     getRowId: (row) => rowId(row),
     columnResizeMode: "onChange",
     enableColumnPinning: true,
@@ -649,6 +672,12 @@ export function DataGrid<TRow extends object, TPatch>({
       <div className="flex flex-wrap items-center gap-1.5">
         <div className="flex flex-1 flex-wrap items-center gap-1.5">{toolbar}</div>
         <div className="flex items-center gap-1.5">
+          <GroupByMenu
+            table={table}
+            grouping={grouping}
+            onChange={(next) => setGrouping([...next])}
+            {...(columnLabels !== undefined ? { columnLabels } : {})}
+          />
           {mutations?.onBulkCreate ? (
             <Button
               type="button"
@@ -767,7 +796,17 @@ export function DataGrid<TRow extends object, TPatch>({
                     className="h-8 border-b border-r border-border bg-muted text-left align-middle"
                   >
                     {header.isPlaceholder ? null : (
-                      <DataGridHeaderCell header={header}>
+                      <DataGridHeaderCell
+                        header={header}
+                        currentAggregate={
+                          (prefs.aggregates[header.column.id] as
+                            | AggregateKind
+                            | undefined) ?? "none"
+                        }
+                        onAggregateChange={(kind) =>
+                          setAggregate(header.column.id, kind)
+                        }
+                      >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </DataGridHeaderCell>
                     )}
@@ -795,6 +834,43 @@ export function DataGrid<TRow extends object, TPatch>({
               </tr>
             ) : null}
             {tableRows.map((row) => {
+              // Grouped row: render a single full-width header row with
+              // chevron + label + count, no editable cells.
+              if (row.getIsGrouped()) {
+                const groupCol = table.getColumn(row.groupingColumnId!);
+                const groupLabel =
+                  columnLabels?.[row.groupingColumnId!] ??
+                  (typeof groupCol?.columnDef.header === "string"
+                    ? groupCol.columnDef.header
+                    : row.groupingColumnId);
+                const groupValue = row.getGroupingValue(row.groupingColumnId!);
+                const display =
+                  groupValue === null || groupValue === undefined || groupValue === ""
+                    ? "(boş)"
+                    : String(groupValue);
+                return (
+                  <tr key={row.id} className="bg-muted/40">
+                    <td
+                      colSpan={colCount}
+                      className="h-7 cursor-pointer border-b border-border px-2 text-left text-xs font-medium hover:bg-muted/60"
+                      onClick={() => row.toggleExpanded()}
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        {row.getIsExpanded() ? (
+                          <ChevronDown className="h-3 w-3" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3" />
+                        )}
+                        <span className="text-muted-foreground">{groupLabel}:</span>
+                        <span className="text-foreground">{display}</span>
+                        <span className="text-muted-foreground">
+                          ({row.subRows.length})
+                        </span>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              }
               const isRowSelected = selectedRowIds.has(row.id);
               return (
               <Fragment key={row.id}>
@@ -970,6 +1046,58 @@ export function DataGrid<TRow extends object, TPatch>({
               </tr>
             ) : null}
           </tbody>
+          {/* Calculations bar — sticky footer with per-column aggregates.
+              Only renders when at least one column has an aggregate set
+              so we don't take vertical space for nothing. */}
+          {Object.keys(prefs.aggregates).some((id) => {
+            const v = prefs.aggregates[id];
+            return v && v !== "none";
+          }) ? (
+            <tfoot className="sticky bottom-0 z-10">
+              <tr>
+                <td
+                  className="sticky left-0 z-[1] h-7 border-t border-r border-border bg-muted/80 px-1"
+                  style={{ width: 28 }}
+                />
+                {visibleLeafColumns.map((col) => {
+                  const kind = (prefs.aggregates[col.id] as AggregateKind | undefined) ?? "none";
+                  if (kind === "none") {
+                    return (
+                      <td
+                        key={col.id}
+                        style={getPinningHeaderStyles(col)}
+                        className="h-7 border-t border-r border-border bg-muted/80"
+                      />
+                    );
+                  }
+                  const values = tableRows.map((r) => r.getValue(col.id));
+                  const result = computeAggregate(kind, values);
+                  return (
+                    <td
+                      key={col.id}
+                      style={getPinningHeaderStyles(col)}
+                      className="h-7 border-t border-r border-border bg-muted/80 px-2 text-right text-[11px] tabular-nums text-muted-foreground"
+                      title={AGGREGATE_LABELS[kind]}
+                    >
+                      <span className="mr-1 text-[10px] uppercase opacity-70">
+                        {AGGREGATE_LABELS[kind]}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {result ?? "—"}
+                      </span>
+                    </td>
+                  );
+                })}
+                {renderRowExpand ? (
+                  <td
+                    aria-hidden
+                    className="border-t border-r border-border bg-muted/80"
+                    style={{ width: 36 }}
+                  />
+                ) : null}
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
 

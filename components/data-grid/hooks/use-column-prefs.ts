@@ -22,6 +22,7 @@ export interface UseColumnPrefsResult {
   readonly setOrder: (order: ReadonlyArray<string>) => void;
   readonly setHidden: (hidden: ReadonlyArray<string>) => void;
   readonly setPinning: (pinning: { left: ReadonlyArray<string>; right: ReadonlyArray<string> }) => void;
+  readonly setAggregate: (columnId: string, aggregate: string) => void;
   readonly reset: () => void;
 }
 
@@ -75,9 +76,17 @@ export function useColumnPrefs(
       setPrefs((cur) => ({ ...cur, pinning })),
     [],
   );
+  const setAggregate = useCallback(
+    (columnId: string, aggregate: string) =>
+      setPrefs((cur) => ({
+        ...cur,
+        aggregates: { ...cur.aggregates, [columnId]: aggregate },
+      })),
+    [],
+  );
   const reset = useCallback(() => setPrefs(initial), [initial]);
 
-  return { prefs, setSizes, setOrder, setHidden, setPinning, reset };
+  return { prefs, setSizes, setOrder, setHidden, setPinning, setAggregate, reset };
 }
 
 function storageKey(tableId: string): string {
@@ -120,5 +129,6 @@ export function mergePrefs(
       left: override.pinning?.left ?? base.pinning.left,
       right: override.pinning?.right ?? base.pinning.right,
     },
+    aggregates: { ...base.aggregates, ...(override.aggregates ?? {}) },
   };
 }

@@ -11,18 +11,21 @@
  * pinned, the menu offers "Sabitlemeyi kaldır" instead.
  */
 import {
+  Check,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
   MoreVertical,
   PinOff,
   Pin,
+  Sigma,
 } from "lucide-react";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -32,6 +35,11 @@ import {
   ColumnTypeIcon,
   type ColumnType,
 } from "@/components/data-grid/column-type-icons";
+import {
+  AGGREGATE_LABELS,
+  type AggregateKind,
+  aggregatesForColumnType,
+} from "@/components/data-grid/calculations";
 
 import type { Header, RowData } from "@tanstack/react-table";
 import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
@@ -39,11 +47,15 @@ import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
 interface DataGridHeaderCellProps<T extends RowData> {
   readonly header: Header<T, unknown>;
   readonly children?: React.ReactNode;
+  readonly currentAggregate?: AggregateKind;
+  readonly onAggregateChange?: (kind: AggregateKind) => void;
 }
 
 export function DataGridHeaderCell<T extends RowData>({
   header,
   children,
+  currentAggregate = "none",
+  onAggregateChange,
 }: DataGridHeaderCellProps<T>) {
   const { column } = header;
   const canSort = column.getCanSort();
@@ -54,6 +66,7 @@ export function DataGridHeaderCell<T extends RowData>({
   const columnType = (column.columnDef as DataGridColumn<T>).columnType as
     | ColumnType
     | undefined;
+  const aggregateOptions = aggregatesForColumnType(columnType);
 
   return (
     <div className="group relative flex h-full items-center justify-between gap-1 px-2 text-[11px] font-medium tracking-wide text-muted-foreground">
@@ -112,6 +125,30 @@ export function DataGridHeaderCell<T extends RowData>({
                 <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
                   Bu kolonu gizle
                 </DropdownMenuItem>
+              </>
+            ) : null}
+            {onAggregateChange ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <Sigma className="h-3 w-3" />
+                  Hesaplama
+                </DropdownMenuLabel>
+                {aggregateOptions.map((opt) => (
+                  <DropdownMenuItem
+                    key={opt}
+                    onClick={() => onAggregateChange(opt)}
+                    className="text-xs"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-3 w-3",
+                        currentAggregate === opt ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    {AGGREGATE_LABELS[opt]}
+                  </DropdownMenuItem>
+                ))}
               </>
             ) : null}
           </DropdownMenuContent>

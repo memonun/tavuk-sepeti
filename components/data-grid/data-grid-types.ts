@@ -147,6 +147,9 @@ export interface ColumnPrefs {
     readonly left: ReadonlyArray<string>;
     readonly right: ReadonlyArray<string>;
   };
+  /** Per-column footer aggregate (calculations bar). Empty entries
+   *  fall back to the column's default ("none" effectively). */
+  readonly aggregates: Readonly<Record<string, string>>;
 }
 
 export const EMPTY_COLUMN_PREFS: ColumnPrefs = {
@@ -155,4 +158,5 @@ export const EMPTY_COLUMN_PREFS: ColumnPrefs = {
   order: [],
   hidden: [],
   pinning: { left: [], right: [] },
+  aggregates: {},
 };
