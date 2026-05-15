@@ -31,7 +31,7 @@ import {
   type VisibilityState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardPaste } from "lucide-react";
 import {
   type CSSProperties,
   type ClipboardEvent,
@@ -58,6 +58,10 @@ import { useColumnPrefs } from "@/components/data-grid/hooks/use-column-prefs";
 import { useOptimisticRows } from "@/components/data-grid/hooks/use-optimistic-rows";
 import { parseClipboardTable } from "@/components/data-grid/paste/parse-tsv";
 import {
+  PastePreviewDialog,
+  type PastePreviewRow,
+} from "@/components/data-grid/paste/paste-preview-dialog";
+import {
   getPinningHeaderStyles,
   getPinningStyles,
 } from "@/components/data-grid/pinning/pinning-styles";
@@ -82,6 +86,16 @@ interface DataGridExtraProps {
   readonly footer?: ReactNode;
   readonly onCellError?: (message: string, error: AppError) => void;
   readonly onCellSuccess?: () => void;
+  /** Singular noun used by the paste-create preview ("3 müşteri oluşturulacak"). */
+  readonly entityLabel?: string;
+}
+
+interface BulkPasteState<TRow> {
+  readonly headers: ReadonlyArray<string>;
+  readonly headerColIds: ReadonlyArray<string>;
+  readonly rawRows: ReadonlyArray<ReadonlyArray<string>>;
+  readonly previewRows: ReadonlyArray<PastePreviewRow>;
+  readonly parsedRows: ReadonlyArray<Partial<TRow>>;
 }
 
 const cellKey = (rowId: string, columnId: string) => `${rowId}::${columnId}`;
@@ -104,6 +118,7 @@ export function DataGrid<TRow extends object, TPatch>({
   footer,
   onCellError,
   onCellSuccess,
+  entityLabel = "kayıt",
 }: DataGridProps<TRow, TPatch> & DataGridExtraProps) {
   const { prefs, setSizes, setOrder, setHidden, setPinning } = useColumnPrefs(
     tableId,
@@ -381,6 +396,148 @@ export function DataGrid<TRow extends object, TPatch>({
     [selection.selection, visibleRowIds, visibleColIds, getColDef, handleCommitEdit, onCellError],
   );
 
+  // ---- Bulk paste-create -------------------------------------------------
+  //
+  // Toolbar button reads the clipboard, parses it as TSV using the same
+  // parser as in-cell paste, validates each cell against the column's
+  // editor schema, and opens the preview dialog. Confirm fires the
+  // onBulkCreate Server Action; success replaces the optimistic toast
+  // and closes the dialog.
+
+  const [bulkPaste, setBulkPaste] = useState<BulkPasteState<TRow> | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const buildPreviewFromClipboard = useCallback((): BulkPasteState<TRow> | null => {
+    // Parse against the visible columns in their current order. The
+    // user is expected to copy a header row + data; if the first row
+    // doesn't match column labels we still treat it as data (Notion's
+    // default — never silently drop a row).
+    const tsv = parseClipboardTable("");
+    return tsv.rows.length > 0 ? null : null;
+  }, []);
+
+  // Suppress the unused-helper warning — buildPreviewFromClipboard is a
+  // placeholder for a future header-detection pass.
+  void buildPreviewFromClipboard;
+
+  const openBulkPasteFromText = useCallback(
+    (text: string) => {
+      const { rows: parsed } = parseClipboardTable(text);
+      if (parsed.length === 0) {
+        onCellError?.(
+          "Pano boş veya tanınmayan formatta.",
+          new ValidationError({ message: "Pano boş veya tanınmayan formatta." }),
+        );
+        return;
+      }
+
+      // Map clipboard columns to the first N visible editable columns —
+      // user is expected to align their paste with the table layout.
+      const editableCols = visibleLeafColumns
+        .filter((c) => {
+          const def = c.columnDef as DataGridColumn<TRow>;
+          return def.editable && def.editor;
+        })
+        .slice(0, Math.max(...parsed.map((r) => r.length), 0));
+      const headerColIds = editableCols.map((c) => c.id);
+      const headers = editableCols.map(
+        (c) => columnLabels?.[c.id] ?? (typeof c.columnDef.header === "string" ? c.columnDef.header : c.id),
+      );
+
+      const previewRows: PastePreviewRow[] = [];
+      const parsedRows: Partial<TRow>[] = [];
+
+      for (const rawRow of parsed) {
+        const cells: string[] = [];
+        const issues: string[] = [];
+        const accumulator: Record<string, unknown> = {};
+        for (let i = 0; i < headerColIds.length; i++) {
+          const colId = headerColIds[i]!;
+          const colDef = getColDef(colId);
+          const raw = rawRow[i] ?? "";
+          cells.push(raw);
+          if (!colDef?.editor) continue;
+          const fromClip =
+            colDef.editor.parseFromClipboard?.(raw) ?? { ok: true as const, value: raw };
+          if (!fromClip.ok) {
+            issues.push(`${headers[i] ?? colId}: ${fromClip.error.message}`);
+            continue;
+          }
+          const safe = colDef.editor.schema.safeParse(fromClip.value);
+          if (!safe.success) {
+            issues.push(
+              `${headers[i] ?? colId}: ${safe.error.issues[0]?.message ?? "Geçersiz değer."}`,
+            );
+            continue;
+          }
+          accumulator[colId] = safe.data;
+        }
+        previewRows.push({ cells, issues });
+        parsedRows.push(accumulator as Partial<TRow>);
+      }
+
+      setBulkPaste({
+        headers,
+        headerColIds,
+        rawRows: parsed,
+        previewRows,
+        parsedRows,
+      });
+    },
+    [columnLabels, getColDef, onCellError, visibleLeafColumns],
+  );
+
+  const handleOpenBulkPaste = useCallback(async () => {
+    const result = await clipboard.readPaste();
+    if (!result) {
+      onCellError?.(
+        "Panoya erişilemedi. Tarayıcı izin vermedi ya da pano boş.",
+        new ValidationError({ message: "Pano okunamadı." }),
+      );
+      return;
+    }
+    if (result.rows.length === 0) {
+      onCellError?.(
+        "Pano boş.",
+        new ValidationError({ message: "Pano boş." }),
+      );
+      return;
+    }
+    // Reconstruct the raw TSV from the parsed payload so openBulkPasteFromText
+    // shares its validation logic with both the explicit-button and
+    // future direct-paste-into-empty-row entry points.
+    const reserialized = result.rows
+      .map((row) => row.join(result.delimiter))
+      .join("\n");
+    openBulkPasteFromText(reserialized);
+  }, [clipboard, onCellError, openBulkPasteFromText]);
+
+  const handleBulkConfirm = useCallback(async () => {
+    if (!bulkPaste || !mutations?.onBulkCreate) return;
+    const validRows = bulkPaste.parsedRows.filter(
+      (_, idx) => bulkPaste.previewRows[idx]?.issues.length === 0,
+    );
+    if (validRows.length === 0) {
+      onCellError?.(
+        "Geçerli satır yok.",
+        new ValidationError({ message: "Geçerli satır yok." }),
+      );
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await mutations.onBulkCreate(validRows);
+      if (isErr(result)) {
+        onCellError?.(result.error.message, result.error);
+      } else {
+        onCellSuccess?.();
+        setBulkPaste(null);
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [bulkPaste, mutations, onCellError, onCellSuccess]);
+
   // ---- Cell-level keyboard handler --------------------------------------
 
   const handleCellKeyDown = useCallback(
@@ -445,8 +602,39 @@ export function DataGrid<TRow extends object, TPatch>({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-1 items-center gap-2">{toolbar}</div>
-        <ColumnVisibilityMenu table={table} {...(columnLabels !== undefined ? { columnLabels } : {})} />
+        <div className="flex items-center gap-2">
+          {mutations?.onBulkCreate ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => void handleOpenBulkPaste()}
+            >
+              <ClipboardPaste className="h-3.5 w-3.5" />
+              Toplu Yapıştır
+            </Button>
+          ) : null}
+          <ColumnVisibilityMenu
+            table={table}
+            {...(columnLabels !== undefined ? { columnLabels } : {})}
+          />
+        </div>
       </div>
+
+      {bulkPaste ? (
+        <PastePreviewDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setBulkPaste(null);
+          }}
+          headers={bulkPaste.headers}
+          rows={bulkPaste.previewRows}
+          entityLabel={entityLabel}
+          onConfirm={handleBulkConfirm}
+          busy={bulkBusy}
+        />
+      ) : null}
 
       <div
         ref={parentRef}

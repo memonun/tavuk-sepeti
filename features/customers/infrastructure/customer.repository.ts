@@ -28,6 +28,7 @@ import type {
 } from "@/features/customers/domain/customer";
 import type { Coordinate } from "@/shared/geo/coordinate";
 import type {
+  BulkCreateCustomerRow,
   CustomerCellField,
   CustomerListQuery,
 } from "@/features/customers/domain/customer.schema";
@@ -279,6 +280,142 @@ export async function listCustomers(
     page: query.page,
     pageSize: query.pageSize,
   });
+}
+
+// ---- bulk create (DataGrid paste-into-empty-rows) ------------------------
+
+/**
+ * Insert N customer rows + their placeholder primary-address rows in one
+ * go. Address fields default to "Bilinmiyor" with a (0,0) coordinate at
+ * accuracy=unknown — the row immediately surfaces in the "Konum belirsiz"
+ * filter so an admin knows it needs the detail page + geocoding pass to
+ * become routable.
+ *
+ * Rolls back the customer inserts if the address insert fails (best-
+ * effort cleanup matches createCustomer's existing pattern). Returns the
+ * inserted rows projected to list-item shape.
+ */
+export async function bulkCreateCustomers(
+  rows: ReadonlyArray<BulkCreateCustomerRow>,
+  createdBy: string,
+): Promise<Result<CustomerListItem[], ExternalApiError>> {
+  if (rows.length === 0) return ok([]);
+  const supabase = await createSupabaseServerClient();
+
+  const customerPayload = rows.map((r) => ({
+    first_name: r.first_name,
+    last_name: r.last_name,
+    email: r.email,
+    phone: r.phone,
+    status: r.status,
+    account_type: r.account_type,
+    tag: r.tag,
+    legacy_segment: r.legacy_segment,
+    notes: null,
+    created_by: createdBy,
+  }));
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("customers")
+    .insert(customerPayload)
+    .select("id");
+
+  if (insertError || !inserted) {
+    logger.error(
+      { code: insertError?.code, count: rows.length },
+      "bulk_create_customers_failed",
+    );
+    return err(
+      new ExternalApiError({
+        message: insertError?.message ?? "Bulk customer insert failed.",
+        cause: insertError,
+      }),
+    );
+  }
+
+  // Insert placeholder primary addresses for every new row.
+  const addressPayload = inserted.map((c, i) => {
+    const r = rows[i];
+    const city = r?.city ?? "Bilinmiyor";
+    return {
+      customer_id: c.id,
+      raw_text: city,
+      description: null,
+      lat: 0,
+      lng: 0,
+      source: "admin_corrected" as const,
+      accuracy: "unknown" as const,
+      geocoded_at: null,
+      geocoder_response_hash: null,
+      city,
+      district: "Bilinmiyor",
+      neighborhood: "Bilinmiyor",
+      street: null,
+      building_no: null,
+      apartment_no: null,
+      postal_code: null,
+      is_primary: true,
+      address_source: "admin_input" as const,
+    };
+  });
+
+  const { error: addressError } = await supabase
+    .from("addresses")
+    .insert(addressPayload);
+
+  if (addressError) {
+    // Best-effort cleanup of the orphan customer rows.
+    const ids = inserted.map((c) => c.id);
+    logger.error(
+      { code: addressError.code, count: ids.length },
+      "bulk_create_address_failed_rolling_back_customers",
+    );
+    const { error: cleanupError } = await supabase
+      .from("customers")
+      .delete()
+      .in("id", ids);
+    if (cleanupError) {
+      logger.error(
+        { code: cleanupError.code, count: ids.length },
+        "bulk_create_cleanup_failed_orphans_left",
+      );
+    }
+    return err(
+      new ExternalApiError({
+        message: addressError.message,
+        cause: addressError,
+      }),
+    );
+  }
+
+  // Re-project to list-item shape so the grid can swap the optimistic
+  // sentinel rows for canonical ones.
+  const ids = inserted.map((c) => c.id);
+  const { data: listItems, error: refetchError } = await supabase
+    .from("customers")
+    .select(
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+    )
+    .in("id", ids);
+
+  if (refetchError || !listItems) {
+    return err(
+      new ExternalApiError({
+        message: refetchError?.message ?? "Failed to refetch inserted rows.",
+        cause: refetchError,
+      }),
+    );
+  }
+
+  return ok(
+    listItems.map((row) =>
+      rowToListItem({
+        ...row,
+        status: row.status as CustomerStatus,
+        addresses: row.addresses ?? [],
+      }),
+    ),
+  );
 }
 
 // ---- cell patch (DataGrid inline edit) -----------------------------------

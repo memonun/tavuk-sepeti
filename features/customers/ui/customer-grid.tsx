@@ -21,6 +21,7 @@ import {
   buildCustomerColumns,
 } from "@/features/customers/ui/customer-grid-columns";
 import { CustomerRowExpand } from "@/features/customers/ui/customer-row-expand";
+import { bulkCreateCustomersAction } from "@/features/customers/application/bulk-create-customers";
 import { patchCustomerCellAction } from "@/features/customers/application/patch-customer-cell";
 import {
   type CustomerCellField,
@@ -87,10 +88,20 @@ export function CustomerGrid({ items, total, page, pageSize }: CustomerGridProps
       totalCount={total}
       page={page}
       pageSize={pageSize}
-      mutations={{ onCellCommit }}
+      mutations={{
+        onCellCommit,
+        onBulkCreate: async (rows) => {
+          const result = await bulkCreateCustomersAction(rows);
+          if (result.ok) {
+            toast.success(`${result.value.length} müşteri eklendi.`);
+          }
+          return result;
+        },
+      }}
       buildPatch={buildPatch}
       renderRowExpand={(row) => <CustomerRowExpand customer={row} />}
       columnLabels={CUSTOMER_COLUMN_LABELS}
+      entityLabel="müşteri"
       onCellError={(message) => toast.error(message)}
     />
   );
