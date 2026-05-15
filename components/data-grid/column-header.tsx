@@ -25,7 +25,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -130,10 +129,10 @@ export function DataGridHeaderCell<T extends RowData>({
             {onAggregateChange ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                   <Sigma className="h-3 w-3" />
                   Hesaplama
-                </DropdownMenuLabel>
+                </div>
                 {aggregateOptions.map((opt) => (
                   <DropdownMenuItem
                     key={opt}

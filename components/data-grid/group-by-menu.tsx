@@ -12,7 +12,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -63,9 +62,9 @@ export function GroupByMenu<T extends RowData>({
         {active ? `Grupla: ${activeLabel}` : "Grupla"}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
           Kolon seç
-        </DropdownMenuLabel>
+        </div>
         <DropdownMenuItem onClick={() => onChange([])} className="text-xs">
           <Check className={cn("mr-2 h-3 w-3", active ? "opacity-0" : "opacity-100")} />
           Yok
