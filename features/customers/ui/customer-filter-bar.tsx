@@ -261,6 +261,12 @@ function FilterSelect({
   emptyHint,
 }: FilterSelectProps) {
   const disabled = pending || emptyHint === true;
+  // Resolve the selected value to its human label. base-ui's <Select.Value>
+  // doesn't auto-derive the label from <Select.Item> children — without
+  // this, the trigger renders the raw value ("all" instead of "Tüm
+  // durumlar").
+  const labelFor = (v: unknown) =>
+    options.find((o) => o.value === v)?.label ?? String(v ?? "");
   return (
     <Select
       value={value}
@@ -269,7 +275,7 @@ function FilterSelect({
       }}
     >
       <SelectTrigger className={width} disabled={disabled}>
-        <SelectValue />
+        <SelectValue>{(v: unknown) => labelFor(v)}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (
