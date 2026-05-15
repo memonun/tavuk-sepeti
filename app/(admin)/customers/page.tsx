@@ -1,10 +1,9 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
-import { getCustomerFilterOptions } from "@/features/customers/application/get-filter-options";
 import { listCustomers } from "@/features/customers/application/list-customers";
-import { CustomerFilterBar } from "@/features/customers/ui/customer-filter-bar";
-import { CustomerTable } from "@/features/customers/ui/customer-table";
+import { CustomerGrid } from "@/features/customers/ui/customer-grid";
+import { CustomerPagination } from "@/features/customers/ui/customer-pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -42,22 +41,19 @@ const PRESERVE_KEYS: (keyof Awaited<CustomersPageProps["searchParams"]>)[] = [
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   const params = await searchParams;
 
-  const [listResult, filterOptions] = await Promise.all([
-    listCustomers({
-      q: params.q,
-      status: params.status,
-      city: params.city,
-      tag: params.tag,
-      account_type: params.account_type,
-      legacy_segment: params.legacy_segment,
-      location: params.location,
-      sort: params.sort,
-      order: params.order,
-      page: params.page,
-      pageSize: params.pageSize,
-    }),
-    getCustomerFilterOptions(),
-  ]);
+  const listResult = await listCustomers({
+    q: params.q,
+    status: params.status,
+    city: params.city,
+    tag: params.tag,
+    account_type: params.account_type,
+    legacy_segment: params.legacy_segment,
+    location: params.location,
+    sort: params.sort,
+    order: params.order,
+    page: params.page,
+    pageSize: params.pageSize,
+  });
 
   if (!listResult.ok) {
     return (
@@ -93,14 +89,14 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         </Link>
       </div>
 
-      <CustomerFilterBar
-        cities={filterOptions.cities}
-        tags={filterOptions.tags}
-        legacySegments={filterOptions.legacySegments}
+      <CustomerGrid
+        items={listResult.value.items}
+        total={listResult.value.total}
+        page={listResult.value.page}
+        pageSize={listResult.value.pageSize}
       />
 
-      <CustomerTable
-        items={listResult.value.items}
+      <CustomerPagination
         total={listResult.value.total}
         page={listResult.value.page}
         pageSize={listResult.value.pageSize}
