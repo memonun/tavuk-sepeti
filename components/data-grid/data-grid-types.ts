@@ -80,6 +80,20 @@ export type DataGridColumn<TRow extends RowData> = ColumnDef<TRow> & {
   defaultPin?: "left" | "right";
   /** Default visibility. User can override via the visibility menu. */
   defaultVisible?: boolean;
+  /** Notion-style column type — drives the small icon prefix in the
+   *  header. Cosmetic only; doesn't change behavior. */
+  columnType?:
+    | "text"
+    | "number"
+    | "select"
+    | "multi_select"
+    | "date"
+    | "datetime"
+    | "checkbox"
+    | "url"
+    | "email"
+    | "phone"
+    | "person";
 };
 
 /**
@@ -94,6 +108,11 @@ export interface DataGridMutations<TRow, TPatch> {
    * dialog and calls this with the parsed rows. Returns the inserted rows.
    */
   onBulkCreate?: (rows: ReadonlyArray<Partial<TRow>>) => Promise<Result<TRow[], AppError>>;
+  /**
+   * Optional. When provided, the gutter checkbox + bulk action bar
+   * surface a "Sil" action that calls this with the selected row ids.
+   */
+  onBulkDelete?: (rowIds: ReadonlyArray<string>) => Promise<Result<{ deleted: number }, AppError>>;
 }
 
 /**

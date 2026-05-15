@@ -18,6 +18,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -124,119 +125,117 @@ export function CustomerFilterBar({
     location !== "all";
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="İsim, soyisim veya telefon ara…"
-            className="pl-8"
-            disabled={pending}
-          />
-          {text ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 px-0"
-              onClick={() => setText("")}
-              aria-label="Aramayı temizle"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          ) : null}
-        </div>
-
-        <FilterSelect
-          value={status}
-          onChange={(v) => setParam("status", v)}
-          options={[
-            { value: "all", label: STATUS_LABEL.all! },
-            { value: "active", label: STATUS_LABEL.active! },
-            { value: "inactive", label: STATUS_LABEL.inactive! },
-            { value: "blocked", label: STATUS_LABEL.blocked! },
-          ]}
-          pending={pending}
-          width="w-36"
+    <div className="flex flex-1 flex-wrap items-center gap-1.5">
+      <div className="relative w-56">
+        <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Ara…"
+          className="h-7 pl-7 text-xs"
+          disabled={pending}
         />
-
-        <FilterSelect
-          value={city}
-          onChange={(v) => setParam("city", v)}
-          options={[
-            { value: "all", label: "Tüm şehirler" },
-            ...cities.map((c) => ({ value: c, label: c })),
-          ]}
-          pending={pending}
-          width="w-36"
-          emptyHint={cities.length === 0}
-        />
-
-        <FilterSelect
-          value={tag}
-          onChange={(v) => setParam("tag", v)}
-          options={[
-            { value: "all", label: "Tüm kanallar" },
-            ...tags.map((t) => ({ value: t, label: t })),
-          ]}
-          pending={pending}
-          width="w-40"
-          emptyHint={tags.length === 0}
-        />
-
-        <FilterSelect
-          value={accountType}
-          onChange={(v) => setParam("account_type", v)}
-          options={[
-            { value: "all", label: ACCOUNT_TYPE_LABEL.all! },
-            { value: "individual", label: ACCOUNT_TYPE_LABEL.individual! },
-            { value: "business", label: ACCOUNT_TYPE_LABEL.business! },
-            { value: "charity", label: ACCOUNT_TYPE_LABEL.charity! },
-            { value: "bazaar_vendor", label: ACCOUNT_TYPE_LABEL.bazaar_vendor! },
-          ]}
-          pending={pending}
-          width="w-32"
-        />
-
-        <FilterSelect
-          value={legacySegment}
-          onChange={(v) => setParam("legacy_segment", v)}
-          options={[
-            { value: "all", label: "Tüm segmentler" },
-            ...legacySegments.map((s) => ({ value: s, label: s })),
-          ]}
-          pending={pending}
-          width="w-44"
-          emptyHint={legacySegments.length === 0}
-        />
-
-        <FilterSelect
-          value={location}
-          onChange={(v) => setParam("location", v)}
-          options={[
-            { value: "all", label: "Tüm konumlar" },
-            { value: "accurate", label: "Konum doğru" },
-            { value: "approximate", label: "Konum belirsiz" },
-          ]}
-          pending={pending}
-          width="w-40"
-        />
-
-        {hasAnyFilter ? (
+        {text ? (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={clearAll}
-            disabled={pending}
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+            className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 px-0"
+            onClick={() => setText("")}
+            aria-label="Aramayı temizle"
           >
-            Filtreleri temizle
+            <X className="h-3 w-3" />
           </Button>
         ) : null}
       </div>
+
+      <FilterSelect
+        value={status}
+        onChange={(v) => setParam("status", v)}
+        options={[
+          { value: "all", label: STATUS_LABEL.all! },
+          { value: "active", label: STATUS_LABEL.active! },
+          { value: "inactive", label: STATUS_LABEL.inactive! },
+          { value: "blocked", label: STATUS_LABEL.blocked! },
+        ]}
+        pending={pending}
+        width="w-28"
+      />
+
+      <FilterSelect
+        value={city}
+        onChange={(v) => setParam("city", v)}
+        options={[
+          { value: "all", label: "Tüm şehirler" },
+          ...cities.map((c) => ({ value: c, label: c })),
+        ]}
+        pending={pending}
+        width="w-28"
+        emptyHint={cities.length === 0}
+      />
+
+      <FilterSelect
+        value={tag}
+        onChange={(v) => setParam("tag", v)}
+        options={[
+          { value: "all", label: "Tüm kanallar" },
+          ...tags.map((t) => ({ value: t, label: t })),
+        ]}
+        pending={pending}
+        width="w-32"
+        emptyHint={tags.length === 0}
+      />
+
+      <FilterSelect
+        value={accountType}
+        onChange={(v) => setParam("account_type", v)}
+        options={[
+          { value: "all", label: ACCOUNT_TYPE_LABEL.all! },
+          { value: "individual", label: ACCOUNT_TYPE_LABEL.individual! },
+          { value: "business", label: ACCOUNT_TYPE_LABEL.business! },
+          { value: "charity", label: ACCOUNT_TYPE_LABEL.charity! },
+          { value: "bazaar_vendor", label: ACCOUNT_TYPE_LABEL.bazaar_vendor! },
+        ]}
+        pending={pending}
+        width="w-28"
+      />
+
+      <FilterSelect
+        value={legacySegment}
+        onChange={(v) => setParam("legacy_segment", v)}
+        options={[
+          { value: "all", label: "Tüm segmentler" },
+          ...legacySegments.map((s) => ({ value: s, label: s })),
+        ]}
+        pending={pending}
+        width="w-32"
+        emptyHint={legacySegments.length === 0}
+      />
+
+      <FilterSelect
+        value={location}
+        onChange={(v) => setParam("location", v)}
+        options={[
+          { value: "all", label: "Tüm konumlar" },
+          { value: "accurate", label: "Konum doğru" },
+          { value: "approximate", label: "Konum belirsiz" },
+        ]}
+        pending={pending}
+        width="w-32"
+      />
+
+      {hasAnyFilter ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={clearAll}
+          disabled={pending}
+          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+        >
+          Temizle
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -274,7 +273,7 @@ function FilterSelect({
         if (next !== null) onChange(next);
       }}
     >
-      <SelectTrigger className={width} disabled={disabled}>
+      <SelectTrigger className={cn("h-7 px-2 text-xs", width)} disabled={disabled} size="sm">
         <SelectValue>{(v: unknown) => labelFor(v)}</SelectValue>
       </SelectTrigger>
       <SelectContent>

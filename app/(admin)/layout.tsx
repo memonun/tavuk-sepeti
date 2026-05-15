@@ -28,7 +28,7 @@ export default async function AdminLayout({
         <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
           <SidebarTrigger />
         </header>
-        <main className="flex-1 px-3 py-4 sm:px-6 sm:py-6">{children}</main>
+        <main className="flex-1 overflow-hidden px-3 py-2 sm:px-4">{children}</main>
       </SidebarInset>
       <Toaster />
     </SidebarProvider>

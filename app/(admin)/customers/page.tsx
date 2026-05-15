@@ -1,13 +1,16 @@
-import { Plus } from "lucide-react";
-import Link from "next/link";
-
+/**
+ * Customers route shell — Notion-style chrome.
+ *
+ * Page-level chrome stays minimal: just the title row + the grid + the
+ * pagination footer. The toolbar (search, filter chips, "+ Yeni",
+ * "Toplu Yapıştır", "Kolonlar") is owned by <CustomerGrid> so the
+ * filter UI sits glued to the table — same single-row pattern Notion
+ * uses for its database header.
+ */
 import { getCustomerFilterOptions } from "@/features/customers/application/get-filter-options";
 import { listCustomers } from "@/features/customers/application/list-customers";
-import { CustomerFilterBar } from "@/features/customers/ui/customer-filter-bar";
 import { CustomerGrid } from "@/features/customers/ui/customer-grid";
 import { CustomerPagination } from "@/features/customers/ui/customer-pagination";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface CustomersPageProps {
   searchParams: Promise<{
@@ -25,8 +28,6 @@ interface CustomersPageProps {
   }>;
 }
 
-// URL params the table propagates into pagination links so the user
-// doesn't lose their sort/filter state when paging.
 const PRESERVE_KEYS: (keyof Awaited<CustomersPageProps["searchParams"]>)[] = [
   "q",
   "status",
@@ -68,8 +69,6 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
     );
   }
 
-  // Reconstruct the URLSearchParams the table needs for pagination link-
-  // building. Includes sort/filter so the user doesn't lose state.
   const query = new URLSearchParams();
   for (const key of PRESERVE_KEYS) {
     const value = params[key];
@@ -77,34 +76,23 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Müşteriler</h2>
-          <p className="text-sm text-muted-foreground">
-            Toplam {listResult.value.total} kayıt.
-          </p>
-        </div>
-        <Link
-          href="/customers/new"
-          className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
-        >
-          <Plus className="h-4 w-4" />
-          Yeni Müşteri
-        </Link>
+    <div className="flex h-[calc(100vh-3rem)] flex-col gap-2">
+      {/* Notion-style page header: title left, count right, single line */}
+      <div className="flex items-baseline justify-between gap-4 px-1">
+        <h1 className="text-lg font-semibold tracking-tight">Müşteriler</h1>
+        <p className="text-xs text-muted-foreground">
+          {listResult.value.total} kayıt
+        </p>
       </div>
-
-      <CustomerFilterBar
-        cities={filterOptions.cities}
-        tags={filterOptions.tags}
-        legacySegments={filterOptions.legacySegments}
-      />
 
       <CustomerGrid
         items={listResult.value.items}
         total={listResult.value.total}
         page={listResult.value.page}
         pageSize={listResult.value.pageSize}
+        cities={filterOptions.cities}
+        tags={filterOptions.tags}
+        legacySegments={filterOptions.legacySegments}
       />
 
       <CustomerPagination

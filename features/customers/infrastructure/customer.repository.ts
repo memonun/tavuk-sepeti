@@ -418,6 +418,36 @@ export async function bulkCreateCustomers(
   );
 }
 
+// ---- bulk delete ----------------------------------------------------------
+
+/**
+ * Hard-delete N customers by id. Addresses cascade via FK on delete cascade
+ * (set up in the schema migration). RLS still applies — only admins can
+ * see and therefore delete.
+ *
+ * Returns the number actually removed so the caller can surface a
+ * "5 müşteri silindi" toast even if some ids referenced rows that had
+ * already been removed in another tab.
+ */
+export async function bulkDeleteCustomers(
+  ids: ReadonlyArray<string>,
+): Promise<Result<{ deleted: number }, ExternalApiError>> {
+  if (ids.length === 0) return ok({ deleted: 0 });
+  const supabase = await createSupabaseServerClient();
+  const { error, count } = await supabase
+    .from("customers")
+    .delete({ count: "exact" })
+    .in("id", [...ids]);
+  if (error) {
+    logger.error(
+      { code: error.code, attempted: ids.length },
+      "bulk_delete_customers_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok({ deleted: count ?? 0 });
+}
+
 // ---- cell patch (DataGrid inline edit) -----------------------------------
 
 /**

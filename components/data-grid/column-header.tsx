@@ -10,7 +10,14 @@
  * Pin actions move the column to the left/right pinning slot. When
  * pinned, the menu offers "Sabitlemeyi kaldır" instead.
  */
-import { ChevronDown, ChevronUp, ChevronsUpDown, MoreVertical, PinOff, Pin } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  MoreVertical,
+  PinOff,
+  Pin,
+} from "lucide-react";
 
 import {
   DropdownMenu,
@@ -21,8 +28,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  ColumnTypeIcon,
+  type ColumnType,
+} from "@/components/data-grid/column-type-icons";
 
 import type { Header, RowData } from "@tanstack/react-table";
+import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
 
 interface DataGridHeaderCellProps<T extends RowData> {
   readonly header: Header<T, unknown>;
@@ -39,18 +51,24 @@ export function DataGridHeaderCell<T extends RowData>({
   const canPin = column.getCanPin();
   const sortDir = column.getIsSorted();
   const isPinned = column.getIsPinned();
+  const columnType = (column.columnDef as DataGridColumn<T>).columnType as
+    | ColumnType
+    | undefined;
 
   return (
-    <div className="group relative flex h-full items-center justify-between gap-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="group relative flex h-full items-center justify-between gap-1 px-2 text-[11px] font-medium tracking-wide text-muted-foreground">
       <button
         type="button"
         className={cn(
-          "flex flex-1 items-center gap-1 text-left",
+          "flex min-w-0 flex-1 items-center gap-1.5 text-left",
           canSort && "cursor-pointer select-none hover:text-foreground",
         )}
         onClick={canSort ? column.getToggleSortingHandler() : undefined}
         title={canSort ? "Sıralamayı değiştir" : undefined}
       >
+        {columnType ? (
+          <ColumnTypeIcon type={columnType} className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+        ) : null}
         <span className="truncate">{children}</span>
         {canSort ? <SortIndicator dir={sortDir} /> : null}
       </button>

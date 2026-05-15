@@ -58,6 +58,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "first_name",
       header: "Ad",
       size: 160,
+      columnType: "text",
       defaultPin: "left",
       editable: true,
       editor: textCellEditor({
@@ -69,6 +70,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "last_name",
       header: "Soyad",
       size: 160,
+      columnType: "text",
       editable: true,
       editor: textCellEditor({
         schema: customerCellPatchSchemas.last_name as unknown as z.ZodType<string | null>,
@@ -79,6 +81,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "phone",
       header: "Telefon",
       size: 160,
+      columnType: "phone",
       editable: true,
       editor: textCellEditor({
         schema: customerCellPatchSchemas.phone as unknown as z.ZodType<string | null>,
@@ -99,6 +102,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "email",
       header: "E-posta",
       size: 200,
+      columnType: "email",
       editable: true,
       editor: textCellEditor({
         schema: customerCellPatchSchemas.email as unknown as z.ZodType<string | null>,
@@ -109,6 +113,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "city",
       header: "Şehir",
       size: 130,
+      columnType: "text",
       editable: true,
       editor: textCellEditor({
         schema: customerCellPatchSchemas.city as unknown as z.ZodType<string | null>,
@@ -119,6 +124,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "tag",
       header: "Kanal",
       size: 130,
+      columnType: "text",
       editable: true,
       editor: textCellEditor({
         schema: customerCellPatchSchemas.tag as unknown as z.ZodType<string | null>,
@@ -129,6 +135,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "account_type",
       header: "Tip",
       size: 120,
+      columnType: "select",
       editable: true,
       editor: selectCellEditor({
         schema: customerCellPatchSchemas.account_type as unknown as z.ZodType<string>,
@@ -140,6 +147,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "legacy_segment",
       header: "Segment",
       size: 140,
+      columnType: "text",
       editable: true,
       editor: textCellEditor({
         schema: customerCellPatchSchemas.legacy_segment as unknown as z.ZodType<string | null>,
@@ -150,6 +158,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "status",
       header: "Durum",
       size: 130,
+      columnType: "select",
       editable: true,
       editor: selectCellEditor({
         schema: customerCellPatchSchemas.status as unknown as z.ZodType<string>,
@@ -161,6 +170,7 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       accessorKey: "created_at",
       header: "Eklenme",
       size: 130,
+      columnType: "datetime",
       editable: false,
       editor: readonlyCellEditor<Date>((value) => (
         <span className="text-xs text-muted-foreground">{formatDate(value)}</span>

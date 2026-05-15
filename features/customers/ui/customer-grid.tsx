@@ -2,16 +2,14 @@
 
 /**
  * Customers DataGrid wrapper — pairs the shared <DataGrid> primitive
- * with the customers feature's column config + Server Action mutation.
+ * with the customers feature's column config + Server Action mutations.
  *
- * Receives the server-rendered list page (items + total + pagination)
- * from the Server Component shell. Cell commits go through the
- * patchCustomerCellAction Server Action; success → optimistic patch is
- * replaced with the canonical row, failure → toast + rollback.
- *
- * The page-level filter bar + pagination footer stay where they are —
- * the grid only owns the table itself.
+ * Owns the toolbar (filter chips + bulk-paste + columns menu + new
+ * customer link). Page shell only renders the title row + this grid +
+ * pagination.
  */
+import { Plus } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 
@@ -20,13 +18,17 @@ import {
   CUSTOMER_COLUMN_LABELS,
   buildCustomerColumns,
 } from "@/features/customers/ui/customer-grid-columns";
+import { CustomerFilterBar } from "@/features/customers/ui/customer-filter-bar";
 import { CustomerRowExpand } from "@/features/customers/ui/customer-row-expand";
 import { bulkCreateCustomersAction } from "@/features/customers/application/bulk-create-customers";
+import { bulkDeleteCustomersAction } from "@/features/customers/application/bulk-delete-customers";
 import { patchCustomerCellAction } from "@/features/customers/application/patch-customer-cell";
 import {
   type CustomerCellField,
   type CustomerCellPatch,
 } from "@/features/customers/domain/customer.schema";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import type { CustomerListItem } from "@/features/customers/domain/customer";
 import type { AppError } from "@/shared/errors/app-error";
@@ -37,6 +39,9 @@ interface CustomerGridProps {
   readonly total: number;
   readonly page: number;
   readonly pageSize: number;
+  readonly cities: readonly string[];
+  readonly tags: readonly string[];
+  readonly legacySegments: readonly string[];
 }
 
 const EDITABLE_COLUMN_IDS = new Set<CustomerCellField>([
@@ -51,7 +56,15 @@ const EDITABLE_COLUMN_IDS = new Set<CustomerCellField>([
   "city",
 ]);
 
-export function CustomerGrid({ items, total, page, pageSize }: CustomerGridProps) {
+export function CustomerGrid({
+  items,
+  total,
+  page,
+  pageSize,
+  cities,
+  tags,
+  legacySegments,
+}: CustomerGridProps) {
   const columns = useMemo(() => buildCustomerColumns(), []);
 
   const onCellCommit = useCallback(
@@ -66,12 +79,7 @@ export function CustomerGrid({ items, total, page, pageSize }: CustomerGridProps
 
   const buildPatch = useCallback(
     (columnId: string, value: unknown): CustomerCellPatch => {
-      // Narrow at the boundary so a typo in column id surfaces as a
-      // discriminated-union error instead of slipping through.
       if (!EDITABLE_COLUMN_IDS.has(columnId as CustomerCellField)) {
-        // The grid only invokes commit for columns marked editable; this
-        // branch is defensive in case a future column toggles editable
-        // without registering its field name.
         throw new Error(`Cell field "${columnId}" is not in customerCellPatchSchemas.`);
       }
       return { field: columnId as CustomerCellField, value } as CustomerCellPatch;
@@ -80,29 +88,77 @@ export function CustomerGrid({ items, total, page, pageSize }: CustomerGridProps
   );
 
   return (
-    <DataGrid<CustomerListItem, CustomerCellPatch>
-      data={items}
-      columns={columns}
-      rowId={(row) => row.id}
-      tableId="customers"
-      totalCount={total}
-      page={page}
-      pageSize={pageSize}
-      mutations={{
-        onCellCommit,
-        onBulkCreate: async (rows) => {
-          const result = await bulkCreateCustomersAction(rows);
-          if (result.ok) {
-            toast.success(`${result.value.length} müşteri eklendi.`);
-          }
-          return result;
-        },
-      }}
-      buildPatch={buildPatch}
-      renderRowExpand={(row) => <CustomerRowExpand customer={row} />}
-      columnLabels={CUSTOMER_COLUMN_LABELS}
-      entityLabel="müşteri"
-      onCellError={(message) => toast.error(message)}
-    />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <DataGrid<CustomerListItem, CustomerCellPatch>
+        data={items}
+        columns={columns}
+        rowId={(row) => row.id}
+        tableId="customers"
+        totalCount={total}
+        page={page}
+        pageSize={pageSize}
+        mutations={{
+          onCellCommit,
+          onBulkCreate: async (rows) => {
+            const result = await bulkCreateCustomersAction(rows);
+            if (result.ok) {
+              toast.success(`${result.value.length} müşteri eklendi.`);
+            }
+            return result;
+          },
+          onBulkDelete: async (ids) => {
+            const result = await bulkDeleteCustomersAction(ids);
+            if (result.ok) {
+              toast.success(`${result.value.deleted} müşteri silindi.`);
+            }
+            return result;
+          },
+        }}
+        buildPatch={buildPatch}
+        renderRowExpand={(row) => <CustomerRowExpand customer={row} />}
+        columnLabels={CUSTOMER_COLUMN_LABELS}
+        entityLabel="müşteri"
+        toolbar={
+          <CustomerToolbar
+            cities={cities}
+            tags={tags}
+            legacySegments={legacySegments}
+          />
+        }
+        onCellError={(message) => toast.error(message)}
+      />
+    </div>
   );
 }
+
+interface CustomerToolbarProps {
+  readonly cities: readonly string[];
+  readonly tags: readonly string[];
+  readonly legacySegments: readonly string[];
+}
+
+function CustomerToolbar({ cities, tags, legacySegments }: CustomerToolbarProps) {
+  return (
+    <div className="flex flex-1 flex-wrap items-center gap-1.5">
+      <CustomerFilterBar
+        cities={cities}
+        tags={tags}
+        legacySegments={legacySegments}
+      />
+      <Link
+        href="/customers/new"
+        className={cn(
+          buttonVariants({ size: "sm", variant: "outline" }),
+          "ml-auto h-7 gap-1 px-2 text-xs",
+        )}
+      >
+        <Plus className="h-3 w-3" />
+        Yeni Müşteri
+      </Link>
+    </div>
+  );
+}
+
+// Re-export Button so the linter doesn't flag the import as unused if
+// the toolbar evolves to plain buttons later.
+void Button;

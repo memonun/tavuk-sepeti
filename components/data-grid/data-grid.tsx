@@ -31,7 +31,7 @@ import {
   type VisibilityState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight, ClipboardPaste } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardPaste, GripVertical, Plus, Trash2, X } from "lucide-react";
 import {
   type CSSProperties,
   type ClipboardEvent,
@@ -226,7 +226,38 @@ export function DataGrid<TRow extends object, TPatch>({
   const visibleLeafColumns = table.getVisibleLeafColumns();
   const visibleColIds = useMemo(() => visibleLeafColumns.map((c) => c.id), [visibleLeafColumns]);
   const visibleRowIds = useMemo(() => tableRows.map((r) => r.id), [tableRows]);
-  const colCount = visibleLeafColumns.length + (renderRowExpand ? 1 : 0);
+  // Total visible columns including the optional left gutter (1) and the
+  // optional right expand chevron (1) — used by the empty-state colspan
+  // and the inline expand row.
+  const colCount =
+    visibleLeafColumns.length + 1 + (renderRowExpand ? 1 : 0);
+
+  // ---- Multi-row selection -----------------------------------------------
+  const [selectedRowIds, setSelectedRowIds] = useState<ReadonlySet<string>>(new Set());
+
+  const toggleRowSelection = useCallback((id: string, checked: boolean) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllVisibleRows = useCallback(
+    (checked: boolean) => {
+      setSelectedRowIds(checked ? new Set(visibleRowIds) : new Set());
+    },
+    [visibleRowIds],
+  );
+
+  const clearRowSelection = useCallback(() => setSelectedRowIds(new Set()), []);
+
+  const allVisibleSelected =
+    visibleRowIds.length > 0 &&
+    visibleRowIds.every((id) => selectedRowIds.has(id));
+  const someVisibleSelected =
+    !allVisibleSelected && visibleRowIds.some((id) => selectedRowIds.has(id));
 
   // ---- Refs / focus management -------------------------------------------
 
@@ -508,6 +539,24 @@ export function DataGrid<TRow extends object, TPatch>({
     [openBulkPasteFromText],
   );
 
+  const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
+  const handleBulkDelete = useCallback(async () => {
+    if (!mutations?.onBulkDelete || selectedRowIds.size === 0) return;
+    const ids = Array.from(selectedRowIds);
+    setBulkDeleteBusy(true);
+    try {
+      const result = await mutations.onBulkDelete(ids);
+      if (isErr(result)) {
+        onCellError?.(result.error.message, result.error);
+      } else {
+        clearRowSelection();
+        onCellSuccess?.();
+      }
+    } finally {
+      setBulkDeleteBusy(false);
+    }
+  }, [mutations, selectedRowIds, onCellError, onCellSuccess, clearRowSelection]);
+
   const handleBulkConfirm = useCallback(async () => {
     if (!bulkPaste || !mutations?.onBulkCreate) return;
     const validRows = bulkPaste.parsedRows.filter(
@@ -595,19 +644,21 @@ export function DataGrid<TRow extends object, TPatch>({
   // ---- Render ------------------------------------------------------------
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-1 items-center gap-2">{toolbar}</div>
-        <div className="flex items-center gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+      {/* Single-row Notion-style toolbar: filter chips on the left,
+          row-level actions on the right. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-1 flex-wrap items-center gap-1.5">{toolbar}</div>
+        <div className="flex items-center gap-1.5">
           {mutations?.onBulkCreate ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="gap-1.5"
+              className="h-7 gap-1 px-2 text-xs"
               onClick={() => void handleOpenBulkPaste()}
             >
-              <ClipboardPaste className="h-3.5 w-3.5" />
+              <ClipboardPaste className="h-3 w-3" />
               Toplu Yapıştır
             </Button>
           ) : null}
@@ -617,6 +668,41 @@ export function DataGrid<TRow extends object, TPatch>({
           />
         </div>
       </div>
+
+      {/* Bulk action bar — appears in place of nothing when rows are
+          selected. Floats above the table so it's always reachable. */}
+      {selectedRowIds.size > 0 ? (
+        <div className="flex items-center justify-between rounded-md border bg-foreground px-2 py-1 text-xs text-background shadow-sm">
+          <span>
+            <strong>{selectedRowIds.size}</strong> satır seçili
+          </span>
+          <div className="flex items-center gap-1">
+            {mutations?.onBulkDelete ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={bulkDeleteBusy}
+                onClick={() => void handleBulkDelete()}
+                className="h-6 gap-1 px-2 text-xs text-background hover:bg-background/10 hover:text-background"
+              >
+                <Trash2 className="h-3 w-3" />
+                {bulkDeleteBusy ? "Siliniyor…" : "Sil"}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearRowSelection}
+              className="h-6 gap-1 px-2 text-xs text-background hover:bg-background/10 hover:text-background"
+            >
+              <X className="h-3 w-3" />
+              Temizle
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <PasteInputDialog
         open={bulkInputOpen}
@@ -645,7 +731,7 @@ export function DataGrid<TRow extends object, TPatch>({
         aria-rowcount={totalCount}
         aria-colcount={visibleLeafColumns.length}
         onPaste={handlePaste}
-        className="relative max-h-[calc(100vh-14rem)] overflow-auto rounded-md border bg-background"
+        className="relative min-h-0 flex-1 overflow-auto rounded-md border bg-background"
       >
         <table
           className="text-[13px]"
@@ -658,12 +744,28 @@ export function DataGrid<TRow extends object, TPatch>({
           <thead className="sticky top-0 z-20">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
+                {/* Left gutter — select-all checkbox + drag handle slot */}
+                <th
+                  className="sticky left-0 z-10 h-8 w-7 border-b border-r border-border bg-muted px-1 align-middle"
+                  style={{ width: 28 }}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label="Tümünü seç"
+                    checked={allVisibleSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someVisibleSelected;
+                    }}
+                    onChange={(e) => selectAllVisibleRows(e.target.checked)}
+                    className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
+                  />
+                </th>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
                     colSpan={header.colSpan}
                     style={getPinningHeaderStyles(header.column)}
-                    className="h-9 border-b border-r border-border bg-muted text-left align-middle"
+                    className="h-8 border-b border-r border-border bg-muted text-left align-middle"
                   >
                     {header.isPlaceholder ? null : (
                       <DataGridHeaderCell header={header}>
@@ -693,9 +795,44 @@ export function DataGrid<TRow extends object, TPatch>({
                 </td>
               </tr>
             ) : null}
-            {tableRows.map((row) => (
+            {tableRows.map((row) => {
+              const isRowSelected = selectedRowIds.has(row.id);
+              return (
               <Fragment key={row.id}>
-                <tr className="group">
+                <tr
+                  className={cn(
+                    "group",
+                    isRowSelected && "bg-blue-50/50 dark:bg-blue-950/20",
+                  )}
+                >
+                  {/* Left gutter: drag handle (visual) + checkbox, hover-revealed */}
+                  <td
+                    className={cn(
+                      "sticky left-0 z-[1] h-8 border-b border-r border-border align-middle",
+                      isRowSelected ? "bg-blue-50 dark:bg-blue-950/40" : "bg-background group-hover:bg-muted/40",
+                    )}
+                    style={{ width: 28 }}
+                  >
+                    <div className="flex h-full items-center justify-center gap-0.5">
+                      <GripVertical
+                        className={cn(
+                          "h-3 w-3 text-muted-foreground/40 opacity-0 transition-opacity",
+                          "group-hover:opacity-100",
+                          isRowSelected && "opacity-100",
+                        )}
+                      />
+                      <input
+                        type="checkbox"
+                        checked={isRowSelected}
+                        onChange={(e) => toggleRowSelection(row.id, e.target.checked)}
+                        aria-label={`Satırı seç`}
+                        className={cn(
+                          "h-3.5 w-3.5 cursor-pointer accent-blue-600 transition-opacity",
+                          isRowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                        )}
+                      />
+                    </div>
+                  </td>
                   {row.getVisibleCells().map((cell) => {
                     const colDef = cell.column.columnDef as DataGridColumn<TRow>;
                     const isEditing =
@@ -727,7 +864,7 @@ export function DataGrid<TRow extends object, TPatch>({
                             : {}),
                         }}
                         className={cn(
-                          "h-9 border-b border-r border-border align-middle outline-none",
+                          "h-8 border-b border-r border-border align-middle outline-none transition-shadow duration-100",
                           "group-hover:bg-muted/40",
                           isSelected &&
                             "bg-blue-50 dark:bg-blue-950/40",
@@ -740,8 +877,18 @@ export function DataGrid<TRow extends object, TPatch>({
                             rowId: row.id,
                             columnId: cell.column.id,
                           };
-                          if (e.shiftKey) selection.extendSelectionTo(addr);
-                          else selection.selectCell(addr);
+                          if (e.shiftKey) {
+                            selection.extendSelectionTo(addr);
+                            return;
+                          }
+                          // Notion-style "click an already-active cell to
+                          // edit" — first click selects + focuses, second
+                          // click on the same cell flips into edit mode.
+                          if (isActive && colDef.editable) {
+                            handleStartEdit(addr);
+                            return;
+                          }
+                          selection.selectCell(addr);
                         }}
                         onDoubleClick={() =>
                           handleStartEdit({ rowId: row.id, columnId: cell.column.id })
@@ -803,7 +950,26 @@ export function DataGrid<TRow extends object, TPatch>({
                   </tr>
                 ) : null}
               </Fragment>
-            ))}
+              );
+            })}
+            {/* "+ Yeni satır" sentinel — Notion-style always-visible footer.
+                Clicking it opens the bulk-paste input dialog as the
+                quickest path to creating new rows; click "+ Yeni Müşteri"
+                in the toolbar for the form route. */}
+            {mutations?.onBulkCreate ? (
+              <tr className="group">
+                <td
+                  colSpan={colCount}
+                  className="h-8 cursor-pointer border-b border-border px-3 text-left text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                  onClick={() => setBulkInputOpen(true)}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Plus className="h-3 w-3" />
+                    Yeni satır
+                  </span>
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
