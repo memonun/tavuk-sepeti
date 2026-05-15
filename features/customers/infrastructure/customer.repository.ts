@@ -27,7 +27,10 @@ import type {
   CustomerStatus,
 } from "@/features/customers/domain/customer";
 import type { Coordinate } from "@/shared/geo/coordinate";
-import type { CustomerListQuery } from "@/features/customers/domain/customer.schema";
+import type {
+  CustomerCellField,
+  CustomerListQuery,
+} from "@/features/customers/domain/customer.schema";
 import type { Database } from "@/shared/supabase/types";
 
 type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"];
@@ -276,6 +279,86 @@ export async function listCustomers(
     page: query.page,
     pageSize: query.pageSize,
   });
+}
+
+// ---- cell patch (DataGrid inline edit) -----------------------------------
+
+/**
+ * Lightweight single-field patcher for the inline-edit grid. Routes scalar
+ * customer fields to `customers`, address fields to `addresses`. Returns
+ * the freshly-projected list-item shape so the grid can replace its
+ * optimistic patch without paying for a full Customer aggregate fetch.
+ *
+ * Address writes target the row with is_primary=true. The grid never edits
+ * lat/lng — those still go through the geocoding pipeline + the form.
+ */
+const ADDRESS_CELL_FIELDS: ReadonlySet<CustomerCellField> = new Set([
+  "city",
+  "district",
+  "neighborhood",
+]);
+
+export async function patchCustomerCell(
+  id: string,
+  field: CustomerCellField,
+  value: unknown,
+): Promise<Result<CustomerListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+
+  if (ADDRESS_CELL_FIELDS.has(field)) {
+    const patch: AddressUpdate = { [field]: value as string | null };
+    const { error } = await supabase
+      .from("addresses")
+      .update(patch)
+      .eq("customer_id", id)
+      .eq("is_primary", true);
+    if (error) {
+      logger.error({ id, field, code: error.code }, "customer_cell_address_patch_failed");
+      return err(new ExternalApiError({ message: error.message, cause: error }));
+    }
+  } else {
+    // Scalar customer fields. The schema upstream has already coerced
+    // empty strings to null for nullable text fields and validated the
+    // enum / phone shapes — we just hand the typed value to PostgREST.
+    const patch: CustomerUpdate = { [field]: value as never };
+    const { error } = await supabase.from("customers").update(patch).eq("id", id);
+    if (error) {
+      logger.error({ id, field, code: error.code }, "customer_cell_patch_failed");
+      return err(new ExternalApiError({ message: error.message, cause: error }));
+    }
+  }
+
+  return findListItemById(id);
+}
+
+/** Fetch a single customer in the same projection as the list query. */
+export async function findListItemById(
+  id: string,
+): Promise<Result<CustomerListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .select(
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+    )
+    .eq("id", id)
+    .single();
+  if (error || !data) {
+    logger.error({ id, code: error?.code }, "customer_list_item_lookup_failed");
+    return err(
+      new ExternalApiError({
+        message: error?.message ?? "Customer not found.",
+        cause: error,
+      }),
+    );
+  }
+  return ok(
+    rowToListItem({
+      ...data,
+      status: data.status as CustomerStatus,
+      addresses: data.addresses ?? [],
+    }),
+  );
 }
 
 // ---- update --------------------------------------------------------------

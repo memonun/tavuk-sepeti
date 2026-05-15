@@ -132,3 +132,75 @@ export const customerListQuerySchema = z.object({
 });
 
 export type CustomerListQuery = z.output<typeof customerListQuerySchema>;
+
+// ---- Cell-level patch schemas ---------------------------------------------
+//
+// Used by the inline-edit DataGrid: each editable cell gets its own Zod
+// schema so the same validation runs in the UI (cell editor) and on the
+// server (patch-customer-cell action). Keeping them as a discriminated map
+// lets the Server Action route to the right schema by columnId without a
+// switch ladder.
+//
+// Naming convention matches the column ids in customer-grid-columns.ts —
+// changing one without the other is a type error.
+
+const accountTypeSchema = z.enum([
+  "individual",
+  "business",
+  "charity",
+  "bazaar_vendor",
+]);
+const statusSchema = z.enum(["active", "inactive", "blocked"]);
+
+export const customerCellPatchSchemas = {
+  first_name: trimmedString(1, 100, "Ad gerekli."),
+  last_name: trimmedString(1, 100, "Soyad gerekli."),
+  phone: phoneTR,
+  email: emailOrNull,
+  status: statusSchema,
+  account_type: accountTypeSchema,
+  // Free-text classification fields — empty string collapses to null so the
+  // DB doesn't see a meaningless "" row.
+  tag: optionalShortText(100),
+  legacy_segment: optionalShortText(100),
+  notes: notesOrNull,
+  // Address fields proxy to the primary address row.
+  city: optionalShortText(100),
+  district: optionalShortText(100),
+  neighborhood: optionalShortText(100),
+} as const;
+
+export type CustomerCellField = keyof typeof customerCellPatchSchemas;
+
+/** Discriminated union of every legal cell patch — `field` selects the
+ *  schema, `value` carries the parsed payload. The Server Action accepts
+ *  this shape and dispatches to the right repository update. */
+export const customerCellPatchSchema = z.discriminatedUnion("field", [
+  z.object({ field: z.literal("first_name"), value: customerCellPatchSchemas.first_name }),
+  z.object({ field: z.literal("last_name"), value: customerCellPatchSchemas.last_name }),
+  z.object({ field: z.literal("phone"), value: customerCellPatchSchemas.phone }),
+  z.object({ field: z.literal("email"), value: customerCellPatchSchemas.email }),
+  z.object({ field: z.literal("status"), value: customerCellPatchSchemas.status }),
+  z.object({ field: z.literal("account_type"), value: customerCellPatchSchemas.account_type }),
+  z.object({ field: z.literal("tag"), value: customerCellPatchSchemas.tag }),
+  z.object({ field: z.literal("legacy_segment"), value: customerCellPatchSchemas.legacy_segment }),
+  z.object({ field: z.literal("notes"), value: customerCellPatchSchemas.notes }),
+  z.object({ field: z.literal("city"), value: customerCellPatchSchemas.city }),
+  z.object({ field: z.literal("district"), value: customerCellPatchSchemas.district }),
+  z.object({ field: z.literal("neighborhood"), value: customerCellPatchSchemas.neighborhood }),
+]);
+
+export type CustomerCellPatch = z.output<typeof customerCellPatchSchema>;
+
+/** Fields that contain PII — values are redacted from audit logs / logger
+ *  output, only the field name is kept so an admin can audit "phone was
+ *  changed at HH:MM:SS" without leaking the value into observability. */
+export const PII_CELL_FIELDS: ReadonlySet<CustomerCellField> = new Set([
+  "first_name",
+  "last_name",
+  "phone",
+  "email",
+  "city",
+  "district",
+  "neighborhood",
+]);
