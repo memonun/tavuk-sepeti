@@ -57,6 +57,7 @@ import { useClipboard } from "@/components/data-grid/hooks/use-clipboard";
 import { useColumnPrefs } from "@/components/data-grid/hooks/use-column-prefs";
 import { useOptimisticRows } from "@/components/data-grid/hooks/use-optimistic-rows";
 import { parseClipboardTable } from "@/components/data-grid/paste/parse-tsv";
+import { PasteInputDialog } from "@/components/data-grid/paste/paste-input-dialog";
 import {
   PastePreviewDialog,
   type PastePreviewRow,
@@ -143,6 +144,22 @@ export function DataGrid<TRow extends object, TPatch>({
     [prefs.pinning],
   );
 
+  // Normalize columns: when a column declares an editor but no custom
+  // `cell` renderer, fall back to editor.render(value). TanStack Table's
+  // own default cell is `({ getValue }) => getValue()` which would
+  // surface raw enum values ("active") instead of the editor's badge or
+  // formatted string.
+  const normalizedColumns = useMemo(() => {
+    return columns.map((col) => {
+      if (col.cell !== undefined || !col.editor) return col;
+      return {
+        ...col,
+        cell: ({ getValue }: { getValue: () => unknown }) =>
+          col.editor!.render(getValue() as never),
+      } as DataGridColumn<TRow>;
+    });
+  }, [columns]);
+
   // ---- Optimistic rows ---------------------------------------------------
 
   const noopMutate = useCallback(
@@ -161,7 +178,7 @@ export function DataGrid<TRow extends object, TPatch>({
 
   const table = useReactTable<TRow>({
     data: rows as TRow[],
-    columns: columns as DataGridColumn<TRow>[],
+    columns: normalizedColumns,
     state: {
       sorting,
       columnVisibility,
@@ -406,19 +423,7 @@ export function DataGrid<TRow extends object, TPatch>({
 
   const [bulkPaste, setBulkPaste] = useState<BulkPasteState<TRow> | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
-
-  const buildPreviewFromClipboard = useCallback((): BulkPasteState<TRow> | null => {
-    // Parse against the visible columns in their current order. The
-    // user is expected to copy a header row + data; if the first row
-    // doesn't match column labels we still treat it as data (Notion's
-    // default — never silently drop a row).
-    const tsv = parseClipboardTable("");
-    return tsv.rows.length > 0 ? null : null;
-  }, []);
-
-  // Suppress the unused-helper warning — buildPreviewFromClipboard is a
-  // placeholder for a future header-detection pass.
-  void buildPreviewFromClipboard;
+  const [bulkInputOpen, setBulkInputOpen] = useState(false);
 
   const openBulkPasteFromText = useCallback(
     (text: string) => {
@@ -487,30 +492,21 @@ export function DataGrid<TRow extends object, TPatch>({
     [columnLabels, getColDef, onCellError, visibleLeafColumns],
   );
 
-  const handleOpenBulkPaste = useCallback(async () => {
-    const result = await clipboard.readPaste();
-    if (!result) {
-      onCellError?.(
-        "Panoya erişilemedi. Tarayıcı izin vermedi ya da pano boş.",
-        new ValidationError({ message: "Pano okunamadı." }),
-      );
-      return;
-    }
-    if (result.rows.length === 0) {
-      onCellError?.(
-        "Pano boş.",
-        new ValidationError({ message: "Pano boş." }),
-      );
-      return;
-    }
-    // Reconstruct the raw TSV from the parsed payload so openBulkPasteFromText
-    // shares its validation logic with both the explicit-button and
-    // future direct-paste-into-empty-row entry points.
-    const reserialized = result.rows
-      .map((row) => row.join(result.delimiter))
-      .join("\n");
-    openBulkPasteFromText(reserialized);
-  }, [clipboard, onCellError, openBulkPasteFromText]);
+  const handleOpenBulkPaste = useCallback(() => {
+    // Always open the input dialog. Direct clipboard reads need a
+    // permission grant (and the page must be focused), which routinely
+    // fails in admin tabs that have lost focus while the user copies in
+    // Excel. The textarea + Cmd+V is the universally-working pattern.
+    setBulkInputOpen(true);
+  }, []);
+
+  const handleSubmitBulkInput = useCallback(
+    (text: string) => {
+      setBulkInputOpen(false);
+      openBulkPasteFromText(text);
+    },
+    [openBulkPasteFromText],
+  );
 
   const handleBulkConfirm = useCallback(async () => {
     if (!bulkPaste || !mutations?.onBulkCreate) return;
@@ -622,6 +618,13 @@ export function DataGrid<TRow extends object, TPatch>({
         </div>
       </div>
 
+      <PasteInputDialog
+        open={bulkInputOpen}
+        onOpenChange={setBulkInputOpen}
+        entityLabel={entityLabel}
+        onSubmit={handleSubmitBulkInput}
+      />
+
       {bulkPaste ? (
         <PastePreviewDialog
           open
@@ -711,13 +714,25 @@ export function DataGrid<TRow extends object, TPatch>({
                         key={cell.id}
                         ref={(node) => registerCell(k, node)}
                         tabIndex={isActive ? 0 : -1}
-                        style={getPinningStyles(cell.column)}
+                        style={{
+                          ...getPinningStyles(cell.column),
+                          // Notion-style active outline; inline so it isn't
+                          // killed by `outline-none` from earlier utilities
+                          // and isn't shadowed by the pinning box-shadow.
+                          ...(isActive
+                            ? {
+                                outline: "2px solid #2563eb",
+                                outlineOffset: "-2px",
+                              }
+                            : {}),
+                        }}
                         className={cn(
                           "h-9 border-b border-r border-border align-middle outline-none",
                           "group-hover:bg-muted/40",
-                          isSelected && "bg-primary/5",
+                          isSelected &&
+                            "bg-blue-50 dark:bg-blue-950/40",
                           isActive &&
-                            "ring-2 ring-primary ring-inset bg-primary/10 group-hover:bg-primary/10",
+                            "bg-blue-50 group-hover:bg-blue-50 dark:bg-blue-950/40 dark:group-hover:bg-blue-950/40",
                           colDef.editable && !isEditing && "cursor-cell",
                         )}
                         onMouseDown={(e) => {
