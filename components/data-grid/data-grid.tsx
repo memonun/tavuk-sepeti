@@ -33,7 +33,6 @@ import {
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronRight, ClipboardPaste, GripVertical, Plus, Trash2, X } from "lucide-react";
 import {
-  type CSSProperties,
   type ClipboardEvent,
   Fragment,
   type ReactNode,
