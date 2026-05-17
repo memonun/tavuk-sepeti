@@ -19,6 +19,7 @@ import { getSupabaseAdminClient } from "@/shared/supabase/admin";
 export type AuditAction =
   | "customer.created"
   | "customer.updated"
+  | "customer.deleted"
   | "order.created"
   | "order.transitioned";
 
@@ -35,26 +36,41 @@ export interface LogAuditInput {
 }
 
 export async function logAudit(input: LogAuditInput): Promise<void> {
+  await logBulkAudit([input]);
+}
+
+/**
+ * Batched variant — writes all rows in a single INSERT. Use when a
+ * single mutation affects many entities (bulk delete, paste-create);
+ * the per-row variant fans out into N round-trips which doesn't
+ * survive the §1 paranoyak ölçek bar.
+ */
+export async function logBulkAudit(
+  inputs: ReadonlyArray<LogAuditInput>,
+): Promise<void> {
+  if (inputs.length === 0) return;
   const supabase = getSupabaseAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from("audit_log").insert({
-    actor_id: input.actor_id,
-    action: input.action,
-    entity_type: input.entity_type,
-    entity_id: input.entity_id,
-    before: input.before ?? null,
-    after: input.after ?? null,
-    metadata: input.metadata ?? null,
-  });
+  const { error } = await (supabase as any).from("audit_log").insert(
+    inputs.map((input) => ({
+      actor_id: input.actor_id,
+      action: input.action,
+      entity_type: input.entity_type,
+      entity_id: input.entity_id,
+      before: input.before ?? null,
+      after: input.after ?? null,
+      metadata: input.metadata ?? null,
+    })),
+  );
   if (error) {
     // Swallow + log. The caller's mutation has already succeeded; failing
     // to write the audit row is a degraded telemetry path, not a user-
     // facing error.
     logger.warn(
       {
-        action: input.action,
-        entity_type: input.entity_type,
-        entity_id: input.entity_id,
+        count: inputs.length,
+        sampleAction: inputs[0]?.action,
+        sampleEntityId: inputs[0]?.entity_id,
         code: error.code,
         message: error.message,
       },

@@ -27,7 +27,11 @@ import type {
   CustomerStatus,
 } from "@/features/customers/domain/customer";
 import type { Coordinate } from "@/shared/geo/coordinate";
-import type { CustomerListQuery } from "@/features/customers/domain/customer.schema";
+import type {
+  BulkCreateCustomerRow,
+  CustomerCellField,
+  CustomerListQuery,
+} from "@/features/customers/domain/customer.schema";
 import type { Database } from "@/shared/supabase/types";
 
 type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"];
@@ -276,6 +280,325 @@ export async function listCustomers(
     page: query.page,
     pageSize: query.pageSize,
   });
+}
+
+// ---- bulk create (DataGrid paste-into-empty-rows) ------------------------
+
+/**
+ * Insert N customer rows + their placeholder primary-address rows in one
+ * go. Address fields default to "Bilinmiyor" with a (0,0) coordinate at
+ * accuracy=unknown — the row immediately surfaces in the "Konum belirsiz"
+ * filter so an admin knows it needs the detail page + geocoding pass to
+ * become routable.
+ *
+ * Rolls back the customer inserts if the address insert fails (best-
+ * effort cleanup matches createCustomer's existing pattern). Returns the
+ * inserted rows projected to list-item shape.
+ */
+export async function bulkCreateCustomers(
+  rows: ReadonlyArray<BulkCreateCustomerRow>,
+  createdBy: string,
+): Promise<Result<CustomerListItem[], ExternalApiError>> {
+  if (rows.length === 0) return ok([]);
+  const supabase = await createSupabaseServerClient();
+
+  // Generate UUIDs client-side so we can pair each customer row with
+  // its address payload by id (not by array position). PostgREST
+  // preserves insertion order in RETURNING for single inserts today,
+  // but that's a fragile invariant — any future refactor (upsert,
+  // chunking, BEFORE INSERT trigger) would silently misalign the
+  // address inserts with their owning customers.
+  const idForRow = rows.map(() => globalThis.crypto.randomUUID());
+
+  const customerPayload = rows.map((r, i) => ({
+    id: idForRow[i]!,
+    first_name: r.first_name,
+    last_name: r.last_name,
+    email: r.email,
+    phone: r.phone,
+    status: r.status,
+    account_type: r.account_type,
+    tag: r.tag,
+    legacy_segment: r.legacy_segment,
+    notes: null,
+    created_by: createdBy,
+  }));
+
+  const { error: insertError } = await supabase
+    .from("customers")
+    .insert(customerPayload);
+
+  if (insertError) {
+    logger.error(
+      { code: insertError.code, count: rows.length },
+      "bulk_create_customers_failed",
+    );
+    return err(
+      new ExternalApiError({
+        message: insertError.message,
+        cause: insertError,
+      }),
+    );
+  }
+
+  // Insert placeholder primary addresses keyed by the pre-generated
+  // customer id. No reliance on RETURNING order.
+  const addressPayload = rows.map((r, i) => {
+    const city = r.city ?? "Bilinmiyor";
+    return {
+      customer_id: idForRow[i]!,
+      raw_text: city,
+      description: null,
+      lat: 0,
+      lng: 0,
+      source: "admin_corrected" as const,
+      accuracy: "unknown" as const,
+      geocoded_at: null,
+      geocoder_response_hash: null,
+      city,
+      district: "Bilinmiyor",
+      neighborhood: "Bilinmiyor",
+      street: null,
+      building_no: null,
+      apartment_no: null,
+      postal_code: null,
+      is_primary: true,
+      address_source: "admin_input" as const,
+    };
+  });
+
+  const { error: addressError } = await supabase
+    .from("addresses")
+    .insert(addressPayload);
+
+  if (addressError) {
+    // Best-effort cleanup of the orphan customer rows.
+    logger.error(
+      { code: addressError.code, count: idForRow.length },
+      "bulk_create_address_failed_rolling_back_customers",
+    );
+    const { error: cleanupError } = await supabase
+      .from("customers")
+      .delete()
+      .in("id", idForRow);
+    if (cleanupError) {
+      logger.error(
+        { code: cleanupError.code, count: idForRow.length },
+        "bulk_create_cleanup_failed_orphans_left",
+      );
+    }
+    return err(
+      new ExternalApiError({
+        message: addressError.message,
+        cause: addressError,
+      }),
+    );
+  }
+
+  // Re-project to list-item shape. ORDER BY created_at is stable enough
+  // for the refetch — but we then re-order by the original idForRow
+  // sequence so callers can rely on parsed.data[idx] ↔ result.value[idx].
+  const { data: listItems, error: refetchError } = await supabase
+    .from("customers")
+    .select(
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+    )
+    .in("id", idForRow);
+
+  if (refetchError || !listItems) {
+    return err(
+      new ExternalApiError({
+        message: refetchError?.message ?? "Failed to refetch inserted rows.",
+        cause: refetchError,
+      }),
+    );
+  }
+
+  // Re-order to match the caller's input order so result[i] pairs with
+  // input[i]. listItems is the result of `.in(id, idForRow)` which has
+  // no guaranteed ordering.
+  const byId = new Map(listItems.map((row) => [row.id, row] as const));
+  return ok(
+    idForRow
+      .map((id) => byId.get(id))
+      .filter((row): row is NonNullable<typeof row> => row !== undefined)
+      .map((row) =>
+        rowToListItem({
+          ...row,
+          status: row.status as CustomerStatus,
+          addresses: row.addresses ?? [],
+        }),
+      ),
+  );
+}
+
+// ---- bulk read (audit snapshots) -----------------------------------------
+
+/**
+ * Fetch many customers in the list-item projection. Used by the
+ * bulk-delete Server Action to snapshot rows before they're removed so
+ * the audit trail can answer "what was actually deleted".
+ */
+export async function findListItemsByIds(
+  ids: ReadonlyArray<string>,
+): Promise<Result<CustomerListItem[], ExternalApiError>> {
+  if (ids.length === 0) return ok([]);
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .select(
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+    )
+    .in("id", [...ids]);
+  if (error || !data) {
+    logger.error(
+      { code: error?.code, count: ids.length },
+      "customer_list_items_lookup_failed",
+    );
+    return err(
+      new ExternalApiError({
+        message: error?.message ?? "Customer list items not found.",
+        cause: error,
+      }),
+    );
+  }
+  return ok(
+    data.map((row) =>
+      rowToListItem({
+        ...row,
+        status: row.status as CustomerStatus,
+        addresses: row.addresses ?? [],
+      }),
+    ),
+  );
+}
+
+// ---- bulk delete ----------------------------------------------------------
+
+/**
+ * Hard-delete N customers by id. Addresses cascade via FK on delete cascade
+ * (set up in the schema migration). RLS still applies — only admins can
+ * see and therefore delete.
+ *
+ * Returns the number actually removed so the caller can surface a
+ * "5 müşteri silindi" toast even if some ids referenced rows that had
+ * already been removed in another tab.
+ */
+export async function bulkDeleteCustomers(
+  ids: ReadonlyArray<string>,
+): Promise<Result<{ deleted: number }, ExternalApiError>> {
+  if (ids.length === 0) return ok({ deleted: 0 });
+  const supabase = await createSupabaseServerClient();
+  const { error, count } = await supabase
+    .from("customers")
+    .delete({ count: "exact" })
+    .in("id", [...ids]);
+  if (error) {
+    logger.error(
+      { code: error.code, attempted: ids.length },
+      "bulk_delete_customers_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok({ deleted: count ?? 0 });
+}
+
+// ---- cell patch (DataGrid inline edit) -----------------------------------
+
+/**
+ * Lightweight single-field patcher for the inline-edit grid. Routes scalar
+ * customer fields to `customers`, address fields to `addresses`. Returns
+ * the freshly-projected list-item shape so the grid can replace its
+ * optimistic patch without paying for a full Customer aggregate fetch.
+ *
+ * Address writes target the row with is_primary=true. The grid never edits
+ * lat/lng — those still go through the geocoding pipeline + the form.
+ */
+const ADDRESS_CELL_FIELDS: ReadonlySet<CustomerCellField> = new Set([
+  "city",
+  "district",
+  "neighborhood",
+]);
+
+export async function patchCustomerCell(
+  id: string,
+  field: CustomerCellField,
+  value: unknown,
+): Promise<Result<CustomerListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+
+  if (ADDRESS_CELL_FIELDS.has(field)) {
+    // `.update()` returns silently with count=0 when no primary address
+    // row exists (legacy CSV-imported customers, or rows where the
+    // address insert failed at create time). Without the count check
+    // the optimistic UI would roll back without any user-visible
+    // signal. Use { count: "exact" } so we can verify the write
+    // actually landed.
+    const patch: AddressUpdate = { [field]: value as string | null };
+    const { error, count } = await supabase
+      .from("addresses")
+      .update(patch, { count: "exact" })
+      .eq("customer_id", id)
+      .eq("is_primary", true);
+    if (error) {
+      logger.error({ id, field, code: error.code }, "customer_cell_address_patch_failed");
+      return err(new ExternalApiError({ message: error.message, cause: error }));
+    }
+    if (count === 0) {
+      logger.warn(
+        { id, field },
+        "customer_cell_address_patch_no_primary_row",
+      );
+      return err(
+        new ExternalApiError({
+          message:
+            "Bu müşterinin birincil adresi yok. Önce müşteri detayından adres ekleyin.",
+        }),
+      );
+    }
+  } else {
+    // Scalar customer fields. The schema upstream has already coerced
+    // empty strings to null for nullable text fields and validated the
+    // enum / phone shapes — we just hand the typed value to PostgREST.
+    const patch: CustomerUpdate = { [field]: value as never };
+    const { error } = await supabase.from("customers").update(patch).eq("id", id);
+    if (error) {
+      logger.error({ id, field, code: error.code }, "customer_cell_patch_failed");
+      return err(new ExternalApiError({ message: error.message, cause: error }));
+    }
+  }
+
+  return findListItemById(id);
+}
+
+/** Fetch a single customer in the same projection as the list query. */
+export async function findListItemById(
+  id: string,
+): Promise<Result<CustomerListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .select(
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+    )
+    .eq("id", id)
+    .single();
+  if (error || !data) {
+    logger.error({ id, code: error?.code }, "customer_list_item_lookup_failed");
+    return err(
+      new ExternalApiError({
+        message: error?.message ?? "Customer not found.",
+        cause: error,
+      }),
+    );
+  }
+  return ok(
+    rowToListItem({
+      ...data,
+      status: data.status as CustomerStatus,
+      addresses: data.addresses ?? [],
+    }),
+  );
 }
 
 // ---- update --------------------------------------------------------------

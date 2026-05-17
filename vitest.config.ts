@@ -14,7 +14,12 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./tests/setup-env.ts"],
-    include: ["tests/**/*.test.ts", "features/**/*.test.ts", "shared/**/*.test.ts"],
+    include: [
+      "tests/**/*.test.ts",
+      "features/**/*.test.ts",
+      "shared/**/*.test.ts",
+      "components/**/*.test.ts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
