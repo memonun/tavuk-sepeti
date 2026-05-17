@@ -26,11 +26,10 @@ import {
 import {
   patchCustomerCell as repoPatchCell,
 } from "@/features/customers/infrastructure/customer.repository";
-import { getCurrentUser } from "@/features/auth/application/get-session";
+import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { logAudit } from "@/shared/audit/log-audit";
 import {
   AppError,
-  UnauthorizedError,
   ValidationError,
 } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
@@ -44,10 +43,9 @@ export async function patchCustomerCellAction(
   customerId: string,
   patch: CustomerCellPatch,
 ): Promise<Result<CustomerListItem, AppError>> {
-  const user = await getCurrentUser();
-  if (!user) {
-    return err(new UnauthorizedError({ message: "Oturum bulunamadı." }));
-  }
+  const auth = await assertAdmin();
+  if (!auth.ok) return err(auth.error);
+  const user = auth.value;
 
   // Re-parse on the server boundary even though the UI already validated:
   // the grid posts via Server Action so the wire is trusted, but

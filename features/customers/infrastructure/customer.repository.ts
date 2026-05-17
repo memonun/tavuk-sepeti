@@ -302,7 +302,16 @@ export async function bulkCreateCustomers(
   if (rows.length === 0) return ok([]);
   const supabase = await createSupabaseServerClient();
 
-  const customerPayload = rows.map((r) => ({
+  // Generate UUIDs client-side so we can pair each customer row with
+  // its address payload by id (not by array position). PostgREST
+  // preserves insertion order in RETURNING for single inserts today,
+  // but that's a fragile invariant — any future refactor (upsert,
+  // chunking, BEFORE INSERT trigger) would silently misalign the
+  // address inserts with their owning customers.
+  const idForRow = rows.map(() => globalThis.crypto.randomUUID());
+
+  const customerPayload = rows.map((r, i) => ({
+    id: idForRow[i]!,
     first_name: r.first_name,
     last_name: r.last_name,
     email: r.email,
@@ -315,30 +324,29 @@ export async function bulkCreateCustomers(
     created_by: createdBy,
   }));
 
-  const { data: inserted, error: insertError } = await supabase
+  const { error: insertError } = await supabase
     .from("customers")
-    .insert(customerPayload)
-    .select("id");
+    .insert(customerPayload);
 
-  if (insertError || !inserted) {
+  if (insertError) {
     logger.error(
-      { code: insertError?.code, count: rows.length },
+      { code: insertError.code, count: rows.length },
       "bulk_create_customers_failed",
     );
     return err(
       new ExternalApiError({
-        message: insertError?.message ?? "Bulk customer insert failed.",
+        message: insertError.message,
         cause: insertError,
       }),
     );
   }
 
-  // Insert placeholder primary addresses for every new row.
-  const addressPayload = inserted.map((c, i) => {
-    const r = rows[i];
-    const city = r?.city ?? "Bilinmiyor";
+  // Insert placeholder primary addresses keyed by the pre-generated
+  // customer id. No reliance on RETURNING order.
+  const addressPayload = rows.map((r, i) => {
+    const city = r.city ?? "Bilinmiyor";
     return {
-      customer_id: c.id,
+      customer_id: idForRow[i]!,
       raw_text: city,
       description: null,
       lat: 0,
@@ -365,18 +373,17 @@ export async function bulkCreateCustomers(
 
   if (addressError) {
     // Best-effort cleanup of the orphan customer rows.
-    const ids = inserted.map((c) => c.id);
     logger.error(
-      { code: addressError.code, count: ids.length },
+      { code: addressError.code, count: idForRow.length },
       "bulk_create_address_failed_rolling_back_customers",
     );
     const { error: cleanupError } = await supabase
       .from("customers")
       .delete()
-      .in("id", ids);
+      .in("id", idForRow);
     if (cleanupError) {
       logger.error(
-        { code: cleanupError.code, count: ids.length },
+        { code: cleanupError.code, count: idForRow.length },
         "bulk_create_cleanup_failed_orphans_left",
       );
     }
@@ -388,15 +395,15 @@ export async function bulkCreateCustomers(
     );
   }
 
-  // Re-project to list-item shape so the grid can swap the optimistic
-  // sentinel rows for canonical ones.
-  const ids = inserted.map((c) => c.id);
+  // Re-project to list-item shape. ORDER BY created_at is stable enough
+  // for the refetch — but we then re-order by the original idForRow
+  // sequence so callers can rely on parsed.data[idx] ↔ result.value[idx].
   const { data: listItems, error: refetchError } = await supabase
     .from("customers")
     .select(
       "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
     )
-    .in("id", ids);
+    .in("id", idForRow);
 
   if (refetchError || !listItems) {
     return err(
@@ -407,8 +414,56 @@ export async function bulkCreateCustomers(
     );
   }
 
+  // Re-order to match the caller's input order so result[i] pairs with
+  // input[i]. listItems is the result of `.in(id, idForRow)` which has
+  // no guaranteed ordering.
+  const byId = new Map(listItems.map((row) => [row.id, row] as const));
   return ok(
-    listItems.map((row) =>
+    idForRow
+      .map((id) => byId.get(id))
+      .filter((row): row is NonNullable<typeof row> => row !== undefined)
+      .map((row) =>
+        rowToListItem({
+          ...row,
+          status: row.status as CustomerStatus,
+          addresses: row.addresses ?? [],
+        }),
+      ),
+  );
+}
+
+// ---- bulk read (audit snapshots) -----------------------------------------
+
+/**
+ * Fetch many customers in the list-item projection. Used by the
+ * bulk-delete Server Action to snapshot rows before they're removed so
+ * the audit trail can answer "what was actually deleted".
+ */
+export async function findListItemsByIds(
+  ids: ReadonlyArray<string>,
+): Promise<Result<CustomerListItem[], ExternalApiError>> {
+  if (ids.length === 0) return ok([]);
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .select(
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+    )
+    .in("id", [...ids]);
+  if (error || !data) {
+    logger.error(
+      { code: error?.code, count: ids.length },
+      "customer_list_items_lookup_failed",
+    );
+    return err(
+      new ExternalApiError({
+        message: error?.message ?? "Customer list items not found.",
+        cause: error,
+      }),
+    );
+  }
+  return ok(
+    data.map((row) =>
       rowToListItem({
         ...row,
         status: row.status as CustomerStatus,
@@ -473,15 +528,33 @@ export async function patchCustomerCell(
   const supabase = await createSupabaseServerClient();
 
   if (ADDRESS_CELL_FIELDS.has(field)) {
+    // `.update()` returns silently with count=0 when no primary address
+    // row exists (legacy CSV-imported customers, or rows where the
+    // address insert failed at create time). Without the count check
+    // the optimistic UI would roll back without any user-visible
+    // signal. Use { count: "exact" } so we can verify the write
+    // actually landed.
     const patch: AddressUpdate = { [field]: value as string | null };
-    const { error } = await supabase
+    const { error, count } = await supabase
       .from("addresses")
-      .update(patch)
+      .update(patch, { count: "exact" })
       .eq("customer_id", id)
       .eq("is_primary", true);
     if (error) {
       logger.error({ id, field, code: error.code }, "customer_cell_address_patch_failed");
       return err(new ExternalApiError({ message: error.message, cause: error }));
+    }
+    if (count === 0) {
+      logger.warn(
+        { id, field },
+        "customer_cell_address_patch_no_primary_row",
+      );
+      return err(
+        new ExternalApiError({
+          message:
+            "Bu müşterinin birincil adresi yok. Önce müşteri detayından adres ekleyin.",
+        }),
+      );
     }
   } else {
     // Scalar customer fields. The schema upstream has already coerced

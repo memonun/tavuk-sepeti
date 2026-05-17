@@ -22,13 +22,9 @@ import {
   type BulkCreateCustomerRow,
 } from "@/features/customers/domain/customer.schema";
 import { bulkCreateCustomers as repoBulkCreate } from "@/features/customers/infrastructure/customer.repository";
-import { getCurrentUser } from "@/features/auth/application/get-session";
-import { logAudit } from "@/shared/audit/log-audit";
-import {
-  AppError,
-  UnauthorizedError,
-  ValidationError,
-} from "@/shared/errors/app-error";
+import { assertAdmin } from "@/features/auth/application/assert-admin";
+import { logBulkAudit } from "@/shared/audit/log-audit";
+import { AppError, ValidationError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 
@@ -37,10 +33,9 @@ import type { CustomerListItem } from "@/features/customers/domain/customer";
 export async function bulkCreateCustomersAction(
   rawRows: ReadonlyArray<unknown>,
 ): Promise<Result<CustomerListItem[], AppError>> {
-  const user = await getCurrentUser();
-  if (!user) {
-    return err(new UnauthorizedError({ message: "Oturum bulunamadı." }));
-  }
+  const auth = await assertAdmin();
+  if (!auth.ok) return err(auth.error);
+  const user = auth.value;
 
   const parsed = bulkCreateCustomersSchema.safeParse(rawRows);
   if (!parsed.success) {
@@ -67,16 +62,21 @@ export async function bulkCreateCustomersAction(
     return err(result.error);
   }
 
-  // One audit row per inserted customer. PII redaction matches
-  // patch-customer-cell — the value is held by the row itself, the audit
-  // record only proves an admin caused it to exist.
-  await Promise.all(
+  // One audit row per inserted customer, written in a single INSERT
+  // to avoid N round-trips (CLAUDE.md §1, §9). PII values redacted —
+  // the row itself holds the data; the audit only proves an admin
+  // caused it to exist.
+  //
+  // bulkCreateCustomers preserves payload order (it generates client-
+  // side UUIDs and refetches by id list), so result.value[idx] pairs
+  // with parsed.data[idx] without relying on PostgREST ordering.
+  await logBulkAudit(
     result.value.map((customer, idx) => {
       const sourceRow = parsed.data[idx] as BulkCreateCustomerRow | undefined;
-      return logAudit({
+      return {
         actor_id: user.id,
-        action: "customer.created",
-        entity_type: "customer",
+        action: "customer.created" as const,
+        entity_type: "customer" as const,
         entity_id: customer.id,
         before: null,
         after: {
@@ -89,7 +89,7 @@ export async function bulkCreateCustomersAction(
           legacy_segment: sourceRow?.legacy_segment ?? null,
         },
         metadata: { source: "data_grid_paste_create", batch_size: result.value.length },
-      });
+      };
     }),
   );
 
