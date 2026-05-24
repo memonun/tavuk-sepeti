@@ -16,8 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
-    "db:types": "supabase gen types typescript --db-url \"$SUPABASE_DIRECT_URL\" --schema public > shared/supabase/types.ts.tmp && mv shared/supabase/types.ts.tmp shared/supabase/types.ts || (rm -f shared/supabase/types.ts.tmp; echo 'db:types failed — types.ts left unchanged. Is Docker running?'; exit 1)",
-    "db:push": "supabase db push --db-url \"$SUPABASE_DIRECT_URL\""
+    "db:types": "dotenv -e .env -e .env.vercel-paste -- sh -c 'supabase gen types typescript --db-url \"$SUPABASE_DIRECT_URL\" --schema public > shared/supabase/types.ts.tmp && mv shared/supabase/types.ts.tmp shared/supabase/types.ts || (rm -f shared/supabase/types.ts.tmp; echo \"db:types failed — types.ts left unchanged. Is the URL reachable?\"; exit 1)'",
+    "db:push": "dotenv -e .env -e .env.vercel-paste -- sh -c 'supabase db push --db-url \"$SUPABASE_DIRECT_URL\"'"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -60,6 +60,7 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^2.1.8",
     "dotenv": "^17.4.2",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "eslint-plugin-boundaries": "^5.0.1",
