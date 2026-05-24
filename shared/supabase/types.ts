@@ -119,6 +119,75 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after: Json | null
+          before: Json | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      customer_views: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          owner_id: string
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          owner_id: string
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          owner_id?: string
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           account_type: string | null
@@ -686,6 +755,27 @@ export type Database = {
             }
             Returns: string
           }
+      create_order_with_items: {
+        Args: {
+          p_created_by: string
+          p_customer_id: string
+          p_delivery_fee_minor: number
+          p_delivery_notes: string
+          p_items: Json
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+          p_scheduled_for: string
+          p_time_slot: Database["public"]["Enums"]["time_slot"]
+        }
+        Returns: string
+      }
+      customer_filter_options: {
+        Args: never
+        Returns: {
+          cities: string[]
+          legacy_segments: string[]
+          tags: string[]
+        }[]
+      }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -719,14 +809,6 @@ export type Database = {
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
-      customer_filter_options: {
-        Args: never
-        Returns: {
-          cities: string[]
-          tags: string[]
-          legacy_segments: string[]
-        }[]
-      }
       find_customers_within_radius: {
         Args: { center_lat: number; center_lng: number; radius_meters: number }
         Returns: {
@@ -747,7 +829,7 @@ export type Database = {
           customer_first_name: string
           customer_id: string
           customer_last_name: string
-          customer_phone: string | null
+          customer_phone: string
           delivery_notes: string
           order_id: string
           order_number: string
@@ -855,6 +937,19 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_customer_pins: {
+        Args: { filter_recent_orders?: boolean }
+        Returns: {
+          customer_id: string
+          first_name: string
+          has_recent_order: boolean
+          last_name: string
+          lat: number
+          lng: number
+          phone: string
+          status: Database["public"]["Enums"]["customer_status"]
+        }[]
+      }
       gettransactionid: { Args: never; Returns: unknown }
       is_admin: { Args: never; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
@@ -1481,6 +1576,15 @@ export type Database = {
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
+      }
+      transition_order_status: {
+        Args: {
+          p_actor_id: string
+          p_order_id: string
+          p_reason: string
+          p_to_status: Database["public"]["Enums"]["order_status"]
+        }
+        Returns: undefined
       }
       unlockrows: { Args: { "": string }; Returns: number }
       updategeometrysrid: {

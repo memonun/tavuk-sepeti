@@ -1,24 +1,14 @@
 /**
- * DB row ↔ View domain entity mapping. The `customer_views` table isn't
- * yet in the generated Database type (the migration is fresh; run
- * `pnpm db:types` to regenerate). Until then we narrow at this single
- * boundary with a typed row shape and keep the rest of the codebase
- * Postgres-free.
+ * DB row ↔ View domain entity mapping. The only place in the codebase
+ * that knows about the supabase-js Row shape for customer_views.
  */
 import { EMPTY_VIEW_CONFIG, type View } from "@/features/views/domain/view";
 import { viewConfigSchema } from "@/features/views/domain/view.schema";
 import { logger } from "@/shared/logger";
 
-export interface ViewRow {
-  id: string;
-  table_id: string;
-  owner_id: string;
-  name: string;
-  config: unknown;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import type { Database } from "@/shared/supabase/types";
+
+export type ViewRow = Database["public"]["Tables"]["customer_views"]["Row"];
 
 export function rowToView(row: ViewRow): View {
   // Defensive parse — a manually-tampered config jsonb or a stale

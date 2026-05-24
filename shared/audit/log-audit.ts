@@ -16,6 +16,8 @@ import "server-only";
 import { logger } from "@/shared/logger";
 import { getSupabaseAdminClient } from "@/shared/supabase/admin";
 
+import type { Json } from "@/shared/supabase/types";
+
 export type AuditAction =
   | "customer.created"
   | "customer.updated"
@@ -50,16 +52,20 @@ export async function logBulkAudit(
 ): Promise<void> {
   if (inputs.length === 0) return;
   const supabase = getSupabaseAdminClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from("audit_log").insert(
+  const { error } = await supabase.from("audit_log").insert(
     inputs.map((input) => ({
       actor_id: input.actor_id,
       action: input.action,
       entity_type: input.entity_type,
       entity_id: input.entity_id,
-      before: input.before ?? null,
-      after: input.after ?? null,
-      metadata: input.metadata ?? null,
+      // The Json type from supabase types is strictly recursive
+      // (string | number | boolean | null | { [k]: Json } | Json[]).
+      // Callers pass in Record<string, unknown> for ergonomic reasons
+      // — runtime values are always Json-safe (no functions, no
+      // Symbols, etc.) so the cast at the boundary is sound.
+      before: (input.before ?? null) as Json,
+      after: (input.after ?? null) as Json,
+      metadata: (input.metadata ?? null) as Json,
     })),
   );
   if (error) {
