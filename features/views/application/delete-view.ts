@@ -4,13 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { assertAdmin } from "@/features/auth/application/assert-admin";
-import {
-  deleteView as repoDelete,
-  findViewById,
-} from "@/features/views/infrastructure/view.repository";
+import { deleteView as repoDelete } from "@/features/views/infrastructure/view.repository";
 import { logger } from "@/shared/logger";
 import {
   type AppError,
+  NotFoundError,
   ValidationError,
 } from "@/shared/errors/app-error";
 import { err, ok, type Result } from "@/shared/result";
@@ -33,18 +31,21 @@ export async function deleteViewAction(
     );
   }
 
-  // Look up the tableId before we delete so we can targeted-bust the
-  // right grid page's cache. RLS will reject the lookup if the caller
-  // doesn't own the row (same surface error the delete would emit).
-  const lookup = await findViewById(parsed.data);
-  if (!lookup.ok) {
-    logger.warn({ id: parsed.data }, "delete_view_lookup_failed");
-    return ok({ deleted: 0 });
+  // Atomic delete that returns the deleted row's table_id — single
+  // round-trip, no separate lookup. RLS gates the delete, so probing
+  // someone else's view ID returns NotFoundError instead of a silent
+  // success (which would have leaked existence info AND lied to the
+  // user about whether the delete happened).
+  const result = await repoDelete(parsed.data);
+  if (!result.ok) return err(result.error);
+
+  if (result.value.deletedTableId === null) {
+    logger.warn({ id: parsed.data }, "delete_view_not_found_or_denied");
+    return err(
+      new NotFoundError({ message: "Görünüm bulunamadı veya silme yetkisi yok." }),
+    );
   }
 
-  const result = await repoDelete(parsed.data);
-  if (result.ok) {
-    revalidatePath(`/${lookup.value.tableId}`);
-  }
-  return result;
+  revalidatePath(`/${result.value.deletedTableId}`);
+  return ok({ deleted: 1 });
 }

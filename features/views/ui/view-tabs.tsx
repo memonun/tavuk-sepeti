@@ -106,6 +106,11 @@ export function ViewTabs({
     };
   };
 
+  // revalidatePath on the server only invalidates the cache; the
+  // client still has the stale view list in memory. router.refresh()
+  // re-renders the Server Component tree with the new data.
+  const refreshTabs = () => router.refresh();
+
   const submitNewView = async () => {
     const name = draftName.trim();
     if (name.length === 0) return;
@@ -122,15 +127,22 @@ export function ViewTabs({
     toast.success("Görünüm eklendi.");
     setCreating(false);
     setDraftName("");
+    refreshTabs();
     goToView(result.value);
   };
 
   const renameView = async (view: View, name: string) => {
     const trimmed = name.trim();
+    // Skip the round-trip when the value is empty or unchanged. onBlur
+    // fires on every focus loss (including clicking the menu trigger)
+    // so without this guard we'd send a write on every blur.
     if (trimmed.length === 0 || trimmed === view.name) return;
     const result = await updateViewAction({ id: view.id, name: trimmed });
     if (!result.ok) toast.error(result.error.message);
-    else toast.success("Görünüm yeniden adlandırıldı.");
+    else {
+      toast.success("Görünüm yeniden adlandırıldı.");
+      refreshTabs();
+    }
   };
 
   const duplicateView = async (view: View) => {
@@ -143,17 +155,20 @@ export function ViewTabs({
     if (!result.ok) toast.error(result.error.message);
     else {
       toast.success("Görünüm kopyalandı.");
+      refreshTabs();
       goToView(result.value);
     }
   };
 
   const removeView = async (view: View) => {
     const result = await deleteViewAction(view.id);
-    if (!result.ok) toast.error(result.error.message);
-    else {
-      toast.success("Görünüm silindi.");
-      if (currentViewId === view.id) goToView(null);
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return;
     }
+    toast.success("Görünüm silindi.");
+    refreshTabs();
+    if (currentViewId === view.id) goToView(null);
   };
 
   const setDefault = async (view: View) => {
@@ -162,10 +177,12 @@ export function ViewTabs({
       is_default: !view.isDefault,
     });
     if (!result.ok) toast.error(result.error.message);
-    else
+    else {
       toast.success(
         view.isDefault ? "Varsayılan kaldırıldı." : "Varsayılan ayarlandı.",
       );
+      refreshTabs();
+    }
   };
 
   return (
