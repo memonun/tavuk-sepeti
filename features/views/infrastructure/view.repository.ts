@@ -4,12 +4,6 @@
  * RLS owner-scoped — every read/write runs as the logged-in admin via
  * the SSR client. The Server Action layer is still responsible for
  * assertAdmin() before the call lands here.
- *
- * `customer_views` is fresh in the migration set; the supabase-js
- * Database type doesn't know about it yet. We localize the `any` cast
- * to this file (matches the existing audit_log pattern in
- * shared/audit/log-audit.ts). Run `pnpm db:types` after the migration
- * lands to make this clean.
  */
 import "server-only";
 
@@ -22,12 +16,12 @@ import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
-import { rowToView, type ViewRow } from "@/features/views/infrastructure/view.mapper";
+import { rowToView } from "@/features/views/infrastructure/view.mapper";
 
 import type { View, ViewConfig } from "@/features/views/domain/view";
+import type { Database, Json } from "@/shared/supabase/types";
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- localized cast
- * for the not-yet-generated customer_views table type. */
+type ViewUpdate = Database["public"]["Tables"]["customer_views"]["Update"];
 
 // Postgres unique_violation SQLSTATE. Surfaces when two racing
 // setDefault calls both pass the clearDefaultFor pre-check and try
@@ -38,7 +32,7 @@ export async function listViewsForTable(
   tableId: string,
 ): Promise<Result<View[], ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("customer_views")
     .select("*")
     .eq("table_id", tableId)
@@ -47,14 +41,14 @@ export async function listViewsForTable(
     logger.error({ tableId, code: error.code }, "list_views_failed");
     return err(new ExternalApiError({ message: error.message, cause: error }));
   }
-  return ok((data as ViewRow[]).map(rowToView));
+  return ok((data ?? []).map(rowToView));
 }
 
 export async function findViewById(
   id: string,
 ): Promise<Result<View, NotFoundError | ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("customer_views")
     .select("*")
     .eq("id", id)
@@ -69,7 +63,7 @@ export async function findViewById(
     logger.warn({ id }, "find_view_not_found");
     return err(new NotFoundError({ message: "Görünüm bulunamadı." }));
   }
-  return ok(rowToView(data as ViewRow));
+  return ok(rowToView(data));
 }
 
 export interface CreateViewParams {
@@ -91,13 +85,16 @@ export async function createView(
       if (!cleared.ok) return err(cleared.error);
     }
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("customer_views")
       .insert({
         table_id: params.tableId,
         owner_id: params.ownerId,
         name: params.name,
-        config: params.config,
+        // ViewConfig's readonly nested shape isn't structurally the same as
+        // the generated Json type (which uses an index signature). Runtime
+        // shape is JSON-serializable so the cast at the boundary is sound.
+        config: params.config as unknown as Json,
         is_default: params.isDefault,
       })
       .select("*")
@@ -114,7 +111,7 @@ export async function createView(
         }),
       );
     }
-    return ok(rowToView(data as ViewRow));
+    return ok(rowToView(data));
   });
 }
 
@@ -147,12 +144,14 @@ export async function updateView(
       }
     }
 
-    const patch: Record<string, unknown> = {};
+    const patch: ViewUpdate = {};
     if (params.name !== undefined) patch.name = params.name;
-    if (params.config !== undefined) patch.config = params.config;
+    if (params.config !== undefined) {
+      patch.config = params.config as unknown as Json;
+    }
     if (params.isDefault !== undefined) patch.is_default = params.isDefault;
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("customer_views")
       .update(patch)
       .eq("id", params.id)
@@ -167,7 +166,7 @@ export async function updateView(
         }),
       );
     }
-    return ok(rowToView(data as ViewRow));
+    return ok(rowToView(data));
   });
 }
 
@@ -211,7 +210,7 @@ export async function deleteView(
   id: string,
 ): Promise<Result<{ deletedTableId: string | null }, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("customer_views")
     .delete()
     .eq("id", id)
@@ -221,9 +220,7 @@ export async function deleteView(
     logger.error({ id, code: error.code }, "delete_view_failed");
     return err(new ExternalApiError({ message: error.message, cause: error }));
   }
-  return ok({
-    deletedTableId: data ? (data as { table_id: string }).table_id : null,
-  });
+  return ok({ deletedTableId: data?.table_id ?? null });
 }
 
 /**
@@ -240,7 +237,7 @@ async function clearDefaultFor(
   tableId: string,
   ownerId: string,
 ): Promise<Result<void, ExternalApiError>> {
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("customer_views")
     .update({ is_default: false })
     .eq("table_id", tableId)
@@ -255,5 +252,3 @@ async function clearDefaultFor(
   }
   return ok(undefined);
 }
-
-/* eslint-enable @typescript-eslint/no-explicit-any */
