@@ -11,6 +11,8 @@ import { getCustomerFilterOptions } from "@/features/customers/application/get-f
 import { listCustomers } from "@/features/customers/application/list-customers";
 import { CustomerGrid } from "@/features/customers/ui/customer-grid";
 import { CustomerPagination } from "@/features/customers/ui/customer-pagination";
+import { listViewsAction } from "@/features/views/application/list-views";
+import { ViewTabs } from "@/features/views/ui/view-tabs";
 
 interface CustomersPageProps {
   searchParams: Promise<{
@@ -25,6 +27,7 @@ interface CustomersPageProps {
     order?: string;
     page?: string;
     pageSize?: string;
+    view?: string;
   }>;
 }
 
@@ -39,12 +42,25 @@ const PRESERVE_KEYS: (keyof Awaited<CustomersPageProps["searchParams"]>)[] = [
   "sort",
   "order",
   "pageSize",
+  "view",
 ];
+
+const VIEW_FILTER_KEYS = [
+  "q",
+  "status",
+  "city",
+  "tag",
+  "account_type",
+  "legacy_segment",
+  "location",
+] as const;
+
+const CUSTOMERS_TABLE_ID = "customers";
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   const params = await searchParams;
 
-  const [listResult, filterOptions] = await Promise.all([
+  const [listResult, filterOptions, viewsResult] = await Promise.all([
     listCustomers({
       q: params.q,
       status: params.status,
@@ -59,7 +75,12 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       pageSize: params.pageSize,
     }),
     getCustomerFilterOptions(),
+    listViewsAction(CUSTOMERS_TABLE_ID),
   ]);
+
+  // Views loading failure isn't fatal — render with an empty tab list.
+  const views = viewsResult.ok ? viewsResult.value : [];
+  const currentViewId = params.view ?? null;
 
   if (!listResult.ok) {
     return (
@@ -84,6 +105,13 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
           {listResult.value.total} kayıt
         </p>
       </div>
+
+      <ViewTabs
+        views={views}
+        tableId={CUSTOMERS_TABLE_ID}
+        currentViewId={currentViewId}
+        filterKeys={VIEW_FILTER_KEYS}
+      />
 
       <CustomerGrid
         items={listResult.value.items}
