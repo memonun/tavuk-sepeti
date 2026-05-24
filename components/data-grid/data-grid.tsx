@@ -39,7 +39,6 @@ import {
   ChevronRight,
   ClipboardPaste,
   GripVertical,
-  Layers,
   Plus,
   Trash2,
   X,
