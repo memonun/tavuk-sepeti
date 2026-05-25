@@ -9,6 +9,7 @@
  */
 import { redirect } from "next/navigation";
 
+import { parseFiltersFromQueryParam } from "@/components/data-grid/filters/filter-types";
 import { getCustomerFilterOptions } from "@/features/customers/application/get-filter-options";
 import { listCustomers } from "@/features/customers/application/list-customers";
 import { CustomerGrid } from "@/features/customers/ui/customer-grid";
@@ -31,6 +32,7 @@ interface CustomersPageProps {
     page?: string;
     pageSize?: string;
     view?: string;
+    filter?: string;
   }>;
 }
 
@@ -46,6 +48,7 @@ const PRESERVE_KEYS: (keyof Awaited<CustomersPageProps["searchParams"]>)[] = [
   "order",
   "pageSize",
   "view",
+  "filter",
 ];
 
 const VIEW_FILTER_KEYS = [
@@ -63,6 +66,8 @@ const CUSTOMERS_TABLE_ID = "customers";
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   const params = await searchParams;
 
+  const currentFilters = parseFiltersFromQueryParam(params.filter);
+
   const [listResult, filterOptions, viewsResult] = await Promise.all([
     listCustomers({
       q: params.q,
@@ -76,6 +81,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       order: params.order,
       page: params.page,
       pageSize: params.pageSize,
+      filters: currentFilters,
     }),
     getCustomerFilterOptions(),
     listViewsAction(CUSTOMERS_TABLE_ID),
@@ -138,6 +144,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         cities={filterOptions.cities}
         tags={filterOptions.tags}
         legacySegments={filterOptions.legacySegments}
+        currentFilters={currentFilters}
       />
 
       <CustomerPagination

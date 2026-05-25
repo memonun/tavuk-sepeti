@@ -37,6 +37,22 @@ import type { Database } from "@/shared/supabase/types";
 type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"];
 type AddressUpdate = Database["public"]["Tables"]["addresses"]["Update"];
 
+/**
+ * Whitelist of column ids the filter builder may target. Acts as a
+ * second wall behind the Zod parse — even if a tampered URL slipped
+ * through with `column: "id; drop table"`, the lookup here drops it
+ * before it reaches the query builder. Keep in sync with
+ * FILTERABLE_COLUMNS in customer-grid.tsx.
+ */
+const FILTERABLE_COLUMNS: ReadonlySet<string> = new Set([
+  "first_name",
+  "last_name",
+  "phone",
+  "email",
+  "tag",
+  "legacy_segment",
+]);
+
 export interface CreateCustomerInput {
   first_name: string;
   last_name: string;
@@ -252,13 +268,56 @@ export async function listCustomers(
   }
 
   if (query.q) {
-    const escaped = query.q.replace(/[%_]/g, (m) => `\\${m}`);
+    const escaped = query.q.replace(/[\\%_]/g, (m) => `\\${m}`);
     const pattern = `%${escaped}%`;
     // Match across name + phone. PostgREST `or` filter uses comma between
     // alternatives.
     builder = builder.or(
       `first_name.ilike.${pattern},last_name.ilike.${pattern},phone.ilike.${pattern}`,
     );
+  }
+
+  // Advanced filter builder (multi-condition AND). The query schema
+  // caps the array at 20 rules and the column whitelist below caps
+  // what the SQL can touch — so a tampered URL can't escape the
+  // intended attack surface even if it slips past Zod.
+  for (const rule of query.filters) {
+    if (!FILTERABLE_COLUMNS.has(rule.column)) continue;
+    const colExpr = rule.column;
+    switch (rule.operator) {
+      case "contains": {
+        if (rule.value === "") break;
+        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+        builder = builder.ilike(colExpr, pat);
+        break;
+      }
+      case "equals": {
+        if (rule.value === "") break;
+        builder = builder.eq(colExpr, rule.value);
+        break;
+      }
+      case "starts_with": {
+        if (rule.value === "") break;
+        const pat = `${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+        builder = builder.ilike(colExpr, pat);
+        break;
+      }
+      case "ends_with": {
+        if (rule.value === "") break;
+        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}`;
+        builder = builder.ilike(colExpr, pat);
+        break;
+      }
+      case "is_empty": {
+        // PostgREST OR-clause: NULL or empty-string both count as "empty".
+        builder = builder.or(`${colExpr}.is.null,${colExpr}.eq.`);
+        break;
+      }
+      case "is_not_empty": {
+        builder = builder.not(colExpr, "is", null).neq(colExpr, "");
+        break;
+      }
+    }
   }
 
   const { data, error, count } = await builder;
