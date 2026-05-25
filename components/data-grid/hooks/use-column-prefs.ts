@@ -93,6 +93,20 @@ function storageKey(tableId: string): string {
   return `${STORAGE_PREFIX}${tableId}`;
 }
 
+/** Exposed for the views feature — read the persisted prefs for a
+ *  table so we can serialize them into a saved view's config. Returns
+ *  null on SSR or on a corrupt / missing payload. */
+export function readColumnPrefs(tableId: string): ColumnPrefs | null {
+  return readPrefs(tableId);
+}
+
+/** Exposed for the views feature — overwrite the persisted prefs from
+ *  a saved view's config so the grid picks them up on its next mount.
+ *  Pair with router.replace() (the page re-render re-mounts the grid). */
+export function writeColumnPrefs(tableId: string, prefs: ColumnPrefs): void {
+  writePrefs(tableId, prefs);
+}
+
 function readPrefs(tableId: string): ColumnPrefs | null {
   if (typeof window === "undefined") return null;
   try {

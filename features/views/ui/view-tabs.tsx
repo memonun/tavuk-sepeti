@@ -42,6 +42,12 @@ import {
   type View,
   type ViewConfig,
 } from "@/features/views/domain/view";
+import { buildViewSearchParams } from "@/features/views/ui/view-url";
+import {
+  readColumnPrefs,
+  writeColumnPrefs,
+} from "@/components/data-grid/hooks/use-column-prefs";
+import { EMPTY_COLUMN_PREFS } from "@/components/data-grid/data-grid-types";
 
 interface ViewTabsProps {
   readonly views: ReadonlyArray<View>;
@@ -67,19 +73,27 @@ export function ViewTabs({
   const [draftName, setDraftName] = useState("");
 
   const goToView = (view: View | null) => {
-    // Replace the URL with the view's filters + sort + view marker.
-    // Drop the page param so we restart at page 1.
-    const next = new URLSearchParams();
+    // Switch tabs:
+    //   1. Persist the view's columnState into the grid's localStorage
+    //      key — the grid re-mounts on the next render and picks it up
+    //      from the same store as the manual-prefs path.
+    //   2. Update the URL (filters / sort / view marker).
+    // Switching to "Tümü" (view === null) leaves the localStorage prefs
+    // alone — the user's last manual column layout survives.
     if (view) {
-      for (const [key, val] of Object.entries(view.config.filters)) {
-        if (val) next.set(key, val);
-      }
-      if (view.config.sort) {
-        next.set("sort", view.config.sort.column);
-        next.set("order", view.config.sort.order);
-      }
-      next.set("view", view.id);
+      writeColumnPrefs(tableId, {
+        version: 1,
+        sizes: { ...view.config.columnState.sizes },
+        order: [...view.config.columnState.order],
+        hidden: [...view.config.columnState.hidden],
+        pinning: {
+          left: [...view.config.columnState.pinning.left],
+          right: [...view.config.columnState.pinning.right],
+        },
+        aggregates: { ...view.config.columnState.aggregates },
+      });
     }
+    const next = buildViewSearchParams(view);
     const search = next.toString();
     startTransition(() =>
       router.replace(search ? `${pathname}?${search}` : pathname, {
@@ -96,6 +110,10 @@ export function ViewTabs({
     }
     const sortColumn = params.get("sort");
     const sortOrder = params.get("order");
+    // Snapshot the grid's current column layout from localStorage so
+    // saving a view captures sizes / order / visibility / pinning /
+    // aggregates the user has already arranged.
+    const prefs = readColumnPrefs(tableId) ?? EMPTY_COLUMN_PREFS;
     return {
       ...EMPTY_VIEW_CONFIG,
       filters,
@@ -103,6 +121,16 @@ export function ViewTabs({
         sortColumn && (sortOrder === "asc" || sortOrder === "desc")
           ? { column: sortColumn, order: sortOrder }
           : null,
+      columnState: {
+        sizes: { ...prefs.sizes },
+        order: [...prefs.order],
+        hidden: [...prefs.hidden],
+        pinning: {
+          left: [...prefs.pinning.left],
+          right: [...prefs.pinning.right],
+        },
+        aggregates: { ...prefs.aggregates },
+      },
     };
   };
 
