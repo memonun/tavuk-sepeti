@@ -24,7 +24,7 @@
  * already sees. A `presence`-based self-filter is Faz 2 polish.
  */
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 
 import { createSupabaseBrowserClient } from "@/shared/supabase/browser";
 
@@ -47,6 +47,7 @@ export function useCustomersRealtime(
   opts: UseCustomersRealtimeOptions = {},
 ): void {
   const router = useRouter();
+  const instanceId = useId();
   const debounceMs = opts.debounceMs ?? 800;
   const enabled = opts.enabled ?? true;
 
@@ -63,8 +64,11 @@ export function useCustomersRealtime(
       }, debounceMs);
     };
 
+    // Per-instance channel name. supabase-js doesn't de-dupe by name,
+    // so if two CustomerGrid components ever mount simultaneously the
+    // cleanup paths would race on a shared channel.
     const channel = supabase
-      .channel("customers-grid")
+      .channel(`customers-grid:${instanceId}`)
       .on(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         "postgres_changes" as any,
@@ -83,5 +87,5 @@ export function useCustomersRealtime(
       if (pending) clearTimeout(pending);
       void supabase.removeChannel(channel);
     };
-  }, [router, debounceMs, enabled]);
+  }, [router, debounceMs, enabled, instanceId]);
 }

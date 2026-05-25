@@ -4,26 +4,35 @@
 -- tables so admin grids can show cell-level live updates when a peer
 -- mutates a row.
 --
--- RLS still applies on the broadcast path: only rows the receiving
--- client could SELECT under its own session get delivered. The
--- existing admin-only RLS policies on these tables are sufficient.
+-- RLS: postgres_changes IS RLS-aware (unlike Realtime Broadcast /
+-- Presence which need separate realtime.messages policies). The
+-- existing admin-only RLS policies on these tables therefore gate
+-- which row events each subscriber sees — an anon or non-admin client
+-- subscribing to the channel receives an empty stream.
+-- Ref: https://supabase.com/docs/guides/realtime/postgres-changes#row-level-security
 --
--- Idempotent guard: a re-run after a fresh `supabase db reset` would
--- otherwise error with "relation already in publication". The
--- exception-swallowing block matches the pattern used elsewhere when
--- adding tables to a publication that may or may not already include
--- them.
+-- Idempotency: gate on pg_publication_tables instead of swallowing
+-- SQLSTATE. The historical "duplicate_object" code isn't stable
+-- across Postgres versions for ALTER PUBLICATION; the lookup-then-add
+-- pattern is what Supabase recommends.
 
 do $$
 begin
-  alter publication supabase_realtime add table customers;
-exception
-  when duplicate_object then null;
-end $$;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'customers'
+  ) then
+    alter publication supabase_realtime add table public.customers;
+  end if;
 
-do $$
-begin
-  alter publication supabase_realtime add table addresses;
-exception
-  when duplicate_object then null;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'addresses'
+  ) then
+    alter publication supabase_realtime add table public.addresses;
+  end if;
 end $$;
