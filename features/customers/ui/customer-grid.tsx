@@ -23,6 +23,7 @@ import { CustomerRowExpand } from "@/features/customers/ui/customer-row-expand";
 import { bulkCreateCustomersAction } from "@/features/customers/application/bulk-create-customers";
 import { bulkDeleteCustomersAction } from "@/features/customers/application/bulk-delete-customers";
 import { patchCustomerCellAction } from "@/features/customers/application/patch-customer-cell";
+import { useCustomersRealtime } from "@/features/customers/ui/hooks/use-customers-realtime";
 import {
   type CustomerCellField,
   type CustomerCellPatch,
@@ -65,6 +66,11 @@ export function CustomerGrid({
   tags,
   legacySegments,
 }: CustomerGridProps) {
+  // Subscribe to live customers + addresses changes — coalesced refresh
+  // so a peer's edit lands here within ~1s, and a 100-row paste from
+  // another tab collapses to one refetch.
+  useCustomersRealtime();
+
   const columns = useMemo(() => buildCustomerColumns(), []);
 
   const onCellCommit = useCallback(
