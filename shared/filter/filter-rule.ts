@@ -74,9 +74,22 @@ export function parseFiltersFromQueryParam(
   }
 }
 
+/**
+ * Drop empty-value rules that aren't `is_empty` / `is_not_empty`
+ * (those operators don't take a value). Keeps the URL clean and the
+ * repo skips the same rules anyway — without this, reload restores
+ * noise rules that don't filter but cost ~80 chars each in the URL.
+ */
+function stripNoopRules(rules: FilterRuleList): FilterRuleList {
+  return rules.filter(
+    (r) => VALUELESS_OPERATORS.has(r.operator) || r.value.trim() !== "",
+  );
+}
+
 export function serializeFiltersToQueryParam(
   rules: FilterRuleList,
 ): string | null {
-  if (rules.length === 0) return null;
-  return JSON.stringify(rules);
+  const meaningful = stripNoopRules(rules);
+  if (meaningful.length === 0) return null;
+  return JSON.stringify(meaningful);
 }

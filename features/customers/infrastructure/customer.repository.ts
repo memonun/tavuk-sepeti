@@ -268,7 +268,7 @@ export async function listCustomers(
   }
 
   if (query.q) {
-    const escaped = query.q.replace(/[%_]/g, (m) => `\\${m}`);
+    const escaped = query.q.replace(/[\\%_]/g, (m) => `\\${m}`);
     const pattern = `%${escaped}%`;
     // Match across name + phone. PostgREST `or` filter uses comma between
     // alternatives.
@@ -287,7 +287,7 @@ export async function listCustomers(
     switch (rule.operator) {
       case "contains": {
         if (rule.value === "") break;
-        const pat = `%${rule.value.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
         builder = builder.ilike(colExpr, pat);
         break;
       }
@@ -298,13 +298,13 @@ export async function listCustomers(
       }
       case "starts_with": {
         if (rule.value === "") break;
-        const pat = `${rule.value.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+        const pat = `${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
         builder = builder.ilike(colExpr, pat);
         break;
       }
       case "ends_with": {
         if (rule.value === "") break;
-        const pat = `%${rule.value.replace(/[%_]/g, (m) => `\\${m}`)}`;
+        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}`;
         builder = builder.ilike(colExpr, pat);
         break;
       }
