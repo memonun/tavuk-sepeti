@@ -10,10 +10,17 @@
  */
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useTransition } from "react";
 import { toast } from "sonner";
 
 import { DataGrid } from "@/components/data-grid/data-grid";
+import { FilterBuilder } from "@/components/data-grid/filters/filter-builder";
+import {
+  serializeFiltersToQueryParam,
+  type FilterRule,
+  type FilterableColumn,
+} from "@/components/data-grid/filters/filter-types";
 import {
   CUSTOMER_COLUMN_LABELS,
   buildCustomerColumns,
@@ -43,7 +50,19 @@ interface CustomerGridProps {
   readonly cities: readonly string[];
   readonly tags: readonly string[];
   readonly legacySegments: readonly string[];
+  readonly currentFilters: ReadonlyArray<FilterRule>;
 }
+
+/** Columns the filter builder offers. Keep in sync with the
+ *  FILTERABLE_COLUMNS whitelist in customer.repository.ts. */
+const FILTERABLE_COLUMNS: ReadonlyArray<FilterableColumn> = [
+  { id: "first_name", label: "Ad" },
+  { id: "last_name", label: "Soyad" },
+  { id: "phone", label: "Telefon" },
+  { id: "email", label: "E-posta" },
+  { id: "tag", label: "Kanal" },
+  { id: "legacy_segment", label: "Segment" },
+];
 
 const EDITABLE_COLUMN_IDS = new Set<CustomerCellField>([
   "first_name",
@@ -65,11 +84,35 @@ export function CustomerGrid({
   cities,
   tags,
   legacySegments,
+  currentFilters,
 }: CustomerGridProps) {
   // Subscribe to live customers + addresses changes — coalesced refresh
   // so a peer's edit lands here within ~1s, and a 100-row paste from
   // another tab collapses to one refetch.
   useCustomersRealtime();
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [, startTransition] = useTransition();
+
+  const onFiltersChange = useCallback(
+    (next: ReadonlyArray<FilterRule>) => {
+      const search = new URLSearchParams(params.toString());
+      const serialized = serializeFiltersToQueryParam([...next]);
+      if (serialized === null) search.delete("filter");
+      else search.set("filter", serialized);
+      // Filter change resets pagination to page 1.
+      search.delete("page");
+      const qs = search.toString();
+      startTransition(() =>
+        router.replace(qs ? `${pathname}?${qs}` : pathname, {
+          scroll: false,
+        }),
+      );
+    },
+    [params, pathname, router],
+  );
 
   const columns = useMemo(() => buildCustomerColumns(), []);
 
@@ -129,6 +172,8 @@ export function CustomerGrid({
             cities={cities}
             tags={tags}
             legacySegments={legacySegments}
+            currentFilters={currentFilters}
+            onFiltersChange={onFiltersChange}
           />
         }
         onCellError={(message) => toast.error(message)}
@@ -138,18 +183,31 @@ export function CustomerGrid({
 }
 
 interface CustomerToolbarProps {
+  readonly currentFilters: ReadonlyArray<FilterRule>;
+  readonly onFiltersChange: (next: ReadonlyArray<FilterRule>) => void;
   readonly cities: readonly string[];
   readonly tags: readonly string[];
   readonly legacySegments: readonly string[];
 }
 
-function CustomerToolbar({ cities, tags, legacySegments }: CustomerToolbarProps) {
+function CustomerToolbar({
+  cities,
+  tags,
+  legacySegments,
+  currentFilters,
+  onFiltersChange,
+}: CustomerToolbarProps) {
   return (
     <div className="flex flex-1 flex-wrap items-center gap-1.5">
       <CustomerFilterBar
         cities={cities}
         tags={tags}
         legacySegments={legacySegments}
+      />
+      <FilterBuilder
+        columns={FILTERABLE_COLUMNS}
+        rules={currentFilters}
+        onChange={onFiltersChange}
       />
       <Link
         href="/customers/new"

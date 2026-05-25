@@ -13,6 +13,7 @@
  */
 import { z } from "zod";
 
+import { filterRuleListSchema } from "@/shared/filter/filter-rule";
 import { latLngSchema, coordinateAccuracySchema, coordinateSourceSchema } from "@/shared/geo/coordinate.schema";
 import { isE164TR, normalizeTRPhone } from "@/shared/utils/phone";
 
@@ -129,6 +130,10 @@ export const customerListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   // CLAUDE.md §9: max 100, default 25.
   pageSize: z.coerce.number().int().positive().max(100).default(25),
+  // Multi-condition AND filter from the popover. Layered on top of
+  // the simple dropdowns above (which still drive the most common
+  // single-value filters). Empty array = no advanced filters.
+  filters: filterRuleListSchema.default([]),
 });
 
 export type CustomerListQuery = z.output<typeof customerListQuerySchema>;
