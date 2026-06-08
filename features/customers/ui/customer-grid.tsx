@@ -11,10 +11,16 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { DataGrid } from "@/components/data-grid/data-grid";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { CustomerDetailLoader } from "@/features/customers/ui/customer-detail-loader";
 import { FilterBuilder } from "@/components/data-grid/filters/filter-builder";
 import {
   serializeFiltersToQueryParam,
@@ -52,6 +58,7 @@ interface CustomerGridProps {
   readonly tags: readonly string[];
   readonly legacySegments: readonly string[];
   readonly currentFilters: ReadonlyArray<FilterRule>;
+  readonly mapsKey: string;
 }
 
 /** Columns the filter builder offers. Keep in sync with the
@@ -86,6 +93,7 @@ export function CustomerGrid({
   tags,
   legacySegments,
   currentFilters,
+  mapsKey,
 }: CustomerGridProps) {
   // Subscribe to live customers + addresses changes — coalesced refresh
   // so a peer's edit lands here within ~1s, and a 100-row paste from
@@ -96,6 +104,9 @@ export function CustomerGrid({
   const pathname = usePathname();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
+
+  // Row "Aç" → open the shared detail panel in a right-side Sheet.
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const onFiltersChange = useCallback(
     (next: ReadonlyArray<FilterRule>) => {
@@ -115,7 +126,8 @@ export function CustomerGrid({
     [params, pathname, router],
   );
 
-  const columns = useMemo(() => buildCustomerColumns(), []);
+  // `setOpenId` from useState is stable across renders, so [] deps are safe.
+  const columns = useMemo(() => buildCustomerColumns(setOpenId), []);
 
   const onCellCommit = useCallback(
     async (
@@ -186,6 +198,25 @@ export function CustomerGrid({
         }
         onCellError={(message) => toast.error(message)}
       />
+
+      <Sheet
+        open={openId !== null}
+        onOpenChange={(open) => {
+          if (!open) setOpenId(null);
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-full overflow-y-auto data-[side=right]:sm:max-w-2xl"
+        >
+          {/* Visually-hidden title: base-ui Dialog requires a labelled title
+              for a11y; the panel renders its own visible heading. */}
+          <SheetTitle className="sr-only">Müşteri detayı</SheetTitle>
+          {openId ? (
+            <CustomerDetailLoader id={openId} mapsKey={mapsKey} />
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

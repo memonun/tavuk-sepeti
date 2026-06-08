@@ -9,8 +9,6 @@
  * Pinning defaults: name (left), actions (right) — the user's "asla
  * kapanmayan kenar divider" hissi.
  */
-import Link from "next/link";
-
 import { dateCellEditor } from "@/components/data-grid/cells/date-cell";
 import { readonlyCellEditor } from "@/components/data-grid/cells/readonly-cell";
 import { selectCellEditor } from "@/components/data-grid/cells/select-cell";
@@ -51,7 +49,9 @@ export const CUSTOMER_COLUMN_LABELS: Readonly<Record<string, string>> = {
   actions: "İşlem",
 };
 
-export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
+export function buildCustomerColumns(
+  onOpenDetail: (id: string) => void,
+): DataGridColumn<CustomerListItem>[] {
   return [
     {
       id: "first_name",
@@ -197,13 +197,14 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       enableSorting: false,
       enableResizing: false,
       cell: ({ row }) => (
-        <Link
-          href={`/customers/${row.original.id}`}
+        <button
+          type="button"
+          onClick={() => onOpenDetail(row.original.id)}
           className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          aria-label="Müşteri detayına git"
+          aria-label="Müşteri detayını aç"
         >
           Aç
-        </Link>
+        </button>
       ),
     },
   ];
