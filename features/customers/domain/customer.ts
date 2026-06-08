@@ -39,8 +39,8 @@ export type CustomerAccountType =
 
 export interface Customer {
   readonly id: string;
-  readonly first_name: string;
-  readonly last_name: string;
+  readonly first_name: string | null;
+  readonly last_name: string | null;
   readonly email: string | null;
   /** E.164 (+90...). Nullable because some imported / pazar customers
    *  legitimately have no phone on file. New admin-created customers
@@ -60,8 +60,8 @@ export interface Customer {
 /** A list-view projection — drops address text + notes for table display. */
 export interface CustomerListItem {
   readonly id: string;
-  readonly first_name: string;
-  readonly last_name: string;
+  readonly first_name: string | null;
+  readonly last_name: string | null;
   readonly phone: string | null;
   readonly email: string | null;
   readonly status: CustomerStatus;

@@ -122,13 +122,13 @@ interface ListOrderRow {
   total_minor: number;
   payment_status: string;
   created_at: string;
-  customers: { first_name: string; last_name: string } | null;
+  customers: { first_name: string | null; last_name: string | null } | null;
 }
 
 export function rowToListItem(row: ListOrderRow): OrderListItem {
   const customer = row.customers;
   const customerName = customer
-    ? `${customer.first_name} ${customer.last_name}`
+    ? [customer.first_name, customer.last_name].filter(Boolean).join(" ") || "—"
     : "—";
   return {
     id: row.id,

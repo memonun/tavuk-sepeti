@@ -33,8 +33,8 @@ export default async function CustomerEditPage({ params }: CustomerEditPageProps
   // Phone is null for some CSV-imported customers (pazar etc.); the form
   // still requires it, so the admin types one in before saving.
   const defaultValues: CustomerFormInput = {
-    first_name: customer.first_name,
-    last_name: customer.last_name,
+    first_name: customer.first_name ?? "",
+    last_name: customer.last_name ?? "",
     email: customer.email ?? "",
     phone: customer.phone ?? "",
     notes: customer.notes ?? "",
