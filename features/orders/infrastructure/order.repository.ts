@@ -19,6 +19,7 @@ import {
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
+import { applyFilterRule } from "@/shared/filter/apply-filter-rules";
 
 import {
   rowToListItem,
@@ -38,6 +39,15 @@ import type { OrderCellField, OrderListQuery } from "@/features/orders/domain/or
 import type { Database } from "@/shared/supabase/types";
 
 type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
+
+/**
+ * Supabase select projection shared by listOrders and findOrderListItemById.
+ * Both functions must return the same column set so rowToListItem can
+ * map them identically — keeping it here prevents the two call sites
+ * from silently drifting apart.
+ */
+const ORDER_LIST_SELECT =
+  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, delivery_notes, delivery_fee_minor, created_at, customers!inner(first_name, last_name)" as const;
 
 export interface CreateOrderInput {
   customer_id: string;
@@ -175,10 +185,7 @@ export async function listOrders(
 
   let builder = supabase
     .from("orders")
-    .select(
-      "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, delivery_notes, delivery_fee_minor, created_at, customers!inner(first_name, last_name)",
-      { count: "exact" },
-    );
+    .select(ORDER_LIST_SELECT, { count: "exact" });
 
   if (query.status) {
     builder = builder.eq("status", query.status);
@@ -197,41 +204,7 @@ export async function listOrders(
   // array at 20 rules and the column whitelist above caps what SQL can touch.
   for (const rule of query.filters) {
     if (!ORDER_FILTERABLE.has(rule.column)) continue;
-    const colExpr = rule.column;
-    switch (rule.operator) {
-      case "contains": {
-        if (rule.value === "") break;
-        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "equals": {
-        if (rule.value === "") break;
-        builder = builder.eq(colExpr, rule.value);
-        break;
-      }
-      case "starts_with": {
-        if (rule.value === "") break;
-        const pat = `${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "ends_with": {
-        if (rule.value === "") break;
-        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "is_empty": {
-        // PostgREST OR-clause: NULL or empty-string both count as "empty".
-        builder = builder.or(`${colExpr}.is.null,${colExpr}.eq.`);
-        break;
-      }
-      case "is_not_empty": {
-        builder = builder.not(colExpr, "is", null).neq(colExpr, "");
-        break;
-      }
-    }
+    builder = applyFilterRule(builder, rule);
   }
 
   // Apply sort: primary sort is query-driven; secondary tie-breaker on
@@ -312,9 +285,7 @@ export async function findOrderListItemById(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("orders")
-    .select(
-      "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, delivery_notes, delivery_fee_minor, created_at, customers!inner(first_name, last_name)",
-    )
+    .select(ORDER_LIST_SELECT)
     .eq("id", id)
     .single();
   if (error || !data) {

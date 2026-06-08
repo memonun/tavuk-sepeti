@@ -15,6 +15,7 @@ import { ExternalApiError, ValidationError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
+import { applyFilterRule } from "@/shared/filter/apply-filter-rules";
 
 import {
   rowToCustomer,
@@ -283,41 +284,7 @@ export async function listCustomers(
   // intended attack surface even if it slips past Zod.
   for (const rule of query.filters) {
     if (!FILTERABLE_COLUMNS.has(rule.column)) continue;
-    const colExpr = rule.column;
-    switch (rule.operator) {
-      case "contains": {
-        if (rule.value === "") break;
-        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "equals": {
-        if (rule.value === "") break;
-        builder = builder.eq(colExpr, rule.value);
-        break;
-      }
-      case "starts_with": {
-        if (rule.value === "") break;
-        const pat = `${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "ends_with": {
-        if (rule.value === "") break;
-        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "is_empty": {
-        // PostgREST OR-clause: NULL or empty-string both count as "empty".
-        builder = builder.or(`${colExpr}.is.null,${colExpr}.eq.`);
-        break;
-      }
-      case "is_not_empty": {
-        builder = builder.not(colExpr, "is", null).neq(colExpr, "");
-        break;
-      }
-    }
+    builder = applyFilterRule(builder, rule);
   }
 
   const { data, error, count } = await builder;
