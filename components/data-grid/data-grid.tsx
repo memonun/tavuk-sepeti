@@ -418,6 +418,7 @@ export function DataGrid<TRow extends object, TPatch>({
       for (const w of writes) {
         const colDef = getColDef(w.columnId);
         if (!colDef?.editable || !colDef.editor) continue; // skip readonly silently
+        if (!colDef.editor.schema.safeParse(w.value).success) continue; // skip non-applicable cells silently
         void handleCommitEdit({ rowId: w.rowId, columnId: w.columnId }, w.value);
       }
     }
@@ -619,6 +620,7 @@ export function DataGrid<TRow extends object, TPatch>({
     [openBulkPasteFromText],
   );
 
+  const [addRowBusy, setAddRowBusy] = useState(false);
   const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
   const handleBulkDelete = useCallback(async () => {
     if (!mutations?.onBulkDelete || selectedRowIds.size === 0) return;
@@ -691,6 +693,9 @@ export function DataGrid<TRow extends object, TPatch>({
           moveActive(0, -1);
           return;
         case "ArrowRight":
+          e.preventDefault();
+          moveActive(0, 1);
+          return;
         case "Tab":
           e.preventDefault();
           moveActive(0, e.shiftKey ? -1 : 1);
@@ -716,6 +721,7 @@ export function DataGrid<TRow extends object, TPatch>({
         for (const cell of cells) {
           const colDef = getColDef(cell.columnId);
           if (!colDef?.editable || !colDef.editor) continue;
+          if (!colDef.editor.schema.safeParse("").success) continue; // skip non-applicable cells silently
           void handleCommitEdit({ rowId: cell.rowId, columnId: cell.columnId }, "");
         }
         return;
@@ -1167,12 +1173,22 @@ export function DataGrid<TRow extends object, TPatch>({
               <tr className="group">
                 <td
                   colSpan={colCount}
-                  className="h-8 cursor-pointer border-b border-border px-3 text-left text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                  aria-disabled={addRowBusy}
+                  className={cn(
+                    "h-8 cursor-pointer border-b border-border px-3 text-left text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                    addRowBusy ? "pointer-events-none opacity-60" : "",
+                  )}
                   onClick={() => {
+                    if (addRowBusy) return;
+                    setAddRowBusy(true);
                     void (async () => {
-                      const result = await mutations.onAddRow!();
-                      if (!result.ok) onCellError?.(result.error.message, result.error);
-                      else onCellSuccess?.();
+                      try {
+                        const result = await mutations.onAddRow!();
+                        if (!result.ok) onCellError?.(result.error.message, result.error);
+                        else onCellSuccess?.();
+                      } finally {
+                        setAddRowBusy(false);
+                      }
                     })();
                   }}
                 >
