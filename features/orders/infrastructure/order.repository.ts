@@ -11,7 +11,11 @@
  */
 import "server-only";
 
-import { ExternalApiError, NotFoundError } from "@/shared/errors/app-error";
+import {
+  ExternalApiError,
+  NotFoundError,
+  ValidationError,
+} from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
@@ -62,7 +66,7 @@ export interface ListOrdersResult {
   pageSize: number;
 }
 
-export type OrderRepoFailure = ExternalApiError | NotFoundError;
+export type OrderRepoFailure = ExternalApiError | NotFoundError | ValidationError;
 
 // ---- create ---------------------------------------------------------------
 
@@ -91,6 +95,19 @@ export async function createOrder(
       { code: rpcError.code, message: rpcError.message },
       "create_order_rpc_failed",
     );
+    // Address-less customers are now creatable (blank grid rows), but the
+    // RPC RAISEs "customer % has no primary address" since an order needs a
+    // delivery target. Surface a clear, actionable Turkish message instead
+    // of a generic external-API error.
+    if (rpcError.message?.includes("no primary address")) {
+      return err(
+        new ValidationError({
+          message:
+            "Bu müşterinin kayıtlı adresi yok. Önce müşteri detayından (harita) bir adres ekleyin.",
+          cause: rpcError,
+        }),
+      );
+    }
     return err(
       new ExternalApiError({ message: rpcError.message, cause: rpcError }),
     );
@@ -374,22 +391,39 @@ export async function patchOrderCell(
  * Map keyed by customer_id. Customers with zero orders will be absent from the
  * Map (callers should treat missing keys as 0).
  *
- * No pagination — the result set is bounded by the size of customerIds (≤ grid
- * page size × reasonable order count, well within PostgREST defaults).
+ * Uses the count_orders_by_customers RPC (grouped aggregate) so the count is
+ * exact regardless of how many orders exist — no PostgREST max-rows truncation.
+ * Falls back to a row-count select if the RPC isn't deployed yet.
  */
 export async function countOrdersByCustomer(
   customerIds: ReadonlyArray<string>,
 ): Promise<Result<Map<string, number>, ExternalApiError>> {
+  if (customerIds.length === 0) return ok(new Map());
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("orders")
-    .select("customer_id")
-    .in("customer_id", [...customerIds]);
-  if (error) {
-    return err(new ExternalApiError({ message: error.message, cause: error }));
+  const ids = [...customerIds];
+
+  // Grouped-count RPC: one round-trip, exact counts, no PostgREST max-rows
+  // truncation (the old row-per-order select could undercount on large
+  // result sets). The RPC isn't in the generated types until the migration
+  // is pushed, so we mirror the file's existing un-generated-RPC pattern.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("count_orders_by_customers", {
+    p_customer_ids: ids,
+  });
+  if (!error && data) {
+    const counts = new Map<string, number>();
+    for (const row of data as Array<{ customer_id: string; order_count: number }>) {
+      counts.set(row.customer_id, Number(row.order_count));
+    }
+    return ok(counts);
   }
+
+  // Fallback (e.g. RPC not yet deployed): count rows directly.
+  logger.warn({ code: error?.code }, "count_orders_rpc_unavailable_fallback");
+  const fb = await supabase.from("orders").select("customer_id").in("customer_id", ids);
+  if (fb.error) return err(new ExternalApiError({ message: fb.error.message, cause: fb.error }));
   const counts = new Map<string, number>();
-  for (const row of data ?? []) {
+  for (const row of fb.data ?? []) {
     counts.set(row.customer_id, (counts.get(row.customer_id) ?? 0) + 1);
   }
   return ok(counts);

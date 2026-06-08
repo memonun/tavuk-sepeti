@@ -628,46 +628,109 @@ export async function updateCustomer(
     }
   }
 
-  // Update primary address if any address fields supplied.
+  // Update (or insert) the primary address if any address fields supplied.
+  //
+  // A blank-row customer (created via addCustomerRow / bulkCreateCustomers)
+  // has NO address row, so a blind UPDATE-by-(customer_id, is_primary) would
+  // match 0 rows, return no error, and silently drop a freshly dropped pin.
+  // We therefore branch on whether a primary address already exists:
+  //   - exists  → UPDATE the row (partial patch, as before).
+  //   - missing → INSERT a new primary row, but only when we have a real pin
+  //               (lat+lng) + raw_text, since a valid addresses row requires
+  //               NON-NULL lat/lng/raw_text/source/accuracy. Without those we
+  //               skip the address write rather than persist a half row.
   if (input.address) {
-    const addressPatch: AddressUpdate = {};
-    if (input.address.raw_text !== undefined)
-      addressPatch.raw_text = input.address.raw_text;
-    if (input.address.description !== undefined)
-      addressPatch.description = input.address.description;
-    if (input.address.coordinate) {
-      addressPatch.lat = input.address.coordinate.lat;
-      addressPatch.lng = input.address.coordinate.lng;
-      addressPatch.source = input.address.coordinate.source;
-      addressPatch.accuracy = input.address.coordinate.accuracy;
-      addressPatch.geocoded_at =
-        input.address.coordinate.geocoded_at?.toISOString() ?? null;
-      addressPatch.geocoder_response_hash =
-        input.address.coordinate.geocoder_response_hash;
-    }
-    if (input.address.city !== undefined) addressPatch.city = input.address.city;
-    if (input.address.district !== undefined)
-      addressPatch.district = input.address.district;
-    if (input.address.neighborhood !== undefined)
-      addressPatch.neighborhood = input.address.neighborhood;
-    if (input.address.street !== undefined)
-      addressPatch.street = input.address.street;
-    if (input.address.building_no !== undefined)
-      addressPatch.building_no = input.address.building_no;
-    if (input.address.apartment_no !== undefined)
-      addressPatch.apartment_no = input.address.apartment_no;
-    if (input.address.postal_code !== undefined)
-      addressPatch.postal_code = input.address.postal_code;
+    const { data: existing } = await supabase
+      .from("addresses")
+      .select("id")
+      .eq("customer_id", id)
+      .eq("is_primary", true)
+      .maybeSingle();
 
-    if (Object.keys(addressPatch).length > 0) {
-      const { error } = await supabase
-        .from("addresses")
-        .update(addressPatch)
-        .eq("customer_id", id)
-        .eq("is_primary", true);
-      if (error) {
-        logger.error({ id, code: error.code }, "address_update_failed");
-        return err(new ExternalApiError({ message: error.message, cause: error }));
+    if (existing) {
+      const addressPatch: AddressUpdate = {};
+      if (input.address.raw_text !== undefined)
+        addressPatch.raw_text = input.address.raw_text;
+      if (input.address.description !== undefined)
+        addressPatch.description = input.address.description;
+      if (input.address.coordinate) {
+        addressPatch.lat = input.address.coordinate.lat;
+        addressPatch.lng = input.address.coordinate.lng;
+        addressPatch.source = input.address.coordinate.source;
+        addressPatch.accuracy = input.address.coordinate.accuracy;
+        addressPatch.geocoded_at =
+          input.address.coordinate.geocoded_at?.toISOString() ?? null;
+        addressPatch.geocoder_response_hash =
+          input.address.coordinate.geocoder_response_hash;
+      }
+      if (input.address.city !== undefined) addressPatch.city = input.address.city;
+      if (input.address.district !== undefined)
+        addressPatch.district = input.address.district;
+      if (input.address.neighborhood !== undefined)
+        addressPatch.neighborhood = input.address.neighborhood;
+      if (input.address.street !== undefined)
+        addressPatch.street = input.address.street;
+      if (input.address.building_no !== undefined)
+        addressPatch.building_no = input.address.building_no;
+      if (input.address.apartment_no !== undefined)
+        addressPatch.apartment_no = input.address.apartment_no;
+      if (input.address.postal_code !== undefined)
+        addressPatch.postal_code = input.address.postal_code;
+
+      if (Object.keys(addressPatch).length > 0) {
+        const { error } = await supabase
+          .from("addresses")
+          .update(addressPatch)
+          .eq("customer_id", id)
+          .eq("is_primary", true);
+        if (error) {
+          logger.error({ id, code: error.code }, "address_update_failed");
+          return err(new ExternalApiError({ message: error.message, cause: error }));
+        }
+      }
+    } else {
+      // No primary address row yet — complete the blank row by inserting one.
+      // Only proceed with a real pin; the edit form gates submit on a
+      // coordinate, so this INSERT is the normal path for completing a row.
+      const coordinate = input.address.coordinate;
+      const hasPin =
+        coordinate !== undefined &&
+        coordinate.lat !== undefined &&
+        coordinate.lng !== undefined;
+      const hasRawText =
+        input.address.raw_text !== undefined && input.address.raw_text !== "";
+
+      if (hasPin && hasRawText) {
+        const { error } = await supabase.from("addresses").insert({
+          customer_id: id,
+          raw_text: input.address.raw_text!,
+          description: input.address.description ?? null,
+          lat: coordinate.lat,
+          lng: coordinate.lng,
+          source: coordinate.source,
+          accuracy: coordinate.accuracy,
+          geocoded_at: coordinate.geocoded_at?.toISOString() ?? null,
+          geocoder_response_hash: coordinate.geocoder_response_hash,
+          city: input.address.city ?? null,
+          district: input.address.district ?? null,
+          neighborhood: input.address.neighborhood ?? null,
+          street: input.address.street ?? null,
+          building_no: input.address.building_no ?? null,
+          apartment_no: input.address.apartment_no ?? null,
+          postal_code: input.address.postal_code ?? null,
+          is_primary: true,
+          address_source: "admin_input",
+        });
+        if (error) {
+          logger.error({ id, code: error.code }, "address_insert_failed");
+          return err(new ExternalApiError({ message: error.message, cause: error }));
+        }
+      } else {
+        // No usable pin: don't persist a half row. Scalar fields were saved.
+        logger.warn(
+          { id },
+          "address_insert_skipped_no_pin",
+        );
       }
     }
   }
