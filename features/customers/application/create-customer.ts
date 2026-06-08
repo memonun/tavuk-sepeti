@@ -120,7 +120,7 @@ export async function createCustomerAction(
       first_name: created.value.first_name,
       last_name: created.value.last_name,
       status: created.value.status,
-      address_city: created.value.address.city,
+      address_city: created.value.address?.city ?? null,
     },
   });
 

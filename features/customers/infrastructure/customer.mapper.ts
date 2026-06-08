@@ -68,11 +68,6 @@ export function rowToAddress(row: AddressRow): CustomerAddress {
 
 export function rowToCustomer(row: CustomerWithAddressRow): Customer {
   const primary = row.addresses.find((a) => a.is_primary);
-  if (!primary) {
-    // Faz 1 invariant: every customer has exactly one primary address. If
-    // this trips, a write path forgot to insert the address row.
-    throw new Error(`customer ${row.id} has no primary address`);
-  }
   return {
     id: row.id,
     first_name: row.first_name,
@@ -84,7 +79,7 @@ export function rowToCustomer(row: CustomerWithAddressRow): Customer {
     account_type: asAccountType(row.account_type),
     tag: row.tag,
     legacy_segment: row.legacy_segment,
-    address: rowToAddress(primary),
+    address: primary ? rowToAddress(primary) : null,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     created_by: row.created_by,

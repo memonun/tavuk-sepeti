@@ -51,7 +51,7 @@ export interface Customer {
   readonly account_type: CustomerAccountType;
   readonly tag: string | null;
   readonly legacy_segment: string | null;
-  readonly address: CustomerAddress;
+  readonly address: CustomerAddress | null;
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly created_by: string | null;
