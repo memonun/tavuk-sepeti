@@ -11,7 +11,7 @@
  */
 import "server-only";
 
-import { ExternalApiError } from "@/shared/errors/app-error";
+import { ExternalApiError, ValidationError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
@@ -344,15 +344,10 @@ export async function listCustomers(
 // ---- bulk create (DataGrid paste-into-empty-rows) ------------------------
 
 /**
- * Insert N customer rows + their placeholder primary-address rows in one
- * go. Address fields default to "Bilinmiyor" with a (0,0) coordinate at
- * accuracy=unknown — the row immediately surfaces in the "Konum belirsiz"
- * filter so an admin knows it needs the detail page + geocoding pass to
- * become routable.
- *
- * Rolls back the customer inserts if the address insert fails (best-
- * effort cleanup matches createCustomer's existing pattern). Returns the
- * inserted rows projected to list-item shape.
+ * Insert N customer rows in one go. No address rows are created — the
+ * admin completes those inline or via the detail panel (where the map
+ * sets a real pin). Returns the inserted rows projected to list-item
+ * shape.
  */
 export async function bulkCreateCustomers(
   rows: ReadonlyArray<BulkCreateCustomerRow>,
@@ -396,60 +391,6 @@ export async function bulkCreateCustomers(
       new ExternalApiError({
         message: insertError.message,
         cause: insertError,
-      }),
-    );
-  }
-
-  // Insert placeholder primary addresses keyed by the pre-generated
-  // customer id. No reliance on RETURNING order.
-  const addressPayload = rows.map((r, i) => {
-    const city = r.city ?? "Bilinmiyor";
-    return {
-      customer_id: idForRow[i]!,
-      raw_text: city,
-      description: null,
-      lat: 0,
-      lng: 0,
-      source: "admin_corrected" as const,
-      accuracy: "unknown" as const,
-      geocoded_at: null,
-      geocoder_response_hash: null,
-      city,
-      district: "Bilinmiyor",
-      neighborhood: "Bilinmiyor",
-      street: null,
-      building_no: null,
-      apartment_no: null,
-      postal_code: null,
-      is_primary: true,
-      address_source: "admin_input" as const,
-    };
-  });
-
-  const { error: addressError } = await supabase
-    .from("addresses")
-    .insert(addressPayload);
-
-  if (addressError) {
-    // Best-effort cleanup of the orphan customer rows.
-    logger.error(
-      { code: addressError.code, count: idForRow.length },
-      "bulk_create_address_failed_rolling_back_customers",
-    );
-    const { error: cleanupError } = await supabase
-      .from("customers")
-      .delete()
-      .in("id", idForRow);
-    if (cleanupError) {
-      logger.error(
-        { code: cleanupError.code, count: idForRow.length },
-        "bulk_create_cleanup_failed_orphans_left",
-      );
-    }
-    return err(
-      new ExternalApiError({
-        message: addressError.message,
-        cause: addressError,
       }),
     );
   }
@@ -587,33 +528,32 @@ export async function patchCustomerCell(
   const supabase = await createSupabaseServerClient();
 
   if (ADDRESS_CELL_FIELDS.has(field)) {
-    // `.update()` returns silently with count=0 when no primary address
-    // row exists (legacy CSV-imported customers, or rows where the
-    // address insert failed at create time). Without the count check
-    // the optimistic UI would roll back without any user-visible
-    // signal. Use { count: "exact" } so we can verify the write
-    // actually landed.
-    const patch: AddressUpdate = { [field]: value as string | null };
-    const { error, count } = await supabase
+    // Guard: a customer created via "+ Yeni satır" (addCustomerRow) has
+    // no address row yet. Check upfront so we can return a clear, typed
+    // error rather than a silent count=0 or a misleading ExternalApiError.
+    const { data: primary } = await supabase
       .from("addresses")
-      .update(patch, { count: "exact" })
+      .select("id")
+      .eq("customer_id", id)
+      .eq("is_primary", true)
+      .maybeSingle();
+    if (!primary) {
+      return err(
+        new ValidationError({
+          message: "Önce müşteri detayından (harita) adres ekleyin.",
+        }),
+      );
+    }
+
+    const patch: AddressUpdate = { [field]: value as string | null };
+    const { error } = await supabase
+      .from("addresses")
+      .update(patch)
       .eq("customer_id", id)
       .eq("is_primary", true);
     if (error) {
       logger.error({ id, field, code: error.code }, "customer_cell_address_patch_failed");
       return err(new ExternalApiError({ message: error.message, cause: error }));
-    }
-    if (count === 0) {
-      logger.warn(
-        { id, field },
-        "customer_cell_address_patch_no_primary_row",
-      );
-      return err(
-        new ExternalApiError({
-          message:
-            "Bu müşterinin birincil adresi yok. Önce müşteri detayından adres ekleyin.",
-        }),
-      );
     }
   } else {
     // Scalar customer fields. The schema upstream has already coerced
@@ -733,4 +673,30 @@ export async function updateCustomer(
   }
 
   return findCustomerById(id);
+}
+
+// ---- add blank row (DataGrid "+ Yeni satır") --------------------------------
+
+/**
+ * Insert a blank customer for the grid's "+ Yeni satır" add-row. No
+ * address row is created — the admin completes it inline or via the
+ * detail panel (where the map sets a real pin). Returns the new row in
+ * list-item projection so the grid can append it optimistically.
+ */
+export async function addCustomerRow(
+  createdBy: string,
+): Promise<Result<CustomerListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({ created_by: createdBy })
+    .select(
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+    )
+    .single();
+  if (error || !data) {
+    logger.error({ code: error?.code }, "add_customer_row_failed");
+    return err(new ExternalApiError({ message: error?.message ?? "Insert failed.", cause: error }));
+  }
+  return ok(rowToListItem({ ...data, addresses: data.addresses ?? [] } as never));
 }
