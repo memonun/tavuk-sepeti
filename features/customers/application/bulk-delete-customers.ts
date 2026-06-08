@@ -8,6 +8,11 @@
  * delete a thousand rows in one click anyway). Snapshots the rows
  * (PII-redacted) before delete so the audit trail can answer "what was
  * actually deleted" — without the snapshot the row is unrecoverable.
+ *
+ * Pre-check: if ANY selected customer has orders the entire batch is
+ * rejected (all-or-nothing). Names are resolved from the snapshot so
+ * the error message is human-readable without reaching for a second
+ * DB round-trip.
  */
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
@@ -17,11 +22,39 @@ import {
   bulkDeleteCustomers as repoBulkDelete,
   findListItemsByIds,
 } from "@/features/customers/infrastructure/customer.repository";
+import { countOrdersByCustomer } from "@/features/orders/application/count-orders-by-customer";
 import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { logBulkAudit } from "@/shared/audit/log-audit";
 import { AppError, ValidationError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
+
+// ---------------------------------------------------------------------------
+// Pure helper — exported so unit tests can cover it in isolation.
+// ---------------------------------------------------------------------------
+
+/**
+ * Partition a list of customer ids into those that are safe to delete (no
+ * orders) and those that are blocked (have ≥ 1 order).
+ *
+ * `counts` is the Map returned by `countOrdersByCustomer`. Ids absent from
+ * the Map are treated as having 0 orders (i.e. deletable).
+ */
+export function partitionDeletable(
+  ids: ReadonlyArray<string>,
+  counts: ReadonlyMap<string, number>,
+): { blocked: { id: string; orderCount: number }[]; deletable: string[] } {
+  const blocked: { id: string; orderCount: number }[] = [];
+  const deletable: string[] = [];
+  for (const id of ids) {
+    const n = counts.get(id) ?? 0;
+    if (n > 0) blocked.push({ id, orderCount: n });
+    else deletable.push(id);
+  }
+  return { blocked, deletable };
+}
+
+// ---------------------------------------------------------------------------
 
 const bulkDeleteSchema = z
   .array(z.string().uuid("Geçersiz müşteri kimliği."))
@@ -49,6 +82,33 @@ export async function bulkDeleteCustomersAction(
   // Best-effort: if the snapshot fetch fails, log and proceed — losing
   // audit detail is better than blocking the delete the admin asked for.
   const snapshotResult = await findListItemsByIds(parsed.data);
+
+  // Pre-check: block the entire batch if any customer has orders.
+  // All-or-nothing — partial deletes would leave the data in an
+  // inconsistent state from the admin's perspective.
+  const countsResult = await countOrdersByCustomer(parsed.data);
+  if (!countsResult.ok) return err(countsResult.error);
+  const { blocked } = partitionDeletable(parsed.data, countsResult.value);
+  if (blocked.length > 0) {
+    const names = new Map(
+      (snapshotResult.ok ? snapshotResult.value : []).map(
+        (r) =>
+          [
+            r.id,
+            `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "(isimsiz)",
+          ] as const,
+      ),
+    );
+    const detail = blocked
+      .map((b) => `${names.get(b.id) ?? b.id} (${b.orderCount} sipariş)`)
+      .join(", ");
+    return err(
+      new ValidationError({
+        message: `Siparişi olan müşteriler silinemez: ${detail}`,
+      }),
+    );
+  }
+
   const snapshotById = new Map(
     snapshotResult.ok
       ? snapshotResult.value.map((row) => [row.id, row] as const)
