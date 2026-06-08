@@ -121,6 +121,8 @@ interface ListOrderRow {
   time_slot: string | null;
   total_minor: number;
   payment_status: string;
+  delivery_notes: string | null;
+  delivery_fee_minor: number;
   created_at: string;
   customers: { first_name: string | null; last_name: string | null } | null;
 }
@@ -140,6 +142,8 @@ export function rowToListItem(row: ListOrderRow): OrderListItem {
     time_slot: row.time_slot as TimeSlot | null,
     total_minor: row.total_minor,
     payment_status: row.payment_status as PaymentStatus,
+    delivery_notes: row.delivery_notes,
+    delivery_fee_minor: row.delivery_fee_minor,
     created_at: new Date(row.created_at),
   };
 }

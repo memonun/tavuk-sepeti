@@ -8,6 +8,8 @@
  */
 import { z } from "zod";
 
+import { filterRuleListSchema } from "@/shared/filter/filter-rule";
+
 const blankToNull = (value: unknown): unknown =>
   typeof value === "string" && value.trim() === "" ? null : value;
 
@@ -56,18 +58,61 @@ export const orderCancelReasonSchema = z.object({
 
 export type OrderCancelReason = z.output<typeof orderCancelReasonSchema>;
 
+export const orderSortFieldSchema = z.enum([
+  "order_number",
+  "status",
+  "scheduled_for",
+  "payment_status",
+  "total_minor",
+  "created_at",
+]);
+export type OrderSortField = z.output<typeof orderSortFieldSchema>;
+
+const statusPatchValue = z.object({
+  to: z.enum(["pending", "confirmed", "delivered", "cancelled"]),
+  reason: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+    z.string().max(1000).nullable().default(null),
+  ),
+});
+
+export const orderCellPatchSchemas = {
+  status: statusPatchValue,
+  payment_status: z.enum(["pending", "paid", "failed", "refunded"]),
+  scheduled_for: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarih YYYY-MM-DD olmalı."),
+  time_slot: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+    z.enum(["morning", "afternoon", "evening"]).nullable(),
+  ),
+  delivery_notes: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+    z.string().max(2000).nullable(),
+  ),
+  delivery_fee: z.coerce.number().int().nonnegative("Negatif olamaz."),
+} as const;
+
+export type OrderCellField = keyof typeof orderCellPatchSchemas;
+
+export const orderCellPatchSchema = z.discriminatedUnion("field", [
+  z.object({ field: z.literal("status"), value: orderCellPatchSchemas.status }),
+  z.object({ field: z.literal("payment_status"), value: orderCellPatchSchemas.payment_status }),
+  z.object({ field: z.literal("scheduled_for"), value: orderCellPatchSchemas.scheduled_for }),
+  z.object({ field: z.literal("time_slot"), value: orderCellPatchSchemas.time_slot }),
+  z.object({ field: z.literal("delivery_notes"), value: orderCellPatchSchemas.delivery_notes }),
+  z.object({ field: z.literal("delivery_fee"), value: orderCellPatchSchemas.delivery_fee }),
+]);
+export type OrderCellPatch = z.output<typeof orderCellPatchSchema>;
+
 export const orderListQuerySchema = z.object({
   status: z.enum(["pending", "confirmed", "delivered", "cancelled"]).optional(),
-  scheduled_from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-  scheduled_to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  scheduled_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  scheduled_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  customer_id: z.string().uuid().optional(),
+  sort: orderSortFieldSchema.default("scheduled_for"),
+  order: z.enum(["asc", "desc"]).default("desc"),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(25),
+  filters: filterRuleListSchema.default([]),
 });
 
 export type OrderListQuery = z.output<typeof orderListQuerySchema>;
