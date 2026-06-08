@@ -406,10 +406,11 @@ export function DataGrid<TRow extends object, TPatch>({
       colIds: visibleColIds,
     });
     if (grid.length === 0) return false;
+    const rowById = new Map(tableRows.map((r) => [r.id, r]));
     const tsv: string[][] = grid.map((row) =>
       row.map((cell) => {
         const colDef = getColDef(cell.columnId);
-        const tableRow = tableRows.find((r) => r.id === cell.rowId);
+        const tableRow = rowById.get(cell.rowId);
         const value = tableRow?.getValue(cell.columnId) as unknown;
         const editor = colDef?.editor;
         if (editor?.toClipboard) return editor.toClipboard(value);
@@ -975,6 +976,8 @@ export function DataGrid<TRow extends object, TPatch>({
                             selection.extendSelectionTo(addr);
                             return;
                           }
+                          // Cmd/Ctrl-click always adds a disjoint range — intentionally bypasses
+                          // the click-to-edit path, matching Excel/Sheets multi-select.
                           if (e.ctrlKey || e.metaKey) {
                             selection.addSelectionRange(addr);
                             return;

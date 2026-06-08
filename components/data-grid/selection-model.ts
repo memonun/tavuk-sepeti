@@ -62,7 +62,7 @@ export function rangesToCells(state: SelectionState, order: GridOrder): CellAddr
     for (const columnId of order.colIds) {
       const cell = { rowId, columnId };
       if (!cellInRanges(state, cell, order)) continue;
-      const key = `${rowId} ${columnId}`;
+      const key = `${rowId}\0${columnId}`;
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(cell);
