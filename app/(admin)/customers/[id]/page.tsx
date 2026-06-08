@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getCustomerById } from "@/features/customers/application/get-customer";
 import { CustomerDetailPanel } from "@/features/customers/ui/customer-detail-panel";
+import { CustomerOrdersList } from "@/features/orders/ui/customer-orders-list";
 import { env } from "@/shared/env";
 
 interface CustomerEditPageProps {
@@ -40,7 +41,11 @@ export default async function CustomerEditPage({ params }: CustomerEditPageProps
         <p className="text-sm text-muted-foreground">{customer.phone}</p>
       </div>
 
-      <CustomerDetailPanel customer={customer} mapsKey={mapsKey} />
+      <CustomerDetailPanel
+        customer={customer}
+        mapsKey={mapsKey}
+        ordersSlot={<CustomerOrdersList customerId={id} />}
+      />
     </div>
   );
 }
