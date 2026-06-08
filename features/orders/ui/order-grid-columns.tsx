@@ -12,6 +12,7 @@
  */
 import Link from "next/link";
 
+import { currencyCellEditor } from "@/components/data-grid/cells/currency-cell";
 import { selectCellEditor } from "@/components/data-grid/cells/select-cell";
 import { textCellEditor } from "@/components/data-grid/cells/text-cell";
 import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
@@ -141,13 +142,9 @@ export function buildOrderColumns(): DataGridColumn<OrderListItem>[] {
       size: 120,
       columnType: "number",
       editable: true,
-      editor: textCellEditor({
-        schema: orderCellPatchSchemas.delivery_fee as unknown as z.ZodType<string | null>,
-        variant: "mono",
+      editor: currencyCellEditor({
+        schema: orderCellPatchSchemas.delivery_fee as unknown as z.ZodType<number>,
       }) as never,
-      cell: ({ getValue }) => (
-        <span className="font-mono text-xs">{formatTRY(getValue() as number)}</span>
-      ),
     },
     {
       id: "total",
