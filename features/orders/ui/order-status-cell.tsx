@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import type { CellEditor } from "@/components/data-grid/data-grid-types";
 import { allowedTransitions } from "@/features/orders/domain/order-state-machine";
+import { orderCellPatchSchemas } from "@/features/orders/domain/order.schema";
 import type { OrderStatus } from "@/features/orders/domain/order";
 
 const LABELS: Record<OrderStatus, string> = {
@@ -42,12 +43,13 @@ const VARIANT: Record<
 };
 
 export const orderStatusEditor: CellEditor<OrderStatus> = {
-  schema: z.enum([
-    "pending",
-    "confirmed",
-    "delivered",
-    "cancelled",
-  ]) as unknown as z.ZodType<OrderStatus>,
+  // The grid pre-validates the committed raw value against this schema
+  // before dispatching. The status editor commits a `{ to, reason }`
+  // object (not a bare enum), so we reuse the domain patch schema here —
+  // a plain enum would reject every transition. The cast keeps the
+  // CellEditor<OrderStatus> generic happy; at runtime it validates the
+  // object that `edit` actually commits.
+  schema: orderCellPatchSchemas.status as unknown as z.ZodType<OrderStatus>,
   render: (value) => (
     <Badge variant={VARIANT[value]}>{LABELS[value]}</Badge>
   ),

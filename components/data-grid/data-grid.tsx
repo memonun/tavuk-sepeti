@@ -136,6 +136,7 @@ export function DataGrid<TRow extends object, TPatch>({
   mutations,
   renderRowExpand,
   buildPatch,
+  toOptimisticPatch,
   columnLabels,
   toolbar,
   footer,
@@ -351,15 +352,21 @@ export function DataGrid<TRow extends object, TPatch>({
       const patch =
         buildPatch?.(cell.columnId, parsed.data) ??
         ({ [cell.columnId]: parsed.data } as unknown as TPatch);
+      // Optimistic row partial. Defaults to identity (column id === row
+      // field, committed value === display value); features override via
+      // toOptimisticPatch when those don't hold (status, delivery_fee).
+      const optimisticPartial =
+        toOptimisticPatch?.(cell.columnId, parsed.data) ??
+        ({ [cell.columnId]: parsed.data } as Partial<TRow>);
       setEditingCell(null);
-      const result = await commit(cell.rowId, cell.columnId, parsed.data, patch);
+      const result = await commit(cell.rowId, optimisticPartial, patch);
       if (isErr(result)) {
         onCellError?.(result.error.message, result.error);
       } else {
         onCellSuccess?.();
       }
     },
-    [getColDef, commit, buildPatch, onCellError, onCellSuccess],
+    [getColDef, commit, buildPatch, toOptimisticPatch, onCellError, onCellSuccess],
   );
 
   const handleCancelEdit = useCallback(() => setEditingCell(null), []);

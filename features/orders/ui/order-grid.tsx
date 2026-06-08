@@ -116,6 +116,25 @@ export function OrderGrid({
     [],
   );
 
+  // Optimistic row partial. The default identity mapping (column id === row
+  // field, committed value === display value) is wrong for two columns:
+  //  - status: the editor commits `{ to, reason }`, but the row stores the
+  //    bare status string — surface `.to` so the cell renders a real badge.
+  //  - delivery_fee: the column id is `delivery_fee` but the row field is
+  //    `delivery_fee_minor` (minor units) — remap so the visible cell updates.
+  const toOptimisticPatch = useCallback(
+    (columnId: string, value: unknown): Partial<OrderListItem> => {
+      if (columnId === "status") {
+        return { status: (value as { to: OrderListItem["status"] }).to };
+      }
+      if (columnId === "delivery_fee") {
+        return { delivery_fee_minor: Number(value) };
+      }
+      return { [columnId]: value } as Partial<OrderListItem>;
+    },
+    [],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <DataGrid<OrderListItem, OrderCellPatch>
@@ -128,6 +147,7 @@ export function OrderGrid({
         pageSize={pageSize}
         mutations={{ onCellCommit }}
         buildPatch={buildPatch}
+        toOptimisticPatch={toOptimisticPatch}
         columnLabels={ORDER_COLUMN_LABELS}
         entityLabel="sipariş"
         toolbar={
