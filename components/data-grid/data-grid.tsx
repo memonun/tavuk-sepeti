@@ -308,7 +308,9 @@ export function DataGrid<TRow extends object, TPatch>({
   // Fill handle: while dragging, holds the cell the pointer is currently
   // over so we can preview + compute the target rectangle on release.
   const [fillTarget, setFillTarget] = useState<CellAddress | null>(null);
+  const fillTargetRef = useRef<CellAddress | null>(null);
   const fillingRef = useRef(false);
+  const [isFilling, setIsFilling] = useState(false);
 
   const getColDef = useCallback(
     (columnId: string): DataGridColumn<TRow> | undefined => {
@@ -382,14 +384,15 @@ export function DataGrid<TRow extends object, TPatch>({
   // the active range; the target shares the source's anchor and extends to
   // the cell under the pointer. Tiling + readonly-skip happen here.
   useEffect(() => {
-    if (!fillTarget) return;
+    if (!isFilling) return;
     function onUp() {
+      const target = fillTargetRef.current;
       fillingRef.current = false;
-      const start = selection.activeCell;
-      const target = fillTarget;
+      setIsFilling(false);
       setFillTarget(null);
-      if (!start || !target || !selection.state) return;
-
+      fillTargetRef.current = null;
+      const start = selection.activeCell;
+      if (!start || !target || !selection.state || selection.state.ranges.length === 0) return;
       const order = { rowIds: visibleRowIds, colIds: visibleColIds };
       const source = selection.state.ranges[selection.state.ranges.length - 1]!;
       const targetRange = { anchor: source.anchor, focus: target };
@@ -414,7 +417,7 @@ export function DataGrid<TRow extends object, TPatch>({
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
   }, [
-    fillTarget,
+    isFilling,
     selection.activeCell,
     selection.state,
     visibleRowIds,
@@ -1000,9 +1003,10 @@ export function DataGrid<TRow extends object, TPatch>({
                     // Fill-drag preview: synthetic range from the active
                     // range's anchor to the cell currently under the pointer.
                     const inFillPreview =
-                      fillingRef.current &&
+                      isFilling &&
                       fillTarget != null &&
                       selection.state != null &&
+                      selection.state.ranges.length > 0 &&
                       cellInRanges(
                         {
                           ranges: [
@@ -1046,7 +1050,10 @@ export function DataGrid<TRow extends object, TPatch>({
                           colDef.editable && !isEditing && "cursor-cell",
                         )}
                         onMouseEnter={() => {
-                          if (fillingRef.current) setFillTarget(addr);
+                          if (fillingRef.current) {
+                            fillTargetRef.current = addr;
+                            setFillTarget(addr);
+                          }
                         }}
                         onMouseDown={(e) => {
                           if (e.shiftKey) {
@@ -1095,14 +1102,18 @@ export function DataGrid<TRow extends object, TPatch>({
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </div>
                         )}
+                        {/* Fill handle — drag to tile the active cell's value down/right. */}
                         {isActive && !isEditing ? (
                           <div
                             role="presentation"
+                            aria-hidden="true"
                             className="absolute -bottom-[3px] -right-[3px] z-10 h-2 w-2 cursor-crosshair rounded-[1px] bg-primary"
                             onMouseDown={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
                               fillingRef.current = true;
+                              fillTargetRef.current = addr;
+                              setIsFilling(true);
                               setFillTarget(addr);
                             }}
                           />
