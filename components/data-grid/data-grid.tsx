@@ -82,6 +82,10 @@ import {
   getPinningHeaderStyles,
   getPinningStyles,
 } from "@/components/data-grid/pinning/pinning-styles";
+import {
+  activeRangeCells,
+  rangesToCells,
+} from "@/components/data-grid/selection-model";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ValidationError } from "@/shared/errors/app-error";
@@ -396,33 +400,24 @@ export function DataGrid<TRow extends object, TPatch>({
   // ---- Copy --------------------------------------------------------------
 
   const handleCopy = useCallback(async () => {
-    const sel = selection.selection;
-    if (!sel) return false;
-    const anchorR = visibleRowIds.indexOf(sel.anchor.rowId);
-    const focusR = visibleRowIds.indexOf(sel.focus.rowId);
-    const anchorC = visibleColIds.indexOf(sel.anchor.columnId);
-    const focusC = visibleColIds.indexOf(sel.focus.columnId);
-    if ([anchorR, focusR, anchorC, focusC].some((i) => i < 0)) return false;
-    const [rTop, rBot] = anchorR <= focusR ? [anchorR, focusR] : [focusR, anchorR];
-    const [cLeft, cRight] = anchorC <= focusC ? [anchorC, focusC] : [focusC, anchorC];
-    const tsv: string[][] = [];
-    for (let r = rTop; r <= rBot; r++) {
-      const tableRow = tableRows[r];
-      if (!tableRow) continue;
-      const out: string[] = [];
-      for (let c = cLeft; c <= cRight; c++) {
-        const colId = visibleColIds[c];
-        const column = visibleLeafColumns[c];
-        if (!colId || !column) continue;
-        const value = tableRow.getValue(colId) as unknown;
-        const editor = (column.columnDef as DataGridColumn<TRow>).editor;
-        const text = editor?.toClipboard ? editor.toClipboard(value) : String(value ?? "");
-        out.push(text);
-      }
-      tsv.push(out);
-    }
+    if (!selection.state) return false;
+    const grid = activeRangeCells(selection.state, {
+      rowIds: visibleRowIds,
+      colIds: visibleColIds,
+    });
+    if (grid.length === 0) return false;
+    const tsv: string[][] = grid.map((row) =>
+      row.map((cell) => {
+        const colDef = getColDef(cell.columnId);
+        const tableRow = tableRows.find((r) => r.id === cell.rowId);
+        const value = tableRow?.getValue(cell.columnId) as unknown;
+        const editor = colDef?.editor;
+        if (editor?.toClipboard) return editor.toClipboard(value);
+        return value == null ? "" : String(value);
+      }),
+    );
     return clipboard.copy(tsv);
-  }, [clipboard, selection.selection, tableRows, visibleColIds, visibleLeafColumns, visibleRowIds]);
+  }, [clipboard, selection.state, tableRows, visibleColIds, visibleRowIds, getColDef]);
 
   // ---- Paste -------------------------------------------------------------
 
@@ -433,10 +428,10 @@ export function DataGrid<TRow extends object, TPatch>({
       e.preventDefault();
       const { rows: parsed } = parseClipboardTable(text);
       if (parsed.length === 0) return;
-      const sel = selection.selection;
-      if (!sel) return;
-      const startRow = visibleRowIds.indexOf(sel.focus.rowId);
-      const startCol = visibleColIds.indexOf(sel.focus.columnId);
+      const startCell = selection.activeCell;
+      if (!startCell) return;
+      const startRow = visibleRowIds.indexOf(startCell.rowId);
+      const startCol = visibleColIds.indexOf(startCell.columnId);
       if (startRow < 0 || startCol < 0) return;
       for (let r = 0; r < parsed.length; r++) {
         const targetRowIdx = startRow + r;
@@ -462,7 +457,7 @@ export function DataGrid<TRow extends object, TPatch>({
         }
       }
     },
-    [selection.selection, visibleRowIds, visibleColIds, getColDef, handleCommitEdit, onCellError],
+    [selection.activeCell, visibleRowIds, visibleColIds, getColDef, handleCommitEdit, onCellError],
   );
 
   // ---- Bulk paste-create -------------------------------------------------
@@ -646,6 +641,21 @@ export function DataGrid<TRow extends object, TPatch>({
         void handleCopy();
         return;
       }
+      // Delete/Backspace → clear every editable cell across all ranges.
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (!selection.state) return;
+        e.preventDefault();
+        const cells = rangesToCells(selection.state, {
+          rowIds: visibleRowIds,
+          colIds: visibleColIds,
+        });
+        for (const cell of cells) {
+          const colDef = getColDef(cell.columnId);
+          if (!colDef?.editable || !colDef.editor) continue;
+          void handleCommitEdit({ rowId: cell.rowId, columnId: cell.columnId }, "");
+        }
+        return;
+      }
       // Type-to-edit: a printable character without modifiers starts
       // editing the active cell with the typed character as the seed.
       if (
@@ -659,7 +669,17 @@ export function DataGrid<TRow extends object, TPatch>({
         handleStartEdit(addr, e.key);
       }
     },
-    [editingCell, handleStartEdit, selection, moveActive, handleCopy],
+    [
+      editingCell,
+      handleStartEdit,
+      selection,
+      moveActive,
+      handleCopy,
+      handleCommitEdit,
+      getColDef,
+      visibleRowIds,
+      visibleColIds,
+    ],
   );
 
   // ---- Render ------------------------------------------------------------
@@ -953,6 +973,10 @@ export function DataGrid<TRow extends object, TPatch>({
                           };
                           if (e.shiftKey) {
                             selection.extendSelectionTo(addr);
+                            return;
+                          }
+                          if (e.ctrlKey || e.metaKey) {
+                            selection.addSelectionRange(addr);
                             return;
                           }
                           // Notion-style "click an already-active cell to
