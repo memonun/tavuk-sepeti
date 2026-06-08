@@ -1154,15 +1154,20 @@ export function DataGrid<TRow extends object, TPatch>({
               );
             })}
             {/* "+ Yeni satır" sentinel — Notion-style always-visible footer.
-                Clicking it opens the bulk-paste input dialog as the
-                quickest path to creating new rows; click "+ Yeni Müşteri"
-                in the toolbar for the form route. */}
-            {mutations?.onBulkCreate ? (
+                Clicking it calls onAddRow to insert a blank row the admin
+                can complete inline or via the detail panel. */}
+            {mutations?.onAddRow ? (
               <tr className="group">
                 <td
                   colSpan={colCount}
                   className="h-8 cursor-pointer border-b border-border px-3 text-left text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                  onClick={() => setBulkInputOpen(true)}
+                  onClick={() => {
+                    void (async () => {
+                      const result = await mutations.onAddRow!();
+                      if (!result.ok) onCellError?.(result.error.message, result.error);
+                      else onCellSuccess?.();
+                    })();
+                  }}
                 >
                   <span className="inline-flex items-center gap-1.5">
                     <Plus className="h-3 w-3" />

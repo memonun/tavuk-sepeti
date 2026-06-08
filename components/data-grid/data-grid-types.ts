@@ -113,6 +113,12 @@ export interface DataGridMutations<TRow, TPatch> {
    * surface a "Sil" action that calls this with the selected row ids.
    */
   onBulkDelete?: (rowIds: ReadonlyArray<string>) => Promise<Result<{ deleted: number }, AppError>>;
+  /**
+   * Optional. When provided, the "+ Yeni satır" footer appends a blank
+   * row via this action and returns the created row so the grid can show
+   * it immediately.
+   */
+  onAddRow?: () => Promise<Result<TRow, AppError>>;
 }
 
 /**
