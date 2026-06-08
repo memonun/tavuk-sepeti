@@ -27,6 +27,7 @@ import {
 } from "@/features/customers/ui/customer-grid-columns";
 import { CustomerFilterBar } from "@/features/customers/ui/customer-filter-bar";
 import { CustomerRowExpand } from "@/features/customers/ui/customer-row-expand";
+import { addCustomerRowAction } from "@/features/customers/application/add-customer-row";
 import { bulkCreateCustomersAction } from "@/features/customers/application/bulk-create-customers";
 import { bulkDeleteCustomersAction } from "@/features/customers/application/bulk-delete-customers";
 import { patchCustomerCellAction } from "@/features/customers/application/patch-customer-cell";
@@ -148,6 +149,13 @@ export function CustomerGrid({
         pageSize={pageSize}
         mutations={{
           onCellCommit,
+          onAddRow: async () => {
+            const result = await addCustomerRowAction();
+            if (result.ok) {
+              toast.success("Yeni satır eklendi.");
+            }
+            return result;
+          },
           onBulkCreate: async (rows) => {
             const result = await bulkCreateCustomersAction(rows);
             if (result.ok) {

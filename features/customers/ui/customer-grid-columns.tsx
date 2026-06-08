@@ -64,6 +64,10 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       editor: textCellEditor({
         schema: customerCellPatchSchemas.first_name as unknown as z.ZodType<string | null>,
       }) as never,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return v ? <span>{v}</span> : <span className="text-muted-foreground">—</span>;
+      },
     },
     {
       id: "last_name",
@@ -75,6 +79,10 @@ export function buildCustomerColumns(): DataGridColumn<CustomerListItem>[] {
       editor: textCellEditor({
         schema: customerCellPatchSchemas.last_name as unknown as z.ZodType<string | null>,
       }) as never,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return v ? <span>{v}</span> : <span className="text-muted-foreground">—</span>;
+      },
     },
     {
       id: "phone",
