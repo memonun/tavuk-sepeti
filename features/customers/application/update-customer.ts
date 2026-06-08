@@ -60,36 +60,46 @@ export async function updateCustomerAction(
     };
   }
 
-  const rawText = composeFullAddress(parsed.data.address);
+  const addr = parsed.data.address ?? null;
+  const rawText = composeFullAddress(addr ?? {});
 
-  const updated = await repoUpdate(customerId, {
-    first_name: parsed.data.first_name,
-    last_name: parsed.data.last_name,
-    email: parsed.data.email,
-    phone: parsed.data.phone,
-    notes: parsed.data.notes,
+  // Build the update payload without setting keys to `undefined` — required by
+  // exactOptionalPropertyTypes. Spread the optional scalar fields only when
+  // they are non-null so the repository skips them (preserving existing values).
+  const updateInput = {
+    email: parsed.data.email ?? null,
+    notes: parsed.data.notes ?? null,
     status: parsed.data.status,
-    address: {
-      raw_text: rawText,
-      description: parsed.data.address.description,
-      city: parsed.data.address.city,
-      district: parsed.data.address.district,
-      neighborhood: parsed.data.address.neighborhood,
-      street: parsed.data.address.street,
-      building_no: parsed.data.address.building_no,
-      apartment_no: parsed.data.address.apartment_no,
-      postal_code: parsed.data.address.postal_code,
-      coordinate: {
-        lat: parsed.data.address.lat,
-        lng: parsed.data.address.lng,
-        source: parsed.data.address.source,
-        accuracy: parsed.data.address.accuracy,
-        geocoded_at:
-          parsed.data.address.source === "user_pin" ? null : new Date(),
-        geocoder_response_hash: null,
-      },
-    },
-  });
+    ...(parsed.data.first_name !== null ? { first_name: parsed.data.first_name } : {}),
+    ...(parsed.data.last_name !== null ? { last_name: parsed.data.last_name } : {}),
+    ...(parsed.data.phone !== null ? { phone: parsed.data.phone } : {}),
+    ...(addr !== null
+      ? {
+          address: {
+            raw_text: rawText,
+            description: addr.description ?? null,
+            city: addr.city ?? null,
+            district: addr.district ?? null,
+            neighborhood: addr.neighborhood ?? null,
+            street: addr.street ?? null,
+            building_no: addr.building_no ?? null,
+            apartment_no: addr.apartment_no ?? null,
+            postal_code: addr.postal_code ?? null,
+            coordinate: {
+              lat: addr.lat ?? 0,
+              lng: addr.lng ?? 0,
+              source: addr.source ?? "admin_corrected",
+              accuracy: addr.accuracy ?? "unknown",
+              geocoded_at:
+                addr.source === "user_pin" ? null : new Date(),
+              geocoder_response_hash: null,
+            },
+          },
+        }
+      : {}),
+  };
+
+  const updated = await repoUpdate(customerId, updateInput);
 
   // Snapshot the pre-update row for the audit "before" payload. Best-
   // effort: if it can't be loaded for some reason, we still log the

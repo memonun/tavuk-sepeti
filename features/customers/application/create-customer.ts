@@ -71,36 +71,37 @@ export async function createCustomerAction(
 
   // Compose the legacy raw_text from the structured fields. Stored for
   // table display + search fallback; the structured fields remain the
-  // source of truth.
-  const rawText = composeFullAddress(parsed.data.address);
+  // source of truth. Address may be null/undefined for minimal records.
+  const addr = parsed.data.address ?? null;
+  const rawText = composeFullAddress(addr ?? {});
 
   const created = await repoCreate({
-    first_name: parsed.data.first_name,
-    last_name: parsed.data.last_name,
-    email: parsed.data.email,
-    phone: parsed.data.phone,
-    notes: parsed.data.notes,
+    first_name: parsed.data.first_name ?? "",
+    last_name: parsed.data.last_name ?? "",
+    email: parsed.data.email ?? null,
+    phone: parsed.data.phone ?? "",
+    notes: parsed.data.notes ?? null,
     status: parsed.data.status,
     created_by: user.id,
     address: {
       raw_text: rawText,
-      description: parsed.data.address.description,
-      city: parsed.data.address.city,
-      district: parsed.data.address.district,
-      neighborhood: parsed.data.address.neighborhood,
-      street: parsed.data.address.street,
-      building_no: parsed.data.address.building_no,
-      apartment_no: parsed.data.address.apartment_no,
-      postal_code: parsed.data.address.postal_code,
+      description: addr?.description ?? null,
+      city: addr?.city ?? null,
+      district: addr?.district ?? null,
+      neighborhood: addr?.neighborhood ?? null,
+      street: addr?.street ?? null,
+      building_no: addr?.building_no ?? null,
+      apartment_no: addr?.apartment_no ?? null,
+      postal_code: addr?.postal_code ?? null,
       coordinate: {
-        lat: parsed.data.address.lat,
-        lng: parsed.data.address.lng,
-        source: parsed.data.address.source,
-        accuracy: parsed.data.address.accuracy,
+        lat: addr?.lat ?? 0,
+        lng: addr?.lng ?? 0,
+        source: addr?.source ?? "admin_corrected",
+        accuracy: addr?.accuracy ?? "unknown",
         // The form-driven flow always carries a fresh hash from the geocode
         // action; null means an admin dropped a pure manual pin without ever
         // calling Google (rare, but valid).
-        geocoded_at: parsed.data.address.source === "user_pin" ? null : new Date(),
+        geocoded_at: addr?.source === "user_pin" ? null : new Date(),
         geocoder_response_hash: null,
       },
     },

@@ -181,24 +181,25 @@ const addressAccuracy = watch("address.accuracy");
     setSubmitError(null);
     startSubmitting(async () => {
       const formData = new FormData();
-      formData.set("first_name", parsed.first_name);
-      formData.set("last_name", parsed.last_name);
+      const addr = parsed.address ?? null;
+      formData.set("first_name", parsed.first_name ?? "");
+      formData.set("last_name", parsed.last_name ?? "");
       formData.set("email", parsed.email ?? "");
-      formData.set("phone", parsed.phone);
+      formData.set("phone", parsed.phone ?? "");
       formData.set("notes", parsed.notes ?? "");
       formData.set("status", parsed.status);
-      formData.set("address.city", parsed.address.city);
-      formData.set("address.district", parsed.address.district);
-      formData.set("address.neighborhood", parsed.address.neighborhood);
-      formData.set("address.street", parsed.address.street ?? "");
-      formData.set("address.building_no", parsed.address.building_no ?? "");
-      formData.set("address.apartment_no", parsed.address.apartment_no ?? "");
-      formData.set("address.postal_code", parsed.address.postal_code ?? "");
-      formData.set("address.description", parsed.address.description ?? "");
-      formData.set("address.lat", String(parsed.address.lat));
-      formData.set("address.lng", String(parsed.address.lng));
-      formData.set("address.source", parsed.address.source);
-      formData.set("address.accuracy", parsed.address.accuracy);
+      formData.set("address.city", addr?.city ?? "");
+      formData.set("address.district", addr?.district ?? "");
+      formData.set("address.neighborhood", addr?.neighborhood ?? "");
+      formData.set("address.street", addr?.street ?? "");
+      formData.set("address.building_no", addr?.building_no ?? "");
+      formData.set("address.apartment_no", addr?.apartment_no ?? "");
+      formData.set("address.postal_code", addr?.postal_code ?? "");
+      formData.set("address.description", addr?.description ?? "");
+      formData.set("address.lat", String(addr?.lat ?? 0));
+      formData.set("address.lng", String(addr?.lng ?? 0));
+      formData.set("address.source", addr?.source ?? "");
+      formData.set("address.accuracy", addr?.accuracy ?? "");
 
       const result =
         mode.kind === "create"
@@ -350,7 +351,7 @@ const addressAccuracy = watch("address.accuracy");
             apiKey={mapsBrowserKey}
             lat={addressLat}
             lng={addressLng}
-            accuracy={addressAccuracy}
+            accuracy={addressAccuracy ?? "unknown"}
             onChange={onPinChange}
           />
         ) : null}
