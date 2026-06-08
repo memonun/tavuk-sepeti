@@ -17,6 +17,7 @@ import { CustomerPagination } from "@/features/customers/ui/customer-pagination"
 import { listViewsAction } from "@/features/views/application/list-views";
 import { ViewTabs } from "@/features/views/ui/view-tabs";
 import { buildViewUrl } from "@/features/views/ui/view-url";
+import { env } from "@/shared/env";
 
 interface CustomersPageProps {
   searchParams: Promise<{
@@ -145,6 +146,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         tags={filterOptions.tags}
         legacySegments={filterOptions.legacySegments}
         currentFilters={currentFilters}
+        mapsKey={env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? ""}
       />
 
       <CustomerPagination

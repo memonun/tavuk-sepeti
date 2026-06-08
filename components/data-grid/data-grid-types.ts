@@ -113,6 +113,12 @@ export interface DataGridMutations<TRow, TPatch> {
    * surface a "Sil" action that calls this with the selected row ids.
    */
   onBulkDelete?: (rowIds: ReadonlyArray<string>) => Promise<Result<{ deleted: number }, AppError>>;
+  /**
+   * Optional. When provided, the "+ Yeni satır" footer appends a blank
+   * row via this action and returns the created row so the grid can show
+   * it immediately.
+   */
+  onAddRow?: () => Promise<Result<TRow, AppError>>;
 }
 
 /**
@@ -135,6 +141,14 @@ export interface DataGridProps<TRow, TPatch> {
   readonly renderRowExpand?: (row: TRow) => ReactNode;
   /** Convert a single-cell commit into the feature's patch shape. */
   readonly buildPatch?: (columnId: string, value: unknown) => TPatch;
+  /**
+   * Build the optimistic row partial for a committed cell. Needed when the
+   * column id doesn't equal the row field (e.g. `delivery_fee` column →
+   * `delivery_fee_minor` field) or when the committed value isn't the
+   * display value (e.g. status commits `{ to, reason }` but the row stores
+   * the bare status). Defaults to identity: `{ [columnId]: value }`.
+   */
+  readonly toOptimisticPatch?: (columnId: string, value: unknown) => Partial<TRow>;
 }
 
 /** Persisted, per-table user prefs (column sizes, order, visibility). */

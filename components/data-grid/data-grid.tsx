@@ -72,6 +72,7 @@ import { useCellSelection } from "@/components/data-grid/hooks/use-cell-selectio
 import { useClipboard } from "@/components/data-grid/hooks/use-clipboard";
 import { useColumnPrefs } from "@/components/data-grid/hooks/use-column-prefs";
 import { useOptimisticRows } from "@/components/data-grid/hooks/use-optimistic-rows";
+import { computeFillWrites } from "@/components/data-grid/fill";
 import { parseClipboardTable } from "@/components/data-grid/paste/parse-tsv";
 import { PasteInputDialog } from "@/components/data-grid/paste/paste-input-dialog";
 import {
@@ -82,6 +83,11 @@ import {
   getPinningHeaderStyles,
   getPinningStyles,
 } from "@/components/data-grid/pinning/pinning-styles";
+import {
+  activeRangeCells,
+  cellInRanges,
+  rangesToCells,
+} from "@/components/data-grid/selection-model";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ValidationError } from "@/shared/errors/app-error";
@@ -130,6 +136,7 @@ export function DataGrid<TRow extends object, TPatch>({
   mutations,
   renderRowExpand,
   buildPatch,
+  toOptimisticPatch,
   columnLabels,
   toolbar,
   footer,
@@ -299,6 +306,13 @@ export function DataGrid<TRow extends object, TPatch>({
   const clipboard = useClipboard();
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
 
+  // Fill handle: while dragging, holds the cell the pointer is currently
+  // over so we can preview + compute the target rectangle on release.
+  const [fillTarget, setFillTarget] = useState<CellAddress | null>(null);
+  const fillTargetRef = useRef<CellAddress | null>(null);
+  const fillingRef = useRef(false);
+  const [isFilling, setIsFilling] = useState(false);
+
   const getColDef = useCallback(
     (columnId: string): DataGridColumn<TRow> | undefined => {
       const col = table.getColumn(columnId);
@@ -338,15 +352,21 @@ export function DataGrid<TRow extends object, TPatch>({
       const patch =
         buildPatch?.(cell.columnId, parsed.data) ??
         ({ [cell.columnId]: parsed.data } as unknown as TPatch);
+      // Optimistic row partial. Defaults to identity (column id === row
+      // field, committed value === display value); features override via
+      // toOptimisticPatch when those don't hold (status, delivery_fee).
+      const optimisticPartial =
+        toOptimisticPatch?.(cell.columnId, parsed.data) ??
+        ({ [cell.columnId]: parsed.data } as Partial<TRow>);
       setEditingCell(null);
-      const result = await commit(cell.rowId, cell.columnId, parsed.data, patch);
+      const result = await commit(cell.rowId, optimisticPartial, patch);
       if (isErr(result)) {
         onCellError?.(result.error.message, result.error);
       } else {
         onCellSuccess?.();
       }
     },
-    [getColDef, commit, buildPatch, onCellError, onCellSuccess],
+    [getColDef, commit, buildPatch, toOptimisticPatch, onCellError, onCellSuccess],
   );
 
   const handleCancelEdit = useCallback(() => setEditingCell(null), []);
@@ -366,6 +386,54 @@ export function DataGrid<TRow extends object, TPatch>({
     const node = cellRefs.current.get(cellKey(active.rowId, active.columnId));
     node?.focus({ preventScroll: false });
   }, [selection.activeCell, editingCell]);
+
+  // Fill handle: commit the dragged rectangle on mouse-up. The source is
+  // the active range; the target shares the source's anchor and extends to
+  // the cell under the pointer. Tiling + readonly-skip happen here.
+  useEffect(() => {
+    if (!isFilling) return;
+    function onUp() {
+      const target = fillTargetRef.current;
+      fillingRef.current = false;
+      setIsFilling(false);
+      setFillTarget(null);
+      fillTargetRef.current = null;
+      const start = selection.activeCell;
+      if (!start || !target || !selection.state || selection.state.ranges.length === 0) return;
+      const order = { rowIds: visibleRowIds, colIds: visibleColIds };
+      const source = selection.state.ranges[selection.state.ranges.length - 1]!;
+      const targetRange = { anchor: source.anchor, focus: target };
+      const writes = computeFillWrites({
+        source,
+        target: targetRange,
+        order,
+        valueAt: (cell) => {
+          const colDef = getColDef(cell.columnId);
+          const tableRow = tableRows.find((r) => r.id === cell.rowId);
+          const value = tableRow?.getValue(cell.columnId) as unknown;
+          if (colDef?.editor?.toClipboard) return colDef.editor.toClipboard(value);
+          return value == null ? "" : String(value);
+        },
+      });
+      for (const w of writes) {
+        const colDef = getColDef(w.columnId);
+        if (!colDef?.editable || !colDef.editor) continue; // skip readonly silently
+        if (!colDef.editor.schema.safeParse(w.value).success) continue; // skip non-applicable cells silently
+        void handleCommitEdit({ rowId: w.rowId, columnId: w.columnId }, w.value);
+      }
+    }
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+  }, [
+    isFilling,
+    selection.activeCell,
+    selection.state,
+    visibleRowIds,
+    visibleColIds,
+    getColDef,
+    tableRows,
+    handleCommitEdit,
+  ]);
 
   // Move the active cell by (dRow, dCol). Wraps on column overflow within
   // the same row; clamps at the grid edges.
@@ -396,33 +464,25 @@ export function DataGrid<TRow extends object, TPatch>({
   // ---- Copy --------------------------------------------------------------
 
   const handleCopy = useCallback(async () => {
-    const sel = selection.selection;
-    if (!sel) return false;
-    const anchorR = visibleRowIds.indexOf(sel.anchor.rowId);
-    const focusR = visibleRowIds.indexOf(sel.focus.rowId);
-    const anchorC = visibleColIds.indexOf(sel.anchor.columnId);
-    const focusC = visibleColIds.indexOf(sel.focus.columnId);
-    if ([anchorR, focusR, anchorC, focusC].some((i) => i < 0)) return false;
-    const [rTop, rBot] = anchorR <= focusR ? [anchorR, focusR] : [focusR, anchorR];
-    const [cLeft, cRight] = anchorC <= focusC ? [anchorC, focusC] : [focusC, anchorC];
-    const tsv: string[][] = [];
-    for (let r = rTop; r <= rBot; r++) {
-      const tableRow = tableRows[r];
-      if (!tableRow) continue;
-      const out: string[] = [];
-      for (let c = cLeft; c <= cRight; c++) {
-        const colId = visibleColIds[c];
-        const column = visibleLeafColumns[c];
-        if (!colId || !column) continue;
-        const value = tableRow.getValue(colId) as unknown;
-        const editor = (column.columnDef as DataGridColumn<TRow>).editor;
-        const text = editor?.toClipboard ? editor.toClipboard(value) : String(value ?? "");
-        out.push(text);
-      }
-      tsv.push(out);
-    }
+    if (!selection.state) return false;
+    const grid = activeRangeCells(selection.state, {
+      rowIds: visibleRowIds,
+      colIds: visibleColIds,
+    });
+    if (grid.length === 0) return false;
+    const rowById = new Map(tableRows.map((r) => [r.id, r]));
+    const tsv: string[][] = grid.map((row) =>
+      row.map((cell) => {
+        const colDef = getColDef(cell.columnId);
+        const tableRow = rowById.get(cell.rowId);
+        const value = tableRow?.getValue(cell.columnId) as unknown;
+        const editor = colDef?.editor;
+        if (editor?.toClipboard) return editor.toClipboard(value);
+        return value == null ? "" : String(value);
+      }),
+    );
     return clipboard.copy(tsv);
-  }, [clipboard, selection.selection, tableRows, visibleColIds, visibleLeafColumns, visibleRowIds]);
+  }, [clipboard, selection.state, tableRows, visibleColIds, visibleRowIds, getColDef]);
 
   // ---- Paste -------------------------------------------------------------
 
@@ -433,10 +493,10 @@ export function DataGrid<TRow extends object, TPatch>({
       e.preventDefault();
       const { rows: parsed } = parseClipboardTable(text);
       if (parsed.length === 0) return;
-      const sel = selection.selection;
-      if (!sel) return;
-      const startRow = visibleRowIds.indexOf(sel.focus.rowId);
-      const startCol = visibleColIds.indexOf(sel.focus.columnId);
+      const startCell = selection.activeCell;
+      if (!startCell) return;
+      const startRow = visibleRowIds.indexOf(startCell.rowId);
+      const startCol = visibleColIds.indexOf(startCell.columnId);
       if (startRow < 0 || startCol < 0) return;
       for (let r = 0; r < parsed.length; r++) {
         const targetRowIdx = startRow + r;
@@ -462,7 +522,7 @@ export function DataGrid<TRow extends object, TPatch>({
         }
       }
     },
-    [selection.selection, visibleRowIds, visibleColIds, getColDef, handleCommitEdit, onCellError],
+    [selection.activeCell, visibleRowIds, visibleColIds, getColDef, handleCommitEdit, onCellError],
   );
 
   // ---- Bulk paste-create -------------------------------------------------
@@ -560,6 +620,7 @@ export function DataGrid<TRow extends object, TPatch>({
     [openBulkPasteFromText],
   );
 
+  const [addRowBusy, setAddRowBusy] = useState(false);
   const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
   const handleBulkDelete = useCallback(async () => {
     if (!mutations?.onBulkDelete || selectedRowIds.size === 0) return;
@@ -632,6 +693,9 @@ export function DataGrid<TRow extends object, TPatch>({
           moveActive(0, -1);
           return;
         case "ArrowRight":
+          e.preventDefault();
+          moveActive(0, 1);
+          return;
         case "Tab":
           e.preventDefault();
           moveActive(0, e.shiftKey ? -1 : 1);
@@ -644,6 +708,22 @@ export function DataGrid<TRow extends object, TPatch>({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
         e.preventDefault();
         void handleCopy();
+        return;
+      }
+      // Delete/Backspace → clear every editable cell across all ranges.
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (!selection.state) return;
+        e.preventDefault();
+        const cells = rangesToCells(selection.state, {
+          rowIds: visibleRowIds,
+          colIds: visibleColIds,
+        });
+        for (const cell of cells) {
+          const colDef = getColDef(cell.columnId);
+          if (!colDef?.editable || !colDef.editor) continue;
+          if (!colDef.editor.schema.safeParse("").success) continue; // skip non-applicable cells silently
+          void handleCommitEdit({ rowId: cell.rowId, columnId: cell.columnId }, "");
+        }
         return;
       }
       // Type-to-edit: a printable character without modifiers starts
@@ -659,7 +739,17 @@ export function DataGrid<TRow extends object, TPatch>({
         handleStartEdit(addr, e.key);
       }
     },
-    [editingCell, handleStartEdit, selection, moveActive, handleCopy],
+    [
+      editingCell,
+      handleStartEdit,
+      selection,
+      moveActive,
+      handleCopy,
+      handleCommitEdit,
+      getColDef,
+      visibleRowIds,
+      visibleColIds,
+    ],
   );
 
   // ---- Render ------------------------------------------------------------
@@ -909,16 +999,41 @@ export function DataGrid<TRow extends object, TPatch>({
                   </td>
                   {row.getVisibleCells().map((cell) => {
                     const colDef = cell.column.columnDef as DataGridColumn<TRow>;
+                    const addr: CellAddress = {
+                      rowId: row.id,
+                      columnId: cell.column.id,
+                    };
                     const isEditing =
                       editingCell?.rowId === row.id && editingCell.columnId === cell.column.id;
                     const isActive =
                       selection.activeCell?.rowId === row.id &&
                       selection.activeCell.columnId === cell.column.id;
                     const isSelected = selection.isSelected(
-                      { rowId: row.id, columnId: cell.column.id },
+                      addr,
                       visibleRowIds,
                       visibleColIds,
                     );
+                    // Fill-drag preview: synthetic range from the active
+                    // range's anchor to the cell currently under the pointer.
+                    const inFillPreview =
+                      isFilling &&
+                      fillTarget != null &&
+                      selection.state != null &&
+                      selection.state.ranges.length > 0 &&
+                      cellInRanges(
+                        {
+                          ranges: [
+                            {
+                              anchor:
+                                selection.state.ranges[selection.state.ranges.length - 1]!.anchor,
+                              focus: fillTarget,
+                            },
+                          ],
+                          active: fillTarget,
+                        },
+                        addr,
+                        { rowIds: visibleRowIds, colIds: visibleColIds },
+                      );
                     const k = cellKey(row.id, cell.column.id);
                     return (
                       <td
@@ -944,15 +1059,24 @@ export function DataGrid<TRow extends object, TPatch>({
                             "bg-blue-50 dark:bg-blue-950/40",
                           isActive &&
                             "bg-blue-50 group-hover:bg-blue-50 dark:bg-blue-950/40 dark:group-hover:bg-blue-950/40",
+                          inFillPreview && "ring-1 ring-inset ring-primary/50",
                           colDef.editable && !isEditing && "cursor-cell",
                         )}
+                        onMouseEnter={() => {
+                          if (fillingRef.current) {
+                            fillTargetRef.current = addr;
+                            setFillTarget(addr);
+                          }
+                        }}
                         onMouseDown={(e) => {
-                          const addr: CellAddress = {
-                            rowId: row.id,
-                            columnId: cell.column.id,
-                          };
                           if (e.shiftKey) {
                             selection.extendSelectionTo(addr);
+                            return;
+                          }
+                          // Cmd/Ctrl-click always adds a disjoint range — intentionally bypasses
+                          // the click-to-edit path, matching Excel/Sheets multi-select.
+                          if (e.ctrlKey || e.metaKey) {
+                            selection.addSelectionRange(addr);
                             return;
                           }
                           // Notion-style "click an already-active cell to
@@ -991,6 +1115,22 @@ export function DataGrid<TRow extends object, TPatch>({
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </div>
                         )}
+                        {/* Fill handle — drag to tile the active cell's value down/right. */}
+                        {isActive && !isEditing ? (
+                          <div
+                            role="presentation"
+                            aria-hidden="true"
+                            className="absolute -bottom-[3px] -right-[3px] z-10 h-2 w-2 cursor-crosshair rounded-[1px] bg-primary"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              fillingRef.current = true;
+                              fillTargetRef.current = addr;
+                              setIsFilling(true);
+                              setFillTarget(addr);
+                            }}
+                          />
+                        ) : null}
                       </td>
                     );
                   })}
@@ -1027,15 +1167,30 @@ export function DataGrid<TRow extends object, TPatch>({
               );
             })}
             {/* "+ Yeni satır" sentinel — Notion-style always-visible footer.
-                Clicking it opens the bulk-paste input dialog as the
-                quickest path to creating new rows; click "+ Yeni Müşteri"
-                in the toolbar for the form route. */}
-            {mutations?.onBulkCreate ? (
+                Clicking it calls onAddRow to insert a blank row the admin
+                can complete inline or via the detail panel. */}
+            {mutations?.onAddRow ? (
               <tr className="group">
                 <td
                   colSpan={colCount}
-                  className="h-8 cursor-pointer border-b border-border px-3 text-left text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                  onClick={() => setBulkInputOpen(true)}
+                  aria-disabled={addRowBusy}
+                  className={cn(
+                    "h-8 cursor-pointer border-b border-border px-3 text-left text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                    addRowBusy ? "pointer-events-none opacity-60" : "",
+                  )}
+                  onClick={() => {
+                    if (addRowBusy) return;
+                    setAddRowBusy(true);
+                    void (async () => {
+                      try {
+                        const result = await mutations.onAddRow!();
+                        if (!result.ok) onCellError?.(result.error.message, result.error);
+                        else onCellSuccess?.();
+                      } finally {
+                        setAddRowBusy(false);
+                      }
+                    })();
+                  }}
                 >
                   <span className="inline-flex items-center gap-1.5">
                     <Plus className="h-3 w-3" />

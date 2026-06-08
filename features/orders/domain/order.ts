@@ -109,5 +109,7 @@ export interface OrderListItem {
   readonly time_slot: TimeSlot | null;
   readonly total_minor: number;
   readonly payment_status: PaymentStatus;
+  readonly delivery_notes: string | null;
+  readonly delivery_fee_minor: number;
   readonly created_at: Date;
 }

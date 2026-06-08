@@ -14,7 +14,7 @@
 import { z } from "zod";
 
 import { filterRuleListSchema } from "@/shared/filter/filter-rule";
-import { latLngSchema, coordinateAccuracySchema, coordinateSourceSchema } from "@/shared/geo/coordinate.schema";
+import { coordinateAccuracySchema, coordinateSourceSchema } from "@/shared/geo/coordinate.schema";
 import { isE164TR, normalizeTRPhone } from "@/shared/utils/phone";
 
 const blankToNull = (value: unknown): unknown =>
@@ -48,6 +48,32 @@ const phoneTR = z
     return normalized;
   });
 
+// Like phoneTR but allows blank/null input — used in the form where phone
+// is no longer required.
+const phoneTROrNull = z.preprocess(
+  blankToNull,
+  z.string().nullable().transform((s, ctx) => {
+    if (s === null) return null;
+    const normalized = normalizeTRPhone(s);
+    if (normalized === null || !isE164TR(normalized)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Geçerli bir TR cep numarası girin (ör. 0532 123 45 67).",
+      });
+      return z.NEVER;
+    }
+    return normalized;
+  }),
+);
+
+// Name field: trims, enforces 1–100 chars when non-null, but accepts blank
+// strings and maps them to null (so a form field left empty is null, not "").
+const nullableName = (label: string) =>
+  z.preprocess(
+    blankToNull,
+    z.string().trim().min(1, label).max(100, "En fazla 100 karakter olabilir.").nullable(),
+  );
+
 const emailOrNull = z.preprocess(
   blankToNull,
   z
@@ -68,29 +94,33 @@ const notesOrNull = z.preprocess(
  * eventually populate `coordinate`.
  */
 export const customerFormSchema = z.object({
-  first_name: trimmedString(1, 100, "Ad gerekli."),
-  last_name: trimmedString(1, 100, "Soyad gerekli."),
-  email: emailOrNull,
-  phone: phoneTR,
-  notes: notesOrNull,
+  first_name: nullableName("Ad gerekli.").default(null),
+  last_name: nullableName("Soyad gerekli.").default(null),
+  email: emailOrNull.optional(),
+  phone: phoneTROrNull.default(null),
+  notes: notesOrNull.optional(),
   status: z
     .enum(["active", "inactive", "blocked"])
     .default("active"),
-  address: z.object({
-    // Structured fields — TR postal convention.
-    city: trimmedString(1, 100, "İl gerekli."),
-    district: trimmedString(1, 100, "İlçe gerekli."),
-    neighborhood: trimmedString(1, 100, "Mahalle gerekli."),
-    street: optionalShortText(150),
-    building_no: optionalShortText(20),
-    apartment_no: optionalShortText(20),
-    postal_code: optionalShortText(10),
-    description: optionalShortText(500),
-    // Lat/lng come from the pin (auto-geocoded or admin-corrected).
-    ...latLngSchema.shape,
-    source: coordinateSourceSchema,
-    accuracy: coordinateAccuracySchema,
-  }),
+  address: z
+    .object({
+      // Structured fields — TR postal convention.
+      city: optionalShortText(100),
+      district: optionalShortText(100),
+      neighborhood: optionalShortText(100),
+      street: optionalShortText(150),
+      building_no: optionalShortText(20),
+      apartment_no: optionalShortText(20),
+      postal_code: optionalShortText(10),
+      description: optionalShortText(500),
+      // Lat/lng come from the pin (auto-geocoded or admin-corrected).
+      lat: z.number().gte(-90).lte(90).optional(),
+      lng: z.number().gte(-180).lte(180).optional(),
+      source: coordinateSourceSchema.optional(),
+      accuracy: coordinateAccuracySchema.optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type CustomerFormInput = z.input<typeof customerFormSchema>;
@@ -158,8 +188,8 @@ const accountTypeSchema = z.enum([
 const statusSchema = z.enum(["active", "inactive", "blocked"]);
 
 export const customerCellPatchSchemas = {
-  first_name: trimmedString(1, 100, "Ad gerekli."),
-  last_name: trimmedString(1, 100, "Soyad gerekli."),
+  first_name: optionalShortText(100),
+  last_name: optionalShortText(100),
   phone: phoneTR,
   email: emailOrNull,
   status: statusSchema,

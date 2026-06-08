@@ -194,9 +194,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string | null
-          first_name: string
+          first_name: string | null
           id: string
-          last_name: string
+          last_name: string | null
           legacy_segment: string | null
           notes: string | null
           phone: string | null
@@ -209,9 +209,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
-          first_name: string
+          first_name?: string | null
           id?: string
-          last_name: string
+          last_name?: string | null
           legacy_segment?: string | null
           notes?: string | null
           phone?: string | null
@@ -224,9 +224,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
-          first_name?: string
+          first_name?: string | null
           id?: string
-          last_name?: string
+          last_name?: string | null
           legacy_segment?: string | null
           notes?: string | null
           phone?: string | null

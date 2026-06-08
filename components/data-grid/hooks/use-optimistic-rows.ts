@@ -28,11 +28,15 @@ export interface OptimisticPatch<TRow> {
 
 export interface UseOptimisticRowsResult<TRow, TPatch> {
   readonly rows: ReadonlyArray<TRow>;
-  /** Issue a cell commit. Returns the eventual server result. */
+  /**
+   * Issue a cell commit. The caller supplies the optimistic row partial
+   * (already field-mapped + value-transformed) so this hook stays agnostic
+   * of how a column id maps to a row field. Returns the eventual server
+   * result.
+   */
   readonly commit: (
     rowId: string,
-    columnId: string,
-    nextValue: unknown,
+    partial: Partial<TRow>,
     patch: TPatch,
   ) => Promise<Result<TRow, AppError>>;
   /** True while at least one cell commit is in flight. */
@@ -43,14 +47,12 @@ export interface UseOptimisticRowsOptions<TRow, TPatch> {
   readonly base: ReadonlyArray<TRow>;
   readonly rowId: (row: TRow) => string;
   readonly mutate: (rowId: string, patch: TPatch) => Promise<Result<TRow, AppError>>;
-  readonly toFieldName?: (columnId: string) => keyof TRow;
 }
 
 export function useOptimisticRows<TRow extends object, TPatch>({
   base,
   rowId,
   mutate,
-  toFieldName,
 }: UseOptimisticRowsOptions<TRow, TPatch>): UseOptimisticRowsResult<TRow, TPatch> {
   const [patches, setPatches] = useState<Record<string, OptimisticPatch<TRow>>>(
     {},
@@ -70,13 +72,10 @@ export function useOptimisticRows<TRow extends object, TPatch>({
   const commit = useCallback(
     async (
       id: string,
-      columnId: string,
-      nextValue: unknown,
+      partial: Partial<TRow>,
       patch: TPatch,
     ): Promise<Result<TRow, AppError>> => {
       const revision = ++revisionCounter.current;
-      const fieldName = (toFieldName ?? ((c) => c as keyof TRow))(columnId);
-      const partial = { [fieldName]: nextValue } as Partial<TRow>;
       setPatches((cur) => ({ ...cur, [id]: { partial, revision } }));
       setPendingCount((c) => c + 1);
 
@@ -94,7 +93,7 @@ export function useOptimisticRows<TRow extends object, TPatch>({
 
       return result;
     },
-    [mutate, toFieldName],
+    [mutate],
   );
 
   return { rows, commit, pendingCount };

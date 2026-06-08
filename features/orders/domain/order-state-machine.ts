@@ -34,6 +34,10 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ALLOWED[from].has(to);
 }
 
+export function allowedTransitions(from: OrderStatus): OrderStatus[] {
+  return [...ALLOWED[from]];
+}
+
 export function isTerminal(status: OrderStatus): boolean {
   return ALLOWED[status].size === 0;
 }

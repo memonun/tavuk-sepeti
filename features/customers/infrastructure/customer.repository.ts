@@ -11,10 +11,11 @@
  */
 import "server-only";
 
-import { ExternalApiError } from "@/shared/errors/app-error";
+import { ExternalApiError, ValidationError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
+import { applyFilterRule } from "@/shared/filter/apply-filter-rules";
 
 import {
   rowToCustomer,
@@ -283,41 +284,7 @@ export async function listCustomers(
   // intended attack surface even if it slips past Zod.
   for (const rule of query.filters) {
     if (!FILTERABLE_COLUMNS.has(rule.column)) continue;
-    const colExpr = rule.column;
-    switch (rule.operator) {
-      case "contains": {
-        if (rule.value === "") break;
-        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "equals": {
-        if (rule.value === "") break;
-        builder = builder.eq(colExpr, rule.value);
-        break;
-      }
-      case "starts_with": {
-        if (rule.value === "") break;
-        const pat = `${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "ends_with": {
-        if (rule.value === "") break;
-        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}`;
-        builder = builder.ilike(colExpr, pat);
-        break;
-      }
-      case "is_empty": {
-        // PostgREST OR-clause: NULL or empty-string both count as "empty".
-        builder = builder.or(`${colExpr}.is.null,${colExpr}.eq.`);
-        break;
-      }
-      case "is_not_empty": {
-        builder = builder.not(colExpr, "is", null).neq(colExpr, "");
-        break;
-      }
-    }
+    builder = applyFilterRule(builder, rule);
   }
 
   const { data, error, count } = await builder;
@@ -344,15 +311,10 @@ export async function listCustomers(
 // ---- bulk create (DataGrid paste-into-empty-rows) ------------------------
 
 /**
- * Insert N customer rows + their placeholder primary-address rows in one
- * go. Address fields default to "Bilinmiyor" with a (0,0) coordinate at
- * accuracy=unknown — the row immediately surfaces in the "Konum belirsiz"
- * filter so an admin knows it needs the detail page + geocoding pass to
- * become routable.
- *
- * Rolls back the customer inserts if the address insert fails (best-
- * effort cleanup matches createCustomer's existing pattern). Returns the
- * inserted rows projected to list-item shape.
+ * Insert N customer rows in one go. No address rows are created — the
+ * admin completes those inline or via the detail panel (where the map
+ * sets a real pin). Returns the inserted rows projected to list-item
+ * shape.
  */
 export async function bulkCreateCustomers(
   rows: ReadonlyArray<BulkCreateCustomerRow>,
@@ -396,60 +358,6 @@ export async function bulkCreateCustomers(
       new ExternalApiError({
         message: insertError.message,
         cause: insertError,
-      }),
-    );
-  }
-
-  // Insert placeholder primary addresses keyed by the pre-generated
-  // customer id. No reliance on RETURNING order.
-  const addressPayload = rows.map((r, i) => {
-    const city = r.city ?? "Bilinmiyor";
-    return {
-      customer_id: idForRow[i]!,
-      raw_text: city,
-      description: null,
-      lat: 0,
-      lng: 0,
-      source: "admin_corrected" as const,
-      accuracy: "unknown" as const,
-      geocoded_at: null,
-      geocoder_response_hash: null,
-      city,
-      district: "Bilinmiyor",
-      neighborhood: "Bilinmiyor",
-      street: null,
-      building_no: null,
-      apartment_no: null,
-      postal_code: null,
-      is_primary: true,
-      address_source: "admin_input" as const,
-    };
-  });
-
-  const { error: addressError } = await supabase
-    .from("addresses")
-    .insert(addressPayload);
-
-  if (addressError) {
-    // Best-effort cleanup of the orphan customer rows.
-    logger.error(
-      { code: addressError.code, count: idForRow.length },
-      "bulk_create_address_failed_rolling_back_customers",
-    );
-    const { error: cleanupError } = await supabase
-      .from("customers")
-      .delete()
-      .in("id", idForRow);
-    if (cleanupError) {
-      logger.error(
-        { code: cleanupError.code, count: idForRow.length },
-        "bulk_create_cleanup_failed_orphans_left",
-      );
-    }
-    return err(
-      new ExternalApiError({
-        message: addressError.message,
-        cause: addressError,
       }),
     );
   }
@@ -587,33 +495,32 @@ export async function patchCustomerCell(
   const supabase = await createSupabaseServerClient();
 
   if (ADDRESS_CELL_FIELDS.has(field)) {
-    // `.update()` returns silently with count=0 when no primary address
-    // row exists (legacy CSV-imported customers, or rows where the
-    // address insert failed at create time). Without the count check
-    // the optimistic UI would roll back without any user-visible
-    // signal. Use { count: "exact" } so we can verify the write
-    // actually landed.
-    const patch: AddressUpdate = { [field]: value as string | null };
-    const { error, count } = await supabase
+    // Guard: a customer created via "+ Yeni satır" (addCustomerRow) has
+    // no address row yet. Check upfront so we can return a clear, typed
+    // error rather than a silent count=0 or a misleading ExternalApiError.
+    const { data: primary } = await supabase
       .from("addresses")
-      .update(patch, { count: "exact" })
+      .select("id")
+      .eq("customer_id", id)
+      .eq("is_primary", true)
+      .maybeSingle();
+    if (!primary) {
+      return err(
+        new ValidationError({
+          message: "Önce müşteri detayından (harita) adres ekleyin.",
+        }),
+      );
+    }
+
+    const patch: AddressUpdate = { [field]: value as string | null };
+    const { error } = await supabase
+      .from("addresses")
+      .update(patch)
       .eq("customer_id", id)
       .eq("is_primary", true);
     if (error) {
       logger.error({ id, field, code: error.code }, "customer_cell_address_patch_failed");
       return err(new ExternalApiError({ message: error.message, cause: error }));
-    }
-    if (count === 0) {
-      logger.warn(
-        { id, field },
-        "customer_cell_address_patch_no_primary_row",
-      );
-      return err(
-        new ExternalApiError({
-          message:
-            "Bu müşterinin birincil adresi yok. Önce müşteri detayından adres ekleyin.",
-        }),
-      );
     }
   } else {
     // Scalar customer fields. The schema upstream has already coerced
@@ -688,49 +595,138 @@ export async function updateCustomer(
     }
   }
 
-  // Update primary address if any address fields supplied.
+  // Update (or insert) the primary address if any address fields supplied.
+  //
+  // A blank-row customer (created via addCustomerRow / bulkCreateCustomers)
+  // has NO address row, so a blind UPDATE-by-(customer_id, is_primary) would
+  // match 0 rows, return no error, and silently drop a freshly dropped pin.
+  // We therefore branch on whether a primary address already exists:
+  //   - exists  → UPDATE the row (partial patch, as before).
+  //   - missing → INSERT a new primary row, but only when we have a real pin
+  //               (lat+lng) + raw_text, since a valid addresses row requires
+  //               NON-NULL lat/lng/raw_text/source/accuracy. Without those we
+  //               skip the address write rather than persist a half row.
   if (input.address) {
-    const addressPatch: AddressUpdate = {};
-    if (input.address.raw_text !== undefined)
-      addressPatch.raw_text = input.address.raw_text;
-    if (input.address.description !== undefined)
-      addressPatch.description = input.address.description;
-    if (input.address.coordinate) {
-      addressPatch.lat = input.address.coordinate.lat;
-      addressPatch.lng = input.address.coordinate.lng;
-      addressPatch.source = input.address.coordinate.source;
-      addressPatch.accuracy = input.address.coordinate.accuracy;
-      addressPatch.geocoded_at =
-        input.address.coordinate.geocoded_at?.toISOString() ?? null;
-      addressPatch.geocoder_response_hash =
-        input.address.coordinate.geocoder_response_hash;
-    }
-    if (input.address.city !== undefined) addressPatch.city = input.address.city;
-    if (input.address.district !== undefined)
-      addressPatch.district = input.address.district;
-    if (input.address.neighborhood !== undefined)
-      addressPatch.neighborhood = input.address.neighborhood;
-    if (input.address.street !== undefined)
-      addressPatch.street = input.address.street;
-    if (input.address.building_no !== undefined)
-      addressPatch.building_no = input.address.building_no;
-    if (input.address.apartment_no !== undefined)
-      addressPatch.apartment_no = input.address.apartment_no;
-    if (input.address.postal_code !== undefined)
-      addressPatch.postal_code = input.address.postal_code;
+    const { data: existing } = await supabase
+      .from("addresses")
+      .select("id")
+      .eq("customer_id", id)
+      .eq("is_primary", true)
+      .maybeSingle();
 
-    if (Object.keys(addressPatch).length > 0) {
-      const { error } = await supabase
-        .from("addresses")
-        .update(addressPatch)
-        .eq("customer_id", id)
-        .eq("is_primary", true);
-      if (error) {
-        logger.error({ id, code: error.code }, "address_update_failed");
-        return err(new ExternalApiError({ message: error.message, cause: error }));
+    if (existing) {
+      const addressPatch: AddressUpdate = {};
+      if (input.address.raw_text !== undefined)
+        addressPatch.raw_text = input.address.raw_text;
+      if (input.address.description !== undefined)
+        addressPatch.description = input.address.description;
+      if (input.address.coordinate) {
+        addressPatch.lat = input.address.coordinate.lat;
+        addressPatch.lng = input.address.coordinate.lng;
+        addressPatch.source = input.address.coordinate.source;
+        addressPatch.accuracy = input.address.coordinate.accuracy;
+        addressPatch.geocoded_at =
+          input.address.coordinate.geocoded_at?.toISOString() ?? null;
+        addressPatch.geocoder_response_hash =
+          input.address.coordinate.geocoder_response_hash;
+      }
+      if (input.address.city !== undefined) addressPatch.city = input.address.city;
+      if (input.address.district !== undefined)
+        addressPatch.district = input.address.district;
+      if (input.address.neighborhood !== undefined)
+        addressPatch.neighborhood = input.address.neighborhood;
+      if (input.address.street !== undefined)
+        addressPatch.street = input.address.street;
+      if (input.address.building_no !== undefined)
+        addressPatch.building_no = input.address.building_no;
+      if (input.address.apartment_no !== undefined)
+        addressPatch.apartment_no = input.address.apartment_no;
+      if (input.address.postal_code !== undefined)
+        addressPatch.postal_code = input.address.postal_code;
+
+      if (Object.keys(addressPatch).length > 0) {
+        const { error } = await supabase
+          .from("addresses")
+          .update(addressPatch)
+          .eq("customer_id", id)
+          .eq("is_primary", true);
+        if (error) {
+          logger.error({ id, code: error.code }, "address_update_failed");
+          return err(new ExternalApiError({ message: error.message, cause: error }));
+        }
+      }
+    } else {
+      // No primary address row yet — complete the blank row by inserting one.
+      // Only proceed with a real pin; the edit form gates submit on a
+      // coordinate, so this INSERT is the normal path for completing a row.
+      const coordinate = input.address.coordinate;
+      const hasPin =
+        coordinate !== undefined &&
+        coordinate.lat !== undefined &&
+        coordinate.lng !== undefined;
+      const hasRawText =
+        input.address.raw_text !== undefined && input.address.raw_text !== "";
+
+      if (hasPin && hasRawText) {
+        const { error } = await supabase.from("addresses").insert({
+          customer_id: id,
+          raw_text: input.address.raw_text!,
+          description: input.address.description ?? null,
+          lat: coordinate.lat,
+          lng: coordinate.lng,
+          source: coordinate.source,
+          accuracy: coordinate.accuracy,
+          geocoded_at: coordinate.geocoded_at?.toISOString() ?? null,
+          geocoder_response_hash: coordinate.geocoder_response_hash,
+          city: input.address.city ?? null,
+          district: input.address.district ?? null,
+          neighborhood: input.address.neighborhood ?? null,
+          street: input.address.street ?? null,
+          building_no: input.address.building_no ?? null,
+          apartment_no: input.address.apartment_no ?? null,
+          postal_code: input.address.postal_code ?? null,
+          is_primary: true,
+          address_source: "admin_input",
+        });
+        if (error) {
+          logger.error({ id, code: error.code }, "address_insert_failed");
+          return err(new ExternalApiError({ message: error.message, cause: error }));
+        }
+      } else {
+        // No usable pin: don't persist a half row. Scalar fields were saved.
+        logger.warn(
+          { id },
+          "address_insert_skipped_no_pin",
+        );
       }
     }
   }
 
   return findCustomerById(id);
+}
+
+// ---- add blank row (DataGrid "+ Yeni satır") --------------------------------
+
+/**
+ * Insert a blank customer for the grid's "+ Yeni satır" add-row. No
+ * address row is created — the admin completes it inline or via the
+ * detail panel (where the map sets a real pin). Returns the new row in
+ * list-item projection so the grid can append it optimistically.
+ */
+export async function addCustomerRow(
+  createdBy: string,
+): Promise<Result<CustomerListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({ created_by: createdBy })
+    .select(
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+    )
+    .single();
+  if (error || !data) {
+    logger.error({ code: error?.code }, "add_customer_row_failed");
+    return err(new ExternalApiError({ message: error?.message ?? "Insert failed.", cause: error }));
+  }
+  return ok(rowToListItem({ ...data, addresses: data.addresses ?? [] } as never));
 }
