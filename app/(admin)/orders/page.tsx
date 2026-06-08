@@ -1,14 +1,28 @@
+/**
+ * Orders route shell — mirrors the Customers page chrome.
+ *
+ * Page-level chrome stays minimal: title row + "Yeni Sipariş", the saved-view
+ * tab bar, then the <OrderGrid> (which owns its toolbar) and the pagination
+ * footer. The orders feature's date-range presets ride in via the grid's
+ * `toolbarExtra` slot so they sit glued to the filter builder.
+ */
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { parseFiltersFromQueryParam } from "@/components/data-grid/filters/filter-types";
+import { buttonVariants } from "@/components/ui/button";
 import {
   getDateRangeBounds,
   isDateRangePreset,
 } from "@/features/orders/application/date-range-presets";
 import { listOrders } from "@/features/orders/application/list-orders";
+import { OrderGrid } from "@/features/orders/ui/order-grid";
 import { OrderListFilters } from "@/features/orders/ui/order-list-filters";
-import { OrderTable } from "@/features/orders/ui/order-table";
-import { buttonVariants } from "@/components/ui/button";
+import { CustomerPagination } from "@/features/customers/ui/customer-pagination";
+import { listViewsAction } from "@/features/views/application/list-views";
+import { ViewTabs } from "@/features/views/ui/view-tabs";
+import { buildViewUrl } from "@/features/views/ui/view-url";
 import { cn } from "@/lib/utils";
 
 interface OrdersPageProps {
@@ -17,13 +31,40 @@ interface OrdersPageProps {
     range?: string;
     scheduled_from?: string;
     scheduled_to?: string;
+    sort?: string;
+    order?: string;
     page?: string;
     pageSize?: string;
+    view?: string;
+    filter?: string;
   }>;
 }
 
+const PRESERVE_KEYS: (keyof Awaited<OrdersPageProps["searchParams"]>)[] = [
+  "status",
+  "range",
+  "scheduled_from",
+  "scheduled_to",
+  "sort",
+  "order",
+  "pageSize",
+  "view",
+  "filter",
+];
+
+const VIEW_FILTER_KEYS = [
+  "status",
+  "range",
+  "scheduled_from",
+  "scheduled_to",
+] as const;
+
+const ORDERS_TABLE_ID = "orders";
+
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const params = await searchParams;
+
+  const currentFilters = parseFiltersFromQueryParam(params.filter);
 
   // Resolve the range preset into actual bounds, unless the user picked
   // "Özel…" — then the explicit scheduled_from/to from the URL win.
@@ -33,56 +74,91 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       ? { from: params.scheduled_from, to: params.scheduled_to }
       : getDateRangeBounds(preset);
 
-  const result = await listOrders({
-    status: params.status,
-    scheduled_from: presetBounds.from,
-    scheduled_to: presetBounds.to,
-    page: params.page,
-    pageSize: params.pageSize,
-  });
+  const [listResult, viewsResult] = await Promise.all([
+    listOrders({
+      status: params.status,
+      scheduled_from: presetBounds.from,
+      scheduled_to: presetBounds.to,
+      sort: params.sort,
+      order: params.order,
+      page: params.page,
+      pageSize: params.pageSize,
+      filters: currentFilters,
+    }),
+    listViewsAction(ORDERS_TABLE_ID),
+  ]);
 
-  if (!result.ok) {
+  // Views loading failure isn't fatal — render with an empty tab list.
+  const views = viewsResult.ok ? viewsResult.value : [];
+
+  // Default view auto-apply: if the user lands here without any view
+  // marker AND has a default view configured, redirect to it. The
+  // "Tümü" tab sets ?view=none explicitly so it survives the redirect
+  // (i.e., clicking "Tümü" once persists across reloads).
+  if (params.view === undefined) {
+    const defaultView = views.find((v) => v.isDefault);
+    if (defaultView) {
+      redirect(buildViewUrl("/orders", defaultView));
+    }
+  }
+
+  // `?view=none` represents an explicit opt-out from the default → no id.
+  const currentViewId =
+    params.view && params.view !== "none" ? params.view : null;
+
+  if (!listResult.ok) {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-6 text-sm text-destructive">
-        Siparişler yüklenemedi: {result.error.message}
+        Siparişler yüklenemedi: {listResult.error.message}
       </div>
     );
   }
 
-  // Pagination links preserve the user's filter URL params verbatim — no
-  // need to round-trip them through the resolver.
   const query = new URLSearchParams();
-  if (params.status) query.set("status", params.status);
-  if (params.range) query.set("range", params.range);
-  if (params.scheduled_from) query.set("scheduled_from", params.scheduled_from);
-  if (params.scheduled_to) query.set("scheduled_to", params.scheduled_to);
-  if (params.pageSize) query.set("pageSize", params.pageSize);
+  for (const key of PRESERVE_KEYS) {
+    const value = params[key];
+    if (value) query.set(key, value);
+  }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Siparişler</h2>
-          <p className="text-sm text-muted-foreground">
-            Toplam {result.value.total} kayıt.
+    <div className="flex h-[calc(100vh-3rem)] flex-col gap-2">
+      {/* Notion-style page header: title left, count + action right */}
+      <div className="flex items-baseline justify-between gap-4 px-1">
+        <h1 className="text-lg font-semibold tracking-tight">Siparişler</h1>
+        <div className="flex items-center gap-4">
+          <p className="text-xs text-muted-foreground">
+            {listResult.value.total} kayıt
           </p>
+          <Link
+            href="/orders/new"
+            className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
+          >
+            <Plus className="h-4 w-4" />
+            Yeni Sipariş
+          </Link>
         </div>
-        <Link
-          href="/orders/new"
-          className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
-        >
-          <Plus className="h-4 w-4" />
-          Yeni Sipariş
-        </Link>
       </div>
 
-      <OrderListFilters />
+      <ViewTabs
+        views={views}
+        tableId={ORDERS_TABLE_ID}
+        currentViewId={currentViewId}
+        filterKeys={VIEW_FILTER_KEYS}
+      />
 
-      <OrderTable
-        items={result.value.items}
-        total={result.value.total}
-        page={result.value.page}
-        pageSize={result.value.pageSize}
+      <OrderGrid
+        items={listResult.value.items}
+        total={listResult.value.total}
+        page={listResult.value.page}
+        pageSize={listResult.value.pageSize}
+        currentFilters={currentFilters}
+        toolbarExtra={<OrderListFilters />}
+      />
+
+      <CustomerPagination
+        total={listResult.value.total}
+        page={listResult.value.page}
+        pageSize={listResult.value.pageSize}
         basePath="/orders"
         query={query}
       />
