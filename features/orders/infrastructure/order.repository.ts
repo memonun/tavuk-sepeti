@@ -30,7 +30,10 @@ import type {
   PaymentMethod,
   TimeSlot,
 } from "@/features/orders/domain/order";
-import type { OrderListQuery } from "@/features/orders/domain/order.schema";
+import type { OrderCellField, OrderListQuery } from "@/features/orders/domain/order.schema";
+import type { Database } from "@/shared/supabase/types";
+
+type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
 
 export interface CreateOrderInput {
   customer_id: string;
@@ -137,6 +140,14 @@ export async function listOrderEvents(
   return ok((data ?? []).map(rowToStatusEvent));
 }
 
+/**
+ * Whitelist of column ids the advanced filter builder may target for orders.
+ * Acts as a second wall behind the Zod parse — prevents tampered URLs from
+ * touching unintended columns even if they slip past schema validation.
+ * Keep in sync with FILTERABLE_COLUMNS in order-grid.tsx.
+ */
+const ORDER_FILTERABLE = new Set(["order_number", "status", "payment_status"]);
+
 export async function listOrders(
   query: OrderListQuery,
 ): Promise<Result<ListOrdersResult, ExternalApiError>> {
@@ -148,15 +159,15 @@ export async function listOrders(
   let builder = supabase
     .from("orders")
     .select(
-      "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, created_at, customers!inner(first_name, last_name)",
+      "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, delivery_notes, delivery_fee_minor, created_at, customers!inner(first_name, last_name)",
       { count: "exact" },
-    )
-    .order("scheduled_for", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(from, to);
+    );
 
   if (query.status) {
     builder = builder.eq("status", query.status);
+  }
+  if (query.customer_id) {
+    builder = builder.eq("customer_id", query.customer_id);
   }
   if (query.scheduled_from) {
     builder = builder.gte("scheduled_for", query.scheduled_from);
@@ -164,6 +175,55 @@ export async function listOrders(
   if (query.scheduled_to) {
     builder = builder.lte("scheduled_for", query.scheduled_to);
   }
+
+  // Advanced filter builder (multi-condition AND). The query schema caps the
+  // array at 20 rules and the column whitelist above caps what SQL can touch.
+  for (const rule of query.filters) {
+    if (!ORDER_FILTERABLE.has(rule.column)) continue;
+    const colExpr = rule.column;
+    switch (rule.operator) {
+      case "contains": {
+        if (rule.value === "") break;
+        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+        builder = builder.ilike(colExpr, pat);
+        break;
+      }
+      case "equals": {
+        if (rule.value === "") break;
+        builder = builder.eq(colExpr, rule.value);
+        break;
+      }
+      case "starts_with": {
+        if (rule.value === "") break;
+        const pat = `${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+        builder = builder.ilike(colExpr, pat);
+        break;
+      }
+      case "ends_with": {
+        if (rule.value === "") break;
+        const pat = `%${rule.value.replace(/[\\%_]/g, (m) => `\\${m}`)}`;
+        builder = builder.ilike(colExpr, pat);
+        break;
+      }
+      case "is_empty": {
+        // PostgREST OR-clause: NULL or empty-string both count as "empty".
+        builder = builder.or(`${colExpr}.is.null,${colExpr}.eq.`);
+        break;
+      }
+      case "is_not_empty": {
+        builder = builder.not(colExpr, "is", null).neq(colExpr, "");
+        break;
+      }
+    }
+  }
+
+  // Apply sort: primary sort is query-driven; secondary tie-breaker on
+  // created_at (descending) unless created_at is already the primary sort.
+  builder = builder.order(query.sort, { ascending: query.order === "asc" });
+  if (query.sort !== "created_at") {
+    builder = builder.order("created_at", { ascending: false });
+  }
+  builder = builder.range(from, to);
 
   const { data, error, count } = await builder;
   if (error) {
@@ -183,6 +243,8 @@ export async function listOrders(
         // Generated column; nullable in supabase-js but always populated.
         total_minor: row.total_minor ?? 0,
         payment_status: row.payment_status,
+        delivery_notes: row.delivery_notes,
+        delivery_fee_minor: row.delivery_fee_minor ?? 0,
         created_at: row.created_at,
         customers: row.customers,
       }),
@@ -221,4 +283,114 @@ export async function persistTransition(
     return err(new ExternalApiError({ message: error.message, cause: error }));
   }
   return ok(undefined);
+}
+
+// ---- list-item by id --------------------------------------------------------
+
+/** Fetch a single order in the same projection as listOrders. Used after
+ *  mutations to return the freshly-updated row without a full aggregate fetch. */
+export async function findOrderListItemById(
+  id: string,
+): Promise<Result<OrderListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select(
+      "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, delivery_notes, delivery_fee_minor, created_at, customers!inner(first_name, last_name)",
+    )
+    .eq("id", id)
+    .single();
+  if (error || !data) {
+    return err(
+      new ExternalApiError({
+        message: error?.message ?? "Sipariş bulunamadı.",
+        cause: error,
+      }),
+    );
+  }
+  return ok(rowToListItem(data as never));
+}
+
+// ---- cell patch (DataGrid inline edit) --------------------------------------
+
+/**
+ * Lightweight single-field patcher for the inline-edit grid. Plain fields only
+ * — status transitions are handled by persistTransition (state machine).
+ * Returns the freshly-projected list-item shape so the grid can replace its
+ * optimistic patch without paying for a full Order aggregate fetch.
+ *
+ * `delivery_fee` maps to the `delivery_fee_minor` column; `total_minor` is a
+ * generated column and must never be set directly.
+ */
+export async function patchOrderCell(
+  orderId: string,
+  field: Exclude<OrderCellField, "status">,
+  value: unknown,
+): Promise<Result<OrderListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+
+  let update: OrderUpdate;
+  switch (field) {
+    case "payment_status":
+      update = {
+        payment_status: value as NonNullable<OrderUpdate["payment_status"]>,
+        paid_at: value === "paid" ? new Date().toISOString() : null,
+      };
+      break;
+    case "scheduled_for":
+      update = { scheduled_for: value as string };
+      break;
+    case "time_slot":
+      update = { time_slot: value as NonNullable<OrderUpdate["time_slot"]> };
+      break;
+    case "delivery_notes":
+      update = { delivery_notes: value as string | null };
+      break;
+    case "delivery_fee":
+      // total_minor is a generated column — never set it directly.
+      update = { delivery_fee_minor: value as number };
+      break;
+    default: {
+      // exhaustive — TypeScript ensures all OrderCellField values (minus
+      // "status") are handled above.
+      const _exhaustive: never = field;
+      return err(
+        new ExternalApiError({ message: `Unhandled field: ${String(_exhaustive)}` }),
+      );
+    }
+  }
+  const { error } = await supabase.from("orders").update(update).eq("id", orderId);
+  if (error) {
+    logger.error({ orderId, field, code: error.code }, "patch_order_cell_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return findOrderListItemById(orderId);
+}
+
+// ---- aggregate counts -------------------------------------------------------
+
+/**
+ * Count how many orders each customer in the provided id list has. Returns a
+ * Map keyed by customer_id. Customers with zero orders will be absent from the
+ * Map (callers should treat missing keys as 0).
+ *
+ * No pagination — the result set is bounded by the size of customerIds (≤ grid
+ * page size × reasonable order count, well within PostgREST defaults).
+ */
+export async function countOrdersByCustomer(
+  customerIds: ReadonlyArray<string>,
+): Promise<Result<Map<string, number>, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("customer_id")
+    .in("customer_id", [...customerIds]);
+  if (error) {
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    counts.set(row.customer_id, (counts.get(row.customer_id) ?? 0) + 1);
+  }
+  return ok(counts);
 }
