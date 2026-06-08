@@ -72,6 +72,7 @@ import { useCellSelection } from "@/components/data-grid/hooks/use-cell-selectio
 import { useClipboard } from "@/components/data-grid/hooks/use-clipboard";
 import { useColumnPrefs } from "@/components/data-grid/hooks/use-column-prefs";
 import { useOptimisticRows } from "@/components/data-grid/hooks/use-optimistic-rows";
+import { computeFillWrites } from "@/components/data-grid/fill";
 import { parseClipboardTable } from "@/components/data-grid/paste/parse-tsv";
 import { PasteInputDialog } from "@/components/data-grid/paste/paste-input-dialog";
 import {
@@ -84,6 +85,7 @@ import {
 } from "@/components/data-grid/pinning/pinning-styles";
 import {
   activeRangeCells,
+  cellInRanges,
   rangesToCells,
 } from "@/components/data-grid/selection-model";
 import { Button } from "@/components/ui/button";
@@ -303,6 +305,11 @@ export function DataGrid<TRow extends object, TPatch>({
   const clipboard = useClipboard();
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
 
+  // Fill handle: while dragging, holds the cell the pointer is currently
+  // over so we can preview + compute the target rectangle on release.
+  const [fillTarget, setFillTarget] = useState<CellAddress | null>(null);
+  const fillingRef = useRef(false);
+
   const getColDef = useCallback(
     (columnId: string): DataGridColumn<TRow> | undefined => {
       const col = table.getColumn(columnId);
@@ -370,6 +377,52 @@ export function DataGrid<TRow extends object, TPatch>({
     const node = cellRefs.current.get(cellKey(active.rowId, active.columnId));
     node?.focus({ preventScroll: false });
   }, [selection.activeCell, editingCell]);
+
+  // Fill handle: commit the dragged rectangle on mouse-up. The source is
+  // the active range; the target shares the source's anchor and extends to
+  // the cell under the pointer. Tiling + readonly-skip happen here.
+  useEffect(() => {
+    if (!fillTarget) return;
+    function onUp() {
+      fillingRef.current = false;
+      const start = selection.activeCell;
+      const target = fillTarget;
+      setFillTarget(null);
+      if (!start || !target || !selection.state) return;
+
+      const order = { rowIds: visibleRowIds, colIds: visibleColIds };
+      const source = selection.state.ranges[selection.state.ranges.length - 1]!;
+      const targetRange = { anchor: source.anchor, focus: target };
+      const writes = computeFillWrites({
+        source,
+        target: targetRange,
+        order,
+        valueAt: (cell) => {
+          const colDef = getColDef(cell.columnId);
+          const tableRow = tableRows.find((r) => r.id === cell.rowId);
+          const value = tableRow?.getValue(cell.columnId) as unknown;
+          if (colDef?.editor?.toClipboard) return colDef.editor.toClipboard(value);
+          return value == null ? "" : String(value);
+        },
+      });
+      for (const w of writes) {
+        const colDef = getColDef(w.columnId);
+        if (!colDef?.editable || !colDef.editor) continue; // skip readonly silently
+        void handleCommitEdit({ rowId: w.rowId, columnId: w.columnId }, w.value);
+      }
+    }
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+  }, [
+    fillTarget,
+    selection.activeCell,
+    selection.state,
+    visibleRowIds,
+    visibleColIds,
+    getColDef,
+    tableRows,
+    handleCommitEdit,
+  ]);
 
   // Move the active cell by (dRow, dCol). Wraps on column overflow within
   // the same row; clamps at the grid edges.
@@ -930,16 +983,40 @@ export function DataGrid<TRow extends object, TPatch>({
                   </td>
                   {row.getVisibleCells().map((cell) => {
                     const colDef = cell.column.columnDef as DataGridColumn<TRow>;
+                    const addr: CellAddress = {
+                      rowId: row.id,
+                      columnId: cell.column.id,
+                    };
                     const isEditing =
                       editingCell?.rowId === row.id && editingCell.columnId === cell.column.id;
                     const isActive =
                       selection.activeCell?.rowId === row.id &&
                       selection.activeCell.columnId === cell.column.id;
                     const isSelected = selection.isSelected(
-                      { rowId: row.id, columnId: cell.column.id },
+                      addr,
                       visibleRowIds,
                       visibleColIds,
                     );
+                    // Fill-drag preview: synthetic range from the active
+                    // range's anchor to the cell currently under the pointer.
+                    const inFillPreview =
+                      fillingRef.current &&
+                      fillTarget != null &&
+                      selection.state != null &&
+                      cellInRanges(
+                        {
+                          ranges: [
+                            {
+                              anchor:
+                                selection.state.ranges[selection.state.ranges.length - 1]!.anchor,
+                              focus: fillTarget,
+                            },
+                          ],
+                          active: fillTarget,
+                        },
+                        addr,
+                        { rowIds: visibleRowIds, colIds: visibleColIds },
+                      );
                     const k = cellKey(row.id, cell.column.id);
                     return (
                       <td
@@ -965,13 +1042,13 @@ export function DataGrid<TRow extends object, TPatch>({
                             "bg-blue-50 dark:bg-blue-950/40",
                           isActive &&
                             "bg-blue-50 group-hover:bg-blue-50 dark:bg-blue-950/40 dark:group-hover:bg-blue-950/40",
+                          inFillPreview && "ring-1 ring-inset ring-primary/50",
                           colDef.editable && !isEditing && "cursor-cell",
                         )}
+                        onMouseEnter={() => {
+                          if (fillingRef.current) setFillTarget(addr);
+                        }}
                         onMouseDown={(e) => {
-                          const addr: CellAddress = {
-                            rowId: row.id,
-                            columnId: cell.column.id,
-                          };
                           if (e.shiftKey) {
                             selection.extendSelectionTo(addr);
                             return;
@@ -1018,6 +1095,18 @@ export function DataGrid<TRow extends object, TPatch>({
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </div>
                         )}
+                        {isActive && !isEditing ? (
+                          <div
+                            role="presentation"
+                            className="absolute -bottom-[3px] -right-[3px] z-10 h-2 w-2 cursor-crosshair rounded-[1px] bg-primary"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              fillingRef.current = true;
+                              setFillTarget(addr);
+                            }}
+                          />
+                        ) : null}
                       </td>
                     );
                   })}
