@@ -1,70 +1,65 @@
 "use client";
 
 /**
- * Cell selection model — anchor + focus rectangle.
+ * Cell selection model — a list of rectangular ranges plus an active cell.
  *
- * Click sets both anchor and focus to the same cell. Shift+Click moves
- * only focus, expanding the rectangle. Cmd/Ctrl+Click is reserved for
- * multi-select (not implemented in Faz 1; keeps the API surface stable
- * for when we add it).
- *
- * The selection lives outside React-Table's own row-selection feature
- * because that one is row-granular only — we need cell granularity for
- * Excel-style copy/paste.
+ * Click replaces the selection. Shift+Click / Shift+Arrows extend the
+ * active range. Cmd/Ctrl+Click adds a disjoint range. Membership is the
+ * union of all ranges. Geometry lives in selection-model.ts (pure +
+ * tested); this hook is just React state over it.
  */
 import { useCallback, useMemo, useState } from "react";
 
-import type { CellAddress, CellRange } from "@/components/data-grid/data-grid-types";
+import {
+  addRange,
+  cellInRanges,
+  extendActive,
+  replaceSelection,
+  type GridOrder,
+  type SelectionState,
+} from "@/components/data-grid/selection-model";
+import type { CellAddress } from "@/components/data-grid/data-grid-types";
 
 export interface UseCellSelectionResult {
-  readonly selection: CellRange | null;
+  readonly state: SelectionState | null;
   readonly activeCell: CellAddress | null;
   readonly isSelected: (cell: CellAddress, rowIds: ReadonlyArray<string>, colIds: ReadonlyArray<string>) => boolean;
+  /** Click — replace the whole selection with a single cell. */
   readonly selectCell: (cell: CellAddress) => void;
+  /** Shift — extend the active range to this cell. */
   readonly extendSelectionTo: (cell: CellAddress) => void;
+  /** Cmd/Ctrl+Click — start a new disjoint range at this cell. */
+  readonly addSelectionRange: (cell: CellAddress) => void;
   readonly clear: () => void;
 }
 
 export function useCellSelection(): UseCellSelectionResult {
-  const [selection, setSelection] = useState<CellRange | null>(null);
+  const [state, setState] = useState<SelectionState | null>(null);
 
   const selectCell = useCallback((cell: CellAddress) => {
-    setSelection({ anchor: cell, focus: cell });
+    setState(replaceSelection(cell));
   }, []);
 
   const extendSelectionTo = useCallback((cell: CellAddress) => {
-    setSelection((cur) => {
-      if (!cur) return { anchor: cell, focus: cell };
-      return { anchor: cur.anchor, focus: cell };
-    });
+    setState((cur) => (cur ? extendActive(cur, cell) : replaceSelection(cell)));
   }, []);
 
-  const clear = useCallback(() => setSelection(null), []);
+  const addSelectionRange = useCallback((cell: CellAddress) => {
+    setState((cur) => (cur ? addRange(cur, cell) : replaceSelection(cell)));
+  }, []);
+
+  const clear = useCallback(() => setState(null), []);
 
   const isSelected = useCallback(
-    (
-      cell: CellAddress,
-      rowIds: ReadonlyArray<string>,
-      colIds: ReadonlyArray<string>,
-    ): boolean => {
-      if (!selection) return false;
-      const anchorRow = rowIds.indexOf(selection.anchor.rowId);
-      const focusRow = rowIds.indexOf(selection.focus.rowId);
-      const anchorCol = colIds.indexOf(selection.anchor.columnId);
-      const focusCol = colIds.indexOf(selection.focus.columnId);
-      if (anchorRow < 0 || focusRow < 0 || anchorCol < 0 || focusCol < 0) {
-        return false;
-      }
-      const cellRow = rowIds.indexOf(cell.rowId);
-      const cellCol = colIds.indexOf(cell.columnId);
-      const [rTop, rBot] = anchorRow <= focusRow ? [anchorRow, focusRow] : [focusRow, anchorRow];
-      const [cLeft, cRight] = anchorCol <= focusCol ? [anchorCol, focusCol] : [focusCol, anchorCol];
-      return cellRow >= rTop && cellRow <= rBot && cellCol >= cLeft && cellCol <= cRight;
+    (cell: CellAddress, rowIds: ReadonlyArray<string>, colIds: ReadonlyArray<string>): boolean => {
+      if (!state) return false;
+      const order: GridOrder = { rowIds, colIds };
+      return cellInRanges(state, cell, order);
     },
-    [selection],
+    [state],
   );
 
-  const activeCell = useMemo(() => selection?.focus ?? null, [selection]);
+  const activeCell = useMemo(() => state?.active ?? null, [state]);
 
-  return { selection, activeCell, isSelected, selectCell, extendSelectionTo, clear };
+  return { state, activeCell, isSelected, selectCell, extendSelectionTo, addSelectionRange, clear };
 }
