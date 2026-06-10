@@ -227,7 +227,7 @@ export async function listCustomers(
   let builder = supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, lat, lng, is_primary)",
       { count: "exact" },
     )
     .order(query.sort, { ascending: query.order === "asc" })
@@ -287,7 +287,7 @@ export async function findListItemsByIds(
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, lat, lng, is_primary)",
     )
     .in("id", [...ids]);
   if (error || !data) {
@@ -351,8 +351,10 @@ export async function bulkDeleteCustomers(
  * the freshly-projected list-item shape so the grid can replace its
  * optimistic patch without paying for a full Customer aggregate fetch.
  *
- * Address writes target the row with is_primary=true. The grid never edits
- * lat/lng — those still go through the geocoding pipeline + the form.
+ * Address writes target the row with is_primary=true. The `coordinates`
+ * field updates lat/lng on the primary address (source=admin_corrected,
+ * accuracy=rooftop). The DB trigger syncs the geography `coordinate` column
+ * from lat/lng automatically.
  */
 const ADDRESS_CELL_FIELDS: ReadonlySet<CustomerCellField> = new Set([
   "city",
@@ -367,7 +369,39 @@ export async function patchCustomerCell(
 ): Promise<Result<CustomerListItem, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
 
-  if (ADDRESS_CELL_FIELDS.has(field)) {
+  if (field === "coordinates") {
+    const coords = value as { lat: number; lng: number };
+    // Guard: no primary address means the pin-corrector hasn't been used yet.
+    const { data: primary } = await supabase
+      .from("addresses")
+      .select("id")
+      .eq("customer_id", id)
+      .eq("is_primary", true)
+      .maybeSingle();
+    if (!primary) {
+      return err(
+        new ValidationError({
+          message: "Önce müşteri detayından (harita) adres ekleyin.",
+        }),
+      );
+    }
+
+    const patch: AddressUpdate = {
+      lat: coords.lat,
+      lng: coords.lng,
+      source: "admin_corrected",
+      accuracy: "rooftop",
+    };
+    const { error } = await supabase
+      .from("addresses")
+      .update(patch)
+      .eq("customer_id", id)
+      .eq("is_primary", true);
+    if (error) {
+      logger.error({ id, field, code: error.code }, "customer_cell_coordinates_patch_failed");
+      return err(new ExternalApiError({ message: error.message, cause: error }));
+    }
+  } else if (ADDRESS_CELL_FIELDS.has(field)) {
     // Guard: a customer created via "+ Yeni satır" (addCustomerRow) has
     // no address row yet. Check upfront so we can return a clear, typed
     // error rather than a silent count=0 or a misleading ExternalApiError.
@@ -418,7 +452,7 @@ export async function findListItemById(
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, lat, lng, is_primary)",
     )
     .eq("id", id)
     .single();
@@ -594,7 +628,7 @@ export async function addCustomerRow(
     .from("customers")
     .insert({ created_by: createdBy })
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, lat, lng, is_primary)",
     )
     .single();
   if (error || !data) {

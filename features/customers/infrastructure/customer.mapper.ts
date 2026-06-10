@@ -114,7 +114,7 @@ interface ListProjectionRow {
   tag: string | null;
   legacy_segment: string | null;
   created_at: string;
-  addresses: Pick<AddressRow, "city" | "is_primary">[];
+  addresses: Pick<AddressRow, "city" | "lat" | "lng" | "is_primary">[];
 }
 
 export function rowToListItem(row: ListProjectionRow): CustomerListItem {
@@ -131,6 +131,8 @@ export function rowToListItem(row: ListProjectionRow): CustomerListItem {
     tag: row.tag,
     legacy_segment: row.legacy_segment,
     city: primary?.city ?? null,
+    lat: primary?.lat ?? null,
+    lng: primary?.lng ?? null,
     created_at: new Date(row.created_at),
   };
 }

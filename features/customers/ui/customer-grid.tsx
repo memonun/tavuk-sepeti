@@ -84,6 +84,7 @@ const EDITABLE_COLUMN_IDS = new Set<CustomerCellField>([
   "tag",
   "legacy_segment",
   "city",
+  "coordinates",
 ]);
 
 export function CustomerGrid({
@@ -147,6 +148,22 @@ export function CustomerGrid({
     [],
   );
 
+  // Optimistic row partial. For most columns the default identity mapping
+  // (column id === row field) works. The `coordinates` column stores its
+  // value under a computed accessorFn, not a direct row field — so we
+  // expand {lat,lng} onto the CustomerListItem fields so the cell re-renders
+  // without waiting for the server round-trip.
+  const toOptimisticPatch = useCallback(
+    (columnId: string, value: unknown): Partial<CustomerListItem> => {
+      if (columnId === "coordinates") {
+        const coords = value as { lat: number; lng: number };
+        return { lat: coords.lat, lng: coords.lng };
+      }
+      return { [columnId]: value } as Partial<CustomerListItem>;
+    },
+    [],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <DataGrid<CustomerListItem, CustomerCellPatch>
@@ -175,6 +192,7 @@ export function CustomerGrid({
           },
         }}
         buildPatch={buildPatch}
+        toOptimisticPatch={toOptimisticPatch}
         renderRowExpand={(row) => <CustomerRowExpand customer={row} />}
         columnLabels={CUSTOMER_COLUMN_LABELS}
         toolbar={
