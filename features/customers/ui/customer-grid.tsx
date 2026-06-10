@@ -194,7 +194,7 @@ export function CustomerGrid({
       >
         <SheetContent
           side="right"
-          className="w-full overflow-y-auto data-[side=right]:sm:max-w-2xl"
+          className="w-full overflow-y-auto p-6 pt-12 data-[side=right]:sm:max-w-2xl"
         >
           {/* Visually-hidden title: base-ui Dialog requires a labelled title
               for a11y; the panel renders its own visible heading. */}

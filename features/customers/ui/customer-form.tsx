@@ -226,8 +226,8 @@ const addressAccuracy = watch("address.accuracy");
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-2">
+    <form onSubmit={onSubmit} className="@container space-y-6">
+      <section className="grid gap-4 @md:grid-cols-2">
         <Field label="Ad" error={errors.first_name?.message}>
           <Input id="first_name" {...register("first_name")} />
         </Field>
@@ -235,7 +235,7 @@ const addressAccuracy = watch("address.accuracy");
           <Input id="last_name" {...register("last_name")} />
         </Field>
         <Field label="Telefon" error={errors.phone?.message}>
-          <Input id="phone" placeholder="0532 123 45 67" {...register("phone")} />
+          <Input id="phone" {...register("phone")} />
         </Field>
         <Field label="E-posta (opsiyonel)" error={errors.email?.message}>
           <Input id="email" type="email" {...register("email")} />
@@ -264,52 +264,37 @@ const addressAccuracy = watch("address.accuracy");
       <section className="space-y-3">
         <h3 className="text-sm font-semibold">Adres</h3>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 @lg:grid-cols-3">
           <Field label="İl" error={errors.address?.city?.message}>
-            <Input
-              id="address.city"
-              placeholder="İstanbul"
-              {...register("address.city")}
-            />
+            <Input id="address.city" {...register("address.city")} />
           </Field>
           <Field label="İlçe" error={errors.address?.district?.message}>
-            <Input
-              id="address.district"
-              placeholder="Sarıyer"
-              {...register("address.district")}
-            />
+            <Input id="address.district" {...register("address.district")} />
           </Field>
           <Field label="Mahalle" error={errors.address?.neighborhood?.message}>
             <Input
               id="address.neighborhood"
-              placeholder="Maslak"
               {...register("address.neighborhood")}
             />
           </Field>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[1fr_120px_120px_120px]">
+        <div className="grid gap-3 @2xl:grid-cols-[1fr_120px_120px_120px]">
           <Field
             label="Cadde / Sokak (opsiyonel)"
             error={errors.address?.street?.message}
           >
-            <Input
-              id="address.street"
-              placeholder="Büyükdere Caddesi"
-              {...register("address.street")}
-            />
+            <Input id="address.street" {...register("address.street")} />
           </Field>
           <Field label="Bina No" error={errors.address?.building_no?.message}>
             <Input
               id="address.building_no"
-              placeholder="123"
               {...register("address.building_no")}
             />
           </Field>
           <Field label="Daire" error={errors.address?.apartment_no?.message}>
             <Input
               id="address.apartment_no"
-              placeholder="5"
               {...register("address.apartment_no")}
             />
           </Field>
@@ -319,7 +304,6 @@ const addressAccuracy = watch("address.accuracy");
           >
             <Input
               id="address.postal_code"
-              placeholder="34398"
               {...register("address.postal_code")}
             />
           </Field>
@@ -331,7 +315,6 @@ const addressAccuracy = watch("address.accuracy");
         >
           <Input
             id="address.description"
-            placeholder="Mavi kapı, zilde Yılmaz yazıyor"
             {...register("address.description")}
           />
         </Field>
