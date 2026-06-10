@@ -355,6 +355,23 @@ export async function patchOrderCell(
   return findOrderListItemById(orderId);
 }
 
+// ---- delete -----------------------------------------------------------------
+
+export async function deleteOrders(
+  ids: ReadonlyArray<string>,
+): Promise<Result<{ deleted: number }, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { error, count } = await supabase
+    .from("orders")
+    .delete({ count: "exact" })
+    .in("id", [...ids]);
+  if (error) {
+    logger.error({ code: error.code, n: ids.length }, "delete_orders_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok({ deleted: count ?? ids.length });
+}
+
 // ---- aggregate counts -------------------------------------------------------
 
 /**

@@ -83,6 +83,13 @@ import {
   rangesToCells,
 } from "@/components/data-grid/selection-model";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { ValidationError } from "@/shared/errors/app-error";
 import { isErr } from "@/shared/result";
@@ -523,6 +530,7 @@ export function DataGrid<TRow extends object, TPatch>({
 
   const [addRowBusy, setAddRowBusy] = useState(false);
   const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const handleBulkDelete = useCallback(async () => {
     if (!mutations?.onBulkDelete || selectedRowIds.size === 0) return;
     const ids = Array.from(selectedRowIds);
@@ -664,7 +672,7 @@ export function DataGrid<TRow extends object, TPatch>({
                 variant="ghost"
                 size="sm"
                 disabled={bulkDeleteBusy}
-                onClick={() => void handleBulkDelete()}
+                onClick={() => setConfirmDeleteOpen(true)}
                 className="h-6 gap-1 px-2 text-xs text-background hover:bg-background/10 hover:text-background"
               >
                 <Trash2 className="h-3 w-3" />
@@ -685,7 +693,37 @@ export function DataGrid<TRow extends object, TPatch>({
         </div>
       ) : null}
 
-
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Silme onayı</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Seçili {selectedRowIds.size} kaydı silmek istediğine emin misin? Bu
+            işlem geri alınamaz.
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Vazgeç
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={bulkDeleteBusy}
+              onClick={() => {
+                setConfirmDeleteOpen(false);
+                void handleBulkDelete();
+              }}
+            >
+              Sil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div
         ref={parentRef}
