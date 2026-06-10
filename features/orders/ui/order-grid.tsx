@@ -4,8 +4,8 @@
  * Orders DataGrid wrapper — pairs the shared <DataGrid> primitive with the
  * orders feature's column config + the inline cell-patch Server Action.
  *
- * Orders are not created or deleted from the grid (no onAddRow / onBulkDelete),
- * so this mirror of the customers grid omits those mutations.
+ * Orders are not created from the grid (no onAddRow). Bulk delete is supported
+ * via onBulkDelete — cascade handles order_items + order_status_events automatically.
  * The page shell passes its date-range presets through `toolbarExtra`, which
  * sits to the left of the filter builder in the toolbar row.
  */
@@ -24,6 +24,7 @@ import {
   ORDER_COLUMN_LABELS,
   buildOrderColumns,
 } from "@/features/orders/ui/order-grid-columns";
+import { bulkDeleteOrdersAction } from "@/features/orders/application/bulk-delete-orders";
 import { patchOrderCellAction } from "@/features/orders/application/patch-order-cell";
 import { useOrdersRealtime } from "@/features/orders/ui/hooks/use-orders-realtime";
 import {
@@ -145,7 +146,14 @@ export function OrderGrid({
         totalCount={total}
         page={page}
         pageSize={pageSize}
-        mutations={{ onCellCommit }}
+        mutations={{
+          onCellCommit,
+          onBulkDelete: async (ids) => {
+            const result = await bulkDeleteOrdersAction(ids);
+            if (result.ok) toast.success(`${result.value.deleted} sipariş silindi.`);
+            return result;
+          },
+        }}
         buildPatch={buildPatch}
         toOptimisticPatch={toOptimisticPatch}
         columnLabels={ORDER_COLUMN_LABELS}
