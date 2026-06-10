@@ -149,7 +149,6 @@ export function OrderGrid({
         buildPatch={buildPatch}
         toOptimisticPatch={toOptimisticPatch}
         columnLabels={ORDER_COLUMN_LABELS}
-        entityLabel="sipariş"
         toolbar={
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
             {toolbarExtra}

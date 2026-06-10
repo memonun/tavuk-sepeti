@@ -1,0 +1,4 @@
+1. Mğşteri veya herhangi bir tablodaki paginationdan dolayı 25 tane ile interaksiyona girebiliyorum. e.g select all, yapıp sildiğimde 25 tane silebiliyorum sadece, burada aslında seçimler vs, herkesi aynı anda ya da sayfayı seçme şeklinde kademeli ve flexible olmalı.
+2. Hamt apuhan müşterisini silemiyorum neden acaba? 
+3. Her column kendi içine çok daha iyi bir filtreleme olması lazım. Planlansın
+4. 

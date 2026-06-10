@@ -50,6 +50,9 @@ const FILTERABLE_COLUMNS: ReadonlySet<string> = new Set([
   "last_name",
   "phone",
   "email",
+  "status",
+  "account_type",
+  "city",
   "tag",
   "legacy_segment",
 ]);
@@ -222,51 +225,14 @@ export async function listCustomers(
   const from = (query.page - 1) * query.pageSize;
   const to = from + query.pageSize - 1;
 
-  // City + location filters pivot on the embedded addresses row, so we
-  // need INNER join semantics — addresses!inner drops customers that
-  // don't have a matching primary address row (won't happen in Faz 1 but
-  // the semantics are correct). When the inner join is active we always
-  // restrict to is_primary=true so a future multi-address customer can't
-  // get pulled in by a secondary address row.
-  const needsInnerAddressJoin = Boolean(query.city) || Boolean(query.location);
-  const addressJoin = needsInnerAddressJoin ? "addresses!inner" : "addresses";
-
   let builder = supabase
     .from("customers")
     .select(
-      `id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, ${addressJoin}(city, is_primary)`,
+      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
       { count: "exact" },
     )
     .order(query.sort, { ascending: query.order === "asc" })
     .range(from, to);
-
-  if (query.status) builder = builder.eq("status", query.status);
-  if (query.tag) builder = builder.eq("tag", query.tag);
-  if (query.account_type) builder = builder.eq("account_type", query.account_type);
-  if (query.legacy_segment)
-    builder = builder.eq("legacy_segment", query.legacy_segment);
-  // Always restrict the inner-joined embed to the primary address (when
-  // the inner join is active). Hoisted out of the per-filter blocks so a
-  // future filter that also pivots on addresses doesn't have to remember
-  // to re-add this constraint.
-  if (needsInnerAddressJoin) {
-    builder = builder.eq("addresses.is_primary", true);
-  }
-
-  if (query.city) {
-    builder = builder.eq("addresses.city", query.city);
-  }
-
-  if (query.location) {
-    // "accurate" = pin we can route to without further admin action;
-    // "approximate" = sitting on a city-center placeholder (CSV import)
-    // or a low-confidence Google response.
-    const accuracies: Database["public"]["Enums"]["coordinate_accuracy"][] =
-      query.location === "accurate"
-        ? ["rooftop", "range_interpolated"]
-        : ["approximate", "geometric_center", "unknown"];
-    builder = builder.in("addresses.accuracy", accuracies);
-  }
 
   if (query.q) {
     const escaped = query.q.replace(/[\\%_]/g, (m) => `\\${m}`);
@@ -278,10 +244,9 @@ export async function listCustomers(
     );
   }
 
-  // Advanced filter builder (multi-condition AND). The query schema
-  // caps the array at 20 rules and the column whitelist below caps
-  // what the SQL can touch — so a tampered URL can't escape the
-  // intended attack surface even if it slips past Zod.
+  // Dynamic filter rules (multi-condition AND). The query schema caps the
+  // array at 20 rules and the column whitelist prevents arbitrary column
+  // access — so a tampered URL can't escape the intended attack surface.
   for (const rule of query.filters) {
     if (!FILTERABLE_COLUMNS.has(rule.column)) continue;
     builder = applyFilterRule(builder, rule);

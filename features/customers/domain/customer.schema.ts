@@ -143,26 +143,14 @@ export type CustomerSortField = z.output<typeof customerSortFieldSchema>;
 /** Search/list query parameters for the customer table. */
 export const customerListQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
-  status: z.enum(["active", "inactive", "blocked"]).optional(),
-  city: z.string().trim().max(100).optional(),
-  tag: z.string().trim().max(100).optional(),
-  account_type: z
-    .enum(["individual", "business", "charity", "bazaar_vendor"])
-    .optional(),
-  legacy_segment: z.string().trim().max(100).optional(),
-  /** Primary-address pin accuracy bucket. "accurate" = pin reliable enough
-   *  to route to (rooftop / range_interpolated). "approximate" = the row
-   *  is sitting on a city-center placeholder or a low-confidence geocode
-   *  and needs admin attention before it can ship an order. */
-  location: z.enum(["accurate", "approximate"]).optional(),
   sort: customerSortFieldSchema.default("created_at"),
   order: z.enum(["asc", "desc"]).default("asc"),
   page: z.coerce.number().int().positive().default(1),
   // CLAUDE.md §9: max 100, default 25.
   pageSize: z.coerce.number().int().positive().max(100).default(25),
-  // Multi-condition AND filter from the popover. Layered on top of
-  // the simple dropdowns above (which still drive the most common
-  // single-value filters). Empty array = no advanced filters.
+  // Multi-condition AND filter from the FilterBuilder popover. Each rule
+  // is { column, operator, value }. The column whitelist in the
+  // repository prevents arbitrary column access.
   filters: filterRuleListSchema.default([]),
 });
 

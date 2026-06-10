@@ -4,14 +4,14 @@
  * Customers DataGrid wrapper — pairs the shared <DataGrid> primitive
  * with the customers feature's column config + Server Action mutations.
  *
- * Owns the toolbar (filter chips + bulk-paste + columns menu + new
- * customer link). Page shell only renders the title row + this grid +
- * pagination.
+ * Toolbar: debounced search input + Notion-style FilterBuilder + "Yeni
+ * Müşteri" link. All filtering goes through the `filter` URL param (JSON
+ * rules), replacing the previous per-column dropdown approach.
  */
-import { Plus } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { DataGrid } from "@/components/data-grid/data-grid";
@@ -31,10 +31,8 @@ import {
   CUSTOMER_COLUMN_LABELS,
   buildCustomerColumns,
 } from "@/features/customers/ui/customer-grid-columns";
-import { CustomerFilterBar } from "@/features/customers/ui/customer-filter-bar";
 import { CustomerRowExpand } from "@/features/customers/ui/customer-row-expand";
 import { addCustomerRowAction } from "@/features/customers/application/add-customer-row";
-import { bulkCreateCustomersAction } from "@/features/customers/application/bulk-create-customers";
 import { bulkDeleteCustomersAction } from "@/features/customers/application/bulk-delete-customers";
 import { patchCustomerCellAction } from "@/features/customers/application/patch-customer-cell";
 import { useCustomersRealtime } from "@/features/customers/ui/hooks/use-customers-realtime";
@@ -43,6 +41,7 @@ import {
   type CustomerCellPatch,
 } from "@/features/customers/domain/customer.schema";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import type { CustomerListItem } from "@/features/customers/domain/customer";
@@ -54,20 +53,22 @@ interface CustomerGridProps {
   readonly total: number;
   readonly page: number;
   readonly pageSize: number;
-  readonly cities: readonly string[];
-  readonly tags: readonly string[];
-  readonly legacySegments: readonly string[];
   readonly currentFilters: ReadonlyArray<FilterRule>;
   readonly mapsKey: string;
 }
 
-/** Columns the filter builder offers. Keep in sync with the
- *  FILTERABLE_COLUMNS whitelist in customer.repository.ts. */
+/**
+ * Columns the filter builder offers.
+ * Keep in sync with FILTERABLE_COLUMNS in customer.repository.ts.
+ */
 const FILTERABLE_COLUMNS: ReadonlyArray<FilterableColumn> = [
   { id: "first_name", label: "Ad" },
   { id: "last_name", label: "Soyad" },
   { id: "phone", label: "Telefon" },
   { id: "email", label: "E-posta" },
+  { id: "status", label: "Durum" },
+  { id: "account_type", label: "Tip" },
+  { id: "city", label: "Şehir" },
   { id: "tag", label: "Kanal" },
   { id: "legacy_segment", label: "Segment" },
 ];
@@ -89,15 +90,11 @@ export function CustomerGrid({
   total,
   page,
   pageSize,
-  cities,
-  tags,
-  legacySegments,
   currentFilters,
   mapsKey,
 }: CustomerGridProps) {
   // Subscribe to live customers + addresses changes — coalesced refresh
-  // so a peer's edit lands here within ~1s, and a 100-row paste from
-  // another tab collapses to one refetch.
+  // so a peer's edit lands here within ~1s.
   useCustomersRealtime();
 
   const router = useRouter();
@@ -105,7 +102,7 @@ export function CustomerGrid({
   const params = useSearchParams();
   const [, startTransition] = useTransition();
 
-  // Row "Aç" → open the shared detail panel in a right-side Sheet.
+  // Row click → open the shared detail panel in a right-side Sheet.
   const [openId, setOpenId] = useState<string | null>(null);
 
   const onFiltersChange = useCallback(
@@ -168,13 +165,6 @@ export function CustomerGrid({
             }
             return result;
           },
-          onBulkCreate: async (rows) => {
-            const result = await bulkCreateCustomersAction(rows);
-            if (result.ok) {
-              toast.success(`${result.value.length} müşteri eklendi.`);
-            }
-            return result;
-          },
           onBulkDelete: async (ids) => {
             const result = await bulkDeleteCustomersAction(ids);
             if (result.ok) {
@@ -186,12 +176,8 @@ export function CustomerGrid({
         buildPatch={buildPatch}
         renderRowExpand={(row) => <CustomerRowExpand customer={row} />}
         columnLabels={CUSTOMER_COLUMN_LABELS}
-        entityLabel="müşteri"
         toolbar={
           <CustomerToolbar
-            cities={cities}
-            tags={tags}
-            legacySegments={legacySegments}
             currentFilters={currentFilters}
             onFiltersChange={onFiltersChange}
           />
@@ -224,30 +210,64 @@ export function CustomerGrid({
 interface CustomerToolbarProps {
   readonly currentFilters: ReadonlyArray<FilterRule>;
   readonly onFiltersChange: (next: ReadonlyArray<FilterRule>) => void;
-  readonly cities: readonly string[];
-  readonly tags: readonly string[];
-  readonly legacySegments: readonly string[];
 }
 
-function CustomerToolbar({
-  cities,
-  tags,
-  legacySegments,
-  currentFilters,
-  onFiltersChange,
-}: CustomerToolbarProps) {
+function CustomerToolbar({ currentFilters, onFiltersChange }: CustomerToolbarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [, startTransition] = useTransition();
+
+  // Debounced search — mirrors the `q` URL param.
+  const [text, setText] = useState(() => params.get("q") ?? "");
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = new URLSearchParams(params.toString());
+      if (text) next.set("q", text);
+      else next.delete("q");
+      next.delete("page");
+      const search = next.toString();
+      startTransition(() =>
+        router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false }),
+      );
+    }, 300);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+
   return (
     <div className="flex flex-1 flex-wrap items-center gap-1.5">
-      <CustomerFilterBar
-        cities={cities}
-        tags={tags}
-        legacySegments={legacySegments}
-      />
+      {/* Debounced full-text search */}
+      <div className="relative w-52">
+        <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Ara…"
+          className="h-7 pl-7 text-xs"
+        />
+        {text ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 px-0"
+            onClick={() => setText("")}
+            aria-label="Aramayı temizle"
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        ) : null}
+      </div>
+
+      {/* Notion-style dynamic filter builder */}
       <FilterBuilder
         columns={FILTERABLE_COLUMNS}
         rules={currentFilters}
         onChange={onFiltersChange}
       />
+
       <Link
         href="/customers/new"
         className={cn(
@@ -261,7 +281,3 @@ function CustomerToolbar({
     </div>
   );
 }
-
-// Re-export Button so the linter doesn't flag the import as unused if
-// the toolbar evolves to plain buttons later.
-void Button;

@@ -1,16 +1,14 @@
 /**
  * Customers route shell — Notion-style chrome.
  *
- * Page-level chrome stays minimal: just the title row + the grid + the
- * pagination footer. The toolbar (search, filter chips, "+ Yeni",
- * "Toplu Yapıştır", "Kolonlar") is owned by <CustomerGrid> so the
- * filter UI sits glued to the table — same single-row pattern Notion
- * uses for its database header.
+ * Page-level chrome stays minimal: just the title row + the grid +
+ * pagination. The toolbar (search input, FilterBuilder, "Yeni Müşteri",
+ * "Kolonlar") is owned by <CustomerGrid> so the filter UI sits glued to
+ * the table — same single-row pattern Notion uses for its database header.
  */
 import { redirect } from "next/navigation";
 
 import { parseFiltersFromQueryParam } from "@/components/data-grid/filters/filter-types";
-import { getCustomerFilterOptions } from "@/features/customers/application/get-filter-options";
 import { listCustomers } from "@/features/customers/application/list-customers";
 import { CustomerGrid } from "@/features/customers/ui/customer-grid";
 import { CustomerPagination } from "@/features/customers/ui/customer-pagination";
@@ -22,12 +20,6 @@ import { env } from "@/shared/env";
 interface CustomersPageProps {
   searchParams: Promise<{
     q?: string;
-    status?: string;
-    city?: string;
-    tag?: string;
-    account_type?: string;
-    legacy_segment?: string;
-    location?: string;
     sort?: string;
     order?: string;
     page?: string;
@@ -39,28 +31,12 @@ interface CustomersPageProps {
 
 const PRESERVE_KEYS: (keyof Awaited<CustomersPageProps["searchParams"]>)[] = [
   "q",
-  "status",
-  "city",
-  "tag",
-  "account_type",
-  "legacy_segment",
-  "location",
   "sort",
   "order",
   "pageSize",
   "view",
   "filter",
 ];
-
-const VIEW_FILTER_KEYS = [
-  "q",
-  "status",
-  "city",
-  "tag",
-  "account_type",
-  "legacy_segment",
-  "location",
-] as const;
 
 const CUSTOMERS_TABLE_ID = "customers";
 
@@ -69,22 +45,15 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
 
   const currentFilters = parseFiltersFromQueryParam(params.filter);
 
-  const [listResult, filterOptions, viewsResult] = await Promise.all([
+  const [listResult, viewsResult] = await Promise.all([
     listCustomers({
       q: params.q,
-      status: params.status,
-      city: params.city,
-      tag: params.tag,
-      account_type: params.account_type,
-      legacy_segment: params.legacy_segment,
-      location: params.location,
       sort: params.sort,
       order: params.order,
       page: params.page,
       pageSize: params.pageSize,
       filters: currentFilters,
     }),
-    getCustomerFilterOptions(),
     listViewsAction(CUSTOMERS_TABLE_ID),
   ]);
 
@@ -134,7 +103,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         views={views}
         tableId={CUSTOMERS_TABLE_ID}
         currentViewId={currentViewId}
-        filterKeys={VIEW_FILTER_KEYS}
+        filterKeys={[]}
       />
 
       <CustomerGrid
@@ -142,9 +111,6 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         total={listResult.value.total}
         page={listResult.value.page}
         pageSize={listResult.value.pageSize}
-        cities={filterOptions.cities}
-        tags={filterOptions.tags}
-        legacySegments={filterOptions.legacySegments}
         currentFilters={currentFilters}
         mapsKey={env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? ""}
       />

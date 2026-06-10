@@ -37,7 +37,6 @@ import {
 import {
   ChevronDown,
   ChevronRight,
-  ClipboardPaste,
   GripVertical,
   Plus,
   Trash2,
@@ -74,11 +73,6 @@ import { useColumnPrefs } from "@/components/data-grid/hooks/use-column-prefs";
 import { useOptimisticRows } from "@/components/data-grid/hooks/use-optimistic-rows";
 import { computeFillWrites } from "@/components/data-grid/fill";
 import { parseClipboardTable } from "@/components/data-grid/paste/parse-tsv";
-import { PasteInputDialog } from "@/components/data-grid/paste/paste-input-dialog";
-import {
-  PastePreviewDialog,
-  type PastePreviewRow,
-} from "@/components/data-grid/paste/paste-preview-dialog";
 import {
   getPinningHeaderStyles,
   getPinningStyles,
@@ -109,16 +103,6 @@ interface DataGridExtraProps {
   readonly footer?: ReactNode;
   readonly onCellError?: (message: string, error: AppError) => void;
   readonly onCellSuccess?: () => void;
-  /** Singular noun used by the paste-create preview ("3 müşteri oluşturulacak"). */
-  readonly entityLabel?: string;
-}
-
-interface BulkPasteState<TRow> {
-  readonly headers: ReadonlyArray<string>;
-  readonly headerColIds: ReadonlyArray<string>;
-  readonly rawRows: ReadonlyArray<ReadonlyArray<string>>;
-  readonly previewRows: ReadonlyArray<PastePreviewRow>;
-  readonly parsedRows: ReadonlyArray<Partial<TRow>>;
 }
 
 const cellKey = (rowId: string, columnId: string) => `${rowId}::${columnId}`;
@@ -142,7 +126,6 @@ export function DataGrid<TRow extends object, TPatch>({
   footer,
   onCellError,
   onCellSuccess,
-  entityLabel = "kayıt",
 }: DataGridProps<TRow, TPatch> & DataGridExtraProps) {
   const { prefs, setSizes, setOrder, setHidden, setPinning, setAggregate } = useColumnPrefs(
     tableId,
@@ -538,101 +521,6 @@ export function DataGrid<TRow extends object, TPatch>({
     [selection.activeCell, visibleRowIds, visibleColIds, getColDef, handleCommitEdit, onCellError],
   );
 
-  // ---- Bulk paste-create -------------------------------------------------
-  //
-  // Toolbar button reads the clipboard, parses it as TSV using the same
-  // parser as in-cell paste, validates each cell against the column's
-  // editor schema, and opens the preview dialog. Confirm fires the
-  // onBulkCreate Server Action; success replaces the optimistic toast
-  // and closes the dialog.
-
-  const [bulkPaste, setBulkPaste] = useState<BulkPasteState<TRow> | null>(null);
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkInputOpen, setBulkInputOpen] = useState(false);
-
-  const openBulkPasteFromText = useCallback(
-    (text: string) => {
-      const { rows: parsed } = parseClipboardTable(text);
-      if (parsed.length === 0) {
-        onCellError?.(
-          "Pano boş veya tanınmayan formatta.",
-          new ValidationError({ message: "Pano boş veya tanınmayan formatta." }),
-        );
-        return;
-      }
-
-      // Map clipboard columns to the first N visible editable columns —
-      // user is expected to align their paste with the table layout.
-      const editableCols = visibleLeafColumns
-        .filter((c) => {
-          const def = c.columnDef as DataGridColumn<TRow>;
-          return def.editable && def.editor;
-        })
-        .slice(0, Math.max(...parsed.map((r) => r.length), 0));
-      const headerColIds = editableCols.map((c) => c.id);
-      const headers = editableCols.map(
-        (c) => columnLabels?.[c.id] ?? (typeof c.columnDef.header === "string" ? c.columnDef.header : c.id),
-      );
-
-      const previewRows: PastePreviewRow[] = [];
-      const parsedRows: Partial<TRow>[] = [];
-
-      for (const rawRow of parsed) {
-        const cells: string[] = [];
-        const issues: string[] = [];
-        const accumulator: Record<string, unknown> = {};
-        for (let i = 0; i < headerColIds.length; i++) {
-          const colId = headerColIds[i]!;
-          const colDef = getColDef(colId);
-          const raw = rawRow[i] ?? "";
-          cells.push(raw);
-          if (!colDef?.editor) continue;
-          const fromClip =
-            colDef.editor.parseFromClipboard?.(raw) ?? { ok: true as const, value: raw };
-          if (!fromClip.ok) {
-            issues.push(`${headers[i] ?? colId}: ${fromClip.error.message}`);
-            continue;
-          }
-          const safe = colDef.editor.schema.safeParse(fromClip.value);
-          if (!safe.success) {
-            issues.push(
-              `${headers[i] ?? colId}: ${safe.error.issues[0]?.message ?? "Geçersiz değer."}`,
-            );
-            continue;
-          }
-          accumulator[colId] = safe.data;
-        }
-        previewRows.push({ cells, issues });
-        parsedRows.push(accumulator as Partial<TRow>);
-      }
-
-      setBulkPaste({
-        headers,
-        headerColIds,
-        rawRows: parsed,
-        previewRows,
-        parsedRows,
-      });
-    },
-    [columnLabels, getColDef, onCellError, visibleLeafColumns],
-  );
-
-  const handleOpenBulkPaste = useCallback(() => {
-    // Always open the input dialog. Direct clipboard reads need a
-    // permission grant (and the page must be focused), which routinely
-    // fails in admin tabs that have lost focus while the user copies in
-    // Excel. The textarea + Cmd+V is the universally-working pattern.
-    setBulkInputOpen(true);
-  }, []);
-
-  const handleSubmitBulkInput = useCallback(
-    (text: string) => {
-      setBulkInputOpen(false);
-      openBulkPasteFromText(text);
-    },
-    [openBulkPasteFromText],
-  );
-
   const [addRowBusy, setAddRowBusy] = useState(false);
   const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
   const handleBulkDelete = useCallback(async () => {
@@ -651,32 +539,6 @@ export function DataGrid<TRow extends object, TPatch>({
       setBulkDeleteBusy(false);
     }
   }, [mutations, selectedRowIds, onCellError, onCellSuccess, clearRowSelection]);
-
-  const handleBulkConfirm = useCallback(async () => {
-    if (!bulkPaste || !mutations?.onBulkCreate) return;
-    const validRows = bulkPaste.parsedRows.filter(
-      (_, idx) => bulkPaste.previewRows[idx]?.issues.length === 0,
-    );
-    if (validRows.length === 0) {
-      onCellError?.(
-        "Geçerli satır yok.",
-        new ValidationError({ message: "Geçerli satır yok." }),
-      );
-      return;
-    }
-    setBulkBusy(true);
-    try {
-      const result = await mutations.onBulkCreate(validRows);
-      if (isErr(result)) {
-        onCellError?.(result.error.message, result.error);
-      } else {
-        onCellSuccess?.();
-        setBulkPaste(null);
-      }
-    } finally {
-      setBulkBusy(false);
-    }
-  }, [bulkPaste, mutations, onCellError, onCellSuccess]);
 
   // ---- Cell-level keyboard handler --------------------------------------
 
@@ -780,18 +642,7 @@ export function DataGrid<TRow extends object, TPatch>({
             onChange={(next) => setGrouping([...next])}
             {...(columnLabels !== undefined ? { columnLabels } : {})}
           />
-          {mutations?.onBulkCreate ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1 px-2 text-xs"
-              onClick={() => void handleOpenBulkPaste()}
-            >
-              <ClipboardPaste className="h-3 w-3" />
-              Toplu Yapıştır
-            </Button>
-          ) : null}
+
           <ColumnVisibilityMenu
             table={table}
             {...(columnLabels !== undefined ? { columnLabels } : {})}
@@ -834,26 +685,7 @@ export function DataGrid<TRow extends object, TPatch>({
         </div>
       ) : null}
 
-      <PasteInputDialog
-        open={bulkInputOpen}
-        onOpenChange={setBulkInputOpen}
-        entityLabel={entityLabel}
-        onSubmit={handleSubmitBulkInput}
-      />
 
-      {bulkPaste ? (
-        <PastePreviewDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setBulkPaste(null);
-          }}
-          headers={bulkPaste.headers}
-          rows={bulkPaste.previewRows}
-          entityLabel={entityLabel}
-          onConfirm={handleBulkConfirm}
-          busy={bulkBusy}
-        />
-      ) : null}
 
       <div
         ref={parentRef}
