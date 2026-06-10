@@ -18,6 +18,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
 import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
+import { partitionDeletable } from "@/features/customers/application/partition-deletable";
 import {
   bulkDeleteCustomers as repoBulkDelete,
   findListItemsByIds,
@@ -28,31 +29,6 @@ import { logBulkAudit } from "@/shared/audit/log-audit";
 import { AppError, ValidationError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
-
-// ---------------------------------------------------------------------------
-// Pure helper — exported so unit tests can cover it in isolation.
-// ---------------------------------------------------------------------------
-
-/**
- * Partition a list of customer ids into those that are safe to delete (no
- * orders) and those that are blocked (have ≥ 1 order).
- *
- * `counts` is the Map returned by `countOrdersByCustomer`. Ids absent from
- * the Map are treated as having 0 orders (i.e. deletable).
- */
-export function partitionDeletable(
-  ids: ReadonlyArray<string>,
-  counts: ReadonlyMap<string, number>,
-): { blocked: { id: string; orderCount: number }[]; deletable: string[] } {
-  const blocked: { id: string; orderCount: number }[] = [];
-  const deletable: string[] = [];
-  for (const id of ids) {
-    const n = counts.get(id) ?? 0;
-    if (n > 0) blocked.push({ id, orderCount: n });
-    else deletable.push(id);
-  }
-  return { blocked, deletable };
-}
 
 // ---------------------------------------------------------------------------
 

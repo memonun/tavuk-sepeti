@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { partitionDeletable } from "@/features/customers/application/bulk-delete-customers";
+import { partitionDeletable } from "@/features/customers/application/partition-deletable";
 
 describe("partitionDeletable", () => {
   it("blocks ids that have orders, allows the rest", () => {
