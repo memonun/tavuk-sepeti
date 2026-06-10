@@ -755,6 +755,13 @@ export type Database = {
             }
             Returns: string
           }
+      count_orders_by_customers: {
+        Args: { p_customer_ids: string[] }
+        Returns: {
+          customer_id: string
+          order_count: number
+        }[]
+      }
       create_order_with_items: {
         Args: {
           p_created_by: string
