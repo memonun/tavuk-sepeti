@@ -10,10 +10,16 @@
  * sits to the left of the filter builder in the toolbar row.
  */
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { DataGrid } from "@/components/data-grid/data-grid";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { OrderDetailLoader } from "@/features/orders/ui/order-detail-loader";
 import { FilterBuilder } from "@/components/data-grid/filters/filter-builder";
 import {
   serializeFiltersToQueryParam,
@@ -33,6 +39,7 @@ import {
 } from "@/features/orders/domain/order.schema";
 
 import type { OrderListItem } from "@/features/orders/domain/order";
+import type { Product } from "@/features/products/application/list-products";
 import type { AppError } from "@/shared/errors/app-error";
 import type { Result } from "@/shared/result";
 
@@ -57,6 +64,7 @@ interface OrderGridProps {
   readonly page: number;
   readonly pageSize: number;
   readonly currentFilters: ReadonlyArray<FilterRule>;
+  readonly products: Product[];
   readonly toolbarExtra?: React.ReactNode;
 }
 
@@ -66,6 +74,7 @@ export function OrderGrid({
   page,
   pageSize,
   currentFilters,
+  products,
   toolbarExtra,
 }: OrderGridProps) {
   // Subscribe to live orders + status-event changes — coalesced refresh so a
@@ -76,6 +85,9 @@ export function OrderGrid({
   const pathname = usePathname();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
+
+  // Row click → open the shared editable detail panel in a right-side Sheet.
+  const [openRow, setOpenRow] = useState<OrderListItem | null>(null);
 
   const onFiltersChange = useCallback(
     (next: ReadonlyArray<FilterRule>) => {
@@ -95,7 +107,8 @@ export function OrderGrid({
     [params, pathname, router],
   );
 
-  const columns = useMemo(() => buildOrderColumns(), []);
+  // `setOpenRow` from useState is stable across renders, so [] deps are safe.
+  const columns = useMemo(() => buildOrderColumns(setOpenRow), []);
 
   const onCellCommit = useCallback(
     (
@@ -169,6 +182,29 @@ export function OrderGrid({
         }
         onCellError={(message) => toast.error(message)}
       />
+
+      <Sheet
+        open={openRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setOpenRow(null);
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-full overflow-y-auto p-6 pt-12 data-[side=right]:sm:max-w-2xl"
+        >
+          {/* Visually-hidden title: base-ui Dialog requires a labelled title
+              for a11y; the panel renders its own visible heading. */}
+          <SheetTitle className="sr-only">Sipariş detayı</SheetTitle>
+          {openRow ? (
+            <OrderDetailLoader
+              id={openRow.id}
+              products={products}
+              customerName={openRow.customer_name}
+            />
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

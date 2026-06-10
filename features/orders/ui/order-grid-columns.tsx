@@ -51,7 +51,9 @@ export const ORDER_COLUMN_LABELS: Readonly<Record<string, string>> = {
   created_at: "Oluşturma",
 };
 
-export function buildOrderColumns(): DataGridColumn<OrderListItem>[] {
+export function buildOrderColumns(
+  onOpenDetail: (row: OrderListItem) => void,
+): DataGridColumn<OrderListItem>[] {
   return [
     {
       id: "order_number",
@@ -62,12 +64,16 @@ export function buildOrderColumns(): DataGridColumn<OrderListItem>[] {
       defaultPin: "left",
       editable: false,
       cell: ({ row }) => (
-        <Link
-          href={`/orders/${row.original.id}`}
-          className="font-mono text-xs underline-offset-2 hover:underline"
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenDetail(row.original);
+          }}
+          className="w-full text-left font-mono text-xs underline-offset-2 hover:underline"
         >
           {row.original.order_number}
-        </Link>
+        </button>
       ),
     },
     {
