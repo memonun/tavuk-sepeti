@@ -20,13 +20,6 @@ import { isE164TR, normalizeTRPhone } from "@/shared/utils/phone";
 const blankToNull = (value: unknown): unknown =>
   typeof value === "string" && value.trim() === "" ? null : value;
 
-const trimmedString = (min: number, max: number, message: string) =>
-  z
-    .string()
-    .trim()
-    .min(min, message)
-    .max(max, `En fazla ${max} karakter olabilir.`);
-
 const optionalShortText = (max: number) =>
   z.preprocess(
     blankToNull,
@@ -228,47 +221,3 @@ export const PII_CELL_FIELDS: ReadonlySet<CustomerCellField> = new Set([
   "neighborhood",
 ]);
 
-// ---- Bulk-create schema (paste into empty rows) --------------------------
-//
-// Smaller than customerFormSchema: paste flow only carries scalar fields,
-// not a full structured address + geocoded pin. Created rows get a
-// placeholder address with accuracy=unknown so the location filter
-// surfaces them under "approximate" — admin then opens the detail page,
-// fills the real address, and the geocoding pipeline pins the row.
-//
-// Only required: first_name + last_name. phone/email are optional (legacy
-// imports + bazaar walk-ins routinely lack one or both). Any extra column
-// in the paste payload that isn't in this schema is dropped on parse.
-export const bulkCreateCustomerRowSchema = z.object({
-  first_name: trimmedString(1, 100, "Ad gerekli."),
-  last_name: trimmedString(1, 100, "Soyad gerekli."),
-  phone: z.preprocess(
-    blankToNull,
-    z.string().nullable().transform((s, ctx) => {
-      if (s === null) return null;
-      const normalized = normalizeTRPhone(s);
-      if (normalized === null || !isE164TR(normalized)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Geçerli bir TR cep numarası girin (ör. 0532 123 45 67).",
-        });
-        return z.NEVER;
-      }
-      return normalized;
-    }),
-  ),
-  email: emailOrNull,
-  status: statusSchema.default("active"),
-  account_type: accountTypeSchema.default("individual"),
-  tag: optionalShortText(100),
-  legacy_segment: optionalShortText(100),
-  city: optionalShortText(100),
-});
-
-export type BulkCreateCustomerRow = z.output<typeof bulkCreateCustomerRowSchema>;
-
-/** Whole paste payload — used by the Server Action's outer parse. */
-export const bulkCreateCustomersSchema = z
-  .array(bulkCreateCustomerRowSchema)
-  .min(1, "En az bir satır gerekli.")
-  .max(200, "Tek seferde en fazla 200 satır yapıştırabilirsin.");
