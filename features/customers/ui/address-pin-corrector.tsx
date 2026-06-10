@@ -11,15 +11,17 @@
  * Accuracy badge surfaces SPEC.md §6.4 LOW_ACCURACY UX: orange warning when
  * the auto-geocode landed on `approximate` / `unknown`, prompting the admin
  * to drag the pin precisely.
+ *
+ * Note: this component assumes a `<APIProvider>` ancestor — the form lifts the
+ * provider up so this map and the address autocomplete share one script load.
  */
-import { AdvancedMarker, APIProvider, Map } from "@vis.gl/react-google-maps";
+import { AdvancedMarker, Map } from "@vis.gl/react-google-maps";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 import { isLowAccuracy } from "@/shared/geo/accuracy";
 import type { CoordinateAccuracy, CoordinateSource } from "@/shared/geo/coordinate";
 
 interface AddressPinCorrectorProps {
-  apiKey: string;
   lat: number;
   lng: number;
   accuracy: CoordinateAccuracy;
@@ -35,7 +37,6 @@ const ACCURACY_LABEL: Record<CoordinateAccuracy, string> = {
 };
 
 export function AddressPinCorrector({
-  apiKey,
   lat,
   lng,
   accuracy,
@@ -44,8 +45,7 @@ export function AddressPinCorrector({
   const low = isLowAccuracy(accuracy);
 
   return (
-    <APIProvider apiKey={apiKey}>
-      <div className="space-y-2">
+    <div className="space-y-2">
         <div
           className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
             low
@@ -96,7 +96,6 @@ export function AddressPinCorrector({
             </AdvancedMarker>
           </Map>
         </div>
-      </div>
-    </APIProvider>
+    </div>
   );
 }
