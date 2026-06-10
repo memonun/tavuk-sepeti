@@ -64,9 +64,20 @@ export function buildCustomerColumns(
       editor: textCellEditor({
         schema: customerCellPatchSchemas.first_name as unknown as z.ZodType<string | null>,
       }) as never,
-      cell: ({ getValue }) => {
+      cell: ({ getValue, row }) => {
         const v = getValue() as string | null;
-        return v ? <span>{v}</span> : <span className="text-muted-foreground">—</span>;
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetail(row.original.id);
+            }}
+            className="w-full text-left underline-offset-2 hover:underline"
+          >
+            {v || <span className="text-muted-foreground">—</span>}
+          </button>
+        );
       },
     },
     {

@@ -313,6 +313,10 @@ export function DataGrid<TRow extends object, TPatch>({
   const fillingRef = useRef(false);
   const [isFilling, setIsFilling] = useState(false);
 
+  // Drag-to-select: tracks whether the user is click-dragging across cells
+  // to build a selection rectangle (Excel/Sheets behavior).
+  const isDraggingSelect = useRef(false);
+
   const getColDef = useCallback(
     (columnId: string): DataGridColumn<TRow> | undefined => {
       const col = table.getColumn(columnId);
@@ -386,6 +390,15 @@ export function DataGrid<TRow extends object, TPatch>({
     const node = cellRefs.current.get(cellKey(active.rowId, active.columnId));
     node?.focus({ preventScroll: false });
   }, [selection.activeCell, editingCell]);
+
+  // Drag-to-select: clear the flag on any mouseup so selection drag ends.
+  useEffect(() => {
+    function onUp() {
+      isDraggingSelect.current = false;
+    }
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+  }, []);
 
   // Fill handle: commit the dragged rectangle on mouse-up. The source is
   // the active range; the target shares the source's anchor and extends to
@@ -1067,6 +1080,9 @@ export function DataGrid<TRow extends object, TPatch>({
                             fillTargetRef.current = addr;
                             setFillTarget(addr);
                           }
+                          if (isDraggingSelect.current) {
+                            selection.extendSelectionTo(addr);
+                          }
                         }}
                         onMouseDown={(e) => {
                           if (e.shiftKey) {
@@ -1086,6 +1102,7 @@ export function DataGrid<TRow extends object, TPatch>({
                             handleStartEdit(addr);
                             return;
                           }
+                          isDraggingSelect.current = true;
                           selection.selectCell(addr);
                         }}
                         onDoubleClick={() =>

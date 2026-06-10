@@ -156,7 +156,7 @@ export const customerListQuerySchema = z.object({
    *  and needs admin attention before it can ship an order. */
   location: z.enum(["accurate", "approximate"]).optional(),
   sort: customerSortFieldSchema.default("created_at"),
-  order: z.enum(["asc", "desc"]).default("desc"),
+  order: z.enum(["asc", "desc"]).default("asc"),
   page: z.coerce.number().int().positive().default(1),
   // CLAUDE.md §9: max 100, default 25.
   pageSize: z.coerce.number().int().positive().max(100).default(25),
