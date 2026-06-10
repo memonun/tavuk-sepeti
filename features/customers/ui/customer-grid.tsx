@@ -80,6 +80,7 @@ const EDITABLE_COLUMN_IDS = new Set<CustomerCellField>([
   "email",
   "status",
   "account_type",
+  "order_type",
   "tag",
   "legacy_segment",
   "city",

@@ -35,6 +35,13 @@ const ACCOUNT_TYPE_OPTIONS = [
   { value: "bazaar_vendor", label: "Pazar" },
 ];
 
+const ORDER_TYPE_OPTIONS = [
+  { value: "delivery", label: "Teslimat" },
+  { value: "retail", label: "Perakende" },
+  { value: "wholesale", label: "Toptan" },
+  { value: "bazaar", label: "Pazar" },
+];
+
 export const CUSTOMER_COLUMN_LABELS: Readonly<Record<string, string>> = {
   first_name: "Ad",
   last_name: "Soyad",
@@ -43,6 +50,7 @@ export const CUSTOMER_COLUMN_LABELS: Readonly<Record<string, string>> = {
   city: "Şehir",
   tag: "Kanal",
   account_type: "Tip",
+  order_type: "Sipariş Tipi",
   legacy_segment: "Segment",
   status: "Durum",
   created_at: "Eklenme",
@@ -159,6 +167,18 @@ export function buildCustomerColumns(
       editor: selectCellEditor({
         schema: customerCellPatchSchemas.account_type as unknown as z.ZodType<string>,
         options: ACCOUNT_TYPE_OPTIONS,
+      }) as never,
+    },
+    {
+      id: "order_type",
+      accessorKey: "order_type",
+      header: "Sipariş Tipi",
+      size: 130,
+      columnType: "select",
+      editable: true,
+      editor: selectCellEditor({
+        schema: customerCellPatchSchemas.order_type as unknown as z.ZodType<string>,
+        options: ORDER_TYPE_OPTIONS,
       }) as never,
     },
     {

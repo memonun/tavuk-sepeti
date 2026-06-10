@@ -13,6 +13,7 @@ import type {
   CustomerAccountType,
   CustomerAddress,
   CustomerListItem,
+  CustomerOrderType,
   CustomerStatus,
 } from "@/features/customers/domain/customer";
 
@@ -28,6 +29,20 @@ function asAccountType(value: string | null): CustomerAccountType {
     return value as CustomerAccountType;
   }
   return "individual";
+}
+
+const ORDER_TYPES: ReadonlySet<CustomerOrderType> = new Set([
+  "delivery",
+  "retail",
+  "wholesale",
+  "bazaar",
+]);
+
+function asOrderType(value: string | null): CustomerOrderType | null {
+  if (value && ORDER_TYPES.has(value as CustomerOrderType)) {
+    return value as CustomerOrderType;
+  }
+  return null;
 }
 
 type CustomerRow = Database["public"]["Tables"]["customers"]["Row"];
@@ -77,6 +92,7 @@ export function rowToCustomer(row: CustomerWithAddressRow): Customer {
     notes: row.notes,
     status: row.status as CustomerStatus,
     account_type: asAccountType(row.account_type),
+    order_type: asOrderType(row.order_type),
     tag: row.tag,
     legacy_segment: row.legacy_segment,
     address: primary ? rowToAddress(primary) : null,
@@ -94,6 +110,7 @@ interface ListProjectionRow {
   email: string | null;
   status: CustomerStatus;
   account_type: string | null;
+  order_type: string | null;
   tag: string | null;
   legacy_segment: string | null;
   created_at: string;
@@ -110,6 +127,7 @@ export function rowToListItem(row: ListProjectionRow): CustomerListItem {
     email: row.email,
     status: row.status,
     account_type: asAccountType(row.account_type),
+    order_type: asOrderType(row.order_type),
     tag: row.tag,
     legacy_segment: row.legacy_segment,
     city: primary?.city ?? null,

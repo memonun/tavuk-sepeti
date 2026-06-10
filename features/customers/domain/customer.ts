@@ -37,6 +37,12 @@ export type CustomerAccountType =
   | "charity"
   | "bazaar_vendor";
 
+export type CustomerOrderType =
+  | "delivery"
+  | "retail"
+  | "wholesale"
+  | "bazaar";
+
 export interface Customer {
   readonly id: string;
   readonly first_name: string | null;
@@ -49,6 +55,7 @@ export interface Customer {
   readonly notes: string | null;
   readonly status: CustomerStatus;
   readonly account_type: CustomerAccountType;
+  readonly order_type: CustomerOrderType | null;
   readonly tag: string | null;
   readonly legacy_segment: string | null;
   readonly address: CustomerAddress | null;
@@ -66,6 +73,7 @@ export interface CustomerListItem {
   readonly email: string | null;
   readonly status: CustomerStatus;
   readonly account_type: CustomerAccountType;
+  readonly order_type: CustomerOrderType | null;
   readonly tag: string | null;
   readonly legacy_segment: string | null;
   readonly city: string | null;

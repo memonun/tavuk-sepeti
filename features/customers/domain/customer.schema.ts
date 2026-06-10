@@ -127,6 +127,7 @@ export const customerSortFieldSchema = z.enum([
   "phone",
   "status",
   "account_type",
+  "order_type",
   "tag",
   "legacy_segment",
   "created_at",
@@ -167,6 +168,7 @@ const accountTypeSchema = z.enum([
   "bazaar_vendor",
 ]);
 const statusSchema = z.enum(["active", "inactive", "blocked"]);
+export const orderTypeSchema = z.enum(["delivery", "retail", "wholesale", "bazaar"]);
 
 export const customerCellPatchSchemas = {
   first_name: optionalShortText(100),
@@ -175,6 +177,11 @@ export const customerCellPatchSchemas = {
   email: emailOrNull,
   status: statusSchema,
   account_type: accountTypeSchema,
+  // Nullable enum — empty string or null both clear the field.
+  order_type: z.preprocess(
+    (v) => (v === "" || v == null ? null : v),
+    orderTypeSchema.nullable(),
+  ),
   // Free-text classification fields — empty string collapses to null so the
   // DB doesn't see a meaningless "" row.
   tag: optionalShortText(100),
@@ -198,6 +205,7 @@ export const customerCellPatchSchema = z.discriminatedUnion("field", [
   z.object({ field: z.literal("email"), value: customerCellPatchSchemas.email }),
   z.object({ field: z.literal("status"), value: customerCellPatchSchemas.status }),
   z.object({ field: z.literal("account_type"), value: customerCellPatchSchemas.account_type }),
+  z.object({ field: z.literal("order_type"), value: customerCellPatchSchemas.order_type }),
   z.object({ field: z.literal("tag"), value: customerCellPatchSchemas.tag }),
   z.object({ field: z.literal("legacy_segment"), value: customerCellPatchSchemas.legacy_segment }),
   z.object({ field: z.literal("notes"), value: customerCellPatchSchemas.notes }),

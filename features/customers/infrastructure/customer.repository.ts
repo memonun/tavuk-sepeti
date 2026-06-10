@@ -227,7 +227,7 @@ export async function listCustomers(
   let builder = supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
       { count: "exact" },
     )
     .order(query.sort, { ascending: query.order === "asc" })
@@ -287,7 +287,7 @@ export async function findListItemsByIds(
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
     )
     .in("id", [...ids]);
   if (error || !data) {
@@ -418,7 +418,7 @@ export async function findListItemById(
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
     )
     .eq("id", id)
     .single();
@@ -594,7 +594,7 @@ export async function addCustomerRow(
     .from("customers")
     .insert({ created_by: createdBy })
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
     )
     .single();
   if (error || !data) {

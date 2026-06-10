@@ -111,6 +111,13 @@ const ACCOUNT_TYPE_MAP = {
   Bazaar: "bazaar_vendor",
 };
 
+const ORDER_TYPE_MAP = {
+  Delivery: "delivery",
+  Retail: "retail",
+  Wholesale: "wholesale",
+  Bazaar: "bazaar",
+};
+
 function parseCoords(coordsField, lat, lng) {
   const explicit = (v) => {
     const n = Number(v);
@@ -213,6 +220,7 @@ async function importRow(row, header, actorId, existing, dryRun) {
   const selectList = col("Select list").trim();
   const cityRaw = col("City");
   const notesRaw = col("Notes");
+  const orderTypeRaw = col("Order Type").trim();
 
   if (!firstName && !fullName.trim()) {
     return { status: "skip", reason: "no name" };
@@ -235,6 +243,7 @@ async function importRow(row, header, actorId, existing, dryRun) {
   const hasRealCoords = Boolean(realCoords);
 
   const accountType = ACCOUNT_TYPE_MAP[selectList] ?? "individual";
+  const orderType = ORDER_TYPE_MAP[orderTypeRaw] ?? null;
   const notes = buildNotes(notesRaw, fullName, firstName, secondName);
 
   // Dry-run: mapping + dedup were exercised above; report would-insert
@@ -254,6 +263,7 @@ async function importRow(row, header, actorId, existing, dryRun) {
       notes,
       status: "inactive",
       account_type: accountType,
+      order_type: orderType,
       tag: customerGroup,
       legacy_segment: customerType,
       created_by: actorId,
