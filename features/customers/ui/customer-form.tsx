@@ -15,11 +15,13 @@
  * server action uses — invariants stay aligned across the boundary.
  */
 import { zodResolver } from "@hookform/resolvers/zod";
+import { APIProvider } from "@vis.gl/react-google-maps";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
+import { AddressAutocomplete } from "@/features/customers/ui/address-autocomplete";
 import { AddressPinCorrector } from "@/features/customers/ui/address-pin-corrector";
 import { createCustomerAction } from "@/features/customers/application/create-customer";
 import { updateCustomerAction } from "@/features/customers/application/update-customer";
@@ -37,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { composeGeocoderQuery, hasGeocodableShape } from "@/shared/utils/address";
 
+import type { ParsedAddress } from "@/features/customers/ui/address-autocomplete";
 import type {
   CustomerFormInput,
   CustomerFormParsed,
@@ -140,8 +143,14 @@ const addressAccuracy = watch("address.accuracy");
       setGeocodingState({ kind: "loading" });
       const result = await geocodeAddressAction(composeGeocoderQuery(parts));
       if (result.ok) {
-        // Don't overwrite an admin's manual pin correction.
-        if (addressSource === "admin_corrected") {
+        // Don't overwrite a coordinate the admin set deliberately — pin drag
+        // ("admin_corrected" / "user_pin"), the lat/lng inputs ("admin_corrected"),
+        // or an autocomplete pick ("geocoded_manual").
+        if (
+          addressSource === "admin_corrected" ||
+          addressSource === "geocoded_manual" ||
+          addressSource === "user_pin"
+        ) {
           setGeocodingState({ kind: "ready" });
           return;
         }
@@ -161,6 +170,27 @@ const addressAccuracy = watch("address.accuracy");
     // when the admin types, not when source flips after a pin drag.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city, district, neighborhood, street, buildingNo, apartmentNo, postalCode, setValue]);
+
+  // Fill the structured fields + coordinate from a Google Places pick. We mark
+  // the coordinate "geocoded_manual" (admin chose a candidate) so the debounced
+  // auto-geocode below won't overwrite it.
+  const handleAutocompleteSelect = (a: ParsedAddress) => {
+    if (a.city) setValue("address.city", a.city, { shouldValidate: true });
+    if (a.district) setValue("address.district", a.district, { shouldValidate: true });
+    if (a.neighborhood)
+      setValue("address.neighborhood", a.neighborhood, { shouldValidate: true });
+    if (a.street) setValue("address.street", a.street, { shouldValidate: true });
+    if (a.building_no)
+      setValue("address.building_no", a.building_no, { shouldValidate: true });
+    if (a.postal_code)
+      setValue("address.postal_code", a.postal_code, { shouldValidate: true });
+    if (a.lat && a.lng) {
+      setValue("address.lat", a.lat, { shouldValidate: true });
+      setValue("address.lng", a.lng, { shouldValidate: true });
+      setValue("address.source", "geocoded_manual", { shouldValidate: true });
+      setValue("address.accuracy", "rooftop", { shouldValidate: true });
+    }
+  };
 
   const onPinChange = (next: {
     lat: number;
@@ -226,8 +256,8 @@ const addressAccuracy = watch("address.accuracy");
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-2">
+    <form onSubmit={onSubmit} className="@container space-y-6">
+      <section className="grid gap-4 @md:grid-cols-2">
         <Field label="Ad" error={errors.first_name?.message}>
           <Input id="first_name" {...register("first_name")} />
         </Field>
@@ -235,7 +265,7 @@ const addressAccuracy = watch("address.accuracy");
           <Input id="last_name" {...register("last_name")} />
         </Field>
         <Field label="Telefon" error={errors.phone?.message}>
-          <Input id="phone" placeholder="0532 123 45 67" {...register("phone")} />
+          <Input id="phone" {...register("phone")} />
         </Field>
         <Field label="E-posta (opsiyonel)" error={errors.email?.message}>
           <Input id="email" type="email" {...register("email")} />
@@ -264,52 +294,44 @@ const addressAccuracy = watch("address.accuracy");
       <section className="space-y-3">
         <h3 className="text-sm font-semibold">Adres</h3>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <AddressSection hasProvider={mapsBrowserKey.length > 0} apiKey={mapsBrowserKey}>
+          {mapsBrowserKey ? (
+            <Field label="Adres ara (Google)">
+              <AddressAutocomplete onSelect={handleAutocompleteSelect} />
+            </Field>
+          ) : null}
+
+        <div className="grid gap-3 @lg:grid-cols-3">
           <Field label="İl" error={errors.address?.city?.message}>
-            <Input
-              id="address.city"
-              placeholder="İstanbul"
-              {...register("address.city")}
-            />
+            <Input id="address.city" {...register("address.city")} />
           </Field>
           <Field label="İlçe" error={errors.address?.district?.message}>
-            <Input
-              id="address.district"
-              placeholder="Sarıyer"
-              {...register("address.district")}
-            />
+            <Input id="address.district" {...register("address.district")} />
           </Field>
           <Field label="Mahalle" error={errors.address?.neighborhood?.message}>
             <Input
               id="address.neighborhood"
-              placeholder="Maslak"
               {...register("address.neighborhood")}
             />
           </Field>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[1fr_120px_120px_120px]">
+        <div className="grid gap-3 @2xl:grid-cols-[1fr_120px_120px_120px]">
           <Field
             label="Cadde / Sokak (opsiyonel)"
             error={errors.address?.street?.message}
           >
-            <Input
-              id="address.street"
-              placeholder="Büyükdere Caddesi"
-              {...register("address.street")}
-            />
+            <Input id="address.street" {...register("address.street")} />
           </Field>
           <Field label="Bina No" error={errors.address?.building_no?.message}>
             <Input
               id="address.building_no"
-              placeholder="123"
               {...register("address.building_no")}
             />
           </Field>
           <Field label="Daire" error={errors.address?.apartment_no?.message}>
             <Input
               id="address.apartment_no"
-              placeholder="5"
               {...register("address.apartment_no")}
             />
           </Field>
@@ -319,7 +341,6 @@ const addressAccuracy = watch("address.accuracy");
           >
             <Input
               id="address.postal_code"
-              placeholder="34398"
               {...register("address.postal_code")}
             />
           </Field>
@@ -331,7 +352,6 @@ const addressAccuracy = watch("address.accuracy");
         >
           <Input
             id="address.description"
-            placeholder="Mavi kapı, zilde Yılmaz yazıyor"
             {...register("address.description")}
           />
         </Field>
@@ -346,15 +366,50 @@ const addressAccuracy = watch("address.accuracy");
           <p className="text-sm text-destructive">{geocodingState.message}</p>
         ) : null}
 
-        {hasCoordinate ? (
+        <div className="grid gap-3 @md:grid-cols-2">
+          <Field label="Enlem (lat)">
+            <Input
+              inputMode="decimal"
+              value={addressLat && addressLat !== 0 ? String(addressLat) : ""}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setValue("address.lat", Number.isFinite(n) ? n : 0, {
+                  shouldValidate: true,
+                });
+                setValue("address.source", "admin_corrected", {
+                  shouldValidate: true,
+                });
+                setValue("address.accuracy", "rooftop", { shouldValidate: true });
+              }}
+            />
+          </Field>
+          <Field label="Boylam (lng)">
+            <Input
+              inputMode="decimal"
+              value={addressLng && addressLng !== 0 ? String(addressLng) : ""}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setValue("address.lng", Number.isFinite(n) ? n : 0, {
+                  shouldValidate: true,
+                });
+                setValue("address.source", "admin_corrected", {
+                  shouldValidate: true,
+                });
+                setValue("address.accuracy", "rooftop", { shouldValidate: true });
+              }}
+            />
+          </Field>
+        </div>
+
+        {mapsBrowserKey && hasCoordinate ? (
           <AddressPinCorrector
-            apiKey={mapsBrowserKey}
             lat={addressLat}
             lng={addressLng}
             accuracy={addressAccuracy ?? "unknown"}
             onChange={onPinChange}
           />
         ) : null}
+        </AddressSection>
       </section>
 
       <Field label="Notlar" error={errors.notes?.message}>
@@ -386,6 +441,32 @@ const addressAccuracy = watch("address.accuracy");
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Lifts a single `<APIProvider>` over the whole address body so the Google
+ * Places autocomplete and the pin map share one script load + billing session.
+ * When no browser maps key is configured we render the children bare — the
+ * structured address fields still work, the Google-dependent pieces are
+ * already gated on `mapsBrowserKey` at their call sites.
+ */
+function AddressSection({
+  hasProvider,
+  apiKey,
+  children,
+}: {
+  hasProvider: boolean;
+  apiKey: string;
+  children: React.ReactNode;
+}) {
+  if (!hasProvider) {
+    return <div className="space-y-3">{children}</div>;
+  }
+  return (
+    <APIProvider apiKey={apiKey}>
+      <div className="space-y-3">{children}</div>
+    </APIProvider>
   );
 }
 

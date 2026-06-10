@@ -77,5 +77,7 @@ export interface CustomerListItem {
   readonly tag: string | null;
   readonly legacy_segment: string | null;
   readonly city: string | null;
+  readonly lat: number | null;
+  readonly lng: number | null;
   readonly created_at: Date;
 }

@@ -161,6 +161,11 @@ export type CustomerListQuery = z.output<typeof customerListQuerySchema>;
 // Naming convention matches the column ids in customer-grid-columns.ts —
 // changing one without the other is a type error.
 
+export const coordinatesSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
 const accountTypeSchema = z.enum([
   "individual",
   "business",
@@ -191,6 +196,7 @@ export const customerCellPatchSchemas = {
   city: optionalShortText(100),
   district: optionalShortText(100),
   neighborhood: optionalShortText(100),
+  coordinates: coordinatesSchema,
 } as const;
 
 export type CustomerCellField = keyof typeof customerCellPatchSchemas;
@@ -212,6 +218,7 @@ export const customerCellPatchSchema = z.discriminatedUnion("field", [
   z.object({ field: z.literal("city"), value: customerCellPatchSchemas.city }),
   z.object({ field: z.literal("district"), value: customerCellPatchSchemas.district }),
   z.object({ field: z.literal("neighborhood"), value: customerCellPatchSchemas.neighborhood }),
+  z.object({ field: z.literal("coordinates"), value: coordinatesSchema }),
 ]);
 
 export type CustomerCellPatch = z.output<typeof customerCellPatchSchema>;

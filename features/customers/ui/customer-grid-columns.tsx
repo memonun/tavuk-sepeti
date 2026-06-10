@@ -9,6 +9,7 @@
  * Pinning defaults: name (left), actions (right) — the user's "asla
  * kapanmayan kenar divider" hissi.
  */
+import { coordinateCellEditor } from "@/components/data-grid/cells/coordinate-cell";
 import { dateCellEditor } from "@/components/data-grid/cells/date-cell";
 import { readonlyCellEditor } from "@/components/data-grid/cells/readonly-cell";
 import { selectCellEditor } from "@/components/data-grid/cells/select-cell";
@@ -48,6 +49,7 @@ export const CUSTOMER_COLUMN_LABELS: Readonly<Record<string, string>> = {
   phone: "Telefon",
   email: "E-posta",
   city: "Şehir",
+  coordinates: "Koordinat",
   tag: "Kanal",
   account_type: "Tip",
   order_type: "Sipariş Tipi",
@@ -145,6 +147,27 @@ export function buildCustomerColumns(
       editor: textCellEditor({
         schema: customerCellPatchSchemas.city as unknown as z.ZodType<string | null>,
       }) as never,
+    },
+    {
+      id: "coordinates",
+      accessorFn: (row) =>
+        row.lat != null && row.lng != null && !(row.lat === 0 && row.lng === 0)
+          ? { lat: row.lat, lng: row.lng }
+          : null,
+      header: "Koordinat",
+      size: 180,
+      columnType: "text",
+      enableSorting: false,
+      editable: true,
+      editor: coordinateCellEditor() as never,
+      cell: ({ getValue }) => {
+        const v = getValue() as { lat: number; lng: number } | null;
+        return v ? (
+          <span className="font-mono text-xs">{v.lat.toFixed(6)}, {v.lng.toFixed(6)}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
     },
     {
       id: "tag",
