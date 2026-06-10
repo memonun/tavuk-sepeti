@@ -199,6 +199,7 @@ export type Database = {
           last_name: string | null
           legacy_segment: string | null
           notes: string | null
+          order_type: Database["public"]["Enums"]["customer_order_type"] | null
           phone: string | null
           status: Database["public"]["Enums"]["customer_status"]
           tag: string | null
@@ -214,6 +215,7 @@ export type Database = {
           last_name?: string | null
           legacy_segment?: string | null
           notes?: string | null
+          order_type?: Database["public"]["Enums"]["customer_order_type"] | null
           phone?: string | null
           status?: Database["public"]["Enums"]["customer_status"]
           tag?: string | null
@@ -229,6 +231,7 @@ export type Database = {
           last_name?: string | null
           legacy_segment?: string | null
           notes?: string | null
+          order_type?: Database["public"]["Enums"]["customer_order_type"] | null
           phone?: string | null
           status?: Database["public"]["Enums"]["customer_status"]
           tag?: string | null
@@ -1618,6 +1621,7 @@ export type Database = {
         | "geocoded_manual"
         | "user_pin"
         | "admin_corrected"
+      customer_order_type: "delivery" | "retail" | "wholesale" | "bazaar"
       customer_status: "active" | "inactive" | "blocked"
       order_source: "admin_manual" | "customer_web" | "recurring_generated"
       order_status: "pending" | "confirmed" | "delivered" | "cancelled"
@@ -1775,6 +1779,7 @@ export const Constants = {
         "user_pin",
         "admin_corrected",
       ],
+      customer_order_type: ["delivery", "retail", "wholesale", "bazaar"],
       customer_status: ["active", "inactive", "blocked"],
       order_source: ["admin_manual", "customer_web", "recurring_generated"],
       order_status: ["pending", "confirmed", "delivered", "cancelled"],

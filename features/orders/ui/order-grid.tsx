@@ -4,8 +4,8 @@
  * Orders DataGrid wrapper — pairs the shared <DataGrid> primitive with the
  * orders feature's column config + the inline cell-patch Server Action.
  *
- * Orders are not created or deleted from the grid (no onAddRow / onBulkCreate
- * / onBulkDelete), so this mirror of the customers grid omits those mutations.
+ * Orders are not created or deleted from the grid (no onAddRow / onBulkDelete),
+ * so this mirror of the customers grid omits those mutations.
  * The page shell passes its date-range presets through `toolbarExtra`, which
  * sits to the left of the filter builder in the toolbar row.
  */

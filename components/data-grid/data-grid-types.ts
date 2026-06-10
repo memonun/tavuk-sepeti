@@ -7,8 +7,8 @@
  * commit (TPatch) — features supply concrete instances.
  *
  * The shape is intentionally narrow: the grid never reaches into the
- * server. Mutations come back through `onCellCommit` / `onBulkCreate` so
- * the feature owns its application layer + Server Actions.
+ * server. Mutations come back through `onCellCommit` so the feature owns
+ * its application layer + Server Actions.
  */
 import type { ColumnDef, RowData } from "@tanstack/react-table";
 import type { ReactNode } from "react";
@@ -103,11 +103,6 @@ export type DataGridColumn<TRow extends RowData> = ColumnDef<TRow> & {
 export interface DataGridMutations<TRow, TPatch> {
   /** Single-cell commit. Returns the fresh row (server-of-truth) on success. */
   onCellCommit: (rowId: string, patch: TPatch) => Promise<Result<TRow, AppError>>;
-  /**
-   * Optional. When provided, paste-into-empty-rows opens the preview
-   * dialog and calls this with the parsed rows. Returns the inserted rows.
-   */
-  onBulkCreate?: (rows: ReadonlyArray<Partial<TRow>>) => Promise<Result<TRow[], AppError>>;
   /**
    * Optional. When provided, the gutter checkbox + bulk action bar
    * surface a "Sil" action that calls this with the selected row ids.

@@ -29,7 +29,6 @@ import type {
 } from "@/features/customers/domain/customer";
 import type { Coordinate } from "@/shared/geo/coordinate";
 import type {
-  BulkCreateCustomerRow,
   CustomerCellField,
   CustomerListQuery,
 } from "@/features/customers/domain/customer.schema";
@@ -228,7 +227,7 @@ export async function listCustomers(
   let builder = supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
       { count: "exact" },
     )
     .order(query.sort, { ascending: query.order === "asc" })
@@ -273,97 +272,6 @@ export async function listCustomers(
   });
 }
 
-// ---- bulk create (DataGrid paste-into-empty-rows) ------------------------
-
-/**
- * Insert N customer rows in one go. No address rows are created — the
- * admin completes those inline or via the detail panel (where the map
- * sets a real pin). Returns the inserted rows projected to list-item
- * shape.
- */
-export async function bulkCreateCustomers(
-  rows: ReadonlyArray<BulkCreateCustomerRow>,
-  createdBy: string,
-): Promise<Result<CustomerListItem[], ExternalApiError>> {
-  if (rows.length === 0) return ok([]);
-  const supabase = await createSupabaseServerClient();
-
-  // Generate UUIDs client-side so we can pair each customer row with
-  // its address payload by id (not by array position). PostgREST
-  // preserves insertion order in RETURNING for single inserts today,
-  // but that's a fragile invariant — any future refactor (upsert,
-  // chunking, BEFORE INSERT trigger) would silently misalign the
-  // address inserts with their owning customers.
-  const idForRow = rows.map(() => globalThis.crypto.randomUUID());
-
-  const customerPayload = rows.map((r, i) => ({
-    id: idForRow[i]!,
-    first_name: r.first_name,
-    last_name: r.last_name,
-    email: r.email,
-    phone: r.phone,
-    status: r.status,
-    account_type: r.account_type,
-    tag: r.tag,
-    legacy_segment: r.legacy_segment,
-    notes: null,
-    created_by: createdBy,
-  }));
-
-  const { error: insertError } = await supabase
-    .from("customers")
-    .insert(customerPayload);
-
-  if (insertError) {
-    logger.error(
-      { code: insertError.code, count: rows.length },
-      "bulk_create_customers_failed",
-    );
-    return err(
-      new ExternalApiError({
-        message: insertError.message,
-        cause: insertError,
-      }),
-    );
-  }
-
-  // Re-project to list-item shape. ORDER BY created_at is stable enough
-  // for the refetch — but we then re-order by the original idForRow
-  // sequence so callers can rely on parsed.data[idx] ↔ result.value[idx].
-  const { data: listItems, error: refetchError } = await supabase
-    .from("customers")
-    .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
-    )
-    .in("id", idForRow);
-
-  if (refetchError || !listItems) {
-    return err(
-      new ExternalApiError({
-        message: refetchError?.message ?? "Failed to refetch inserted rows.",
-        cause: refetchError,
-      }),
-    );
-  }
-
-  // Re-order to match the caller's input order so result[i] pairs with
-  // input[i]. listItems is the result of `.in(id, idForRow)` which has
-  // no guaranteed ordering.
-  const byId = new Map(listItems.map((row) => [row.id, row] as const));
-  return ok(
-    idForRow
-      .map((id) => byId.get(id))
-      .filter((row): row is NonNullable<typeof row> => row !== undefined)
-      .map((row) =>
-        rowToListItem({
-          ...row,
-          status: row.status as CustomerStatus,
-          addresses: row.addresses ?? [],
-        }),
-      ),
-  );
-}
-
 // ---- bulk read (audit snapshots) -----------------------------------------
 
 /**
@@ -379,7 +287,7 @@ export async function findListItemsByIds(
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
     )
     .in("id", [...ids]);
   if (error || !data) {
@@ -510,7 +418,7 @@ export async function findListItemById(
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
     )
     .eq("id", id)
     .single();
@@ -562,8 +470,8 @@ export async function updateCustomer(
 
   // Update (or insert) the primary address if any address fields supplied.
   //
-  // A blank-row customer (created via addCustomerRow / bulkCreateCustomers)
-  // has NO address row, so a blind UPDATE-by-(customer_id, is_primary) would
+  // A blank-row customer (created via addCustomerRow) has NO address row, so
+  // a blind UPDATE-by-(customer_id, is_primary) would
   // match 0 rows, return no error, and silently drop a freshly dropped pin.
   // We therefore branch on whether a primary address already exists:
   //   - exists  → UPDATE the row (partial patch, as before).
@@ -686,7 +594,7 @@ export async function addCustomerRow(
     .from("customers")
     .insert({ created_by: createdBy })
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
+      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, is_primary)",
     )
     .single();
   if (error || !data) {

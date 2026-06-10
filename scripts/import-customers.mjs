@@ -27,7 +27,9 @@ if (!url || !key) {
   process.exit(2);
 }
 
-const csvPath = process.argv[2] ?? "Customers.csv";
+const args = process.argv.slice(2);
+const dryRun = args.includes("--dry-run");
+const csvPath = args.find((a) => !a.startsWith("--")) ?? "Customers.csv";
 const absPath = path.resolve(csvPath);
 if (!fs.existsSync(absPath)) {
   process.stderr.write(`csv not found: ${absPath}\n`);
@@ -109,10 +111,20 @@ const ACCOUNT_TYPE_MAP = {
   Bazaar: "bazaar_vendor",
 };
 
+const ORDER_TYPE_MAP = {
+  Delivery: "delivery",
+  Retail: "retail",
+  Wholesale: "wholesale",
+  Bazaar: "bazaar",
+};
+
 function parseCoords(coordsField, lat, lng) {
   const explicit = (v) => {
     const n = Number(v);
-    return Number.isFinite(n) ? n : null;
+    // Treat blank/0/near-null-island as "no coordinate" — a real TR pin is
+    // never within ~100m of 0°. Prevents (0,0) rows landing as rooftop.
+    if (!Number.isFinite(n) || Math.abs(n) < 0.001) return null;
+    return n;
   };
   let latN = explicit(lat);
   let lngN = explicit(lng);
@@ -193,7 +205,7 @@ async function fetchExistingFingerprints() {
 }
 
 // ---- Per-row import ------------------------------------------------------
-async function importRow(row, header, actorId, existing) {
+async function importRow(row, header, actorId, existing, dryRun) {
   const col = (name) => row[header.indexOf(name)] ?? "";
 
   const customerGroup = col("Customer Group").trim() || null;
@@ -208,6 +220,7 @@ async function importRow(row, header, actorId, existing) {
   const selectList = col("Select list").trim();
   const cityRaw = col("City");
   const notesRaw = col("Notes");
+  const orderTypeRaw = col("Order Type").trim();
 
   if (!firstName && !fullName.trim()) {
     return { status: "skip", reason: "no name" };
@@ -230,7 +243,15 @@ async function importRow(row, header, actorId, existing) {
   const hasRealCoords = Boolean(realCoords);
 
   const accountType = ACCOUNT_TYPE_MAP[selectList] ?? "individual";
+  const orderType = ORDER_TYPE_MAP[orderTypeRaw] ?? null;
   const notes = buildNotes(notesRaw, fullName, firstName, secondName);
+
+  // Dry-run: mapping + dedup were exercised above; report would-insert
+  // without touching the DB.
+  if (dryRun) {
+    existing.add(fingerprint);
+    return { status: "ok", dry: true, hasRealCoords };
+  }
 
   const { data: customerRow, error: customerError } = await supabase
     .from("customers")
@@ -242,6 +263,7 @@ async function importRow(row, header, actorId, existing) {
       notes,
       status: "inactive",
       account_type: accountType,
+      order_type: orderType,
       tag: customerGroup,
       legacy_segment: customerType,
       created_by: actorId,
@@ -295,20 +317,22 @@ async function main() {
   const header = rows[0];
   const dataRows = rows.slice(1).filter((r) => r.some((c) => c && c.trim() !== ""));
 
-  process.stdout.write(`csv: ${dataRows.length} data rows\n`);
+  process.stdout.write(`${dryRun ? "[DRY RUN] " : ""}csv: ${dataRows.length} data rows\n`);
 
   const actorId = await findFirstAdmin();
   const existing = await fetchExistingFingerprints();
   process.stdout.write(`existing customers in DB: ${existing.size}\n`);
 
   const counters = { ok: 0, skip: 0, error: 0 };
+  let realCoordCount = 0;
   const errors = [];
   const skips = [];
 
   for (let idx = 0; idx < dataRows.length; idx++) {
     const row = dataRows[idx];
-    const result = await importRow(row, header, actorId, existing);
+    const result = await importRow(row, header, actorId, existing, dryRun);
     counters[result.status]++;
+    if (result.status === "ok" && result.hasRealCoords) realCoordCount++;
     if (result.status === "error") {
       errors.push({ idx, no: row[0], name: row[2], reason: result.reason });
     } else if (result.status === "skip") {
@@ -316,8 +340,8 @@ async function main() {
     }
   }
 
-  process.stdout.write(`\n--- summary ---\n`);
-  process.stdout.write(`imported: ${counters.ok}\n`);
+  process.stdout.write(`\n--- ${dryRun ? "DRY RUN summary (no writes)" : "summary"} ---\n`);
+  process.stdout.write(`${dryRun ? "would import" : "imported"}: ${counters.ok} (real coords: ${realCoordCount}, approx city-center: ${counters.ok - realCoordCount})\n`);
   process.stdout.write(`skipped:  ${counters.skip}\n`);
   process.stdout.write(`errored:  ${counters.error}\n`);
 
