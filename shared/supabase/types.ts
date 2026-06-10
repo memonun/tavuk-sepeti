@@ -1597,6 +1597,18 @@ export type Database = {
         Returns: undefined
       }
       unlockrows: { Args: { "": string }; Returns: number }
+      update_order_with_items: {
+        Args: {
+          p_delivery_fee_minor: number
+          p_delivery_notes: string
+          p_items: Json
+          p_order_id: string
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+          p_scheduled_for: string
+          p_time_slot: Database["public"]["Enums"]["time_slot"]
+        }
+        Returns: undefined
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
