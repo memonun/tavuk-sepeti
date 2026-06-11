@@ -126,6 +126,43 @@ export async function createOrder(
   return findOrderById(String(orderId));
 }
 
+// ---- bulk confirm (route dispatch) -----------------------------------------
+
+/**
+ * Confirm every still-`pending` order in the given list, in one transaction,
+ * via the `confirm_route_orders` RPC. Already-confirmed/delivered/cancelled
+ * orders are skipped (idempotent). Returns the ids actually flipped so the
+ * caller can audit exactly those.
+ *
+ * One round-trip for the whole route (≤25 stops today, capped at the app
+ * layer) — avoids the N+1 that per-order transitions would fan out into
+ * (CLAUDE.md §9). The RPC isn't in the generated Database type yet, mirroring
+ * the existing un-generated-RPC cast pattern in this file.
+ */
+export async function confirmRouteOrders(
+  orderIds: ReadonlyArray<string>,
+  actorId: string,
+): Promise<Result<string[], ExternalApiError>> {
+  if (orderIds.length === 0) return ok([]);
+  const supabase = await createSupabaseServerClient();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("confirm_route_orders", {
+    p_order_ids: [...orderIds],
+    p_actor_id: actorId,
+  });
+  if (error) {
+    logger.error(
+      { code: error.code, message: error.message },
+      "confirm_route_orders_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+
+  const rows = (data ?? []) as Array<{ order_id: string }>;
+  return ok(rows.map((r) => r.order_id));
+}
+
 // ---- read ----------------------------------------------------------------
 
 export async function findOrderById(

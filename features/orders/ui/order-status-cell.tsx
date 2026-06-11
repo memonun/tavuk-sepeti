@@ -1,5 +1,7 @@
 "use client";
 
+import { CircleCheck, CircleX, Clock, PackageCheck } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { z } from "zod";
@@ -42,6 +44,14 @@ const VARIANT: Record<
   cancelled: "destructive",
 };
 
+// Status is conveyed by icon + text, never colour alone (WCAG 1.4.1).
+const STATUS_ICON: Record<OrderStatus, LucideIcon> = {
+  pending: Clock,
+  confirmed: CircleCheck,
+  delivered: PackageCheck,
+  cancelled: CircleX,
+};
+
 export const orderStatusEditor: CellEditor<OrderStatus> = {
   // The grid pre-validates the committed raw value against this schema
   // before dispatching. The status editor commits a `{ to, reason }`
@@ -50,9 +60,15 @@ export const orderStatusEditor: CellEditor<OrderStatus> = {
   // CellEditor<OrderStatus> generic happy; at runtime it validates the
   // object that `edit` actually commits.
   schema: orderCellPatchSchemas.status as unknown as z.ZodType<OrderStatus>,
-  render: (value) => (
-    <Badge variant={VARIANT[value]}>{LABELS[value]}</Badge>
-  ),
+  render: (value) => {
+    const Icon = STATUS_ICON[value];
+    return (
+      <Badge variant={VARIANT[value]} className="gap-1">
+        <Icon className="h-3 w-3" aria-hidden />
+        {LABELS[value]}
+      </Badge>
+    );
+  },
   edit: ({ value, onCommit, onCancel }) => (
     <StatusInput current={value} onCommit={onCommit} onCancel={onCancel} />
   ),

@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { transitionOrderAction } from "@/features/orders/application/transition-order";
+import { completeDeliveryAction } from "@/features/orders/application/complete-delivery";
 import { Button } from "@/components/ui/button";
 
 interface MarkDeliveredButtonProps {
@@ -19,10 +19,7 @@ export function MarkDeliveredButton({ orderId }: MarkDeliveredButtonProps) {
   const handle = () => {
     setError(null);
     startTransition(async () => {
-      const result = await transitionOrderAction({
-        order_id: orderId,
-        to_status: "delivered",
-      });
+      const result = await completeDeliveryAction({ order_id: orderId });
       if (result.status === "error") {
         setError(result.message);
         return;
@@ -48,7 +45,11 @@ export function MarkDeliveredButton({ orderId }: MarkDeliveredButtonProps) {
         )}
         Teslim Edildi
       </Button>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

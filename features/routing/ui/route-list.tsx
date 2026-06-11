@@ -1,11 +1,20 @@
+"use client";
+
 /**
- * Ordered stop list — Server Component. Sequence-indexed when optimized;
- * scheduled order otherwise. Each row carries a "Teslim Edildi" inline
- * action that flips the order's status via transitionOrderAction.
+ * Ordered stop list. Sequence-indexed when optimized; scheduled order
+ * otherwise. Each row carries a "Teslim Edildi" inline action.
+ *
+ * When `onSelectStop` is provided (the optimized workspace), the list becomes
+ * the keyboard-equivalent of the map: an ARIA listbox whose options select a
+ * stop (click / Enter / Space), navigate with Up/Down, and clear with Escape.
+ * Selecting a row mirrors clicking its map marker — one shared selectedStopId.
+ * Without the prop (the unoptimized server view) it's a plain static list.
  */
 import Link from "next/link";
+import { useRef } from "react";
 
 import { MarkDeliveredButton } from "@/features/routing/ui/mark-delivered-button";
+import { cn } from "@/lib/utils";
 import { formatHHmm } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 import { formatTRPhone } from "@/shared/utils/phone";
@@ -18,6 +27,10 @@ interface RouteListProps {
   rows:
     | { kind: "optimized"; stops: readonly RouteStop[] }
     | { kind: "unoptimized"; orders: readonly DayOrder[] };
+  selectedStopId?: string | null;
+  /** Provide to make the list interactive (selection-aware). */
+  onSelectStop?: (orderId: string | null) => void;
+  deliveredOrderIds?: ReadonlySet<string>;
 }
 
 function formatDistance(meters: number | null): string {
@@ -35,7 +48,15 @@ function formatDuration(seconds: number | null): string {
   return rem === 0 ? `${h} sa` : `${h} sa ${rem} dk`;
 }
 
-export function RouteList({ rows }: RouteListProps) {
+export function RouteList({
+  rows,
+  selectedStopId = null,
+  onSelectStop,
+  deliveredOrderIds,
+}: RouteListProps) {
+  const interactive = typeof onSelectStop === "function";
+  const liRefs = useRef<Map<string, HTMLLIElement>>(new Map());
+
   const items =
     rows.kind === "optimized"
       ? rows.stops.map((stop) => ({
@@ -69,6 +90,37 @@ export function RouteList({ rows }: RouteListProps) {
           cumulativeDuration: null,
         }));
 
+  const orderIds = items.map((i) => i.orderId);
+
+  const focusRow = (orderId: string) => {
+    liRefs.current.get(orderId)?.focus();
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent, orderId: string) => {
+    if (!onSelectStop) return;
+    const idx = orderIds.indexOf(orderId);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = orderIds[Math.min(idx + 1, orderIds.length - 1)];
+      if (next) {
+        onSelectStop(next);
+        focusRow(next);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const prev = orderIds[Math.max(idx - 1, 0)];
+      if (prev) {
+        onSelectStop(prev);
+        focusRow(prev);
+      }
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelectStop(orderId);
+    } else if (e.key === "Escape") {
+      onSelectStop(null);
+    }
+  };
+
   if (items.length === 0) {
     return (
       <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-12 text-center text-sm text-muted-foreground">
@@ -77,63 +129,101 @@ export function RouteList({ rows }: RouteListProps) {
     );
   }
 
+  // Roving tabindex: the selected row (or the first, if none) is the single
+  // tab stop; arrows move between options from there.
+  const tabbableId = selectedStopId ?? orderIds[0] ?? null;
+
   return (
-    <ol className="space-y-2">
-      {items.map((item) => (
-        <li
-          key={item.key}
-          className="flex items-start gap-3 rounded-lg border bg-card p-3"
-        >
-          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-            {item.sequence}
-          </div>
-          <div className="flex-1 space-y-1">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <Link
-                href={`/orders/${item.orderId}`}
-                className="font-mono text-xs hover:underline"
-              >
-                {item.orderNumber}
-              </Link>
-              <Link
-                href={`/customers/${item.customerId}`}
-                className="text-sm font-medium hover:underline"
-              >
-                {item.customerName}
-              </Link>
-              <span className="font-mono text-xs text-muted-foreground">
-                {formatTRPhone(item.customerPhone)}
-              </span>
+    <ol
+      id="stop-list"
+      className="space-y-2"
+      {...(interactive
+        ? { role: "listbox", "aria-label": "Günün durakları" }
+        : {})}
+    >
+      {items.map((item) => {
+        const isSelected = interactive && item.orderId === selectedStopId;
+        const isDelivered = deliveredOrderIds?.has(item.orderId) ?? false;
+        return (
+          <li
+            key={item.key}
+            ref={(el) => {
+              if (el) liRefs.current.set(item.orderId, el);
+              else liRefs.current.delete(item.orderId);
+            }}
+            {...(interactive
+              ? {
+                  role: "option",
+                  id: `stop-${item.orderId}`,
+                  "aria-selected": isSelected,
+                  tabIndex: item.orderId === tabbableId ? 0 : -1,
+                  onClick: (e: React.MouseEvent) => {
+                    if ((e.target as HTMLElement).closest("a,button")) return;
+                    onSelectStop?.(isSelected ? null : item.orderId);
+                  },
+                  onKeyDown: (e: React.KeyboardEvent) =>
+                    onKeyDown(e, item.orderId),
+                }
+              : {})}
+            className={cn(
+              "flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors",
+              interactive && "cursor-pointer hover:bg-muted/30",
+              isSelected &&
+                "border-amber-500/60 bg-amber-500/5 ring-1 ring-amber-500/20",
+              isDelivered && "opacity-60",
+            )}
+          >
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+              {item.sequence}
             </div>
-            {item.notes ? (
-              <p className="text-xs text-muted-foreground">{item.notes}</p>
-            ) : null}
-            {rows.kind === "optimized" ? (
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {item.etaIso ? (
-                  <span className="font-medium text-foreground">
-                    ≈ {formatHHmm(item.etaIso)}
-                  </span>
-                ) : null}
-                <span>
-                  {item.sequence === 1 ? "Depodan" : "Önceki duraktan"}:{" "}
-                  {formatDistance(item.legDistance)} ·{" "}
-                  {formatDuration(item.legDuration)}
+            <div className="flex-1 space-y-1">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <Link
+                  href={`/orders/${item.orderId}`}
+                  className="font-mono text-xs hover:underline"
+                >
+                  {item.orderNumber}
+                </Link>
+                <Link
+                  href={`/customers/${item.customerId}`}
+                  className="text-sm font-medium hover:underline"
+                >
+                  {item.customerName}
+                </Link>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {formatTRPhone(item.customerPhone)}
                 </span>
-                {item.cumulativeDuration !== null ? (
-                  <span>
-                    Toplam yolda: {formatDuration(item.cumulativeDuration)}
-                  </span>
-                ) : null}
               </div>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            <p className="font-mono text-sm">{formatTRY(item.totalMinor)}</p>
-            <MarkDeliveredButton orderId={item.orderId} />
-          </div>
-        </li>
-      ))}
+              {item.notes ? (
+                <p className="text-xs text-muted-foreground">{item.notes}</p>
+              ) : null}
+              {rows.kind === "optimized" ? (
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {item.etaIso ? (
+                    <span className="font-medium text-foreground">
+                      ≈ {formatHHmm(item.etaIso)}
+                    </span>
+                  ) : null}
+                  <span>
+                    {item.sequence === 1 ? "Depodan" : "Önceki duraktan"}:{" "}
+                    {formatDistance(item.legDistance)} ·{" "}
+                    {formatDuration(item.legDuration)}
+                  </span>
+                  {item.cumulativeDuration !== null ? (
+                    <span>
+                      Toplam yolda: {formatDuration(item.cumulativeDuration)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <p className="font-mono text-sm">{formatTRY(item.totalMinor)}</p>
+              <MarkDeliveredButton orderId={item.orderId} />
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }

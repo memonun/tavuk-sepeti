@@ -59,8 +59,11 @@ export function RouteControls({
   return (
     <div className="flex flex-wrap items-end gap-3 border-b pb-4">
       <div className="flex flex-col gap-1.5">
-        <Label className="text-xs">Başlangıç saati</Label>
+        <Label htmlFor="route-start-time" className="text-xs">
+          Başlangıç saati
+        </Label>
         <Input
+          id="route-start-time"
           type="time"
           value={startHHmm}
           onChange={(e) => setStart(e.target.value)}
