@@ -355,6 +355,66 @@ export async function patchOrderCell(
   return findOrderListItemById(orderId);
 }
 
+// ---- update (full order + items) --------------------------------------------
+
+export interface UpdateOrderInput {
+  order_id: string;
+  scheduled_for: string;
+  time_slot: TimeSlot | null;
+  payment_method: PaymentMethod;
+  delivery_notes: string | null;
+  delivery_fee_minor: number;
+  items: ReadonlyArray<{
+    product_key: string;
+    quantity: number;
+    unit_price_minor: number;
+    product_snapshot: {
+      display_name: string;
+      unit: string;
+      unit_label: string;
+    };
+  }>;
+}
+
+/**
+ * Calls the `update_order_with_items` RPC — replaces the order header
+ * fields and the full items list atomically.
+ *
+ * The RPC raises P0001 with "cannot be edited" for non-pending/confirmed
+ * orders; we surface that as a ValidationError with a clean TR message.
+ */
+export async function updateOrderWithItems(
+  input: UpdateOrderInput,
+): Promise<Result<void, ExternalApiError | ValidationError>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).rpc("update_order_with_items", {
+    p_order_id: input.order_id,
+    p_scheduled_for: input.scheduled_for,
+    p_time_slot: input.time_slot,
+    p_payment_method: input.payment_method,
+    p_delivery_notes: input.delivery_notes,
+    p_delivery_fee_minor: input.delivery_fee_minor,
+    p_items: input.items,
+  });
+  if (error) {
+    // P0001 = the RPC's own RAISEs (status guard / empty items).
+    if (error.message?.includes("cannot be edited")) {
+      return err(
+        new ValidationError({
+          message: "Yalnızca bekleyen veya onaylı siparişler düzenlenebilir.",
+        }),
+      );
+    }
+    logger.error(
+      { orderId: input.order_id, code: error.code },
+      "update_order_with_items_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
+
 // ---- delete -----------------------------------------------------------------
 
 export async function deleteOrders(

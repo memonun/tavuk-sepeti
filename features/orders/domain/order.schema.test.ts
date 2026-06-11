@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { orderCellPatchSchema, orderListQuerySchema } from "@/features/orders/domain/order.schema";
+import { orderCellPatchSchema, orderEditSchema, orderListQuerySchema } from "@/features/orders/domain/order.schema";
 
 describe("orderCellPatchSchema", () => {
   it("accepts a scheduled_for date patch", () => {
@@ -21,6 +21,56 @@ describe("orderCellPatchSchema", () => {
   });
   it("rejects negative delivery_fee", () => {
     const r = orderCellPatchSchema.safeParse({ field: "delivery_fee", value: -1 });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe("orderEditSchema", () => {
+  const validPayload = {
+    scheduled_for: "2026-07-01",
+    time_slot: "morning",
+    payment_method: "cash_on_delivery",
+    delivery_notes: null,
+    delivery_fee_minor: 0,
+    items: [{ product_key: "cheese", quantity: 1.5 }],
+  };
+
+  it("accepts a valid edit payload without customer_id", () => {
+    const r = orderEditSchema.safeParse(validPayload);
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects if customer_id is supplied (extra key is stripped, not an error) — customer is immutable", () => {
+    // Zod strips unknown keys by default; the important thing is that
+    // omitting customer_id entirely is valid (does not cause a failure).
+    const withCustomer = { ...validPayload, customer_id: "11111111-1111-1111-1111-111111111111" };
+    const r = orderEditSchema.safeParse(withCustomer);
+    // Extra keys are stripped — still valid.
+    expect(r.success).toBe(true);
+    if (r.success) {
+      // customer_id must not be present in the parsed output.
+      expect("customer_id" in r.data).toBe(false);
+    }
+  });
+
+  it("rejects empty items array", () => {
+    const r = orderEditSchema.safeParse({ ...validPayload, items: [] });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects missing items key", () => {
+    const { items: _items, ...noItems } = validPayload;
+    const r = orderEditSchema.safeParse(noItems);
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects invalid payment_method", () => {
+    const r = orderEditSchema.safeParse({ ...validPayload, payment_method: "crypto" });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects badly-formatted scheduled_for", () => {
+    const r = orderEditSchema.safeParse({ ...validPayload, scheduled_for: "01-07-2026" });
     expect(r.success).toBe(false);
   });
 });

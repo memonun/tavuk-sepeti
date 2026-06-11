@@ -17,6 +17,7 @@ import {
   isDateRangePreset,
 } from "@/features/orders/application/date-range-presets";
 import { listOrders } from "@/features/orders/application/list-orders";
+import { listActiveProducts } from "@/features/products/application/list-products";
 import { OrderGrid } from "@/features/orders/ui/order-grid";
 import { OrderListFilters } from "@/features/orders/ui/order-list-filters";
 import { CustomerPagination } from "@/features/customers/ui/customer-pagination";
@@ -74,7 +75,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       ? { from: params.scheduled_from, to: params.scheduled_to }
       : getDateRangeBounds(preset);
 
-  const [listResult, viewsResult] = await Promise.all([
+  const [listResult, viewsResult, productsResult] = await Promise.all([
     listOrders({
       status: params.status,
       scheduled_from: presetBounds.from,
@@ -86,7 +87,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       filters: currentFilters,
     }),
     listViewsAction(ORDERS_TABLE_ID),
+    listActiveProducts(),
   ]);
+
+  // Products feed the side-panel's ProductPicker; a load failure degrades
+  // gracefully to an empty catalog (editing still renders, just no add list).
+  const products = productsResult.ok ? productsResult.value : [];
 
   // Views loading failure isn't fatal — render with an empty tab list.
   const views = viewsResult.ok ? viewsResult.value : [];
@@ -152,6 +158,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         page={listResult.value.page}
         pageSize={listResult.value.pageSize}
         currentFilters={currentFilters}
+        products={products}
         toolbarExtra={<OrderListFilters />}
       />
 

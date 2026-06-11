@@ -13,6 +13,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getCurrentUser } from "@/features/auth/application/get-session";
+import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
 import { orderFormSchema } from "@/features/orders/domain/order.schema";
 import { createOrder as repoCreate } from "@/features/orders/infrastructure/order.repository";
 import { listActiveProducts } from "@/features/products/application/list-products";
@@ -24,13 +25,6 @@ export type CreateOrderActionState =
   | { status: "success"; orderId: string }
   | { status: "validation_error"; fieldErrors: Record<string, string[]> }
   | { status: "error"; message: string };
-
-/** True when `quantity` is an integer multiple of `step`. Uses scaled
- *  integer math so 0.5 + 0.5 + ... doesn't drift. 100 = 2 decimal scale. */
-function isMultipleOfStep(quantity: number, step: number): boolean {
-  const scale = 100;
-  return Math.round(quantity * scale) % Math.round(step * scale) === 0;
-}
 
 export async function createOrderAction(
   _previous: CreateOrderActionState,
@@ -73,53 +67,13 @@ export async function createOrderAction(
   if (!productsResult.ok) {
     return { status: "error", message: productsResult.error.message };
   }
-  const productByKey = new Map(productsResult.value.map((p) => [p.key, p]));
 
-  const enrichedItems: Array<{
-    product_key: string;
-    quantity: number;
-    unit_price_minor: number;
-    product_snapshot: { display_name: string; unit: string; unit_label: string };
-  }> = [];
-
-  for (const item of parsed.data.items) {
-    const product = productByKey.get(item.product_key);
-    if (!product) {
-      return {
-        status: "validation_error",
-        fieldErrors: { items: [`Ürün bulunamadı: ${item.product_key}`] },
-      };
-    }
-    if (item.quantity < product.min_qty) {
-      return {
-        status: "validation_error",
-        fieldErrors: {
-          items: [
-            `${product.display_name}: minimum ${product.min_qty} ${product.unit_label} gerekli.`,
-          ],
-        },
-      };
-    }
-    if (!isMultipleOfStep(item.quantity, product.step)) {
-      return {
-        status: "validation_error",
-        fieldErrors: {
-          items: [
-            `${product.display_name}: miktar ${product.step} ${product.unit_label} katı olmalı.`,
-          ],
-        },
-      };
-    }
-    enrichedItems.push({
-      product_key: item.product_key,
-      quantity: item.quantity,
-      unit_price_minor: item.unit_price_minor ?? product.current_unit_price_minor,
-      product_snapshot: {
-        display_name: product.display_name,
-        unit: product.unit,
-        unit_label: product.unit_label,
-      },
-    });
+  const enrichedResult = enrichOrderItems(parsed.data.items, productsResult.value);
+  if (!enrichedResult.ok) {
+    return {
+      status: "validation_error",
+      fieldErrors: { items: [enrichedResult.error.message] },
+    };
   }
 
   const created = await repoCreate({
@@ -130,7 +84,7 @@ export async function createOrderAction(
     delivery_notes: parsed.data.delivery_notes,
     delivery_fee_minor: parsed.data.delivery_fee_minor,
     created_by: user.id,
-    items: enrichedItems,
+    items: enrichedResult.value,
   });
 
   if (!created.ok) {

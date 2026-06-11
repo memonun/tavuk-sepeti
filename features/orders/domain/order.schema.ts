@@ -50,6 +50,15 @@ export const orderFormSchema = z.object({
 export type OrderFormInput = z.input<typeof orderFormSchema>;
 export type OrderFormParsed = z.output<typeof orderFormSchema>;
 
+/**
+ * Edit schema — identical to orderFormSchema but without customer_id.
+ * The customer on an existing order is immutable; only fields + line
+ * items may change (pending/confirmed orders only).
+ */
+export const orderEditSchema = orderFormSchema.omit({ customer_id: true });
+export type OrderEditInput = z.input<typeof orderEditSchema>;
+export type OrderEditParsed = z.output<typeof orderEditSchema>;
+
 /** Cancel reason — a separate schema so the cancel modal can validate
  *  inline before dispatching the transition action. */
 export const orderCancelReasonSchema = z.object({
