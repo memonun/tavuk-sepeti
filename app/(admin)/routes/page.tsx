@@ -1,14 +1,10 @@
-import { Sparkles } from "lucide-react";
-import Link from "next/link";
-
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
-import { RouteMap } from "@/features/routing/ui/route-map";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { RouteWorkspace } from "@/features/routing/ui/route-workspace";
+import { StartRouteButton } from "@/features/routing/ui/start-route-button";
 import { env } from "@/shared/env";
 import {
   formatHHmm,
@@ -117,13 +113,14 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
           </p>
         </div>
         {optimized ? (
-          <Link
-            href={`/routes/drive?${driveQuery.toString()}`}
-            className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
-          >
-            <Sparkles className="h-4 w-4" />
-            Rotayı Başlat
-          </Link>
+          <StartRouteButton
+            orderIds={optimized.stops.map((s) => s.order_id)}
+            pendingCount={
+              dayOrders.filter((o) => o.status === "pending").length
+            }
+            driveHref={`/routes/drive?${driveQuery.toString()}`}
+            startHHmm={startHHmm}
+          />
         ) : null}
       </div>
 
@@ -148,21 +145,16 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
       ) : null}
 
       {optimized && mapsKey ? (
-        <RouteMap
-          apiKey={mapsKey}
-          origin={optimized.origin}
-          stops={optimized.stops}
-          stepPolylines={optimized.step_polylines}
+        <RouteWorkspace apiKey={mapsKey} route={optimized} />
+      ) : (
+        <RouteList
+          rows={
+            optimized
+              ? { kind: "optimized", stops: optimized.stops }
+              : { kind: "unoptimized", orders: dayOrders }
+          }
         />
-      ) : null}
-
-      <RouteList
-        rows={
-          optimized
-            ? { kind: "optimized", stops: optimized.stops }
-            : { kind: "unoptimized", orders: dayOrders }
-        }
-      />
+      )}
     </div>
   );
 }

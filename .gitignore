@@ -53,4 +53,6 @@ next-env.d.ts
 # PII / customer data — never push real customer CSVs to a public repo.
 Customers.csv
 customers*.csv
+Upcoming Orders.csv
+*orders*.csv
 /scripts/data/

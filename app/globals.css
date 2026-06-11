@@ -94,7 +94,8 @@
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  /* 0.708 → 0.75: lifts secondary text on --muted to ≥4.5:1 (WCAG 1.4.3). */
+  --muted-foreground: oklch(0.75 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
@@ -125,5 +126,17 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Honour prefers-reduced-motion: near-instant animations/transitions for
+     users who opt out of motion (WCAG 2.3.3 / 2.2.2). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

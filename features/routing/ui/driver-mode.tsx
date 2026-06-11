@@ -18,22 +18,36 @@
  *
  * State:
  *   - server-supplied OptimizedRoute + initial deliveredOrderIds.
+ *   - deliveries advance the UI optimistically (with rollback on error) so a
+ *     tap feels instant before the server round-trip lands.
  *   - useDriverState derives currentStop (first non-delivered, non-skipped).
  *   - useGeolocation supplies live coords once user grants permission.
  *   - When live distance to current stop < 100m, ApproachPrompt opens.
+ *   - Leaving mid-route asks for confirmation (work is preserved either way).
  */
-import { ChevronLeft, Loader2, MapPin, X } from "lucide-react";
+import { ChevronLeft, Loader2, MapPin, WifiOff, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
 
-import { transitionOrderAction } from "@/features/orders/application/transition-order";
+import { completeDeliveryAction } from "@/features/orders/application/complete-delivery";
 import { ApproachPrompt } from "@/features/routing/ui/approach-prompt";
 import { RouteDriverMap } from "@/features/routing/ui/route-driver-map";
 import { StopCard } from "@/features/routing/ui/stop-card";
 import { useDriverState } from "@/features/routing/ui/use-driver-state";
 import { useGeolocation } from "@/features/routing/ui/use-geolocation";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { formatHHmm } from "@/shared/utils/date";
 
@@ -56,25 +70,55 @@ export function DriverMode({
   const [dismissedForStops, setDismissedForStops] = useState<
     ReadonlySet<string>
   >(() => new Set());
+  // Optimistically-delivered ids — merged with the server set so the UI
+  // advances instantly; rolled back if the server rejects the transition.
+  const [optimisticDelivered, setOptimisticDelivered] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const [exitOpen, setExitOpen] = useState(false);
+  const [online, setOnline] = useState(true);
 
-  const driverState = useDriverState(
-    route.stops,
-    new Set(initialDeliveredOrderIds),
-  );
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  const deliveredIds = new Set<string>([
+    ...initialDeliveredOrderIds,
+    ...optimisticDelivered,
+  ]);
+  const driverState = useDriverState(route.stops, deliveredIds);
   const geo = useGeolocation();
 
   const handleDelivered = (orderId: string) => {
     setActionError(null);
+    // Optimistic: advance to the next stop immediately.
+    setOptimisticDelivered((prev) => {
+      const next = new Set(prev);
+      next.add(orderId);
+      return next;
+    });
     startTransition(async () => {
-      const result = await transitionOrderAction({
-        order_id: orderId,
-        to_status: "delivered",
-      });
+      const result = await completeDeliveryAction({ order_id: orderId });
       if (result.status === "error") {
+        // Roll back the optimistic delivery.
+        setOptimisticDelivered((prev) => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
         setActionError(result.message);
+        toast.error("Teslim kaydedilemedi", { description: result.message });
         return;
       }
-      // Server data refreshes → next stop becomes current via derived state.
+      toast.success("Teslim edildi");
+      // Server data refreshes → delivered set reconciles with the optimistic one.
       router.refresh();
     });
   };
@@ -108,19 +152,21 @@ export function DriverMode({
   }
 
   const current = driverState.currentStop;
+  const remaining = driverState.totalCount - driverState.deliveredCount;
 
   return (
     <div className="-mx-6 -my-6 flex min-h-[calc(100vh-3rem)] flex-col">
       {/* Header bar */}
       <header className="flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur sticky top-0 z-10">
-        <Link
-          href="/routes"
+        <button
+          type="button"
+          onClick={() => setExitOpen(true)}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
           Çıkış
-        </Link>
-        <div className="text-center">
+        </button>
+        <div className="flex flex-col items-center text-center">
           <p className="text-xs text-muted-foreground">
             {driverState.deliveredCount + driverState.skippedCount} /{" "}
             {driverState.totalCount}
@@ -128,10 +174,17 @@ export function DriverMode({
           <p className="font-mono text-xs">
             ≈ {formatHHmm(route.finish_time_iso)} bitiş
           </p>
+          {!online ? (
+            <Badge
+              variant="destructive"
+              className="mt-1 gap-1 px-1.5 py-0 text-[10px]"
+            >
+              <WifiOff className="h-3 w-3" />
+              Çevrimdışı
+            </Badge>
+          ) : null}
         </div>
-        {/* Spacer mirroring the back link width so the title stays centered.
-            Hidden on narrow screens — the centered text gives up perfect
-            symmetry rather than fighting for pixels. */}
+        {/* Spacer mirroring the back link width so the title stays centered. */}
         <span className="invisible hidden items-center gap-1 text-sm sm:flex">
           <ChevronLeft className="h-4 w-4" />
           Çıkış
@@ -159,7 +212,10 @@ export function DriverMode({
         </div>
       ) : null}
       {geo.status === "denied" || geo.status === "error" ? (
-        <div className="flex items-start gap-2 border-b bg-orange-500/10 px-4 py-3 text-xs text-orange-700 dark:text-orange-300">
+        <div
+          role="alert"
+          className="flex items-start gap-2 border-b bg-orange-500/10 px-4 py-3 text-xs text-orange-700 dark:text-orange-300"
+        >
           <X className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             {geo.error ?? "Konum kapalı."} Manuel olarak &quot;Teslim Edildi&quot;
@@ -193,7 +249,10 @@ export function DriverMode({
         )}
 
         {actionError ? (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
             {actionError}
           </p>
         ) : null}
@@ -236,6 +295,28 @@ export function DriverMode({
         onDismiss={handleApproachDismiss}
         pending={transitionPending}
       />
+
+      {/* Exit confirmation */}
+      <Dialog open={exitOpen} onOpenChange={setExitOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rotadan çık?</DialogTitle>
+            <DialogDescription>
+              {remaining} teslim edilmemiş durak var. İlerleme korunur — geri
+              dönebilirsin.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Vazgeç</DialogClose>
+            <Button
+              variant="destructive"
+              onClick={() => router.push("/routes")}
+            >
+              Çık
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
