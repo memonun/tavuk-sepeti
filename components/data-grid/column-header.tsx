@@ -71,12 +71,17 @@ export function DataGridHeaderCell<T extends RowData>({
     <div className="group relative flex h-full items-center justify-between gap-1 px-2 text-[11px] font-medium tracking-wide text-muted-foreground">
       <button
         type="button"
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/plain", column.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
         className={cn(
           "flex min-w-0 flex-1 items-center gap-1.5 text-left",
           canSort && "cursor-pointer select-none hover:text-foreground",
         )}
         onClick={canSort ? column.getToggleSortingHandler() : undefined}
-        title={canSort ? "Sıralamayı değiştir" : undefined}
+        title={canSort ? "Sırala · sürükleyerek taşı" : "Sürükleyerek taşı"}
       >
         {columnType ? (
           <ColumnTypeIcon type={columnType} className="h-3 w-3 shrink-0 text-muted-foreground/70" />
@@ -158,8 +163,10 @@ export function DataGridHeaderCell<T extends RowData>({
         <span
           onMouseDown={header.getResizeHandler()}
           onTouchStart={header.getResizeHandler()}
+          draggable={false}
+          onDragStart={(e) => e.preventDefault()}
           className={cn(
-            "absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize touch-none select-none bg-transparent",
+            "absolute right-0 top-0 z-20 h-full w-1.5 cursor-col-resize touch-none select-none bg-transparent",
             "hover:bg-primary/40",
             column.getIsResizing() && "bg-primary",
           )}

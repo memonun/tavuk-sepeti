@@ -97,7 +97,7 @@ export function CustomerGrid({
 }: CustomerGridProps) {
   // Subscribe to live customers + addresses changes — coalesced refresh
   // so a peer's edit lands here within ~1s.
-  useCustomersRealtime();
+  const { markLocalWrite } = useCustomersRealtime();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -202,6 +202,7 @@ export function CustomerGrid({
           />
         }
         onCellError={(message) => toast.error(message)}
+        onCellSuccess={markLocalWrite}
       />
 
       <Sheet

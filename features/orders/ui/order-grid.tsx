@@ -83,7 +83,7 @@ export function OrderGrid({
 }: OrderGridProps) {
   // Subscribe to live orders + status-event changes — coalesced refresh so a
   // peer's edit lands here within ~1s.
-  useOrdersRealtime();
+  const { markLocalWrite } = useOrdersRealtime();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -185,6 +185,7 @@ export function OrderGrid({
           </div>
         }
         onCellError={(message) => toast.error(message)}
+        onCellSuccess={markLocalWrite}
       />
 
       <Sheet

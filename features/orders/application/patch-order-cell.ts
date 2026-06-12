@@ -11,8 +11,6 @@
  * Returns Result<OrderListItem, AppError> so the grid can swap its optimistic
  * patch for the canonical row on success, or roll back on Err.
  */
-import { revalidatePath } from "next/cache";
-
 import {
   orderCellPatchSchema,
   type OrderCellPatch,
@@ -92,7 +90,9 @@ export async function patchOrderCellAction(
     metadata: { source: "data_grid_inline_edit", field: parsed.data.field },
   });
 
-  revalidatePath("/orders");
+  // No revalidatePath here: the grid is optimistic and the realtime hook fires
+  // a single debounced confirm-refresh after the user pauses (self-write
+  // cooldown). Revalidating per edit caused a full-table refetch per keystroke.
 
   return ok(result.value);
 }

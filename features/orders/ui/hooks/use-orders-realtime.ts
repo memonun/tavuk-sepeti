@@ -18,14 +18,19 @@
  * approach keeps the data flow honest and bumps to delta merging only become
  * worthwhile when the refresh cost itself becomes visible.
  *
- * Self-mutations also trigger this — that's acceptable: the optimistic UI is
- * already correct, and the refresh just confirms what the user already sees.
- * A `presence`-based self-filter is Faz 2 polish.
+ * Self-write cooldown: inline cell edits are optimistic + persist without
+ * revalidatePath, so the grid is already correct. Callers signal a local write
+ * via the returned `markLocalWrite()`; for SELF_WRITE_COOLDOWN_MS after that we
+ * defer the confirming refresh (trailing-debounced) so the user's editing burst
+ * isn't disrupted by a mid-action full-table refetch. The deferred refresh then
+ * reconciles `base` once they pause. External (peer) edits still land promptly.
  */
 import { useRouter } from "next/navigation";
-import { useEffect, useId } from "react";
+import { useCallback, useEffect, useId, useRef } from "react";
 
 import { createSupabaseBrowserClient } from "@/shared/supabase/browser";
+
+const SELF_WRITE_COOLDOWN_MS = 1500;
 
 export interface UseOrdersRealtimeOptions {
   /**
@@ -42,26 +47,50 @@ export interface UseOrdersRealtimeOptions {
   readonly enabled?: boolean;
 }
 
+export interface UseOrdersRealtimeResult {
+  /**
+   * Signal that the local user just committed a write. Suppresses the next
+   * ~SELF_WRITE_COOLDOWN_MS of confirming refreshes (trailing-debounced) so the
+   * user's edit burst isn't interrupted, then reconciles once they pause.
+   */
+  readonly markLocalWrite: () => void;
+}
+
 export function useOrdersRealtime(
   opts: UseOrdersRealtimeOptions = {},
-): void {
+): UseOrdersRealtimeResult {
   const router = useRouter();
   const instanceId = useId();
   const debounceMs = opts.debounceMs ?? 800;
   const enabled = opts.enabled ?? true;
+
+  const lastLocalWrite = useRef(0);
+  const scheduleRefreshRef = useRef<(() => void) | null>(null);
+
+  const markLocalWrite = useCallback(() => {
+    lastLocalWrite.current = Date.now();
+    // Schedule the deferred reconcile even if Realtime never echoes the write.
+    scheduleRefreshRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
     const supabase = createSupabaseBrowserClient();
     let pending: ReturnType<typeof setTimeout> | null = null;
 
+    // Trailing debounce. Within the self-write cooldown we use the longer
+    // cooldown delay (defer past the user's editing burst); otherwise the
+    // normal coalesce window so peer edits land promptly.
     const scheduleRefresh = () => {
-      if (pending) return; // already coalescing
+      const sinceLocal = Date.now() - lastLocalWrite.current;
+      const delay = sinceLocal < SELF_WRITE_COOLDOWN_MS ? SELF_WRITE_COOLDOWN_MS : debounceMs;
+      if (pending) clearTimeout(pending);
       pending = setTimeout(() => {
         pending = null;
         router.refresh();
-      }, debounceMs);
+      }, delay);
     };
+    scheduleRefreshRef.current = scheduleRefresh;
 
     // Per-instance channel name. supabase-js doesn't de-dupe by name, so if
     // two OrderGrid components ever mount simultaneously the cleanup paths
@@ -84,7 +113,10 @@ export function useOrdersRealtime(
 
     return () => {
       if (pending) clearTimeout(pending);
+      scheduleRefreshRef.current = null;
       void supabase.removeChannel(channel);
     };
   }, [router, debounceMs, enabled, instanceId]);
+
+  return { markLocalWrite };
 }

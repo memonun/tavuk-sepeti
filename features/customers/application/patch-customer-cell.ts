@@ -14,7 +14,7 @@
  * optimistic patch for the canonical row on success, or rolls back on
  * Err.
  */
-import { revalidatePath, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
 import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
 import {
@@ -85,9 +85,10 @@ export async function patchCustomerCellAction(
     metadata: { source: "data_grid_inline_edit", field },
   });
 
-  // Bust caches: the list page (so a sibling tab refetches) and the
-  // filter-options tag (tag/segment/account_type changes shift dropdowns).
-  revalidatePath("/customers");
+  // No revalidatePath here: the grid is optimistic and the realtime hook fires
+  // a single debounced confirm-refresh after the user pauses (self-write
+  // cooldown), instead of a full-table refetch per keystroke. The filter-options
+  // tag is still busted — it's a separate, cheap cache that drives the dropdowns.
   if (field === "tag" || field === "legacy_segment" || field === "account_type" || field === "city") {
     updateTag(CUSTOMER_FILTER_TAG);
   }

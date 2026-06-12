@@ -10,13 +10,18 @@
  *
  * Strategy:
  * - Each commit gets a monotonic revision id.
- * - When the server returns a fresh row, we replace the optimistic patch
- *   with the canonical value, but only if no newer commit has landed
- *   for that row in the meantime (revision-counter guard).
- * - When the commit fails, we drop the patch and surface the error so
- *   the caller can show a toast and red-border the cell.
+ * - On SUCCESS the patch is RETAINED (it already shows the right value) until a
+ *   fresh server snapshot (`base`) lands and supersedes it — see the base-sync
+ *   effect below. This lets the cell-commit Server Action skip revalidatePath
+ *   entirely (no full-table refetch per keystroke); a single debounced refresh
+ *   reconciles later. Without retention, dropping the patch before `base`
+ *   refreshed would flash the cell back to its old value.
+ * - On FAILURE the patch is dropped (rollback) and the error surfaced so the
+ *   caller can toast + red-border the cell.
+ * - In-flight patches survive a `base` refresh (their write may not be in that
+ *   snapshot yet); only settled patches are cleared by it.
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AppError } from "@/shared/errors/app-error";
 import type { Result } from "@/shared/result";
@@ -59,6 +64,27 @@ export function useOptimisticRows<TRow extends object, TPatch>({
   );
   const [pendingCount, setPendingCount] = useState(0);
   const revisionCounter = useRef(0);
+  // Per-row count of in-flight commits. A row with >0 keeps its patch across a
+  // base refresh (the write may not be reflected in that snapshot yet).
+  const inFlight = useRef<Map<string, number>>(new Map());
+  const prevBase = useRef(base);
+
+  // When a fresh server snapshot lands (router.refresh / navigation), it is
+  // authoritative: drop every SETTLED optimistic patch so the grid shows the
+  // canonical values. In-flight patches are preserved.
+  useEffect(() => {
+    if (prevBase.current === base) return;
+    prevBase.current = base;
+    setPatches((cur) => {
+      const keep: Record<string, OptimisticPatch<TRow>> = {};
+      let dropped = false;
+      for (const [id, patch] of Object.entries(cur)) {
+        if ((inFlight.current.get(id) ?? 0) > 0) keep[id] = patch;
+        else dropped = true;
+      }
+      return dropped ? keep : cur;
+    });
+  }, [base]);
 
   const rows = useMemo<ReadonlyArray<TRow>>(() => {
     if (Object.keys(patches).length === 0) return base;
@@ -76,20 +102,29 @@ export function useOptimisticRows<TRow extends object, TPatch>({
       patch: TPatch,
     ): Promise<Result<TRow, AppError>> => {
       const revision = ++revisionCounter.current;
+      inFlight.current.set(id, (inFlight.current.get(id) ?? 0) + 1);
       setPatches((cur) => ({ ...cur, [id]: { partial, revision } }));
       setPendingCount((c) => c + 1);
 
       const result = await mutate(id, patch);
 
       setPendingCount((c) => Math.max(0, c - 1));
-      setPatches((cur) => {
-        const existing = cur[id];
-        // A newer commit has overtaken us — leave that one in place.
-        if (existing && existing.revision !== revision) return cur;
-        const next = { ...cur };
-        delete next[id];
-        return next;
-      });
+      const remaining = (inFlight.current.get(id) ?? 1) - 1;
+      if (remaining <= 0) inFlight.current.delete(id);
+      else inFlight.current.set(id, remaining);
+
+      if (!result.ok) {
+        // Rollback — unless a newer commit for this row has overtaken us.
+        setPatches((cur) => {
+          const existing = cur[id];
+          if (existing && existing.revision !== revision) return cur;
+          const next = { ...cur };
+          delete next[id];
+          return next;
+        });
+      }
+      // On success the patch is RETAINED; the base-sync effect clears it once a
+      // fresh snapshot reflects the write.
 
       return result;
     },

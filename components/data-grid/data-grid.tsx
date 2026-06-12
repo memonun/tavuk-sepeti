@@ -322,6 +322,26 @@ export function DataGrid<TRow extends object, TPatch>({
     [table],
   );
 
+  // Drag-to-reorder: move `fromId` to `toId`'s slot. Routes through the table's
+  // columnOrder → onColumnOrderChange → persisted prefs (use-column-prefs).
+  const handleColumnReorder = useCallback(
+    (fromId: string, toId: string) => {
+      if (!fromId || fromId === toId) return;
+      const current = table.getState().columnOrder;
+      const order =
+        current.length > 0
+          ? [...current]
+          : table.getAllLeafColumns().map((c) => c.id);
+      const fromIdx = order.indexOf(fromId);
+      const toIdx = order.indexOf(toId);
+      if (fromIdx === -1 || toIdx === -1) return;
+      order.splice(fromIdx, 1);
+      order.splice(toIdx, 0, fromId);
+      table.setColumnOrder(order);
+    },
+    [table],
+  );
+
   const handleStartEdit = useCallback(
     (addr: CellAddress, seedValue?: string) => {
       const colDef = getColDef(addr.columnId);
@@ -767,6 +787,11 @@ export function DataGrid<TRow extends object, TPatch>({
           className="text-[13px]"
           style={{
             width: table.getTotalSize(),
+            // Fixed layout makes the per-column `width: getSize()` authoritative
+            // (auto layout treats it as a minimum and lets wide content override
+            // it — which made the resize handle look dead on content-heavy
+            // columns like orders). Cells truncate to honour the set width.
+            tableLayout: "fixed",
             borderCollapse: "separate",
             borderSpacing: 0,
           }}
@@ -796,6 +821,15 @@ export function DataGrid<TRow extends object, TPatch>({
                     colSpan={header.colSpan}
                     style={getPinningHeaderStyles(header.column)}
                     className="h-8 border-b border-r border-border bg-muted text-left align-middle"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const from = e.dataTransfer.getData("text/plain");
+                      if (from) handleColumnReorder(from, header.column.id);
+                    }}
                   >
                     {header.isPlaceholder ? null : (
                       <DataGridHeaderCell
