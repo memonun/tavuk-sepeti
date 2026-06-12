@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 
 import { getOrderByIdAction } from "@/features/orders/application/get-order-action";
 import { listOrderEventsAction } from "@/features/orders/application/get-order-events-action";
+import { getOrderPaymentsAction } from "@/features/orders/application/payments";
 import { OrderDetailPanel } from "@/features/orders/ui/order-detail-panel";
 
 import type { Product } from "@/features/products/application/list-products";
 import type { Order, OrderStatusEvent } from "@/features/orders/domain/order";
+import type { OrderPayment } from "@/features/orders/domain/payment";
 
 interface OrderDetailLoaderProps {
   readonly id: string;
@@ -19,7 +21,13 @@ interface OrderDetailLoaderProps {
  *  fetch (or a freshly-changed id) is ignored when rendering. */
 type LoadState =
   | { kind: "loading"; id: string }
-  | { kind: "ok"; id: string; order: Order; events: OrderStatusEvent[] }
+  | {
+      kind: "ok";
+      id: string;
+      order: Order;
+      events: OrderStatusEvent[];
+      payments: OrderPayment[];
+    }
   | { kind: "error"; id: string; message: string };
 
 /**
@@ -44,7 +52,8 @@ export function OrderDetailLoader({
     void Promise.all([
       getOrderByIdAction(id),
       listOrderEventsAction(id),
-    ]).then(([orderResult, eventsResult]) => {
+      getOrderPaymentsAction(id),
+    ]).then(([orderResult, eventsResult, payments]) => {
       if (!active) return;
       if (!orderResult.ok) {
         setState({ kind: "error", id, message: orderResult.error.message });
@@ -56,6 +65,7 @@ export function OrderDetailLoader({
         id,
         order: orderResult.value,
         events: eventsResult.ok ? eventsResult.value : [],
+        payments,
       });
     });
     return () => {
@@ -76,6 +86,7 @@ export function OrderDetailLoader({
       products={products}
       customerName={customerName}
       events={state.events}
+      payments={state.payments}
     />
   );
 }

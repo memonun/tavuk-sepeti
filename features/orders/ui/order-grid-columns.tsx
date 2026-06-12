@@ -15,6 +15,7 @@ import Link from "next/link";
 import { currencyCellEditor } from "@/components/data-grid/cells/currency-cell";
 import { selectCellEditor } from "@/components/data-grid/cells/select-cell";
 import { textCellEditor } from "@/components/data-grid/cells/text-cell";
+import { Badge } from "@/components/ui/badge";
 import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
 import { orderCellPatchSchemas } from "@/features/orders/domain/order.schema";
 import { orderStatusEditor } from "@/features/orders/ui/order-status-cell";
@@ -25,12 +26,18 @@ import type { OrderListItem } from "@/features/orders/domain/order";
 
 import { z } from "zod";
 
-const PAYMENT_OPTIONS = [
-  { value: "pending", label: "Bekliyor", badgeVariant: "secondary" as const },
-  { value: "paid", label: "Ödendi", badgeVariant: "default" as const },
-  { value: "failed", label: "Başarısız", badgeVariant: "destructive" as const },
-  { value: "refunded", label: "İade", badgeVariant: "outline" as const },
-];
+// Payment status is derived from the ledger (recorded payments), so the grid
+// shows it read-only — record/settle payments in the order detail panel.
+const PAYMENT_LABELS: Record<
+  string,
+  { label: string; variant: "secondary" | "default" | "destructive" | "outline" }
+> = {
+  pending: { label: "Bekliyor", variant: "secondary" },
+  partial: { label: "Kısmi", variant: "outline" },
+  paid: { label: "Ödendi", variant: "default" },
+  failed: { label: "Başarısız", variant: "destructive" },
+  refunded: { label: "İade", variant: "outline" },
+};
 
 const TIME_SLOT_OPTIONS = [
   { value: "morning", label: "Sabah" },
@@ -133,13 +140,27 @@ export function buildOrderColumns(
       id: "payment_status",
       accessorKey: "payment_status",
       header: "Ödeme",
-      size: 120,
-      columnType: "select",
-      editable: true,
-      editor: selectCellEditor({
-        schema: orderCellPatchSchemas.payment_status as unknown as z.ZodType<string>,
-        options: PAYMENT_OPTIONS,
-      }) as never,
+      size: 140,
+      columnType: "text",
+      editable: false,
+      cell: ({ row }) => {
+        const o = row.original;
+        const meta = PAYMENT_LABELS[o.payment_status] ?? {
+          label: o.payment_status,
+          variant: "secondary" as const,
+        };
+        const balance = o.total_minor - o.amount_paid_minor;
+        return (
+          <div className="flex items-center gap-1.5">
+            <Badge variant={meta.variant}>{meta.label}</Badge>
+            {balance > 0 && o.amount_paid_minor > 0 ? (
+              <span className="text-[10px] text-muted-foreground">
+                kalan {formatTRY(balance)}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       id: "delivery_fee",

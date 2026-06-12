@@ -103,6 +103,8 @@ export function rowToOrder(row: OrderRowWithItems): Order {
     currency: row.currency as "TRY",
     payment_method: row.payment_method as PaymentMethod,
     payment_status: row.payment_status as PaymentStatus,
+    amount_paid_minor:
+      (row as { amount_paid_minor?: number | null }).amount_paid_minor ?? 0,
     paid_at: row.paid_at ? new Date(row.paid_at) : null,
     recurring_template_id: row.recurring_template_id,
     source: row.source as Order["source"],
@@ -121,6 +123,7 @@ interface ListOrderRow {
   time_slot: string | null;
   total_minor: number;
   payment_status: string;
+  amount_paid_minor: number;
   delivery_notes: string | null;
   delivery_fee_minor: number;
   created_at: string;
@@ -142,6 +145,7 @@ export function rowToListItem(row: ListOrderRow): OrderListItem {
     time_slot: row.time_slot as TimeSlot | null,
     total_minor: row.total_minor,
     payment_status: row.payment_status as PaymentStatus,
+    amount_paid_minor: row.amount_paid_minor ?? 0,
     delivery_notes: row.delivery_notes,
     delivery_fee_minor: row.delivery_fee_minor,
     created_at: new Date(row.created_at),

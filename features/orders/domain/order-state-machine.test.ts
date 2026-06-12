@@ -38,6 +38,7 @@ const baseOrder: Order = {
   currency: "TRY",
   payment_method: "cash_on_delivery",
   payment_status: "pending",
+  amount_paid_minor: 0,
   paid_at: null,
   recurring_template_id: null,
   source: "admin_manual",

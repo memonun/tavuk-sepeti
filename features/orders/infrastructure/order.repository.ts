@@ -47,7 +47,7 @@ type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
  * from silently drifting apart.
  */
 const ORDER_LIST_SELECT =
-  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, delivery_notes, delivery_fee_minor, created_at, customers!inner(first_name, last_name)" as const;
+  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, customers!inner(first_name, last_name)" as const;
 
 export interface CreateOrderInput {
   customer_id: string;
@@ -221,7 +221,11 @@ export async function listOrders(
   const from = (query.page - 1) * query.pageSize;
   const to = from + query.pageSize - 1;
 
-  let builder = supabase
+  // `amount_paid_minor` isn't in the generated types yet (added by the
+  // payments migration) — cast so the select string isn't rejected against
+  // the stale schema. The rows are mapped explicitly via rowToListItem.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let builder: any = (supabase as any)
     .from("orders")
     .select(ORDER_LIST_SELECT, { count: "exact" });
 
@@ -260,7 +264,9 @@ export async function listOrders(
   }
 
   return ok({
-    items: (data ?? []).map((row) =>
+    items: (data ?? []).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (row: any) =>
       rowToListItem({
         id: row.id,
         order_number: row.order_number,
@@ -271,6 +277,8 @@ export async function listOrders(
         // Generated column; nullable in supabase-js but always populated.
         total_minor: row.total_minor ?? 0,
         payment_status: row.payment_status,
+        amount_paid_minor:
+          (row as { amount_paid_minor?: number | null }).amount_paid_minor ?? 0,
         delivery_notes: row.delivery_notes,
         delivery_fee_minor: row.delivery_fee_minor ?? 0,
         created_at: row.created_at,

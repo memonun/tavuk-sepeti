@@ -88,7 +88,7 @@ const statusPatchValue = z.object({
 
 export const orderCellPatchSchemas = {
   status: statusPatchValue,
-  payment_status: z.enum(["pending", "paid", "failed", "refunded"]),
+  payment_status: z.enum(["pending", "partial", "paid", "failed", "refunded"]),
   scheduled_for: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarih YYYY-MM-DD olmalı."),
   time_slot: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? null : v),
