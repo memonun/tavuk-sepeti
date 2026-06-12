@@ -34,6 +34,8 @@ import {
   Loader2,
   MapPin,
   SkipForward,
+  Undo2,
+  Wallet,
   WifiOff,
   X,
 } from "lucide-react";
@@ -43,7 +45,9 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { completeDeliveryAction } from "@/features/orders/application/complete-delivery";
+import { revertDeliveryAction } from "@/features/orders/application/revert-delivery";
 import { ApproachPrompt } from "@/features/routing/ui/approach-prompt";
+import { DeliveryPaymentDialog } from "@/features/routing/ui/delivery-payment-dialog";
 import { RouteDriverMap } from "@/features/routing/ui/route-driver-map";
 import { StopCard } from "@/features/routing/ui/stop-card";
 import { useDriverState } from "@/features/routing/ui/use-driver-state";
@@ -62,7 +66,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatHHmm } from "@/shared/utils/date";
 
-import type { OptimizedRoute } from "@/features/routing/domain/route";
+import type { OptimizedRoute, RouteStop } from "@/features/routing/domain/route";
 
 interface DriverModeProps {
   route: OptimizedRoute;
@@ -86,9 +90,16 @@ export function DriverMode({
   const [optimisticDelivered, setOptimisticDelivered] = useState<
     ReadonlySet<string>
   >(() => new Set());
+  // Optimistically-reverted ids — subtracted from the delivered set so a
+  // "Geri al" reflects instantly; rolled back if the server rejects.
+  const [optimisticReverted, setOptimisticReverted] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [exitOpen, setExitOpen] = useState(false);
   const [online, setOnline] = useState(true);
   const [queueOpen, setQueueOpen] = useState(false);
+  // The just-delivered stop to collect payment for (null = popup closed).
+  const [paymentStop, setPaymentStop] = useState<RouteStop | null>(null);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -105,12 +116,20 @@ export function DriverMode({
     ...initialDeliveredOrderIds,
     ...optimisticDelivered,
   ]);
+  for (const id of optimisticReverted) deliveredIds.delete(id);
   const driverState = useDriverState(route.stops, deliveredIds);
   const geo = useGeolocation();
 
   const handleDelivered = (orderId: string) => {
     setActionError(null);
-    // Optimistic: advance to the next stop immediately.
+    // Optimistic: advance to the next stop immediately. Clear any pending
+    // revert for this id (re-delivering an undone stop).
+    setOptimisticReverted((prev) => {
+      if (!prev.has(orderId)) return prev;
+      const next = new Set(prev);
+      next.delete(orderId);
+      return next;
+    });
     setOptimisticDelivered((prev) => {
       const next = new Set(prev);
       next.add(orderId);
@@ -132,7 +151,37 @@ export function DriverMode({
       toast.success("Teslim edildi");
       // Snap the view forward to the new current stop.
       driverState.followCurrent();
+      // Open the collect-on-delivery popup for this stop.
+      const stop = route.stops.find((s) => s.order_id === orderId) ?? null;
+      setPaymentStop(stop);
       // Server data refreshes → delivered set reconciles with the optimistic one.
+      router.refresh();
+    });
+  };
+
+  const handleRevert = (orderId: string) => {
+    setActionError(null);
+    // Optimistic un-deliver.
+    setOptimisticReverted((prev) => new Set(prev).add(orderId));
+    setOptimisticDelivered((prev) => {
+      if (!prev.has(orderId)) return prev;
+      const next = new Set(prev);
+      next.delete(orderId);
+      return next;
+    });
+    startTransition(async () => {
+      const result = await revertDeliveryAction({ order_id: orderId });
+      if (result.status === "error") {
+        setOptimisticReverted((prev) => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
+        setActionError(result.message);
+        toast.error("Geri alınamadı", { description: result.message });
+        return;
+      }
+      toast.success("Teslimat geri alındı");
       router.refresh();
     });
   };
@@ -386,8 +435,27 @@ export function DriverMode({
       {view ? (
         <div className="sticky bottom-0 z-10 border-t bg-background/95 px-4 py-3 backdrop-blur">
           {viewStatus.delivered ? (
-            <div className="flex h-12 items-center justify-center gap-2 rounded-md bg-emerald-500/10 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              <Check className="h-4 w-4" /> Teslim edildi
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-12"
+                disabled={transitionPending}
+                onClick={() => handleRevert(view.order_id)}
+              >
+                <Undo2 className="mr-1.5 h-4 w-4" /> Geri al
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-12"
+                disabled={transitionPending}
+                onClick={() => setPaymentStop(view)}
+              >
+                <Wallet className="mr-1.5 h-4 w-4" /> Tahsilat
+              </Button>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
@@ -430,6 +498,12 @@ export function DriverMode({
         onDeliver={handleDelivered}
         onDismiss={handleApproachDismiss}
         pending={transitionPending}
+      />
+
+      {/* Collect-on-delivery popup */}
+      <DeliveryPaymentDialog
+        stop={paymentStop}
+        onClose={() => setPaymentStop(null)}
       />
 
       {/* Exit confirmation */}

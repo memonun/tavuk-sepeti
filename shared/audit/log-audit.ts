@@ -24,6 +24,7 @@ export type AuditAction =
   | "customer.deleted"
   | "order.created"
   | "order.transitioned"
+  | "order.delivery_reverted"
   | "order.updated"
   | "order.deleted"
   | "product.updated"
