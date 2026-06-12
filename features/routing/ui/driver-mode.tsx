@@ -155,12 +155,12 @@ export function DriverMode({
   const remaining = driverState.totalCount - driverState.deliveredCount;
 
   return (
-    // Fixed-height app shell that fits inside the admin <main> (which is
-    // overflow-hidden). Negative margins match the layout's px-3/py-2 padding
-    // so we break out cleanly; the header + geolocation banner + action bar
-    // stay pinned and only the middle scrolls — so the "allow location" button
-    // is always on screen.
-    <div className="-mx-3 -my-2 flex h-[calc(100dvh-3rem)] flex-col overflow-hidden sm:-mx-4">
+    // Full-screen driving view: escape the admin <main> (which is
+    // overflow-hidden with its own padding) entirely so nothing can clip it.
+    // The header + geolocation banner + action bar stay pinned; only the middle
+    // scrolls — the "Konuma izin ver" button is always on screen. Exit via the
+    // in-view "Çıkış" button.
+    <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-background">
       {/* Header bar */}
       <header className="flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur sticky top-0 z-10">
         <button
