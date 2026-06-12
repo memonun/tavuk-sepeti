@@ -102,26 +102,48 @@ export function useGeolocation(): UseGeolocationResult {
       setError("Bu tarayıcıda konum desteklenmiyor.");
       return;
     }
+    // Geolocation is blocked outside a secure context. localhost is exempt,
+    // but a phone hitting the dev server over http://<lan-ip> is NOT — the
+    // browser blocks (and some engines throw) instead of prompting. Surface a
+    // precise message rather than a generic "permission denied".
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      setStatus("error");
+      setError(
+        "Konum için güvenli bağlantı (HTTPS) gerekli. Telefonda yerel IP yerine yayınlanan (https) adresi aç.",
+      );
+      return;
+    }
     if (watchIdRef.current !== null) return; // already watching
 
     setStatus("prompting");
     setError(null);
 
     // First fix triggers the permission prompt; subsequent ones come via
-    // watchPosition.
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        onSuccess(pos);
-        // Start the live watch only after we have permission confirmed.
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          onSuccess,
-          onError,
-          WATCH_OPTS,
-        );
-      },
-      onError,
-      WATCH_OPTS,
-    );
+    // watchPosition. Wrap in try/catch: a few engines throw synchronously when
+    // the API is present but blocked (insecure context / disabled by policy)
+    // instead of invoking the error callback.
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          onSuccess(pos);
+          // Start the live watch only after we have permission confirmed.
+          try {
+            watchIdRef.current = navigator.geolocation.watchPosition(
+              onSuccess,
+              onError,
+              WATCH_OPTS,
+            );
+          } catch {
+            // A single fix already succeeded; live tracking just won't update.
+          }
+        },
+        onError,
+        WATCH_OPTS,
+      );
+    } catch {
+      setStatus("error");
+      setError("Konum açılamadı. Tarayıcı izinlerini ve HTTPS bağlantısını kontrol et.");
+    }
   }, [supported, onSuccess, onError]);
 
   return { status, coords, error, request, supported };
