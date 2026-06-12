@@ -9,16 +9,20 @@
  * The page shell passes its date-range presets through `toolbarExtra`, which
  * sits to the left of the filter builder in the toolbar row.
  */
+import { Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { DataGrid } from "@/components/data-grid/data-grid";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 import { OrderDetailLoader } from "@/features/orders/ui/order-detail-loader";
 import { FilterBuilder } from "@/components/data-grid/filters/filter-builder";
 import {
@@ -196,6 +200,19 @@ export function OrderGrid({
           {/* Visually-hidden title: base-ui Dialog requires a labelled title
               for a11y; the panel renders its own visible heading. */}
           <SheetTitle className="sr-only">Sipariş detayı</SheetTitle>
+          {openRow ? (
+            <Link
+              href={`/orders/${openRow.id}`}
+              aria-label="Tam sayfada aç"
+              title="Tam sayfada aç"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                "absolute right-12 top-3 z-10",
+              )}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Link>
+          ) : null}
           {openRow ? (
             <OrderDetailLoader
               id={openRow.id}

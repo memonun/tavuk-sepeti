@@ -8,7 +8,7 @@
  * Müşteri" link. All filtering goes through the `filter` URL param (JSON
  * rules), replacing the previous per-column dropdown approach.
  */
-import { Plus, Search, X } from "lucide-react";
+import { Maximize2, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -217,6 +217,19 @@ export function CustomerGrid({
           {/* Visually-hidden title: base-ui Dialog requires a labelled title
               for a11y; the panel renders its own visible heading. */}
           <SheetTitle className="sr-only">Müşteri detayı</SheetTitle>
+          {openId ? (
+            <Link
+              href={`/customers/${openId}`}
+              aria-label="Tam sayfada aç"
+              title="Tam sayfada aç"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                "absolute right-12 top-3 z-10",
+              )}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Link>
+          ) : null}
           {openId ? (
             <CustomerDetailLoader id={openId} mapsKey={mapsKey} />
           ) : null}
