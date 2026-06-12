@@ -23,6 +23,7 @@ import {
   WarehouseNotConfiguredError,
 } from "@/features/routing/domain/route.errors";
 import { callGoogleDirections } from "@/features/routing/infrastructure/google-directions";
+import { fetchDeliveryDetails } from "@/features/routing/infrastructure/order-delivery-details";
 import { ExternalApiError } from "@/shared/errors/app-error";
 import { env } from "@/shared/env";
 import { err, isErr, ok, type Result } from "@/shared/result";
@@ -78,6 +79,9 @@ export async function getDayRoute(
   if (isErr(directionsResult)) return directionsResult;
   const directions = directionsResult.value;
 
+  // Enrich with paid amount + line items (one batched lookup for the route).
+  const detailById = await fetchDeliveryDetails(orders.map((o) => o.order_id));
+
   // Anchor for ETAs. If the supplied start is malformed, fall back to now —
   // never throw on bad UI input.
   const startMs = (() => {
@@ -103,6 +107,7 @@ export async function getDayRoute(
     cumulativeDistanceM += legDistanceM ?? 0;
     cumulativeDurationS += legDurationS ?? 0;
     const etaIso = new Date(startMs + cumulativeDurationS * 1000).toISOString();
+    const detail = detailById.get(order.order_id);
     return {
       sequence: i + 1,
       order_id: order.order_id,
@@ -114,6 +119,8 @@ export async function getDayRoute(
       lng: order.lng,
       delivery_notes: order.delivery_notes,
       total_minor: order.total_minor,
+      amount_paid_minor: detail?.amount_paid_minor ?? 0,
+      items: detail?.items ?? [],
       leg_distance_m: legDistanceM,
       leg_duration_s: legDurationS,
       cumulative_distance_m: cumulativeDistanceM,

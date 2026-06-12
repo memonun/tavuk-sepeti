@@ -25,7 +25,18 @@
  *   - When live distance to current stop < 100m, ApproachPrompt opens.
  *   - Leaving mid-route asks for confirmation (work is preserved either way).
  */
-import { ChevronLeft, Loader2, MapPin, WifiOff, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  List,
+  Loader2,
+  MapPin,
+  SkipForward,
+  WifiOff,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -77,6 +88,7 @@ export function DriverMode({
   >(() => new Set());
   const [exitOpen, setExitOpen] = useState(false);
   const [online, setOnline] = useState(true);
+  const [queueOpen, setQueueOpen] = useState(false);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -118,6 +130,8 @@ export function DriverMode({
         return;
       }
       toast.success("Teslim edildi");
+      // Snap the view forward to the new current stop.
+      driverState.followCurrent();
       // Server data refreshes → delivered set reconciles with the optimistic one.
       router.refresh();
     });
@@ -153,6 +167,19 @@ export function DriverMode({
 
   const current = driverState.currentStop;
   const remaining = driverState.totalCount - driverState.deliveredCount;
+
+  // The stop the driver is looking at (may differ from `current` when they
+  // step backward/forward through the queue).
+  const view = driverState.viewStop;
+  const viewStatus = driverState.viewStatus;
+  const viewState = viewStatus.delivered
+    ? "delivered"
+    : viewStatus.skipped
+      ? "skipped"
+      : viewStatus.isCurrent
+        ? "current"
+        : "upcoming";
+  const viewingCurrent = view !== null && current !== null && view.order_id === current.order_id;
 
   return (
     // Full-screen driving view: escape the admin <main> (which is
@@ -229,6 +256,86 @@ export function DriverMode({
         </div>
       ) : null}
 
+      {/* Stop stepper — step backward/forward through the queue */}
+      {view ? (
+        <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            disabled={!driverState.canPrev}
+            onClick={driverState.goPrev}
+            aria-label="Önceki durak"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <button
+            type="button"
+            onClick={() => setQueueOpen((o) => !o)}
+            className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted"
+          >
+            <List className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">
+              <span className="text-muted-foreground">
+                {driverState.viewIndex + 1}/{driverState.totalCount}
+              </span>{" "}
+              {view.customer_name}
+            </span>
+          </button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            disabled={!driverState.canNext}
+            onClick={driverState.goNext}
+            aria-label="Sonraki durak"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : null}
+
+      {/* Expandable stop queue */}
+      {queueOpen ? (
+        <div className="max-h-[40vh] overflow-y-auto border-b bg-muted/20">
+          <ul className="divide-y">
+            {driverState.stopsWithStatus.map((s, i) => (
+              <li key={s.stop.order_id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    driverState.jumpTo(i);
+                    setQueueOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted",
+                    i === driverState.viewIndex && "bg-muted",
+                  )}
+                >
+                  <span className="w-5 shrink-0 text-center font-mono text-xs text-muted-foreground">
+                    {s.stop.sequence}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {s.stop.customer_name}
+                  </span>
+                  {s.delivered ? (
+                    <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  ) : s.skipped ? (
+                    <SkipForward className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  ) : s.isCurrent ? (
+                    <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                      Sıradaki
+                    </Badge>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {/* Main scrollable area */}
       <main className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         <RouteDriverMap
@@ -236,15 +343,27 @@ export function DriverMode({
           origin={route.origin}
           stops={route.stops}
           stepPolylines={route.step_polylines}
-          currentStopId={current?.order_id ?? null}
+          currentStopId={view?.order_id ?? null}
           driverCoords={geo.coords}
         />
 
-        {current ? (
+        {!viewingCurrent && current ? (
+          <button
+            type="button"
+            onClick={driverState.followCurrent}
+            className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground hover:bg-muted"
+          >
+            <Crosshair className="h-3.5 w-3.5" />
+            Sıradaki durağa dön ({current.customer_name})
+          </button>
+        ) : null}
+
+        {view ? (
           <StopCard
-            stop={current}
+            stop={view}
             totalStops={driverState.totalCount}
             driverCoords={geo.coords}
+            viewState={viewState}
           />
         ) : (
           <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
@@ -263,31 +382,43 @@ export function DriverMode({
         ) : null}
       </main>
 
-      {/* Sticky action bar */}
-      {current ? (
-        <div className="sticky bottom-0 z-10 grid grid-cols-2 gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur">
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className="h-12"
-            disabled={transitionPending}
-            onClick={() => driverState.markSkipped(current.order_id)}
-          >
-            Atla
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            className="h-12"
-            disabled={transitionPending}
-            onClick={() => handleDelivered(current.order_id)}
-          >
-            {transitionPending ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : null}
-            Teslim Edildi
-          </Button>
+      {/* Sticky action bar — acts on the viewed stop */}
+      {view ? (
+        <div className="sticky bottom-0 z-10 border-t bg-background/95 px-4 py-3 backdrop-blur">
+          {viewStatus.delivered ? (
+            <div className="flex h-12 items-center justify-center gap-2 rounded-md bg-emerald-500/10 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+              <Check className="h-4 w-4" /> Teslim edildi
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-12"
+                disabled={transitionPending}
+                onClick={() =>
+                  viewStatus.skipped
+                    ? driverState.unskip(view.order_id)
+                    : driverState.markSkipped(view.order_id)
+                }
+              >
+                {viewStatus.skipped ? "Tekrar al" : "Atla"}
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                className="h-12"
+                disabled={transitionPending}
+                onClick={() => handleDelivered(view.order_id)}
+              >
+                {transitionPending ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : null}
+                Teslim Edildi
+              </Button>
+            </div>
+          )}
         </div>
       ) : null}
 

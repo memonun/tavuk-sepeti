@@ -9,6 +9,14 @@
  * Polylines are Google's encoded format — the UI passes them straight to
  * google.maps.geometry.encoding.decodePath() for rendering.
  */
+/** One line item on a stop's order — enough to render without rejoining. */
+export interface RouteStopItem {
+  /** Frozen product display name at order time. */
+  readonly label: string;
+  readonly quantity: number;
+  readonly line_total_minor: number;
+}
+
 export interface RouteStop {
   /** 1-indexed sequence number after optimization. */
   readonly sequence: number;
@@ -21,6 +29,10 @@ export interface RouteStop {
   readonly lng: number;
   readonly delivery_notes: string | null;
   readonly total_minor: number;
+  /** Amount collected so far (kuruş). Drives the paid/partial/unpaid badge. */
+  readonly amount_paid_minor: number;
+  /** Order line items, in insertion order. */
+  readonly items: readonly RouteStopItem[];
   /** Driving distance from the previous stop (or warehouse for stop #1). */
   readonly leg_distance_m: number | null;
   /** Driving duration from the previous stop (seconds). */
