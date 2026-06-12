@@ -46,6 +46,10 @@ export function OrderDetailLoader({
   customerName,
 }: OrderDetailLoaderProps) {
   const [state, setState] = useState<LoadState>({ kind: "loading", id });
+  // Bumping this re-runs the fetch so a child mutation (e.g. recording a
+  // payment) refreshes the Sheet WITHOUT a full page reload — router.refresh()
+  // alone can't re-run this client effect. General pattern for detail loaders.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -71,7 +75,7 @@ export function OrderDetailLoader({
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, reloadKey]);
 
   // A result for a previous id (or initial mount before the effect resolves)
   // renders as loading.
@@ -87,6 +91,7 @@ export function OrderDetailLoader({
       customerName={customerName}
       events={state.events}
       payments={state.payments}
+      onMutated={() => setReloadKey((k) => k + 1)}
     />
   );
 }

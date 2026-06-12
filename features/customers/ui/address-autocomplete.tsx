@@ -32,9 +32,27 @@ export interface ParsedAddress {
   lng: number;
 }
 
-export function AddressAutocomplete({ onSelect }: { onSelect: (a: ParsedAddress) => void }) {
+interface AddressAutocompleteProps {
+  onSelect: (a: ParsedAddress) => void;
+  /** Controlled value — when provided, this IS the address-line field. */
+  value?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+}
+
+export function AddressAutocomplete({
+  onSelect,
+  value,
+  onChange,
+  placeholder,
+}: AddressAutocompleteProps) {
   const places = useMapsLibrary("places");
-  const [input, setInput] = useState("");
+  const [internal, setInternal] = useState("");
+  const input = value !== undefined ? value : internal;
+  const setInput = (v: string) => {
+    if (onChange) onChange(v);
+    else setInternal(v);
+  };
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompleteSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const tokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
@@ -110,7 +128,8 @@ export function AddressAutocomplete({ onSelect }: { onSelect: (a: ParsedAddress)
         onChange={(e) => setInput(e.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        aria-label="Adres ara (Google)"
+        aria-label="Adres"
+        {...(placeholder ? { placeholder } : {})}
       />
       {open && suggestions.length > 0 ? (
         <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-border bg-popover shadow-md">

@@ -57,6 +57,9 @@ interface OrderDetailPanelProps {
   /** product_key → flat special price (kuruş) for this order's customer. */
   readonly customerPrices?: Record<string, number>;
   readonly payments: OrderPayment[];
+  /** Sheet loaders pass this to refetch after a child mutation (no full
+   *  reload); on the full page it's omitted and router.refresh() is used. */
+  readonly onMutated?: () => void;
 }
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -100,6 +103,7 @@ export function OrderDetailPanel({
   events,
   customerPrices = {},
   payments,
+  onMutated,
 }: OrderDetailPanelProps) {
   const router = useRouter();
   const [order, setOrder] = useState<Order>(initialOrder);
@@ -160,6 +164,7 @@ export function OrderDetailPanel({
         paymentMethod={initialOrder.payment_method}
         scheduledFor={initialOrder.scheduled_for}
         payments={payments}
+        {...(onMutated ? { onMutated } : {})}
       />
 
       <DeliveryAddress order={order} />

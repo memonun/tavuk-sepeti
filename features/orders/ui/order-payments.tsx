@@ -64,6 +64,8 @@ interface OrderPaymentsProps {
   paymentMethod: PaymentMethod;
   scheduledFor: string; // YYYY-MM-DD
   payments: OrderPayment[];
+  /** Refetch the parent (Sheet loader) after a mutation; full page omits it. */
+  onMutated?: () => void;
 }
 
 export function OrderPayments({
@@ -73,6 +75,7 @@ export function OrderPayments({
   paymentMethod,
   scheduledFor,
   payments,
+  onMutated,
 }: OrderPaymentsProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -99,7 +102,10 @@ export function OrderPayments({
         return;
       }
       toast.success(okMsg);
-      router.refresh();
+      // Sheet: refetch via the loader (router.refresh can't re-run its
+      // effect). Full page: router.refresh re-renders the server component.
+      if (onMutated) onMutated();
+      else router.refresh();
     });
   };
 
