@@ -6,6 +6,8 @@
  * `step` drives the quantity rule enforced in the orders domain:
  * `quantity % step === 0`. cheese/yogurt are sold in 0.5 kg increments.
  */
+import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
+
 export type ProductUnit = "package" | "liter" | "kilogram" | "piece";
 
 export interface Product {
@@ -16,6 +18,9 @@ export interface Product {
   readonly package_size: number;
   readonly min_qty: number;
   readonly step: number;
+  /** Flat/base price in kuruş. Used when no tier matches the quantity. */
   readonly current_unit_price_minor: number;
+  /** Volume tiers (sorted by min_qty asc). Empty for flat-priced products. */
+  readonly price_tiers: readonly ProductPriceTier[];
   readonly active: boolean;
 }

@@ -7,10 +7,10 @@
  * Flow:
  *   1. Auth — must be a signed-in admin.
  *   2. Zod-parse the edit payload (orderEditSchema — no customer_id).
- *   3. Fetch the current order to check status + extract frozen prices.
+ *   3. Fetch the current order to check it's still editable.
  *   4. Load active products catalog.
- *   5. Enrich + validate line items (frozen prices for existing products,
- *      catalog price for newly added ones).
+ *   5. Enrich + validate line items at CURRENT pricing (tiers + the customer's
+ *      special prices) — no freezing, so preview == saved == stored total.
  *   6. Call the update_order_with_items RPC via the repository.
  *   7. Log audit row.
  *   8. Revalidate /orders + /orders/[id] routes.
@@ -19,6 +19,7 @@
 import { revalidatePath } from "next/cache";
 
 import { assertAdmin } from "@/features/auth/application/assert-admin";
+import { reconcileCustomerProductPrices } from "@/features/customers/application/customer-prices";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
 import { getOrderById } from "@/features/orders/application/get-order";
 import { orderEditSchema } from "@/features/orders/domain/order.schema";
@@ -50,7 +51,7 @@ export async function updateOrderAction(
     );
   }
 
-  // Fetch the current order to verify its status and extract frozen prices.
+  // Fetch the current order to verify its status (only pending/confirmed edit).
   const orderResult = await getOrderById(orderId);
   if (!orderResult.ok) return err(orderResult.error);
   const order = orderResult.value;
@@ -66,20 +67,9 @@ export async function updateOrderAction(
   const productsResult = await listActiveProducts();
   if (!productsResult.ok) return err(productsResult.error);
 
-  // Preserve frozen price + snapshot for products already on the order so
-  // re-editing doesn't silently reprice items the customer was quoted on.
-  // New product_keys (not in the existing order) get current catalog price.
-  const frozen = new Map(
-    order.items.map((it) => [
-      it.product_key,
-      {
-        unit_price_minor: it.unit_price_minor,
-        product_snapshot: it.product_snapshot,
-      },
-    ]),
-  );
-
-  const enriched = enrichOrderItems(parsed.data.items, productsResult.value, frozen);
+  // Editable orders always re-price at current tiers + the customer's special
+  // prices — so the editor preview, the saved order, and the totals all agree.
+  const enriched = enrichOrderItems(parsed.data.items, productsResult.value);
   if (!enriched.ok) return err(enriched.error);
 
   const result = await updateOrderWithItems({
@@ -92,6 +82,12 @@ export async function updateOrderAction(
     items: enriched.value,
   });
   if (!result.ok) return err(result.error);
+
+  // Persist any per-line special-price changes for this customer. Edit path:
+  // a cleared field reliably means "remove this special" (allowDelete).
+  await reconcileCustomerProductPrices(order.customer_id, parsed.data.items, {
+    allowDelete: true,
+  });
 
   await logAudit({
     actor_id: user.id,

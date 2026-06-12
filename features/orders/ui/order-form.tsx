@@ -7,6 +7,8 @@ import {
   createOrderAction,
   type CreateOrderActionState,
 } from "@/features/orders/application/create-order";
+import { getCustomerProductPricesAction } from "@/features/customers/application/customer-price-actions";
+import { priceOrderLine } from "@/features/products/application/pricing";
 import { CustomerTypeahead } from "@/features/orders/ui/customer-typeahead";
 import {
   ProductPicker,
@@ -40,7 +42,14 @@ export function OrderForm({ products, defaultScheduledFor }: OrderFormProps) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   const [customer, setCustomer] = useState<CustomerSearchHit | null>(null);
+  const [customerPrices, setCustomerPrices] = useState<Record<string, number>>({});
   const [items, setItems] = useState<OrderItemDraft[]>([]);
+
+  const handleCustomerChange = (c: CustomerSearchHit | null) => {
+    setCustomer(c);
+    setCustomerPrices({});
+    if (c) void getCustomerProductPricesAction(c.id).then(setCustomerPrices);
+  };
   const [scheduledFor, setScheduledFor] = useState(defaultScheduledFor);
   const [timeSlot, setTimeSlot] = useState<string>("none");
   const [paymentMethod, setPaymentMethod] = useState("cash_on_delivery");
@@ -55,7 +64,14 @@ export function OrderForm({ products, defaultScheduledFor }: OrderFormProps) {
   const subtotalMinor = items.reduce((acc, i) => {
     const p = productByKey.get(i.product_key);
     if (!p) return acc;
-    return acc + i.quantity * p.current_unit_price_minor;
+    return (
+      acc +
+      priceOrderLine(i.quantity, {
+        tiers: p.price_tiers,
+        basePriceMinor: p.current_unit_price_minor,
+        overrideUnitPriceMinor: i.unit_price_minor,
+      }).line_total_minor
+    );
   }, 0);
 
   const deliveryFeeMinor = parseTRYInput(deliveryFeeText) ?? 0;
@@ -113,9 +129,19 @@ export function OrderForm({ products, defaultScheduledFor }: OrderFormProps) {
       <section className="space-y-2">
         <Label>Müşteri</Label>
         <CustomerTypeahead
-          onChange={setCustomer}
+          onChange={handleCustomerChange}
           {...(customerError !== undefined ? { error: customerError } : {})}
         />
+        {customer ? (
+          <a
+            href={`/customers/${customer.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            → Müşteri kartı
+          </a>
+        ) : null}
       </section>
 
       <section className="space-y-2">
@@ -124,6 +150,7 @@ export function OrderForm({ products, defaultScheduledFor }: OrderFormProps) {
           products={products}
           items={items}
           onChange={setItems}
+          customerPrices={customerPrices}
           {...(itemsError !== undefined ? { error: itemsError } : {})}
         />
       </section>

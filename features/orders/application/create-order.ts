@@ -12,6 +12,7 @@
  */
 import { revalidatePath } from "next/cache";
 
+import { reconcileCustomerProductPrices } from "@/features/customers/application/customer-prices";
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
 import { orderFormSchema } from "@/features/orders/domain/order.schema";
@@ -91,6 +92,10 @@ export async function createOrderAction(
     logger.error({ code: created.error.code }, "create_order_failed");
     return { status: "error", message: created.error.message };
   }
+
+  // Persist any per-line special prices for this customer (set/cleared on the
+  // order editor). Best-effort — the order already priced correctly.
+  await reconcileCustomerProductPrices(parsed.data.customer_id, parsed.data.items);
 
   await logAudit({
     actor_id: user.id,

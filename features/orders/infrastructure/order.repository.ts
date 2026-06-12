@@ -61,6 +61,7 @@ export interface CreateOrderInput {
     product_key: string;
     quantity: number;
     unit_price_minor: number;
+    line_total_minor: number;
     product_snapshot: {
       display_name: string;
       unit: string;
@@ -405,6 +406,7 @@ export interface UpdateOrderInput {
     product_key: string;
     quantity: number;
     unit_price_minor: number;
+    line_total_minor: number;
     product_snapshot: {
       display_name: string;
       unit: string;

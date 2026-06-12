@@ -1,23 +1,28 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatTRY } from "@/shared/utils/money";
+import { priceOrderLine } from "@/features/products/application/pricing";
+import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
 import type { Product } from "@/features/products/application/list-products";
 
 export interface OrderItemDraft {
   product_key: string;
   quantity: number;
+  /** Per-customer special price (kuruş). Absent = automatic tier pricing. */
+  unit_price_minor?: number;
 }
 
 interface ProductPickerProps {
   products: Product[];
   items: OrderItemDraft[];
   onChange: (items: OrderItemDraft[]) => void;
+  /** product_key → flat special price (kuruş) for the order's customer. */
+  customerPrices?: Record<string, number>;
   error?: string | undefined;
 }
 
@@ -25,6 +30,7 @@ interface LineRowProps {
   product: Product;
   draft: OrderItemDraft;
   onQuantity: (q: number) => void;
+  onSpecial: (minor: number | undefined) => void;
   onRemove: () => void;
 }
 
@@ -33,17 +39,45 @@ function isMultipleOfStep(quantity: number, step: number): boolean {
   return Math.round(quantity * scale) % Math.round(step * scale) === 0;
 }
 
-function LineRow({ product, draft, onQuantity, onRemove }: LineRowProps) {
+function LineRow({ product, draft, onQuantity, onSpecial, onRemove }: LineRowProps) {
+  const [specialText, setSpecialText] = useState(() =>
+    draft.unit_price_minor != null
+      ? (draft.unit_price_minor / 100).toFixed(2).replace(".", ",")
+      : "",
+  );
+
   const stepInvalid = !isMultipleOfStep(draft.quantity, product.step);
   const minInvalid = draft.quantity < product.min_qty;
-  const lineTotal = draft.quantity * product.current_unit_price_minor;
+
+  const autoPriced = priceOrderLine(draft.quantity, {
+    tiers: product.price_tiers,
+    basePriceMinor: product.current_unit_price_minor,
+  });
+  const priced = priceOrderLine(draft.quantity, {
+    tiers: product.price_tiers,
+    basePriceMinor: product.current_unit_price_minor,
+    overrideUnitPriceMinor: draft.unit_price_minor,
+  });
+  const hasSpecial = draft.unit_price_minor != null;
+  // For tiered lines the exact total isn't unit × qty (e.g. 3 × ₺116,67 ≠
+  // ₺350,00); flag the unit as approximate so it doesn't read as a mistake.
+  const unitApprox =
+    Math.round(priced.unit_price_minor * draft.quantity) !== priced.line_total_minor;
+
+  const onSpecialChange = (value: string) => {
+    setSpecialText(value);
+    const trimmed = value.trim();
+    onSpecial(trimmed === "" ? undefined : (parseTRYInput(trimmed) ?? undefined));
+  };
 
   return (
     <div className="grid grid-cols-1 items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm sm:grid-cols-12">
-      <div className="sm:col-span-5">
+      <div className="sm:col-span-4">
         <p className="font-medium">{product.display_name}</p>
         <p className="text-xs text-muted-foreground">
-          {formatTRY(product.current_unit_price_minor)} / {product.unit_label}
+          {unitApprox ? "~" : ""}
+          {formatTRY(priced.unit_price_minor)} / {product.unit_label}
+          {hasSpecial ? <span className="ml-1 text-amber-600">· özel</span> : null}
         </p>
       </div>
       <div className="flex items-center gap-2 sm:col-span-3">
@@ -61,8 +95,22 @@ function LineRow({ product, draft, onQuantity, onRemove }: LineRowProps) {
         />
         <span className="text-xs text-muted-foreground">{product.unit_label}</span>
       </div>
-      <div className="flex items-center justify-between sm:col-span-4 sm:justify-end sm:gap-2">
-        <p className="font-mono text-sm sm:text-right">{formatTRY(lineTotal)}</p>
+      <div className="sm:col-span-2">
+        <Input
+          inputMode="decimal"
+          value={specialText}
+          onChange={(e) => onSpecialChange(e.target.value)}
+          placeholder={`oto ${(autoPriced.unit_price_minor / 100)
+            .toFixed(2)
+            .replace(".", ",")}`}
+          aria-label={`${product.display_name} özel fiyat`}
+          title="Bu müşteriye özel fiyat (boş = otomatik)"
+        />
+      </div>
+      <div className="flex items-center justify-between sm:col-span-3 sm:justify-end sm:gap-2">
+        <p className="font-mono text-sm sm:text-right">
+          {formatTRY(priced.line_total_minor)}
+        </p>
         <Button
           type="button"
           variant="ghost"
@@ -89,6 +137,7 @@ export function ProductPicker({
   products,
   items,
   onChange,
+  customerPrices,
   error,
 }: ProductPickerProps) {
   const productByKey = useMemo(
@@ -104,11 +153,31 @@ export function ProductPicker({
   const addItem = (key: string) => {
     const product = productByKey.get(key);
     if (!product) return;
-    onChange([...items, { product_key: key, quantity: product.min_qty }]);
+    const special = customerPrices?.[key];
+    onChange([
+      ...items,
+      special != null
+        ? { product_key: key, quantity: product.min_qty, unit_price_minor: special }
+        : { product_key: key, quantity: product.min_qty },
+    ]);
   };
 
   const setQuantity = (key: string, q: number) => {
     onChange(items.map((i) => (i.product_key === key ? { ...i, quantity: q } : i)));
+  };
+
+  const setSpecial = (key: string, minor: number | undefined) => {
+    onChange(
+      items.map((i) => {
+        if (i.product_key !== key) return i;
+        if (minor == null) {
+          const next = { ...i };
+          delete next.unit_price_minor;
+          return next;
+        }
+        return { ...i, unit_price_minor: minor };
+      }),
+    );
   };
 
   const removeItem = (key: string) => {
@@ -128,6 +197,7 @@ export function ProductPicker({
                 product={product}
                 draft={item}
                 onQuantity={(q) => setQuantity(item.product_key, q)}
+                onSpecial={(m) => setSpecial(item.product_key, m)}
                 onRemove={() => removeItem(item.product_key)}
               />
             );
