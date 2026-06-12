@@ -37,7 +37,6 @@ import {
   Undo2,
   Wallet,
   WifiOff,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -119,6 +118,31 @@ export function DriverMode({
   for (const id of optimisticReverted) deliveredIds.delete(id);
   const driverState = useDriverState(route.stops, deliveredIds);
   const geo = useGeolocation();
+
+  // Live tracking is silent now (no in-view button): if the driver already
+  // granted location permission up front (the planning page's "Konumumu kullan"
+  // pick), resume the watch automatically so the moving marker + proximity
+  // "yaklaştın" prompt keep working. If permission isn't granted we stay quiet —
+  // no prompt, no banner; the route still works with manual "Teslim Edildi".
+  const geoSupported = geo.supported;
+  const geoRequest = geo.request;
+  useEffect(() => {
+    if (!geoSupported || typeof navigator === "undefined") return;
+    const perms = navigator.permissions;
+    if (!perms?.query) return;
+    let cancelled = false;
+    perms
+      .query({ name: "geolocation" as PermissionName })
+      .then((res) => {
+        if (!cancelled && res.state === "granted") geoRequest();
+      })
+      .catch(() => {
+        /* Permissions API unavailable — stay silent. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [geoSupported, geoRequest]);
 
   const handleDelivered = (orderId: string) => {
     setActionError(null);
@@ -271,39 +295,6 @@ export function DriverMode({
           Çıkış
         </span>
       </header>
-
-      {/* Geolocation prompt banner */}
-      {geo.status === "idle" || geo.status === "prompting" ? (
-        <div className="border-b bg-muted/30 px-4 py-3">
-          <p className="mb-2 text-xs text-muted-foreground">
-            Yaklaştığında otomatik soru göstermek için konum izni gerekli.
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={geo.request}
-            disabled={geo.status === "prompting"}
-          >
-            {geo.status === "prompting" ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : null}
-            Konuma izin ver
-          </Button>
-        </div>
-      ) : null}
-      {geo.status === "denied" || geo.status === "error" ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2 border-b bg-orange-500/10 px-4 py-3 text-xs text-orange-700 dark:text-orange-300"
-        >
-          <X className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            {geo.error ?? "Konum kapalı."} Manuel olarak &quot;Teslim Edildi&quot;
-            butonuna basabilirsin.
-          </span>
-        </div>
-      ) : null}
 
       {/* Stop stepper — step backward/forward through the queue */}
       {view ? (

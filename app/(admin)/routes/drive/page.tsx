@@ -9,11 +9,23 @@ import { env } from "@/shared/env";
 import { formatHHmm, toIstanbulDateString } from "@/shared/utils/date";
 
 interface DrivePageProps {
-  searchParams: Promise<{ date?: string; start?: string }>;
+  searchParams: Promise<{
+    date?: string;
+    start?: string;
+    originLat?: string;
+    originLng?: string;
+    originName?: string;
+  }>;
 }
 
 function isYmd(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function parseCoord(v: string | undefined, min: number, max: number): number | null {
+  if (!v) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= min && n <= max ? n : null;
 }
 
 function isHHmm(value: string): boolean {
@@ -45,10 +57,22 @@ export default async function DrivePage({ searchParams }: DrivePageProps) {
     );
   }
 
+  // Start location chosen on the planning page (carried in the URL). When
+  // absent, getDayRoute falls back to the default saved location.
+  const originLat = parseCoord(params.originLat, -90, 90);
+  const originLng = parseCoord(params.originLng, -180, 180);
+  const origin =
+    originLat !== null && originLng !== null
+      ? { lat: originLat, lng: originLng }
+      : undefined;
+
   // Fetch + optimize. The route's stops include delivered ones (migration
   // 019) so re-renders mid-run still see the full sequence; the delivered
   // set below decides what's "done".
-  const routeResult = await getDayRoute(date, { startTimeIso });
+  const routeResult = await getDayRoute(date, {
+    startTimeIso,
+    ...(origin ? { origin } : {}),
+  });
   if (!routeResult.ok) {
     return (
       <DriveError title="Rota başlatılamadı">

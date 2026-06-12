@@ -24,6 +24,7 @@ import {
 } from "@/features/routing/domain/route.errors";
 import { callGoogleDirections } from "@/features/routing/infrastructure/google-directions";
 import { fetchDeliveryDetails } from "@/features/routing/infrastructure/order-delivery-details";
+import { getDefaultSavedLocation } from "@/features/routing/infrastructure/saved-location.repository";
 import { ExternalApiError } from "@/shared/errors/app-error";
 import { env } from "@/shared/env";
 import { err, isErr, ok, type Result } from "@/shared/result";
@@ -45,18 +46,28 @@ export type GetDayRouteFailure =
 export interface GetDayRouteOptions {
   /** ISO-8601 anchor for ETA computation. Default = now. */
   startTimeIso?: string;
+  /** Route start point. When omitted, falls back to the default saved
+   *  location, then the legacy env warehouse. */
+  origin?: { lat: number; lng: number };
 }
 
 export async function getDayRoute(
   targetDate: string,
   options: GetDayRouteOptions = {},
 ): Promise<Result<OptimizedRoute, GetDayRouteFailure>> {
-  const warehouseLat = env.WAREHOUSE_LAT;
-  const warehouseLng = env.WAREHOUSE_LNG;
-  if (warehouseLat === undefined || warehouseLng === undefined) {
+  // Resolve the origin: explicit pick → default saved location → legacy env.
+  let origin = options.origin;
+  if (!origin) {
+    const def = await getDefaultSavedLocation();
+    if (def) {
+      origin = { lat: def.lat, lng: def.lng };
+    } else if (env.WAREHOUSE_LAT !== undefined && env.WAREHOUSE_LNG !== undefined) {
+      origin = { lat: env.WAREHOUSE_LAT, lng: env.WAREHOUSE_LNG };
+    }
+  }
+  if (!origin) {
     return err(new WarehouseNotConfiguredError());
   }
-  const origin = { lat: warehouseLat, lng: warehouseLng };
 
   const ordersResult = await getDayOrders(targetDate);
   if (isErr(ordersResult)) return ordersResult;

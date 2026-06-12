@@ -1,5 +1,6 @@
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
+import { listSavedLocations } from "@/features/routing/application/list-saved-locations";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
@@ -12,7 +13,20 @@ import {
 } from "@/shared/utils/date";
 
 interface RoutesPageProps {
-  searchParams: Promise<{ date?: string; optimize?: string; start?: string }>;
+  searchParams: Promise<{
+    date?: string;
+    optimize?: string;
+    start?: string;
+    originLat?: string;
+    originLng?: string;
+    originName?: string;
+  }>;
+}
+
+function parseCoord(v: string | undefined, min: number, max: number): number | null {
+  if (!v) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= min && n <= max ? n : null;
 }
 
 function isYmd(value: string): boolean {
@@ -67,15 +81,24 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
   const startTimeIso = istanbulIsoFromDateAndTime(date, startHHmm);
 
   const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
-  const warehouseLat = env.WAREHOUSE_LAT;
-  const warehouseLng = env.WAREHOUSE_LNG;
-  const warehouseConfigured =
-    warehouseLat !== undefined && warehouseLng !== undefined;
 
-  // Always fetch the day's orders for the list/header counts. If the user
-  // has clicked Optimize, run that too — separate fetches keep the UI
-  // robust when Google fails (we still show the unoptimized list).
-  const ordersResult = await getDayOrders(date);
+  // Selected start location (origin) — a required pick before optimizing. Comes
+  // from the saved-locations picker or "use my location", carried in the URL.
+  const originLat = parseCoord(params.originLat, -90, 90);
+  const originLng = parseCoord(params.originLng, -180, 180);
+  const origin =
+    originLat !== null && originLng !== null
+      ? { lat: originLat, lng: originLng }
+      : null;
+  const originName = params.originName ?? null;
+
+  // Always fetch the day's orders + saved locations for the list/header/picker.
+  // If the user has clicked Optimize AND chosen an origin, run that too —
+  // separate fetches keep the UI robust when Google fails.
+  const [ordersResult, savedLocationsResult] = await Promise.all([
+    getDayOrders(date),
+    listSavedLocations(),
+  ]);
   if (!ordersResult.ok) {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-6 text-sm text-destructive">
@@ -84,19 +107,26 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
     );
   }
   const dayOrders = ordersResult.value;
+  const savedLocations = savedLocationsResult.ok ? savedLocationsResult.value : [];
 
   const routeResult =
-    wantsOptimize && warehouseConfigured && dayOrders.length > 0
-      ? await getDayRoute(date, { startTimeIso })
+    wantsOptimize && origin && dayOrders.length > 0
+      ? await getDayRoute(date, { startTimeIso, origin })
       : null;
   const optimized = routeResult?.ok ? routeResult.value : null;
   const optimizeError =
     routeResult && !routeResult.ok ? routeResult.error.message : null;
 
-  // Build the /routes/drive URL so the CTA carries the same date + start.
+  // Build the /routes/drive URL so the CTA carries the same date + start +
+  // origin (so the drive view re-optimizes from the same start point).
   const driveQuery = new URLSearchParams();
   driveQuery.set("date", date);
   driveQuery.set("start", startHHmm);
+  if (origin) {
+    driveQuery.set("originLat", String(origin.lat));
+    driveQuery.set("originLng", String(origin.lng));
+  }
+  if (originName) driveQuery.set("originName", originName);
 
   return (
     <div className="space-y-5">
@@ -129,12 +159,15 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
         startHHmm={startHHmm}
         optimized={!!optimized}
         hasOrders={dayOrders.length > 0}
+        savedLocations={savedLocations}
+        originName={originName}
+        hasOrigin={!!origin}
       />
 
-      {!warehouseConfigured ? (
+      {savedLocations.length === 0 ? (
         <div className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-4 py-3 text-sm text-orange-700 dark:text-orange-300">
-          Depo koordinatları .env&apos;de eksik. WAREHOUSE_LAT ve WAREHOUSE_LNG
-          değerleri olmadan rota optimize edilemez.
+          Kayıtlı başlangıç konumu yok. &quot;Konumumu kullan&quot; ile devam
+          edebilirsin.
         </div>
       ) : null}
 
