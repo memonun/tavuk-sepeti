@@ -71,6 +71,7 @@ import { useCellSelection } from "@/components/data-grid/hooks/use-cell-selectio
 import { useClipboard } from "@/components/data-grid/hooks/use-clipboard";
 import { useColumnPrefs } from "@/components/data-grid/hooks/use-column-prefs";
 import { useOptimisticRows } from "@/components/data-grid/hooks/use-optimistic-rows";
+import { useVirtualizedRows } from "@/components/data-grid/hooks/use-virtualized-rows";
 import { computeFillWrites } from "@/components/data-grid/fill";
 import { parseClipboardTable } from "@/components/data-grid/paste/parse-tsv";
 import {
@@ -278,7 +279,14 @@ export function DataGrid<TRow extends object, TPatch>({
 
   // ---- Refs / focus management -------------------------------------------
 
-  const parentRef = useRef<HTMLDivElement | null>(null);
+  // Row virtualization: only the ~window of rows is in the DOM, so the grid
+  // renders thousands of rows at 60fps (Excel-feel). Rows are 32px (h-8);
+  // measureElement corrects variable heights (grouped/expanded rows).
+  const { parentRef, virtualizer } = useVirtualizedRows({
+    count: tableRows.length,
+    estimateSize: 32,
+    overscan: 12,
+  });
   const cellRefs = useRef(new Map<string, HTMLTableCellElement>());
   const registerCell = useCallback(
     (key: string, node: HTMLTableCellElement | null) => {
@@ -376,8 +384,17 @@ export function DataGrid<TRow extends object, TPatch>({
     if (editingCell) return;
     const active = selection.activeCell;
     if (!active) return;
-    const node = cellRefs.current.get(cellKey(active.rowId, active.columnId));
-    node?.focus({ preventScroll: false });
+    const key = cellKey(active.rowId, active.columnId);
+    // The active cell may be outside the virtual window; moveActive scrolls it
+    // into view and it mounts next frame, so focus on rAF if it's not here yet.
+    // preventScroll: the virtualizer owns scrolling — don't let focus fight it.
+    const focusNode = () => cellRefs.current.get(key)?.focus({ preventScroll: true });
+    if (cellRefs.current.has(key)) {
+      focusNode();
+      return;
+    }
+    const raf = requestAnimationFrame(focusNode);
+    return () => cancelAnimationFrame(raf);
   }, [selection.activeCell, editingCell]);
 
   // Drag-to-select: clear the flag on any mouseup so selection drag ends.
@@ -458,9 +475,12 @@ export function DataGrid<TRow extends object, TPatch>({
       const nextRowId = visibleRowIds[nextR];
       const nextColId = visibleColIds[nextC];
       if (!nextRowId || !nextColId) return;
+      // Bring the (possibly off-window) target row into view so its cell can
+      // mount + receive focus.
+      virtualizer.scrollToIndex(nextR, { align: "auto" });
       selection.selectCell({ rowId: nextRowId, columnId: nextColId });
     },
-    [selection, visibleRowIds, visibleColIds],
+    [selection, visibleRowIds, visibleColIds, virtualizer],
   );
 
   // ---- Copy --------------------------------------------------------------
@@ -636,6 +656,17 @@ export function DataGrid<TRow extends object, TPatch>({
 
   // ---- Render ------------------------------------------------------------
 
+  // Virtual window: render only these rows; pad above/below with spacer <tr>s
+  // so the scrollbar + row offsets stay correct (keeps <table> semantics, so
+  // pinning/sticky header survive — see pinning-styles.ts).
+  const virtualItems = virtualizer.getVirtualItems();
+  const virtualTotalSize = virtualizer.getTotalSize();
+  const padTop = virtualItems.length > 0 ? virtualItems[0]!.start : 0;
+  const padBottom =
+    virtualItems.length > 0
+      ? virtualTotalSize - virtualItems[virtualItems.length - 1]!.end
+      : 0;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5">
       {/* Single-row Notion-style toolbar: filter chips on the left,
@@ -804,7 +835,17 @@ export function DataGrid<TRow extends object, TPatch>({
                 </td>
               </tr>
             ) : null}
-            {tableRows.map((row) => {
+            {padTop > 0 ? (
+              <tr aria-hidden>
+                <td
+                  colSpan={colCount}
+                  style={{ height: padTop, padding: 0, border: 0 }}
+                />
+              </tr>
+            ) : null}
+            {virtualItems.map((virtualRow) => {
+              const row = tableRows[virtualRow.index];
+              if (!row) return null;
               // Grouped row: render a single full-width header row with
               // chevron + label + count, no editable cells.
               if (row.getIsGrouped()) {
@@ -820,7 +861,12 @@ export function DataGrid<TRow extends object, TPatch>({
                     ? "(boş)"
                     : String(groupValue);
                 return (
-                  <tr key={row.id} className="bg-muted/40">
+                  <tr
+                    key={row.id}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualRow.index}
+                    className="bg-muted/40"
+                  >
                     <td
                       colSpan={colCount}
                       className="h-7 cursor-pointer border-b border-border px-2 text-left text-xs font-medium hover:bg-muted/60"
@@ -846,6 +892,8 @@ export function DataGrid<TRow extends object, TPatch>({
               return (
               <Fragment key={row.id}>
                 <tr
+                  ref={virtualizer.measureElement}
+                  data-index={virtualRow.index}
                   className={cn(
                     "group",
                     isRowSelected && "bg-blue-50/50 dark:bg-blue-950/20",
@@ -1052,6 +1100,14 @@ export function DataGrid<TRow extends object, TPatch>({
               </Fragment>
               );
             })}
+            {padBottom > 0 ? (
+              <tr aria-hidden>
+                <td
+                  colSpan={colCount}
+                  style={{ height: padBottom, padding: 0, border: 0 }}
+                />
+              </tr>
+            ) : null}
             {/* "+ Yeni satır" sentinel — Notion-style always-visible footer.
                 Clicking it calls onAddRow to insert a blank row the admin
                 can complete inline or via the detail panel. */}
