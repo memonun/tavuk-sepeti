@@ -50,6 +50,14 @@ const WATCH_OPTS: PositionOptions = {
   timeout: 15_000,
 };
 
+// Fallback when high-accuracy times out / is unavailable (common on desktop or
+// weak GPS): network-based location is faster and accepts a stale fix.
+const LOW_ACCURACY_OPTS: PositionOptions = {
+  enableHighAccuracy: false,
+  maximumAge: 60_000,
+  timeout: 25_000,
+};
+
 export function useGeolocation(): UseGeolocationResult {
   const supported =
     typeof window !== "undefined" && "geolocation" in window.navigator;
@@ -73,13 +81,15 @@ export function useGeolocation(): UseGeolocationResult {
   const onError = useCallback((err: GeolocationPositionError) => {
     if (err.code === err.PERMISSION_DENIED) {
       setStatus("denied");
-      setError("Konum izni reddedildi.");
+      setError(
+        "Konum izni reddedildi. Adres çubuğundaki kilit/konum simgesinden izni 'İzin ver' yapıp tekrar dene.",
+      );
       return;
     }
     setStatus("error");
     setError(
       err.code === err.POSITION_UNAVAILABLE
-        ? "Konum alınamadı (sinyal yok?)."
+        ? "Konum alınamadı — cihazın konum servisini (GPS) aç ve tekrar dene."
         : err.code === err.TIMEOUT
           ? "Konum çok geç geldi, tekrar dene."
           : "Konum hatası.",
@@ -118,6 +128,44 @@ export function useGeolocation(): UseGeolocationResult {
     setStatus("prompting");
     setError(null);
 
+    const startWatch = () => {
+      try {
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          onSuccess,
+          onError,
+          WATCH_OPTS,
+        );
+      } catch {
+        // A single fix already succeeded; live tracking just won't update.
+      }
+    };
+
+    // On a high-accuracy timeout / position-unavailable, retry ONCE with
+    // network-based location before surfacing the error — desktops and weak-GPS
+    // phones often can't get a high-accuracy fix but resolve fine at low
+    // accuracy. Permission-denied is terminal (no retry).
+    const onFirstError = (err: GeolocationPositionError) => {
+      if (
+        err.code === err.PERMISSION_DENIED ||
+        watchIdRef.current !== null
+      ) {
+        onError(err);
+        return;
+      }
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            onSuccess(pos);
+            startWatch();
+          },
+          onError,
+          LOW_ACCURACY_OPTS,
+        );
+      } catch {
+        onError(err);
+      }
+    };
+
     // First fix triggers the permission prompt; subsequent ones come via
     // watchPosition. Wrap in try/catch: a few engines throw synchronously when
     // the API is present but blocked (insecure context / disabled by policy)
@@ -126,18 +174,9 @@ export function useGeolocation(): UseGeolocationResult {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           onSuccess(pos);
-          // Start the live watch only after we have permission confirmed.
-          try {
-            watchIdRef.current = navigator.geolocation.watchPosition(
-              onSuccess,
-              onError,
-              WATCH_OPTS,
-            );
-          } catch {
-            // A single fix already succeeded; live tracking just won't update.
-          }
+          startWatch();
         },
-        onError,
+        onFirstError,
         WATCH_OPTS,
       );
     } catch {
