@@ -26,7 +26,9 @@ export type AuditAction =
   | "order.transitioned"
   | "order.updated"
   | "order.deleted"
-  | "product.updated";
+  | "product.updated"
+  | "payment.recorded"
+  | "payment.deleted";
 
 export type AuditEntityType = "customer" | "order" | "address" | "product";
 

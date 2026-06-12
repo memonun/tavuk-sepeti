@@ -155,6 +155,45 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_product_prices: {
+        Row: {
+          created_at: string
+          customer_id: string
+          product_key: string
+          unit_price_minor: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          product_key: string
+          unit_price_minor: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          product_key?: string
+          unit_price_minor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_product_prices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_prices_product_key_fkey"
+            columns: ["product_key"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       customer_views: {
         Row: {
           config: Json
@@ -350,6 +389,47 @@ export type Database = {
           },
         ]
       }
+      order_payments: {
+        Row: {
+          amount_minor: number
+          channel: Database["public"]["Enums"]["payment_channel"]
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          order_id: string
+          paid_at: string
+        }
+        Insert: {
+          amount_minor: number
+          channel: Database["public"]["Enums"]["payment_channel"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          order_id: string
+          paid_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          channel?: Database["public"]["Enums"]["payment_channel"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          order_id?: string
+          paid_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_status_events: {
         Row: {
           actor_id: string | null
@@ -390,6 +470,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          amount_paid_minor: number
           created_at: string
           created_by: string | null
           currency: string
@@ -412,6 +493,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          amount_paid_minor?: number
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -434,6 +516,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          amount_paid_minor?: number
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -469,6 +552,38 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "recurring_templates"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_price_tiers: {
+        Row: {
+          created_at: string
+          min_qty: number
+          product_key: string
+          unit_price_minor: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          min_qty: number
+          product_key: string
+          unit_price_minor: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          min_qty?: number
+          product_key?: string
+          unit_price_minor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_price_tiers_product_key_fkey"
+            columns: ["product_key"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["key"]
           },
         ]
       }
@@ -758,6 +873,12 @@ export type Database = {
             }
             Returns: string
           }
+      confirm_route_orders: {
+        Args: { p_actor_id: string; p_order_ids: string[] }
+        Returns: {
+          order_id: string
+        }[]
+      }
       count_orders_by_customers: {
         Args: { p_customer_ids: string[] }
         Returns: {
@@ -1004,6 +1125,10 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      recompute_order_payment: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       st_3dclosestpoint: {
@@ -1637,8 +1762,9 @@ export type Database = {
       customer_status: "active" | "inactive" | "blocked"
       order_source: "admin_manual" | "customer_web" | "recurring_generated"
       order_status: "pending" | "confirmed" | "delivered" | "cancelled"
+      payment_channel: "cash" | "bank_transfer" | "card"
       payment_method: "cash_on_delivery" | "bank_transfer"
-      payment_status: "pending" | "paid" | "failed" | "refunded"
+      payment_status: "pending" | "paid" | "failed" | "refunded" | "partial"
       recurring_cadence: "weekly" | "biweekly" | "monthly"
       time_slot: "morning" | "afternoon" | "evening"
       user_role: "admin" | "operator" | "viewer"
@@ -1795,8 +1921,9 @@ export const Constants = {
       customer_status: ["active", "inactive", "blocked"],
       order_source: ["admin_manual", "customer_web", "recurring_generated"],
       order_status: ["pending", "confirmed", "delivered", "cancelled"],
+      payment_channel: ["cash", "bank_transfer", "card"],
       payment_method: ["cash_on_delivery", "bank_transfer"],
-      payment_status: ["pending", "paid", "failed", "refunded"],
+      payment_status: ["pending", "paid", "failed", "refunded", "partial"],
       recurring_cadence: ["weekly", "biweekly", "monthly"],
       time_slot: ["morning", "afternoon", "evening"],
       user_role: ["admin", "operator", "viewer"],

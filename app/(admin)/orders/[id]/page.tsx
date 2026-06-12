@@ -6,6 +6,7 @@ import {
   getOrderById,
   getOrderEvents,
 } from "@/features/orders/application/get-order";
+import { getOrderPaymentsAction } from "@/features/orders/application/payments";
 import { listActiveProducts } from "@/features/products/application/list-products";
 import { OrderDetailPanel } from "@/features/orders/ui/order-detail-panel";
 
@@ -16,11 +17,13 @@ interface OrderDetailPageProps {
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
   const { id } = await params;
 
-  const [orderResult, eventsResult, productsResult] = await Promise.all([
-    getOrderById(id),
-    getOrderEvents(id),
-    listActiveProducts(),
-  ]);
+  const [orderResult, eventsResult, productsResult, payments] =
+    await Promise.all([
+      getOrderById(id),
+      getOrderEvents(id),
+      listActiveProducts(),
+      getOrderPaymentsAction(id),
+    ]);
 
   if (!orderResult.ok) notFound();
   const order = orderResult.value;
@@ -42,6 +45,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       customerName={customerName}
       events={events}
       customerPrices={Object.fromEntries(customerPriceMap)}
+      payments={payments}
     />
   );
 }

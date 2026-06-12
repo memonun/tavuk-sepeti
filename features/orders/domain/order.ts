@@ -10,7 +10,12 @@ import type { Coordinate } from "@/shared/geo/coordinate";
 export type OrderStatus = "pending" | "confirmed" | "delivered" | "cancelled";
 export type TimeSlot = "morning" | "afternoon" | "evening";
 export type PaymentMethod = "cash_on_delivery" | "bank_transfer";
-export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
+export type PaymentStatus =
+  | "pending"
+  | "partial"
+  | "paid"
+  | "failed"
+  | "refunded";
 export type OrderSource =
   | "admin_manual"
   | "customer_web"
@@ -86,6 +91,8 @@ export interface Order {
   // Payment
   readonly payment_method: PaymentMethod;
   readonly payment_status: PaymentStatus;
+  /** Sum of recorded payments (kuruş). Balance = total_minor − this. */
+  readonly amount_paid_minor: number;
   readonly paid_at: Date | null;
 
   // Future-proofing
@@ -109,6 +116,7 @@ export interface OrderListItem {
   readonly time_slot: TimeSlot | null;
   readonly total_minor: number;
   readonly payment_status: PaymentStatus;
+  readonly amount_paid_minor: number;
   readonly delivery_notes: string | null;
   readonly delivery_fee_minor: number;
   readonly created_at: Date;

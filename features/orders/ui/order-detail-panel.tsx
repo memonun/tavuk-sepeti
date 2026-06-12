@@ -34,10 +34,12 @@ import {
   type OrderItemDraft,
 } from "@/features/orders/ui/product-picker";
 import { OrderStatusActions } from "@/features/orders/ui/order-status-actions";
+import { OrderPayments } from "@/features/orders/ui/order-payments";
 import { priceOrderLine } from "@/features/products/application/pricing";
 import { formatDate, formatDateTime } from "@/shared/utils/date";
 import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
+import type { OrderPayment } from "@/features/orders/domain/payment";
 import type { Product } from "@/features/products/application/list-products";
 import type {
   Order,
@@ -54,6 +56,7 @@ interface OrderDetailPanelProps {
   readonly events: OrderStatusEvent[];
   /** product_key → flat special price (kuruş) for this order's customer. */
   readonly customerPrices?: Record<string, number>;
+  readonly payments: OrderPayment[];
 }
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -81,6 +84,7 @@ const TIME_SLOT_LABEL: Record<TimeSlot, string> = {
 
 const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   pending: "Bekliyor",
+  partial: "Kısmi",
   paid: "Ödendi",
   failed: "Başarısız",
   refunded: "İade",
@@ -95,6 +99,7 @@ export function OrderDetailPanel({
   customerName,
   events,
   customerPrices = {},
+  payments,
 }: OrderDetailPanelProps) {
   const router = useRouter();
   const [order, setOrder] = useState<Order>(initialOrder);
@@ -147,6 +152,15 @@ export function OrderDetailPanel({
       {/* The editable form shows its own live totals; the stored block would
           be stale against unsaved changes, so only show it for closed orders. */}
       {editable ? null : <TotalsBlock order={order} />}
+
+      <OrderPayments
+        orderId={initialOrder.id}
+        totalMinor={initialOrder.total_minor}
+        amountPaidMinor={initialOrder.amount_paid_minor}
+        paymentMethod={initialOrder.payment_method}
+        scheduledFor={initialOrder.scheduled_for}
+        payments={payments}
+      />
 
       <DeliveryAddress order={order} />
 
