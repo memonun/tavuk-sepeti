@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { toIstanbulDateString } from "@/shared/utils/date";
 import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
 import type { RouteStop } from "@/features/routing/domain/route";
@@ -87,7 +88,7 @@ export function DeliveryPaymentDialog({ stop, onClose }: DeliveryPaymentDialogPr
         order_id: stop.order_id,
         amount_minor: amount,
         channel,
-        paid_at: new Date().toISOString().slice(0, 10),
+        paid_at: toIstanbulDateString(new Date()),
       }),
       "Ödeme kaydedildi.",
     );

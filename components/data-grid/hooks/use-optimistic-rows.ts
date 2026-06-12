@@ -69,22 +69,38 @@ export function useOptimisticRows<TRow extends object, TPatch>({
   const inFlight = useRef<Map<string, number>>(new Map());
   const prevBase = useRef(base);
 
-  // When a fresh server snapshot lands (router.refresh / navigation), it is
-  // authoritative: drop every SETTLED optimistic patch so the grid shows the
-  // canonical values. In-flight patches are preserved.
+  // When a fresh server snapshot lands (router.refresh / navigation), drop a
+  // SETTLED optimistic patch only once that snapshot actually REFLECTS the write
+  // (every patched field already matches the base row). A snapshot that predates
+  // the write — e.g. a peer-edit refresh or the realtime coalesce window landing
+  // just after the action resolved — would otherwise flash the cell back to its
+  // old value; instead we retain the patch until a snapshot catches up.
+  // In-flight patches are always preserved.
   useEffect(() => {
     if (prevBase.current === base) return;
     prevBase.current = base;
     setPatches((cur) => {
+      if (Object.keys(cur).length === 0) return cur;
+      const baseById = new Map(base.map((row) => [rowId(row), row]));
       const keep: Record<string, OptimisticPatch<TRow>> = {};
       let dropped = false;
       for (const [id, patch] of Object.entries(cur)) {
-        if ((inFlight.current.get(id) ?? 0) > 0) keep[id] = patch;
-        else dropped = true;
+        if ((inFlight.current.get(id) ?? 0) > 0) {
+          keep[id] = patch;
+          continue;
+        }
+        const baseRow = baseById.get(id) as Record<string, unknown> | undefined;
+        const reflected =
+          baseRow != null &&
+          Object.entries(patch.partial).every(([k, v]) =>
+            Object.is(baseRow[k], v),
+          );
+        if (reflected) dropped = true; // canonical now matches → safe to drop
+        else keep[id] = patch; // snapshot is stale → keep the optimistic value
       }
       return dropped ? keep : cur;
     });
-  }, [base]);
+  }, [base, rowId]);
 
   const rows = useMemo<ReadonlyArray<TRow>>(() => {
     if (Object.keys(patches).length === 0) return base;

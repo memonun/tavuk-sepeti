@@ -70,8 +70,11 @@ export function useCustomersRealtime(
 
   const markLocalWrite = useCallback(() => {
     lastLocalWrite.current = Date.now();
-    scheduleRefreshRef.current?.();
-  }, []);
+    // Reconcile even with no Realtime echo; if the subscription is disabled,
+    // refresh directly (revalidatePath was removed from the cell action).
+    if (scheduleRefreshRef.current) scheduleRefreshRef.current();
+    else router.refresh();
+  }, [router]);
 
   useEffect(() => {
     if (!enabled) return;

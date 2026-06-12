@@ -70,8 +70,12 @@ export function useOrdersRealtime(
   const markLocalWrite = useCallback(() => {
     lastLocalWrite.current = Date.now();
     // Schedule the deferred reconcile even if Realtime never echoes the write.
-    scheduleRefreshRef.current?.();
-  }, []);
+    // If the subscription is disabled (no scheduler), reconcile directly —
+    // otherwise, with revalidatePath removed from the cell action, the grid
+    // would never refetch.
+    if (scheduleRefreshRef.current) scheduleRefreshRef.current();
+    else router.refresh();
+  }, [router]);
 
   useEffect(() => {
     if (!enabled) return;

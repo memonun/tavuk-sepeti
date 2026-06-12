@@ -679,13 +679,27 @@ export function DataGrid<TRow extends object, TPatch>({
   // Virtual window: render only these rows; pad above/below with spacer <tr>s
   // so the scrollbar + row offsets stay correct (keeps <table> semantics, so
   // pinning/sticky header survive — see pinning-styles.ts).
+  // Windowing is disabled while any row is expanded: an expansion <tr> is a
+  // sibling the virtualizer doesn't measure, so its height would corrupt the
+  // scroll offsets. Expansion is a focused, transient action, so rendering the
+  // (bounded) full list during it is an acceptable trade for correct layout.
+  const hasExpandedRows =
+    expanded === true ||
+    (typeof expanded === "object" &&
+      expanded !== null &&
+      Object.keys(expanded).length > 0);
+  const useWindowing = !hasExpandedRows;
   const virtualItems = virtualizer.getVirtualItems();
   const virtualTotalSize = virtualizer.getTotalSize();
-  const padTop = virtualItems.length > 0 ? virtualItems[0]!.start : 0;
+  const padTop =
+    useWindowing && virtualItems.length > 0 ? virtualItems[0]!.start : 0;
   const padBottom =
-    virtualItems.length > 0
+    useWindowing && virtualItems.length > 0
       ? virtualTotalSize - virtualItems[virtualItems.length - 1]!.end
       : 0;
+  const renderRows = useWindowing
+    ? virtualItems.map((vi) => ({ row: tableRows[vi.index], index: vi.index }))
+    : tableRows.map((row, index) => ({ row, index }));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5">
@@ -877,8 +891,7 @@ export function DataGrid<TRow extends object, TPatch>({
                 />
               </tr>
             ) : null}
-            {virtualItems.map((virtualRow) => {
-              const row = tableRows[virtualRow.index];
+            {renderRows.map(({ row, index: rowIndex }) => {
               if (!row) return null;
               // Grouped row: render a single full-width header row with
               // chevron + label + count, no editable cells.
@@ -897,8 +910,8 @@ export function DataGrid<TRow extends object, TPatch>({
                 return (
                   <tr
                     key={row.id}
-                    ref={virtualizer.measureElement}
-                    data-index={virtualRow.index}
+                    ref={useWindowing ? virtualizer.measureElement : undefined}
+                    data-index={rowIndex}
                     className="bg-muted/40"
                   >
                     <td
@@ -926,8 +939,8 @@ export function DataGrid<TRow extends object, TPatch>({
               return (
               <Fragment key={row.id}>
                 <tr
-                  ref={virtualizer.measureElement}
-                  data-index={virtualRow.index}
+                  ref={useWindowing ? virtualizer.measureElement : undefined}
+                  data-index={rowIndex}
                   className={cn(
                     "group",
                     isRowSelected && "bg-blue-50/50 dark:bg-blue-950/20",
