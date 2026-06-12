@@ -6,6 +6,7 @@ import {
   LogOut,
   Map,
   Package,
+  Tags,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/", label: "Panel", icon: LayoutDashboard, exact: true },
   { href: "/customers", label: "Müşteriler", icon: Users, exact: false },
   { href: "/orders", label: "Siparişler", icon: Package, exact: false },
+  { href: "/products", label: "Ürünler", icon: Tags, exact: false },
   { href: "/map", label: "Harita", icon: Map, exact: false },
   { href: "/routes", label: "Rota", icon: CalendarRange, exact: false },
 ] as const;

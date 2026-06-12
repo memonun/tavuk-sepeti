@@ -10,8 +10,8 @@
  * same regions read-only (lifted from the retired order-detail.tsx).
  *
  * The local `order` state is seeded from the prop and replaced on a successful
- * save so the panel reflects the fresh aggregate (recomputed totals, frozen
- * prices) without a full reload; `router.refresh()` updates the grid behind it.
+ * save so the panel reflects the fresh aggregate (server-recomputed totals)
+ * without a full reload; `router.refresh()` updates the grid behind it.
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,6 +34,7 @@ import {
   type OrderItemDraft,
 } from "@/features/orders/ui/product-picker";
 import { OrderStatusActions } from "@/features/orders/ui/order-status-actions";
+import { priceOrderLine } from "@/features/products/application/pricing";
 import { formatDate, formatDateTime } from "@/shared/utils/date";
 import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
@@ -51,6 +52,8 @@ interface OrderDetailPanelProps {
   readonly products: Product[];
   readonly customerName: string;
   readonly events: OrderStatusEvent[];
+  /** product_key → flat special price (kuruş) for this order's customer. */
+  readonly customerPrices?: Record<string, number>;
 }
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -91,6 +94,7 @@ export function OrderDetailPanel({
   products,
   customerName,
   events,
+  customerPrices = {},
 }: OrderDetailPanelProps) {
   const router = useRouter();
   const [order, setOrder] = useState<Order>(initialOrder);
@@ -130,6 +134,7 @@ export function OrderDetailPanel({
         <OrderEditForm
           order={order}
           products={products}
+          customerPrices={customerPrices}
           onSaved={(fresh) => {
             setOrder(fresh);
             router.refresh();
@@ -139,7 +144,9 @@ export function OrderDetailPanel({
         <ReadonlyItems order={order} />
       )}
 
-      <TotalsBlock order={order} />
+      {/* The editable form shows its own live totals; the stored block would
+          be stale against unsaved changes, so only show it for closed orders. */}
+      {editable ? null : <TotalsBlock order={order} />}
 
       <DeliveryAddress order={order} />
 
@@ -151,6 +158,7 @@ export function OrderDetailPanel({
 interface OrderEditFormProps {
   readonly order: Order;
   readonly products: Product[];
+  readonly customerPrices: Record<string, number>;
   readonly onSaved: (fresh: Order) => void;
 }
 
@@ -160,13 +168,25 @@ interface OrderEditFormProps {
  * On success the parent re-seeds its `order` state via `onSaved`, and we
  * re-seed our own `items` from the fresh aggregate.
  */
-function OrderEditForm({ order, products, onSaved }: OrderEditFormProps) {
+function OrderEditForm({
+  order,
+  products,
+  customerPrices,
+  onSaved,
+}: OrderEditFormProps) {
   const [saving, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // Prefill each line's "Özel fiyat" from the customer's persisted special
+  // (not the frozen line price) so editing it adjusts the customer's price.
   const [items, setItems] = useState<OrderItemDraft[]>(() =>
-    order.items.map((i) => ({ product_key: i.product_key, quantity: i.quantity })),
+    order.items.map((i) => {
+      const special = customerPrices[i.product_key];
+      return special != null
+        ? { product_key: i.product_key, quantity: i.quantity, unit_price_minor: special }
+        : { product_key: i.product_key, quantity: i.quantity };
+    }),
   );
   const [scheduledFor, setScheduledFor] = useState(order.scheduled_for);
   const [timeSlot, setTimeSlot] = useState<string>(order.time_slot ?? NO_TIME_SLOT);
@@ -185,7 +205,14 @@ function OrderEditForm({ order, products, onSaved }: OrderEditFormProps) {
   const subtotalMinor = items.reduce((acc, i) => {
     const p = productByKey.get(i.product_key);
     if (!p) return acc;
-    return acc + i.quantity * p.current_unit_price_minor;
+    return (
+      acc +
+      priceOrderLine(i.quantity, {
+        tiers: p.price_tiers,
+        basePriceMinor: p.current_unit_price_minor,
+        overrideUnitPriceMinor: i.unit_price_minor,
+      }).line_total_minor
+    );
   }, 0);
   const previewTotalMinor = subtotalMinor + deliveryFeeMinor;
 
@@ -227,7 +254,12 @@ function OrderEditForm({ order, products, onSaved }: OrderEditFormProps) {
     <section className="space-y-4">
       <div className="space-y-2">
         <Label>Ürünler</Label>
-        <ProductPicker products={products} items={items} onChange={setItems} />
+        <ProductPicker
+          products={products}
+          items={items}
+          onChange={setItems}
+          customerPrices={customerPrices}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -296,10 +328,16 @@ function OrderEditForm({ order, products, onSaved }: OrderEditFormProps) {
         </div>
       </div>
 
-      <p className="text-right text-xs text-muted-foreground">
-        Ara toplam {formatTRY(subtotalMinor)} · Toplam{" "}
-        <span className="font-mono">{formatTRY(previewTotalMinor)}</span>
-      </p>
+      <dl className="grid grid-cols-2 gap-1 rounded-lg border bg-card p-4 text-sm">
+        <dt className="text-muted-foreground">Ara toplam</dt>
+        <dd className="text-right font-mono">{formatTRY(subtotalMinor)}</dd>
+        <dt className="text-muted-foreground">Teslimat</dt>
+        <dd className="text-right font-mono">{formatTRY(deliveryFeeMinor)}</dd>
+        <dt className="font-medium">Toplam</dt>
+        <dd className="text-right font-mono font-semibold">
+          {formatTRY(previewTotalMinor)}
+        </dd>
+      </dl>
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">

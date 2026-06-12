@@ -1,11 +1,17 @@
 /**
  * Shared pricing & validation helpers for order line items.
  *
- * Extracted from create-order.ts so the same enrich+validate logic
- * can be reused by updateOrderAction (which needs frozen prices for
- * items already on the order) without duplicating the step/min-qty
- * checks.
+ * Pricing for an editable order is always computed from CURRENT pricing:
+ * an explicit per-line price (the "Özel fiyat" field — a per-customer special
+ * price) wins; otherwise the product's volume tiers / flat base apply. There
+ * is no per-line price freezing — what the editor previews is exactly what is
+ * saved, and the stored total always reflects current pricing. (Delivered /
+ * cancelled orders are immutable, so they keep their last-saved figures.)
+ *
+ * The line total is exact (round once); the unit price is the rounded
+ * per-unit figure stored for the record.
  */
+import { priceOrderLine } from "@/features/products/application/pricing";
 import { ValidationError } from "@/shared/errors/app-error";
 import { err, ok, type Result } from "@/shared/result";
 
@@ -15,6 +21,7 @@ export interface EnrichedOrderItem {
   product_key: string;
   quantity: number;
   unit_price_minor: number;
+  line_total_minor: number;
   product_snapshot: {
     display_name: string;
     unit: string;
@@ -33,34 +40,18 @@ export function isMultipleOfStep(quantity: number, step: number): boolean {
 }
 
 /**
- * Validate and enrich a list of raw order item inputs against the
- * active product catalog.
- *
- * @param items     Raw items (product_key + quantity, optionally unit_price_minor).
- * @param products  Active catalog — fetched once by the caller.
- * @param frozen    Optional map of product_key → frozen price + snapshot.
- *                  Used when re-editing an existing order so we don't
- *                  override the price that was locked at create time.
- *                  New product_keys (not in frozen) fall back to the
- *                  catalog price.
- *
- * Returns `ok(EnrichedOrderItem[])` or `err(ValidationError)` on the
- * first failing item.
+ * Validate and enrich a list of raw order item inputs against the active
+ * product catalog, computing each line's price from its (optional) special
+ * price or the product's tiers.
  */
 export function enrichOrderItems(
   items: ReadonlyArray<{
     product_key: string;
     quantity: number;
+    /** Explicit special price (kuruş) for this line — overrides tiers. */
     unit_price_minor?: number | undefined;
   }>,
   products: ReadonlyArray<Product>,
-  frozen?: ReadonlyMap<
-    string,
-    {
-      unit_price_minor: number;
-      product_snapshot: EnrichedOrderItem["product_snapshot"];
-    }
-  >,
 ): Result<EnrichedOrderItem[], ValidationError> {
   const productByKey = new Map(products.map((p) => [p.key, p]));
   const enriched: EnrichedOrderItem[] = [];
@@ -89,25 +80,22 @@ export function enrichOrderItems(
       );
     }
 
-    const frozenEntry = frozen?.get(item.product_key);
-
-    const unit_price_minor =
-      frozenEntry?.unit_price_minor ??
-      item.unit_price_minor ??
-      product.current_unit_price_minor;
-
-    const product_snapshot =
-      frozenEntry?.product_snapshot ?? {
-        display_name: product.display_name,
-        unit: product.unit,
-        unit_label: product.unit_label,
-      };
+    const priced = priceOrderLine(item.quantity, {
+      tiers: product.price_tiers,
+      basePriceMinor: product.current_unit_price_minor,
+      overrideUnitPriceMinor: item.unit_price_minor,
+    });
 
     enriched.push({
       product_key: item.product_key,
       quantity: item.quantity,
-      unit_price_minor,
-      product_snapshot,
+      unit_price_minor: priced.unit_price_minor,
+      line_total_minor: priced.line_total_minor,
+      product_snapshot: {
+        display_name: product.display_name,
+        unit: product.unit,
+        unit_label: product.unit_label,
+      },
     });
   }
 

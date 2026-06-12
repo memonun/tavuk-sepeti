@@ -354,6 +354,9 @@ async function main() {
       product_key: productKey,
       quantity: qty,
       unit_price_minor: unitPriceMinor,
+      // line_total_minor is authoritative since the pricing migration; the RPC
+      // requires it. CSV prices are whole kuruş, so qty × unit is exact.
+      line_total_minor: Math.round(qty * unitPriceMinor),
       product_snapshot: { display_name: p.display_name, unit: p.unit, unit_label: p.unit_label },
     });
   }

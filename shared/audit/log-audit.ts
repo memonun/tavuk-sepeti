@@ -25,9 +25,10 @@ export type AuditAction =
   | "order.created"
   | "order.transitioned"
   | "order.updated"
-  | "order.deleted";
+  | "order.deleted"
+  | "product.updated";
 
-export type AuditEntityType = "customer" | "order" | "address";
+export type AuditEntityType = "customer" | "order" | "address" | "product";
 
 export interface LogAuditInput {
   actor_id: string | null;

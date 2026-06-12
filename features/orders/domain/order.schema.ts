@@ -16,13 +16,14 @@ const blankToNull = (value: unknown): unknown =>
 const trimmed = (min: number, max: number, message?: string) =>
   z.string().trim().min(min, message).max(max);
 
-/** Per-line product entry. Caller (the form) validates step against the
- *  product catalog before submit; the server action re-checks. */
+/** Per-line product entry. Pricing is automatic from the product's tiers,
+ *  unless `unit_price_minor` carries a per-customer special price (the "Özel
+ *  fiyat" field). Caller (the form) validates step against the catalog before
+ *  submit; the server action re-checks. */
 export const orderItemInputSchema = z.object({
   product_key: z.string().min(1),
   quantity: z.coerce.number().positive(),
-  /** Optional unit price override — defaults to product.current_unit_price_minor.
-   *  Faz 1 always uses catalog price; the field exists for one-off discounts. */
+  /** Optional flat special price (kuruş) for this customer + product. */
   unit_price_minor: z.coerce.number().int().nonnegative().optional(),
 });
 

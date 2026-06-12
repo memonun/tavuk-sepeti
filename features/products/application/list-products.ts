@@ -6,17 +6,22 @@ import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 import type { Product, ProductUnit } from "@/features/products/domain/product";
+import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
 
-// Re-export the domain types as part of the products feature's public API
-// surface — consumers in other features (orders/ui, etc.) import from here
-// rather than crossing the cross-feature-domain boundary directly.
+// Re-export the domain types + pure pricing as the products feature's public
+// API surface — consumers in other features (orders/ui, orders/application)
+// import from here rather than crossing the cross-feature-domain boundary.
 export type { Product, ProductUnit } from "@/features/products/domain/product";
+// Pure pricing helpers live in ./pricing (client-safe, no server-only guard).
 
 /**
- * Returns every active catalog item, in a stable display order.
+ * Returns every active catalog item (with its volume tiers), in a stable
+ * display order.
  *
- * Faz 1 keeps the catalog small (4 SKUs) and admin-edited via the dashboard.
- * No pagination needed — full read every time.
+ * Tiers come from `product_price_tiers`, which isn't in the generated
+ * Database type yet (added by a later migration) — so that read uses the
+ * un-generated-table cast pattern and degrades to "no tiers" (flat base
+ * price) if the table isn't present, keeping the app functional pre-migration.
  */
 export async function listActiveProducts(): Promise<
   Result<Product[], ExternalApiError>
@@ -35,6 +40,32 @@ export async function listActiveProducts(): Promise<
     return err(new ExternalApiError({ message: error.message, cause: error }));
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tiersRes = await (supabase as any)
+    .from("product_price_tiers")
+    .select("product_key, min_qty, unit_price_minor");
+
+  const tiersByProduct = new Map<string, ProductPriceTier[]>();
+  if (tiersRes.error) {
+    logger.warn(
+      { code: tiersRes.error.code, message: tiersRes.error.message },
+      "list_product_tiers_unavailable",
+    );
+  } else {
+    for (const t of (tiersRes.data ?? []) as Array<{
+      product_key: string;
+      min_qty: number | string;
+      unit_price_minor: number | string;
+    }>) {
+      const list = tiersByProduct.get(t.product_key) ?? [];
+      list.push({
+        min_qty: Number(t.min_qty),
+        unit_price_minor: Number(t.unit_price_minor),
+      });
+      tiersByProduct.set(t.product_key, list);
+    }
+  }
+
   return ok(
     (data ?? []).map((row) => ({
       key: row.key,
@@ -45,6 +76,9 @@ export async function listActiveProducts(): Promise<
       min_qty: Number(row.min_qty),
       step: Number(row.step),
       current_unit_price_minor: row.current_unit_price_minor,
+      price_tiers: (tiersByProduct.get(row.key) ?? []).sort(
+        (a, b) => a.min_qty - b.min_qty,
+      ),
       active: row.active,
     })),
   );

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { loadCustomerProductPriceMap } from "@/features/customers/application/customer-prices";
 import { getCustomerById } from "@/features/customers/application/get-customer";
 import {
   getOrderById,
@@ -26,7 +27,10 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   const events = eventsResult.ok ? eventsResult.value : [];
   const products = productsResult.ok ? productsResult.value : [];
 
-  const customerResult = await getCustomerById(order.customer_id);
+  const [customerResult, customerPriceMap] = await Promise.all([
+    getCustomerById(order.customer_id),
+    loadCustomerProductPriceMap(order.customer_id),
+  ]);
   const customerName = customerResult.ok
     ? `${customerResult.value.first_name} ${customerResult.value.last_name}`
     : "—";
@@ -37,6 +41,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       products={products}
       customerName={customerName}
       events={events}
+      customerPrices={Object.fromEntries(customerPriceMap)}
     />
   );
 }
