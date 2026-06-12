@@ -122,7 +122,6 @@ export function DataGrid<TRow extends object, TPatch>({
   rowId,
   tableId,
   totalCount,
-  page,
   pageSize,
   mutations,
   renderRowExpand,
@@ -1146,7 +1145,9 @@ export function DataGrid<TRow extends object, TPatch>({
         <span>
           {totalCount === 0
             ? "Sonuç yok."
-            : `Sayfa ${page} — ${tableRows.length} satır gösteriliyor (toplam ${totalCount}).`}
+            : tableRows.length < totalCount
+              ? `${tableRows.length} / ${totalCount} satır (üst sınıra ulaşıldı).`
+              : `${tableRows.length} satır.`}
         </span>
         <div>{footer}</div>
       </div>

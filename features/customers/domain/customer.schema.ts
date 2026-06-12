@@ -134,14 +134,23 @@ export const customerSortFieldSchema = z.enum([
 ]);
 export type CustomerSortField = z.output<typeof customerSortFieldSchema>;
 
+/**
+ * Bounded full-load cap for the admin "Excel view" grid. CLAUDE.md §9 mandates
+ * paginated endpoints (max 100); the grid view is a deliberate, owner-approved
+ * override — it loads the whole table in one shot (up to this safety cap) and
+ * virtualizes the render, so it feels like Excel without unbounded fetch. Past
+ * the cap, the grid must switch to keyset infinite-scroll (see §1 scalability).
+ */
+export const GRID_PAGE_SIZE = 2000;
+
 /** Search/list query parameters for the customer table. */
 export const customerListQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   sort: customerSortFieldSchema.default("created_at"),
   order: z.enum(["asc", "desc"]).default("asc"),
   page: z.coerce.number().int().positive().default(1),
-  // CLAUDE.md §9: max 100, default 25.
-  pageSize: z.coerce.number().int().positive().max(100).default(25),
+  // Default 25 for non-grid callers; the grid passes GRID_PAGE_SIZE explicitly.
+  pageSize: z.coerce.number().int().positive().max(GRID_PAGE_SIZE).default(25),
   // Multi-condition AND filter from the FilterBuilder popover. Each rule
   // is { column, operator, value }. The column whitelist in the
   // repository prevents arbitrary column access.

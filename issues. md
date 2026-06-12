@@ -1,4 +1,7 @@
-1. Mğşteri veya herhangi bir tablodaki paginationdan dolayı 25 tane ile interaksiyona girebiliyorum. e.g select all, yapıp sildiğimde 25 tane silebiliyorum sadece, burada aslında seçimler vs, herkesi aynı anda ya da sayfayı seçme şeklinde kademeli ve flexible olmalı.
+1. Muşteri veya herhangi bir tablodaki paginationdan dolayı 25 tane ile interaksiyona girebiliyorum. e.g select all, yapıp sildiğimde 25 tane silebiliyorum sadece, burada aslında seçimler vs, herkesi aynı anda ya da sayfayı seçme şeklinde kademeli ve flexible olmalı.
 2. Hamt apuhan müşterisini silemiyorum neden acaba? 
 3. Her column kendi içine çok daha iyi bir filtreleme olması lazım. Planlansın
-4. 
+
+- all the sidebars should have an full page expand button. 
+- there is a discrepancy on the siparisler table it is not fully migrated onto the grid excel system i think the columns are not swapable and not adjustable width, i want you to go over the implementation of both tables very carefully one more time covering the filter efficiency also, and the saving. Each action is tried to be saved constantly i think which makes it slow, think a better system practitioner level like a cool down or staeleness check for the user actions not to be disrupted by the wait time, The new view section and per row filetering is also not yet the way i imagined. Per column time speacial filters. quick and better accesiblity to thos in the filter window etc. are not yet like the whole notion style. 
+- when clicked use my location it trows an error inspect it. 

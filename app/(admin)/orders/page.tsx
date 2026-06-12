@@ -16,11 +16,11 @@ import {
   getDateRangeBounds,
   isDateRangePreset,
 } from "@/features/orders/application/date-range-presets";
+import { GRID_PAGE_SIZE } from "@/features/orders/domain/order.schema";
 import { listOrders } from "@/features/orders/application/list-orders";
 import { listActiveProducts } from "@/features/products/application/list-products";
 import { OrderGrid } from "@/features/orders/ui/order-grid";
 import { OrderListFilters } from "@/features/orders/ui/order-list-filters";
-import { CustomerPagination } from "@/features/customers/ui/customer-pagination";
 import { listViewsAction } from "@/features/views/application/list-views";
 import { ViewTabs } from "@/features/views/ui/view-tabs";
 import { buildViewUrl } from "@/features/views/ui/view-url";
@@ -40,18 +40,6 @@ interface OrdersPageProps {
     filter?: string;
   }>;
 }
-
-const PRESERVE_KEYS: (keyof Awaited<OrdersPageProps["searchParams"]>)[] = [
-  "status",
-  "range",
-  "scheduled_from",
-  "scheduled_to",
-  "sort",
-  "order",
-  "pageSize",
-  "view",
-  "filter",
-];
 
 const VIEW_FILTER_KEYS = [
   "status",
@@ -82,8 +70,9 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       scheduled_to: presetBounds.to,
       sort: params.sort,
       order: params.order,
-      page: params.page,
-      pageSize: params.pageSize,
+      // Excel view: load the whole (bounded) table in one shot; grid virtualizes.
+      page: "1",
+      pageSize: params.pageSize ?? String(GRID_PAGE_SIZE),
       filters: currentFilters,
     }),
     listViewsAction(ORDERS_TABLE_ID),
@@ -120,12 +109,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     );
   }
 
-  const query = new URLSearchParams();
-  for (const key of PRESERVE_KEYS) {
-    const value = params[key];
-    if (value) query.set(key, value);
-  }
-
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col gap-2">
       {/* Notion-style page header: title left, count + action right */}
@@ -160,14 +143,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         currentFilters={currentFilters}
         products={products}
         toolbarExtra={<OrderListFilters />}
-      />
-
-      <CustomerPagination
-        total={listResult.value.total}
-        page={listResult.value.page}
-        pageSize={listResult.value.pageSize}
-        basePath="/orders"
-        query={query}
       />
     </div>
   );

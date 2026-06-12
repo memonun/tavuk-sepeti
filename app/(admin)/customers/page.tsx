@@ -9,9 +9,9 @@
 import { redirect } from "next/navigation";
 
 import { parseFiltersFromQueryParam } from "@/components/data-grid/filters/filter-types";
+import { GRID_PAGE_SIZE } from "@/features/customers/domain/customer.schema";
 import { listCustomers } from "@/features/customers/application/list-customers";
 import { CustomerGrid } from "@/features/customers/ui/customer-grid";
-import { CustomerPagination } from "@/features/customers/ui/customer-pagination";
 import { listViewsAction } from "@/features/views/application/list-views";
 import { ViewTabs } from "@/features/views/ui/view-tabs";
 import { buildViewUrl } from "@/features/views/ui/view-url";
@@ -29,15 +29,6 @@ interface CustomersPageProps {
   }>;
 }
 
-const PRESERVE_KEYS: (keyof Awaited<CustomersPageProps["searchParams"]>)[] = [
-  "q",
-  "sort",
-  "order",
-  "pageSize",
-  "view",
-  "filter",
-];
-
 const CUSTOMERS_TABLE_ID = "customers";
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
@@ -50,8 +41,10 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       q: params.q,
       sort: params.sort,
       order: params.order,
-      page: params.page,
-      pageSize: params.pageSize,
+      // Excel view: load the whole (bounded) table in one shot — the grid
+      // virtualizes the render. No pagination.
+      page: "1",
+      pageSize: params.pageSize ?? String(GRID_PAGE_SIZE),
       filters: currentFilters,
     }),
     listViewsAction(CUSTOMERS_TABLE_ID),
@@ -83,12 +76,6 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
     );
   }
 
-  const query = new URLSearchParams();
-  for (const key of PRESERVE_KEYS) {
-    const value = params[key];
-    if (value) query.set(key, value);
-  }
-
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col gap-2">
       {/* Notion-style page header: title left, count right, single line */}
@@ -113,14 +100,6 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         pageSize={listResult.value.pageSize}
         currentFilters={currentFilters}
         mapsKey={env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? ""}
-      />
-
-      <CustomerPagination
-        total={listResult.value.total}
-        page={listResult.value.page}
-        pageSize={listResult.value.pageSize}
-        basePath="/customers"
-        query={query}
       />
     </div>
   );

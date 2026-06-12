@@ -113,6 +113,13 @@ export const orderCellPatchSchema = z.discriminatedUnion("field", [
 ]);
 export type OrderCellPatch = z.output<typeof orderCellPatchSchema>;
 
+/**
+ * Bounded full-load cap for the admin "Excel view" grid — owner-approved §9
+ * override (loads the whole table once, up to this cap, then virtualizes).
+ * Mirrors customers' GRID_PAGE_SIZE.
+ */
+export const GRID_PAGE_SIZE = 2000;
+
 export const orderListQuerySchema = z.object({
   status: z.enum(["pending", "confirmed", "delivered", "cancelled"]).optional(),
   scheduled_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -121,7 +128,8 @@ export const orderListQuerySchema = z.object({
   sort: orderSortFieldSchema.default("scheduled_for"),
   order: z.enum(["asc", "desc"]).default("desc"),
   page: z.coerce.number().int().positive().default(1),
-  pageSize: z.coerce.number().int().positive().max(100).default(25),
+  // Default 25 for non-grid callers; the grid passes GRID_PAGE_SIZE explicitly.
+  pageSize: z.coerce.number().int().positive().max(GRID_PAGE_SIZE).default(25),
   filters: filterRuleListSchema.default([]),
 });
 
