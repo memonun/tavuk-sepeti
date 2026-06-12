@@ -1,13 +1,15 @@
 "use client";
 
 /**
- * Notion-style filter builder popover. Toolbar button shows the
- * active rule count; clicking opens a popover with one row per rule
- * (column / operator / value / remove) plus an "+ Add filter" footer.
+ * Notion-style filter builder popover. Toolbar button shows the active rule
+ * count; clicking opens a popover with one row per rule (column / operator /
+ * value / remove) plus an "+ Add filter" footer.
  *
- * Faz 1: single AND group only. Each rule fires onChange immediately
- * so the URL stays in sync with what the user sees. No "Apply" /
- * "Cancel" overhead — matches Notion's reactive filter UX.
+ * Type-aware: each column declares a `kind` (text/number/date/select). The
+ * operator dropdown and the value editor adapt to it — date columns get
+ * before/after/between + relative presets (bugün / bu hafta / bu ay), selects
+ * get a value dropdown, numbers get a number input. Single AND group; each
+ * change fires onChange immediately (no Apply/Cancel — reactive like Notion).
  */
 import { Filter, Plus, X } from "lucide-react";
 import { useState } from "react";
@@ -30,8 +32,12 @@ import {
 import { cn } from "@/lib/utils";
 
 import {
+  DEFAULT_OPERATOR_BY_KIND,
   FILTER_OPERATOR_LABELS,
+  OPERATORS_BY_KIND,
+  RANGE_OPERATORS,
   VALUELESS_OPERATORS,
+  type FilterColumnKind,
   type FilterOperator,
   type FilterRule,
   type FilterableColumn,
@@ -43,18 +49,12 @@ interface FilterBuilderProps {
   readonly onChange: (next: ReadonlyArray<FilterRule>) => void;
 }
 
-const ALL_OPERATORS: ReadonlyArray<FilterOperator> = [
-  "contains",
-  "equals",
-  "starts_with",
-  "ends_with",
-  "is_empty",
-  "is_not_empty",
-];
-
 function newRuleId() {
   return `r${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
 }
+
+const kindOf = (col: FilterableColumn | undefined): FilterColumnKind =>
+  col?.kind ?? "text";
 
 export function FilterBuilder({ columns, rules, onChange }: FilterBuilderProps) {
   const [open, setOpen] = useState(false);
@@ -70,8 +70,9 @@ export function FilterBuilder({ columns, rules, onChange }: FilterBuilderProps) 
     const next: FilterRule = {
       id: newRuleId(),
       column: firstCol.id,
-      operator: "contains",
+      operator: DEFAULT_OPERATOR_BY_KIND[kindOf(firstCol)],
       value: "",
+      value2: "",
     };
     onChange([...rules, next]);
   };
@@ -95,7 +96,7 @@ export function FilterBuilder({ columns, rules, onChange }: FilterBuilderProps) 
         <Filter className="h-3 w-3" />
         {activeCount > 0 ? `Filtre · ${activeCount}` : "Filtre"}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[min(90vw,560px)] p-2">
+      <DropdownMenuContent align="end" className="w-[min(92vw,620px)] p-2">
         {rules.length === 0 ? (
           <div className="px-2 py-3 text-xs text-muted-foreground">
             Filtre yok. Aşağıdan ekle.
@@ -161,18 +162,32 @@ function RuleRow({
   onUpdate,
   onRemove,
 }: RuleRowProps) {
+  const column = columns.find((c) => c.id === rule.column);
+  const kind = kindOf(column);
+  const operators = OPERATORS_BY_KIND[kind];
   const isValueless = VALUELESS_OPERATORS.has(rule.operator);
+  const isRange = RANGE_OPERATORS.has(rule.operator);
+
+  // Switching column resets the operator to that kind's default + clears values
+  // (a date operator on a text column would be meaningless).
+  const onColumnChange = (nextId: string) => {
+    const nextKind = kindOf(columns.find((c) => c.id === nextId));
+    onUpdate({
+      column: nextId,
+      operator: DEFAULT_OPERATOR_BY_KIND[nextKind],
+      value: "",
+      value2: "",
+    });
+  };
+
   return (
     <div className="flex items-center gap-1.5">
       <span className="w-12 shrink-0 text-right text-[10px] uppercase tracking-wide text-muted-foreground">
         {conjunctionLabel}
       </span>
 
-      <Select
-        value={rule.column}
-        onValueChange={(v) => v && onUpdate({ column: v })}
-      >
-        <SelectTrigger size="sm" className="h-7 w-36 px-2 text-xs">
+      <Select value={rule.column} onValueChange={(v) => v && onColumnChange(v)}>
+        <SelectTrigger size="sm" className="h-7 w-32 px-2 text-xs">
           <SelectValue>
             {(v: unknown) =>
               columns.find((c) => c.id === v)?.label ?? String(v ?? "")
@@ -190,9 +205,7 @@ function RuleRow({
 
       <Select
         value={rule.operator}
-        onValueChange={(v) =>
-          v && onUpdate({ operator: v as FilterOperator })
-        }
+        onValueChange={(v) => v && onUpdate({ operator: v as FilterOperator })}
       >
         <SelectTrigger size="sm" className="h-7 w-32 px-2 text-xs">
           <SelectValue>
@@ -202,7 +215,7 @@ function RuleRow({
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {ALL_OPERATORS.map((op) => (
+          {operators.map((op) => (
             <SelectItem key={op} value={op}>
               {FILTER_OPERATOR_LABELS[op]}
             </SelectItem>
@@ -210,15 +223,53 @@ function RuleRow({
         </SelectContent>
       </Select>
 
-      {!isValueless ? (
+      {isValueless ? (
+        <div className="flex-1" />
+      ) : isRange ? (
+        <div className="flex flex-1 items-center gap-1">
+          <Input
+            type="date"
+            value={rule.value}
+            onChange={(e) => onUpdate({ value: e.target.value })}
+            className="h-7 flex-1 px-2 text-xs"
+          />
+          <span className="text-[10px] text-muted-foreground">—</span>
+          <Input
+            type="date"
+            value={rule.value2}
+            onChange={(e) => onUpdate({ value2: e.target.value })}
+            className="h-7 flex-1 px-2 text-xs"
+          />
+        </div>
+      ) : kind === "select" && column?.options ? (
+        <Select
+          value={rule.value}
+          onValueChange={(v) => onUpdate({ value: v ?? "" })}
+        >
+          <SelectTrigger size="sm" className="h-7 flex-1 px-2 text-xs">
+            <SelectValue placeholder="Seç…">
+              {(v: unknown) =>
+                column.options?.find((o) => o.value === v)?.label ??
+                String(v ?? "")
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {column.options.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
         <Input
+          type={kind === "number" ? "number" : kind === "date" ? "date" : "text"}
           value={rule.value}
           onChange={(e) => onUpdate({ value: e.target.value })}
           placeholder="Değer…"
           className="h-7 flex-1 px-2 text-xs"
         />
-      ) : (
-        <div className="flex-1" />
       )}
 
       <Button

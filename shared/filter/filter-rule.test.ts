@@ -18,6 +18,7 @@ const sampleRule = (over: Partial<FilterRule> = {}): FilterRule => ({
   column: "first_name",
   operator: "contains",
   value: "ali",
+  value2: "",
   ...over,
 });
 

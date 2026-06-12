@@ -211,7 +211,14 @@ export async function listOrderEvents(
  * touching unintended columns even if they slip past schema validation.
  * Keep in sync with FILTERABLE_COLUMNS in order-grid.tsx.
  */
-const ORDER_FILTERABLE = new Set(["order_number", "status", "payment_status"]);
+const ORDER_FILTERABLE = new Set([
+  "order_number",
+  "status",
+  "payment_status",
+  "scheduled_for",
+  "time_slot",
+  "created_at",
+]);
 
 export async function listOrders(
   query: OrderListQuery,

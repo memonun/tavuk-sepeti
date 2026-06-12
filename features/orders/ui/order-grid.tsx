@@ -47,10 +47,44 @@ import type { Product } from "@/features/products/application/list-products";
 import type { AppError } from "@/shared/errors/app-error";
 import type { Result } from "@/shared/result";
 
-/** Columns the filter builder offers. Keep in sync with the
- *  FILTERABLE_COLUMNS whitelist in order.repository.ts. */
+/** Columns the filter builder offers, with their filter `kind` (drives the
+ *  operators + value editor). Keep in sync with the FILTERABLE_COLUMNS
+ *  whitelist in order.repository.ts. */
 const FILTERABLE_COLUMNS: ReadonlyArray<FilterableColumn> = [
-  { id: "order_number", label: "No" },
+  { id: "order_number", label: "No", kind: "text" },
+  {
+    id: "status",
+    label: "Durum",
+    kind: "select",
+    options: [
+      { value: "pending", label: "Beklemede" },
+      { value: "confirmed", label: "Onaylandı" },
+      { value: "delivered", label: "Teslim Edildi" },
+      { value: "cancelled", label: "İptal" },
+    ],
+  },
+  {
+    id: "payment_status",
+    label: "Ödeme",
+    kind: "select",
+    options: [
+      { value: "pending", label: "Bekliyor" },
+      { value: "partial", label: "Kısmi" },
+      { value: "paid", label: "Ödendi" },
+    ],
+  },
+  { id: "scheduled_for", label: "Teslim", kind: "date" },
+  {
+    id: "time_slot",
+    label: "Zaman",
+    kind: "select",
+    options: [
+      { value: "morning", label: "Sabah" },
+      { value: "afternoon", label: "Öğlen" },
+      { value: "evening", label: "Akşam" },
+    ],
+  },
+  { id: "created_at", label: "Oluşturma", kind: "date" },
 ];
 
 const EDITABLE_COLUMN_IDS = new Set<OrderCellField>([

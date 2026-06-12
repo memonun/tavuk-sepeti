@@ -62,15 +62,16 @@ interface CustomerGridProps {
  * Keep in sync with FILTERABLE_COLUMNS in customer.repository.ts.
  */
 const FILTERABLE_COLUMNS: ReadonlyArray<FilterableColumn> = [
-  { id: "first_name", label: "Ad" },
-  { id: "last_name", label: "Soyad" },
-  { id: "phone", label: "Telefon" },
-  { id: "email", label: "E-posta" },
-  { id: "status", label: "Durum" },
-  { id: "account_type", label: "Tip" },
-  { id: "city", label: "Şehir" },
-  { id: "tag", label: "Kanal" },
-  { id: "legacy_segment", label: "Segment" },
+  { id: "first_name", label: "Ad", kind: "text" },
+  { id: "last_name", label: "Soyad", kind: "text" },
+  { id: "phone", label: "Telefon", kind: "text" },
+  { id: "email", label: "E-posta", kind: "text" },
+  { id: "status", label: "Durum", kind: "text" },
+  { id: "account_type", label: "Tip", kind: "text" },
+  { id: "city", label: "Şehir", kind: "text" },
+  { id: "tag", label: "Kanal", kind: "text" },
+  { id: "legacy_segment", label: "Segment", kind: "text" },
+  { id: "created_at", label: "Eklenme", kind: "date" },
 ];
 
 const EDITABLE_COLUMN_IDS = new Set<CustomerCellField>([

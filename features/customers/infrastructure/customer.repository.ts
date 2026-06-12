@@ -54,6 +54,7 @@ const FILTERABLE_COLUMNS: ReadonlySet<string> = new Set([
   "city",
   "tag",
   "legacy_segment",
+  "created_at",
 ]);
 
 export interface CreateCustomerInput {
