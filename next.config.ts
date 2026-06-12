@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(import.meta.dirname),
   },
+  // Tree-shake big barrel imports (lucide-react has hundreds of icons) so each
+  // page only ships the icons it uses.
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
 };
 
 export default nextConfig;

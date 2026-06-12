@@ -16,7 +16,7 @@ export default function NewCustomerPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-5xl space-y-5">
       <div>
         <p className="text-xs text-muted-foreground">
           <Link href="/customers" className="hover:underline">

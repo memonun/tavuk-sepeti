@@ -257,169 +257,143 @@ const addressAccuracy = watch("address.accuracy");
 
   return (
     <form onSubmit={onSubmit} className="@container space-y-6">
-      <section className="grid gap-4 @md:grid-cols-2">
-        <Field label="Ad" error={errors.first_name?.message}>
-          <Input id="first_name" {...register("first_name")} />
-        </Field>
-        <Field label="Soyad" error={errors.last_name?.message}>
-          <Input id="last_name" {...register("last_name")} />
-        </Field>
-        <Field label="Telefon" error={errors.phone?.message}>
-          <Input id="phone" {...register("phone")} />
-        </Field>
-        <Field label="E-posta (opsiyonel)" error={errors.email?.message}>
-          <Input id="email" type="email" {...register("email")} />
-        </Field>
-        <Field label="Durum" error={errors.status?.message}>
-          <Select
-            value={watch("status") ?? "active"}
-            onValueChange={(value) =>
-              setValue("status", value as "active" | "inactive" | "blocked", {
-                shouldValidate: true,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Aktif</SelectItem>
-              <SelectItem value="inactive">Pasif</SelectItem>
-              <SelectItem value="blocked">Engelli</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-      </section>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* LEFT — identity + contact + notes */}
+        <div className="space-y-4">
+          <Field label="Ad" error={errors.first_name?.message}>
+            <Input id="first_name" {...register("first_name")} />
+          </Field>
+          <Field label="Soyad" error={errors.last_name?.message}>
+            <Input id="last_name" {...register("last_name")} />
+          </Field>
+          <Field label="Telefon" error={errors.phone?.message}>
+            <Input id="phone" {...register("phone")} />
+          </Field>
+          <Field label="E-posta (opsiyonel)" error={errors.email?.message}>
+            <Input id="email" type="email" {...register("email")} />
+          </Field>
+          <Field label="Durum" error={errors.status?.message}>
+            <Select
+              value={watch("status") ?? "active"}
+              onValueChange={(value) =>
+                setValue("status", value as "active" | "inactive" | "blocked", {
+                  shouldValidate: true,
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Aktif</SelectItem>
+                <SelectItem value="inactive">Pasif</SelectItem>
+                <SelectItem value="blocked">Engelli</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Notlar" error={errors.notes?.message}>
+            <textarea
+              id="notes"
+              rows={3}
+              className="flex w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none"
+              {...register("notes")}
+            />
+          </Field>
+        </div>
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">Adres</h3>
-
+        {/* RIGHT — address, stacked top-to-bottom in a card */}
         <AddressSection hasProvider={mapsBrowserKey.length > 0} apiKey={mapsBrowserKey}>
-          {mapsBrowserKey ? (
-            <Field label="Adres ara (Google)">
-              <AddressAutocomplete onSelect={handleAutocompleteSelect} />
+          <section className="space-y-3 rounded-lg border bg-card p-4">
+            <h3 className="text-sm font-semibold">Adres</h3>
+
+            <Field
+              label="Adres (yazmaya başla, Google önerir)"
+              error={errors.address?.street?.message}
+            >
+              {mapsBrowserKey ? (
+                <AddressAutocomplete
+                  value={typeof street === "string" ? street : ""}
+                  onChange={(v) =>
+                    setValue("address.street", v, { shouldValidate: true })
+                  }
+                  onSelect={handleAutocompleteSelect}
+                  placeholder="Cadde / sokak, mahalle…"
+                />
+              ) : (
+                <Input id="address.street" {...register("address.street")} />
+              )}
             </Field>
-          ) : null}
+            <Field label="İl" error={errors.address?.city?.message}>
+              <Input id="address.city" {...register("address.city")} />
+            </Field>
+            <Field label="İlçe" error={errors.address?.district?.message}>
+              <Input id="address.district" {...register("address.district")} />
+            </Field>
+            <Field label="Mahalle" error={errors.address?.neighborhood?.message}>
+              <Input id="address.neighborhood" {...register("address.neighborhood")} />
+            </Field>
+            <Field label="Bina No" error={errors.address?.building_no?.message}>
+              <Input id="address.building_no" {...register("address.building_no")} />
+            </Field>
+            <Field label="Daire" error={errors.address?.apartment_no?.message}>
+              <Input id="address.apartment_no" {...register("address.apartment_no")} />
+            </Field>
+            <Field label="Posta Kodu" error={errors.address?.postal_code?.message}>
+              <Input id="address.postal_code" {...register("address.postal_code")} />
+            </Field>
+            <Field
+              label="Adres tarifi (kapı kodu, bina rengi vb.)"
+              error={errors.address?.description?.message}
+            >
+              <Input id="address.description" {...register("address.description")} />
+            </Field>
 
-        <div className="grid gap-3 @lg:grid-cols-3">
-          <Field label="İl" error={errors.address?.city?.message}>
-            <Input id="address.city" {...register("address.city")} />
-          </Field>
-          <Field label="İlçe" error={errors.address?.district?.message}>
-            <Input id="address.district" {...register("address.district")} />
-          </Field>
-          <Field label="Mahalle" error={errors.address?.neighborhood?.message}>
-            <Input
-              id="address.neighborhood"
-              {...register("address.neighborhood")}
-            />
-          </Field>
-        </div>
+            {geocodingState.kind === "loading" ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Adres haritada bulunuyor…
+              </p>
+            ) : null}
+            {geocodingState.kind === "error" ? (
+              <p className="text-sm text-destructive">{geocodingState.message}</p>
+            ) : null}
 
-        <div className="grid gap-3 @2xl:grid-cols-[1fr_120px_120px_120px]">
-          <Field
-            label="Cadde / Sokak (opsiyonel)"
-            error={errors.address?.street?.message}
-          >
-            <Input id="address.street" {...register("address.street")} />
-          </Field>
-          <Field label="Bina No" error={errors.address?.building_no?.message}>
-            <Input
-              id="address.building_no"
-              {...register("address.building_no")}
-            />
-          </Field>
-          <Field label="Daire" error={errors.address?.apartment_no?.message}>
-            <Input
-              id="address.apartment_no"
-              {...register("address.apartment_no")}
-            />
-          </Field>
-          <Field
-            label="Posta Kodu"
-            error={errors.address?.postal_code?.message}
-          >
-            <Input
-              id="address.postal_code"
-              {...register("address.postal_code")}
-            />
-          </Field>
-        </div>
+            <Field label="Enlem (lat)">
+              <Input
+                inputMode="decimal"
+                value={addressLat && addressLat !== 0 ? String(addressLat) : ""}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setValue("address.lat", Number.isFinite(n) ? n : 0, { shouldValidate: true });
+                  setValue("address.source", "admin_corrected", { shouldValidate: true });
+                  setValue("address.accuracy", "rooftop", { shouldValidate: true });
+                }}
+              />
+            </Field>
+            <Field label="Boylam (lng)">
+              <Input
+                inputMode="decimal"
+                value={addressLng && addressLng !== 0 ? String(addressLng) : ""}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setValue("address.lng", Number.isFinite(n) ? n : 0, { shouldValidate: true });
+                  setValue("address.source", "admin_corrected", { shouldValidate: true });
+                  setValue("address.accuracy", "rooftop", { shouldValidate: true });
+                }}
+              />
+            </Field>
 
-        <Field
-          label="Adres tarifi (kapı kodu, bina rengi vb.)"
-          error={errors.address?.description?.message}
-        >
-          <Input
-            id="address.description"
-            {...register("address.description")}
-          />
-        </Field>
-
-        {geocodingState.kind === "loading" ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Adres haritada bulunuyor…
-          </p>
-        ) : null}
-        {geocodingState.kind === "error" ? (
-          <p className="text-sm text-destructive">{geocodingState.message}</p>
-        ) : null}
-
-        <div className="grid gap-3 @md:grid-cols-2">
-          <Field label="Enlem (lat)">
-            <Input
-              inputMode="decimal"
-              value={addressLat && addressLat !== 0 ? String(addressLat) : ""}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setValue("address.lat", Number.isFinite(n) ? n : 0, {
-                  shouldValidate: true,
-                });
-                setValue("address.source", "admin_corrected", {
-                  shouldValidate: true,
-                });
-                setValue("address.accuracy", "rooftop", { shouldValidate: true });
-              }}
-            />
-          </Field>
-          <Field label="Boylam (lng)">
-            <Input
-              inputMode="decimal"
-              value={addressLng && addressLng !== 0 ? String(addressLng) : ""}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setValue("address.lng", Number.isFinite(n) ? n : 0, {
-                  shouldValidate: true,
-                });
-                setValue("address.source", "admin_corrected", {
-                  shouldValidate: true,
-                });
-                setValue("address.accuracy", "rooftop", { shouldValidate: true });
-              }}
-            />
-          </Field>
-        </div>
-
-        {mapsBrowserKey && hasCoordinate ? (
-          <AddressPinCorrector
-            lat={addressLat}
-            lng={addressLng}
-            accuracy={addressAccuracy ?? "unknown"}
-            onChange={onPinChange}
-          />
-        ) : null}
+            {mapsBrowserKey && hasCoordinate ? (
+              <AddressPinCorrector
+                lat={addressLat}
+                lng={addressLng}
+                accuracy={addressAccuracy ?? "unknown"}
+                onChange={onPinChange}
+              />
+            ) : null}
+          </section>
         </AddressSection>
-      </section>
-
-      <Field label="Notlar" error={errors.notes?.message}>
-        <textarea
-          id="notes"
-          rows={3}
-          className="flex w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none"
-          {...register("notes")}
-        />
-      </Field>
+      </div>
 
       {submitError ? (
         <p className="text-sm text-destructive" role="alert">

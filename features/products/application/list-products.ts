@@ -8,20 +8,19 @@ import { createSupabaseServerClient } from "@/shared/supabase/server";
 import type { Product, ProductUnit } from "@/features/products/domain/product";
 import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
 
-// Re-export the domain types + pure pricing as the products feature's public
-// API surface — consumers in other features (orders/ui, orders/application)
-// import from here rather than crossing the cross-feature-domain boundary.
+// Re-export the domain types as the products feature's public API surface.
 export type { Product, ProductUnit } from "@/features/products/domain/product";
 // Pure pricing helpers live in ./pricing (client-safe, no server-only guard).
+//
+// NOTE: caching this catalog (it's global + read-heavy, re-fetched on every
+// order/payment refresh) is a real win but needs the Next 16 `"use cache"` +
+// cacheTag/cacheLife model (revalidateTag changed signature in 16.2). Tracked
+// as a dedicated follow-up so a stale cache can't ever serve a wrong price.
 
 /**
  * Returns every active catalog item (with its volume tiers), in a stable
- * display order.
- *
- * Tiers come from `product_price_tiers`, which isn't in the generated
- * Database type yet (added by a later migration) — so that read uses the
- * un-generated-table cast pattern and degrades to "no tiers" (flat base
- * price) if the table isn't present, keeping the app functional pre-migration.
+ * display order. Tiers come from `product_price_tiers` (not in the generated
+ * Database type yet) — degrades to "no tiers" (flat base price) pre-migration.
  */
 export async function listActiveProducts(): Promise<
   Result<Product[], ExternalApiError>

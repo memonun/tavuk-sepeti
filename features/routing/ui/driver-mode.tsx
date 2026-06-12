@@ -155,7 +155,12 @@ export function DriverMode({
   const remaining = driverState.totalCount - driverState.deliveredCount;
 
   return (
-    <div className="-mx-6 -my-6 flex min-h-[calc(100vh-3rem)] flex-col">
+    // Fixed-height app shell that fits inside the admin <main> (which is
+    // overflow-hidden). Negative margins match the layout's px-3/py-2 padding
+    // so we break out cleanly; the header + geolocation banner + action bar
+    // stay pinned and only the middle scrolls — so the "allow location" button
+    // is always on screen.
+    <div className="-mx-3 -my-2 flex h-[calc(100dvh-3rem)] flex-col overflow-hidden sm:-mx-4">
       {/* Header bar */}
       <header className="flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-3 backdrop-blur sticky top-0 z-10">
         <button
@@ -225,7 +230,7 @@ export function DriverMode({
       ) : null}
 
       {/* Main scrollable area */}
-      <main className="flex-1 space-y-4 px-4 py-4">
+      <main className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         <RouteDriverMap
           apiKey={mapsBrowserKey}
           origin={route.origin}
