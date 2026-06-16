@@ -65,7 +65,9 @@ export interface CreateCustomerInput {
   notes: string | null;
   status: CustomerStatus;
   created_by: string;
-  address: {
+  /** Optional — a customer can be created without an address (relaxed
+   *  constraints). When null/undefined no address row is inserted. */
+  address?: {
     raw_text: string;
     description: string | null;
     coordinate: Coordinate;
@@ -76,7 +78,7 @@ export interface CreateCustomerInput {
     building_no?: string | null;
     apartment_no?: string | null;
     postal_code?: string | null;
-  };
+  } | null;
 }
 
 export interface UpdateCustomerInput {
@@ -141,49 +143,54 @@ export async function createCustomer(
     );
   }
 
-  const { error: addressError } = await supabase.from("addresses").insert({
-    customer_id: customerRow.id,
-    raw_text: input.address.raw_text,
-    description: input.address.description,
-    lat: input.address.coordinate.lat,
-    lng: input.address.coordinate.lng,
-    source: input.address.coordinate.source,
-    accuracy: input.address.coordinate.accuracy,
-    geocoded_at: input.address.coordinate.geocoded_at?.toISOString() ?? null,
-    geocoder_response_hash: input.address.coordinate.geocoder_response_hash,
-    city: input.address.city ?? null,
-    district: input.address.district ?? null,
-    neighborhood: input.address.neighborhood ?? null,
-    street: input.address.street ?? null,
-    building_no: input.address.building_no ?? null,
-    apartment_no: input.address.apartment_no ?? null,
-    postal_code: input.address.postal_code ?? null,
-    is_primary: true,
-    address_source: "admin_input",
-  });
+  // Address is optional — only insert a row when one was provided. The
+  // addresses table requires a non-empty raw_text (check constraint), so a
+  // blank address must not be written as an empty row.
+  if (input.address) {
+    const { error: addressError } = await supabase.from("addresses").insert({
+      customer_id: customerRow.id,
+      raw_text: input.address.raw_text,
+      description: input.address.description,
+      lat: input.address.coordinate.lat,
+      lng: input.address.coordinate.lng,
+      source: input.address.coordinate.source,
+      accuracy: input.address.coordinate.accuracy,
+      geocoded_at: input.address.coordinate.geocoded_at?.toISOString() ?? null,
+      geocoder_response_hash: input.address.coordinate.geocoder_response_hash,
+      city: input.address.city ?? null,
+      district: input.address.district ?? null,
+      neighborhood: input.address.neighborhood ?? null,
+      street: input.address.street ?? null,
+      building_no: input.address.building_no ?? null,
+      apartment_no: input.address.apartment_no ?? null,
+      postal_code: input.address.postal_code ?? null,
+      is_primary: true,
+      address_source: "admin_input",
+    });
 
-  if (addressError) {
-    logger.error(
-      { customerId: customerRow.id, code: addressError.code },
-      "address_insert_failed_rolling_back_customer",
-    );
-    // Best-effort cleanup of the orphan customer row.
-    const { error: cleanupError } = await supabase
-      .from("customers")
-      .delete()
-      .eq("id", customerRow.id);
-    if (cleanupError) {
+    if (addressError) {
       logger.error(
-        { customerId: customerRow.id, code: cleanupError.code },
-        "customer_cleanup_failed_orphan_left",
+        { customerId: customerRow.id, code: addressError.code },
+        "address_insert_failed_rolling_back_customer",
+      );
+      // Best-effort cleanup of the orphan customer row.
+      const { error: cleanupError } = await supabase
+        .from("customers")
+        .delete()
+        .eq("id", customerRow.id);
+      if (cleanupError) {
+        logger.error(
+          { customerId: customerRow.id, code: cleanupError.code },
+          "customer_cleanup_failed_orphan_left",
+        );
+      }
+      return err(
+        new ExternalApiError({
+          message: addressError.message,
+          cause: addressError,
+        }),
       );
     }
-    return err(
-      new ExternalApiError({
-        message: addressError.message,
-        cause: addressError,
-      }),
-    );
   }
 
   // Re-fetch through the mapper so the return value matches the read shape.

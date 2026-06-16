@@ -74,6 +74,15 @@ export async function createCustomerAction(
   // source of truth. Address may be null/undefined for minimal records.
   const addr = parsed.data.address ?? null;
   const rawText = composeFullAddress(addr ?? {});
+  // Address is optional. Treat it as present only when there's a textual
+  // address OR a real (non-zero) coordinate pin — otherwise create the customer
+  // with NO address row (the addresses table forbids an empty raw_text).
+  const hasCoords =
+    addr != null &&
+    Number.isFinite(addr.lat) &&
+    Number.isFinite(addr.lng) &&
+    (addr.lat !== 0 || addr.lng !== 0);
+  const hasAddress = rawText.trim().length > 0 || hasCoords;
 
   const created = await repoCreate({
     first_name: parsed.data.first_name ?? "",
@@ -83,28 +92,33 @@ export async function createCustomerAction(
     notes: parsed.data.notes ?? null,
     status: parsed.data.status,
     created_by: user.id,
-    address: {
-      raw_text: rawText,
-      description: addr?.description ?? null,
-      city: addr?.city ?? null,
-      district: addr?.district ?? null,
-      neighborhood: addr?.neighborhood ?? null,
-      street: addr?.street ?? null,
-      building_no: addr?.building_no ?? null,
-      apartment_no: addr?.apartment_no ?? null,
-      postal_code: addr?.postal_code ?? null,
-      coordinate: {
-        lat: addr?.lat ?? 0,
-        lng: addr?.lng ?? 0,
-        source: addr?.source ?? "admin_corrected",
-        accuracy: addr?.accuracy ?? "unknown",
-        // The form-driven flow always carries a fresh hash from the geocode
-        // action; null means an admin dropped a pure manual pin without ever
-        // calling Google (rare, but valid).
-        geocoded_at: addr?.source === "user_pin" ? null : new Date(),
-        geocoder_response_hash: null,
-      },
-    },
+    address: hasAddress
+      ? {
+          // A pin-only address (coords, no text) still needs a non-empty
+          // raw_text to satisfy the check constraint — fall back to the coords.
+          raw_text:
+            rawText.trim().length > 0 ? rawText : `${addr!.lat}, ${addr!.lng}`,
+          description: addr?.description ?? null,
+          city: addr?.city ?? null,
+          district: addr?.district ?? null,
+          neighborhood: addr?.neighborhood ?? null,
+          street: addr?.street ?? null,
+          building_no: addr?.building_no ?? null,
+          apartment_no: addr?.apartment_no ?? null,
+          postal_code: addr?.postal_code ?? null,
+          coordinate: {
+            lat: addr?.lat ?? 0,
+            lng: addr?.lng ?? 0,
+            source: addr?.source ?? "admin_corrected",
+            accuracy: addr?.accuracy ?? "unknown",
+            // The form-driven flow always carries a fresh hash from the geocode
+            // action; null means an admin dropped a pure manual pin without ever
+            // calling Google (rare, but valid).
+            geocoded_at: addr?.source === "user_pin" ? null : new Date(),
+            geocoder_response_hash: null,
+          },
+        }
+      : null,
   });
 
   if (!created.ok) {

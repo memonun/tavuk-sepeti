@@ -62,6 +62,15 @@ export async function updateCustomerAction(
 
   const addr = parsed.data.address ?? null;
   const rawText = composeFullAddress(addr ?? {});
+  // Only write the address when it has real content (text or a non-zero pin).
+  // A blank address must not be written as an empty raw_text (check constraint);
+  // we skip it instead, preserving any existing address row.
+  const hasCoords =
+    addr != null &&
+    Number.isFinite(addr.lat) &&
+    Number.isFinite(addr.lng) &&
+    (addr.lat !== 0 || addr.lng !== 0);
+  const hasAddress = rawText.trim().length > 0 || hasCoords;
 
   // Build the update payload without setting keys to `undefined` — required by
   // exactOptionalPropertyTypes. Spread the optional scalar fields only when
@@ -73,10 +82,11 @@ export async function updateCustomerAction(
     ...(parsed.data.first_name !== null ? { first_name: parsed.data.first_name } : {}),
     ...(parsed.data.last_name !== null ? { last_name: parsed.data.last_name } : {}),
     ...(parsed.data.phone !== null ? { phone: parsed.data.phone } : {}),
-    ...(addr !== null
+    ...(hasAddress && addr !== null
       ? {
           address: {
-            raw_text: rawText,
+            raw_text:
+              rawText.trim().length > 0 ? rawText : `${addr.lat}, ${addr.lng}`,
             description: addr.description ?? null,
             city: addr.city ?? null,
             district: addr.district ?? null,
