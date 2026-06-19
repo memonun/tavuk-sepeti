@@ -27,7 +27,9 @@ export type AuditAction =
   | "order.delivery_reverted"
   | "order.updated"
   | "order.deleted"
+  | "product.created"
   | "product.updated"
+  | "product.archived"
   | "payment.recorded"
   | "payment.deleted";
 
