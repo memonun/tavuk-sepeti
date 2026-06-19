@@ -81,7 +81,65 @@ export interface DirectionsResult {
   legs: Array<{ distanceM: number; durationS: number }>;
 }
 
+// ---- Directions result cache ---------------------------------------------
+//
+// The route geometry depends only on origin + destination + waypoint coords.
+// Content changes on an order (notes, payment, quantity) move no pin, so a
+// live refresh re-requests the SAME geometry — caching it keeps those refreshes
+// free (CLAUDE.md §8: don't re-hit a paid Maps API when the answer can't have
+// changed) and keeps the optimized order stable so the route never reshuffles
+// mid-drive. A real geometry change (added / moved / removed stop) changes the
+// key → cache miss → fresh optimize. TTL bounds staleness and re-validates.
+const CACHE_TTL_MS = 5 * 60_000;
+const CACHE_MAX = 50;
+const directionsCache = new Map<
+  string,
+  { value: DirectionsResult; expires: number }
+>();
+
+function directionsCacheKey(request: DirectionsRequest): string {
+  const c = (p: { lat: number; lng: number }) =>
+    `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+  return [
+    c(request.origin),
+    c(request.destination),
+    ...request.waypoints.map(c),
+  ].join("|");
+}
+
+/**
+ * Cached entry point. Returns a memoized optimize result when the geometry
+ * inputs are unchanged; otherwise fetches fresh and stores the success.
+ */
 export async function callGoogleDirections(
+  request: DirectionsRequest,
+): Promise<Result<DirectionsResult, DirectionsApiError>> {
+  const cacheKey = directionsCacheKey(request);
+  const hit = directionsCache.get(cacheKey);
+  if (hit && hit.expires > Date.now()) {
+    logger.info(
+      { waypoints: request.waypoints.length },
+      "directions_cache_hit",
+    );
+    return ok(hit.value);
+  }
+  if (hit) directionsCache.delete(cacheKey);
+
+  const res = await fetchDirectionsUncached(request);
+  if (res.ok) {
+    if (directionsCache.size >= CACHE_MAX) {
+      const oldest = directionsCache.keys().next().value;
+      if (oldest !== undefined) directionsCache.delete(oldest);
+    }
+    directionsCache.set(cacheKey, {
+      value: res.value,
+      expires: Date.now() + CACHE_TTL_MS,
+    });
+  }
+  return res;
+}
+
+async function fetchDirectionsUncached(
   request: DirectionsRequest,
 ): Promise<Result<DirectionsResult, DirectionsApiError>> {
   const key = env.GOOGLE_MAPS_SERVER_KEY;

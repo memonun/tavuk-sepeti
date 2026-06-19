@@ -52,6 +52,7 @@ import { RouteDriverMap } from "@/features/routing/ui/route-driver-map";
 import { StopCard } from "@/features/routing/ui/stop-card";
 import { useDriverState } from "@/features/routing/ui/use-driver-state";
 import { useGeolocation } from "@/features/routing/ui/use-geolocation";
+import { useRouteRealtime } from "@/features/routing/ui/hooks/use-route-realtime";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -177,6 +178,11 @@ export function DriverMode({
   for (const id of optimisticReverted) deliveredIds.delete(id);
   const driverState = useDriverState(route.stops, deliveredIds);
   const geo = useGeolocation();
+  // Live per-stop content: external edits (office records a payment, edits a
+  // note) refresh the route in place. The optimized order/ETAs stay put — the
+  // Directions result is cached by coordinates, so a content refresh costs no
+  // Google call. markLocalWrite suppresses the echo of the driver's own writes.
+  const { markLocalWrite } = useRouteRealtime();
 
   // Live tracking is silent now (no in-view button): if the driver already
   // granted location permission up front (the planning page's "Konumumu kullan"
@@ -205,6 +211,7 @@ export function DriverMode({
 
   const handleDelivered = (orderId: string) => {
     setActionError(null);
+    markLocalWrite(); // our own write — don't let the realtime echo double-refresh
     // Optimistic: advance to the next stop immediately. Clear any pending
     // revert for this id (re-delivering an undone stop).
     setOptimisticReverted((prev) => {
@@ -244,6 +251,7 @@ export function DriverMode({
 
   const handleRevert = (orderId: string) => {
     setActionError(null);
+    markLocalWrite(); // our own write — don't let the realtime echo double-refresh
     // Optimistic un-deliver.
     setOptimisticReverted((prev) => new Set(prev).add(orderId));
     setOptimisticDelivered((prev) => {

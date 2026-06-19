@@ -13,7 +13,11 @@
 export interface RouteStopItem {
   /** Frozen product display name at order time. */
   readonly label: string;
+  /** Frozen unit label at order time (e.g. "paket (15 adet)", "kg"). */
+  readonly unit_label: string;
   readonly quantity: number;
+  /** Frozen per-unit price at order time (kuruş). */
+  readonly unit_price_minor: number;
   readonly line_total_minor: number;
 }
 
@@ -25,8 +29,13 @@ export interface RouteStop {
   readonly customer_id: string;
   readonly customer_name: string;
   readonly customer_phone: string | null;
+  /** Customer-level note (allergies, "call before delivery"). Live. */
+  readonly customer_notes: string | null;
   readonly lat: number;
   readonly lng: number;
+  /** Written delivery address, from the customer's LIVE primary address —
+   *  the same row the pin/legs use, so the text always matches the route. */
+  readonly delivery_address: string | null;
   readonly delivery_notes: string | null;
   readonly total_minor: number;
   /** Amount collected so far (kuruş). Drives the paid/partial/unpaid badge. */

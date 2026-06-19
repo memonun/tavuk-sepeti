@@ -8,7 +8,7 @@
  * meters to the stop. The Haversine helper is pure math (no Maps script
  * dependency), so updates land instantly on every geolocation tick.
  */
-import { Check, Navigation, Phone, SkipForward } from "lucide-react";
+import { Check, MapPin, Navigation, Phone, SkipForward } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -97,6 +97,13 @@ export function StopCard({
         </Badge>
       </header>
 
+      {stop.delivery_address ? (
+        <p className="flex items-start gap-2 rounded-md border bg-muted/20 p-3 text-sm">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0">{stop.delivery_address}</span>
+        </p>
+      ) : null}
+
       <dl className="grid grid-cols-2 gap-2 text-sm">
         <div className="rounded-md bg-muted/40 p-2 text-center">
           <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -164,19 +171,25 @@ export function StopCard({
         </dl>
       </div>
 
-      {/* Order items */}
+      {/* Order items — quantity, unit, frozen per-unit price, line total */}
       {stop.items.length > 0 ? (
         <ul className="divide-y rounded-lg border text-sm">
           {stop.items.map((item, i) => (
             <li
               key={`${item.label}-${i}`}
-              className="flex items-center justify-between gap-2 px-3 py-2"
+              className="flex items-start justify-between gap-2 px-3 py-2"
             >
-              <span className="min-w-0 truncate">
-                <span className="font-mono text-muted-foreground">
-                  {formatQty(item.quantity)}×
-                </span>{" "}
-                {item.label}
+              <span className="min-w-0">
+                <span className="block truncate">
+                  <span className="font-mono text-muted-foreground">
+                    {formatQty(item.quantity)}×
+                  </span>{" "}
+                  {item.label}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {item.unit_label ? `${item.unit_label} · ` : ""}
+                  {formatTRY(item.unit_price_minor)}/br
+                </span>
               </span>
               <span className="shrink-0 font-mono">
                 {formatTRY(item.line_total_minor)}
@@ -197,9 +210,16 @@ export function StopCard({
         </p>
       ) : null}
 
+      {stop.customer_notes ? (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+          <span className="font-medium">Müşteri notu: </span>
+          {stop.customer_notes}
+        </p>
+      ) : null}
+
       {stop.delivery_notes ? (
         <p className="rounded-md border bg-muted/30 p-3 text-sm">
-          <span className="font-medium">Not: </span>
+          <span className="font-medium">Teslimat notu: </span>
           {stop.delivery_notes}
         </p>
       ) : null}
