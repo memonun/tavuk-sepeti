@@ -50,9 +50,28 @@ export interface RouteOrigin {
   readonly lng: number;
 }
 
+/**
+ * Where the route ends, when it's NOT a round trip back to the origin.
+ * `null` on OptimizedRoute means the legacy round-trip (end = origin).
+ * For `kind: "order"`, the order also appears as the final RouteStop, so
+ * `order_id` matches that stop; for `kind: "location"` the endpoint is a
+ * non-delivery point drawn as its own marker.
+ */
+export interface RouteDestination {
+  readonly kind: "location" | "order";
+  readonly lat: number;
+  readonly lng: number;
+  /** Label for the map marker / route summary. */
+  readonly name: string;
+  /** Present only when kind === "order" — the pinned final stop's order. */
+  readonly order_id?: string;
+}
+
 export interface OptimizedRoute {
   readonly date: string; // YYYY-MM-DD (Europe/Istanbul)
   readonly origin: RouteOrigin;
+  /** Chosen end point. `null` = round trip back to the origin (default). */
+  readonly destination: RouteDestination | null;
   readonly stops: readonly RouteStop[];
   /** Simplified summary polyline; kept for low-zoom contexts. */
   readonly overview_polyline: string;
@@ -65,7 +84,8 @@ export interface OptimizedRoute {
   readonly step_polylines: readonly string[];
   /** Anchor for ETA calculations. ISO-8601 UTC. */
   readonly start_time_iso: string;
-  /** ETA of the final return-to-warehouse leg. */
+  /** ETA at the final leg's end — the chosen destination, or the origin on a
+   *  round trip. */
   readonly finish_time_iso: string;
   readonly total_distance_m: number;
   readonly total_duration_s: number;

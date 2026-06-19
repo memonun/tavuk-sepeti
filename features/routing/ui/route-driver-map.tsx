@@ -19,11 +19,16 @@ import {
 import { useEffect, useRef } from "react";
 
 import type { LatLng } from "@/shared/geo/distance";
-import type { RouteOrigin, RouteStop } from "@/features/routing/domain/route";
+import type {
+  RouteDestination,
+  RouteOrigin,
+  RouteStop,
+} from "@/features/routing/domain/route";
 
 interface RouteDriverMapProps {
   apiKey: string;
   origin: RouteOrigin;
+  destination?: RouteDestination | null;
   stops: readonly RouteStop[];
   stepPolylines: readonly string[];
   currentStopId: string | null;
@@ -33,6 +38,7 @@ interface RouteDriverMapProps {
 export function RouteDriverMap({
   apiKey,
   origin,
+  destination,
   stops,
   stepPolylines,
   currentStopId,
@@ -51,6 +57,7 @@ export function RouteDriverMap({
         >
           <DriverLayer
             origin={origin}
+            destination={destination ?? null}
             stops={stops}
             stepPolylines={stepPolylines}
             currentStopId={currentStopId}
@@ -64,6 +71,7 @@ export function RouteDriverMap({
 
 interface DriverLayerProps {
   origin: RouteOrigin;
+  destination?: RouteDestination | null;
   stops: readonly RouteStop[];
   stepPolylines: readonly string[];
   currentStopId: string | null;
@@ -72,6 +80,7 @@ interface DriverLayerProps {
 
 function DriverLayer({
   origin,
+  destination,
   stops,
   stepPolylines,
   currentStopId,
@@ -100,6 +109,22 @@ function DriverLayer({
         title: "Depo",
       }),
     );
+
+    // Non-delivery end point (saved location). Order destinations already show
+    // as the final numbered stop.
+    if (destination && destination.kind === "location") {
+      const destEl = document.createElement("div");
+      destEl.className =
+        "flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-medium text-white shadow";
+      destEl.textContent = `🏁 ${destination.name}`;
+      created.push(
+        new markerLib.AdvancedMarkerElement({
+          position: { lat: destination.lat, lng: destination.lng },
+          content: destEl,
+          title: `Varış: ${destination.name}`,
+        }),
+      );
+    }
 
     // Stop pins; current stop is amber, others are primary blue.
     for (const stop of stops) {
@@ -160,6 +185,9 @@ function DriverLayer({
       const bounds = new coreLib.LatLngBounds();
       bounds.extend({ lat: origin.lat, lng: origin.lng });
       for (const stop of stops) bounds.extend({ lat: stop.lat, lng: stop.lng });
+      if (destination && destination.kind === "location") {
+        bounds.extend({ lat: destination.lat, lng: destination.lng });
+      }
       if (driverCoords) bounds.extend(driverCoords);
       map.fitBounds(bounds, 48);
     }
@@ -174,6 +202,7 @@ function DriverLayer({
     coreLib,
     geometryLib,
     origin,
+    destination,
     stops,
     stepPolylines,
     currentStopId,
