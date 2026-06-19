@@ -6,6 +6,125 @@ import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
+import type { ProductMetadata } from "@/features/products/domain/product.schema";
+import { slugifyProductKey } from "@/features/products/domain/product-key";
+
+/** Postgres unique-violation SQLSTATE — a key collision on insert. */
+const PG_UNIQUE_VIOLATION = "23505";
+/** How many slug variants to try before falling back to a random suffix. */
+const MAX_KEY_ATTEMPTS = 6;
+
+export interface CreateProductInput extends ProductMetadata {
+  /** Starting base price in kuruş. */
+  readonly base_price_minor: number;
+}
+
+/**
+ * Insert a new catalog product. The PK `key` is derived from the display name
+ * (slugified) and made unique by suffixing on collision: `koy-yumurtasi`,
+ * `koy-yumurtasi-2`, … On the final attempt a short random suffix defeats a
+ * concurrent-insert race. Returns the key that was actually persisted.
+ */
+export async function createProduct(
+  input: CreateProductInput,
+): Promise<Result<string, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const base = slugifyProductKey(input.display_name);
+  const now = new Date().toISOString();
+
+  for (let attempt = 1; attempt <= MAX_KEY_ATTEMPTS; attempt += 1) {
+    let candidate: string;
+    if (attempt === 1) {
+      candidate = base;
+    } else if (attempt < MAX_KEY_ATTEMPTS) {
+      candidate = `${base}-${attempt}`;
+    } else {
+      // Final attempt: random suffix so a busy collision still resolves.
+      candidate = `${base}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    const { error } = await supabase.from("products").insert({
+      key: candidate,
+      display_name: input.display_name,
+      unit: input.unit,
+      unit_label: input.unit_label,
+      package_size: input.package_size,
+      min_qty: input.min_qty,
+      step: input.step,
+      current_unit_price_minor: input.base_price_minor,
+      created_at: now,
+      updated_at: now,
+    });
+
+    if (!error) return ok(candidate);
+
+    if (error.code === PG_UNIQUE_VIOLATION) {
+      // Key taken — try the next variant.
+      continue;
+    }
+
+    logger.error(
+      { code: error.code, message: error.message },
+      "create_product_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+
+  logger.error({ base }, "create_product_key_exhausted");
+  return err(
+    new ExternalApiError({
+      message: "Benzersiz bir ürün anahtarı üretilemedi.",
+    }),
+  );
+}
+
+/** Update a product's editable content fields (not key, not price/tiers). */
+export async function updateProductMetadata(
+  productKey: string,
+  fields: ProductMetadata,
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("products")
+    .update({
+      display_name: fields.display_name,
+      unit: fields.unit,
+      unit_label: fields.unit_label,
+      package_size: fields.package_size,
+      min_qty: fields.min_qty,
+      step: fields.step,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("key", productKey);
+  if (error) {
+    logger.error(
+      { productKey, code: error.code },
+      "update_product_metadata_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
+
+/** Archive (active=false) or restore (active=true) a product. */
+export async function setProductActive(
+  productKey: string,
+  active: boolean,
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ active, updated_at: new Date().toISOString() })
+    .eq("key", productKey);
+  if (error) {
+    logger.error(
+      { productKey, active, code: error.code },
+      "set_product_active_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
 
 /** Update a product's flat/base unit price (kuruş). */
 export async function updateProductBasePrice(
