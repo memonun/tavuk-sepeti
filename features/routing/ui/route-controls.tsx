@@ -23,6 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DEST_LOC_PREFIX,
+  DEST_ORDER_PREFIX,
+  DEST_ROUND_TRIP,
+  DestinationPicker,
+  type DestinationOrderOption,
+} from "@/features/routing/ui/destination-picker";
 
 import type { SavedLocation } from "@/features/routing/domain/saved-location";
 
@@ -37,6 +44,12 @@ interface RouteControlsProps {
   savedLocations: ReadonlyArray<SavedLocation>;
   originName: string | null;
   hasOrigin: boolean;
+  /** The day's orders, for the "end at an order" choice. */
+  orders: ReadonlyArray<DestinationOrderOption>;
+  /** Current destination, carried in the URL (null = round trip). */
+  destLat: number | null;
+  destLng: number | null;
+  destOrderId: string | null;
 }
 
 export function RouteControls({
@@ -47,6 +60,10 @@ export function RouteControls({
   savedLocations,
   originName,
   hasOrigin,
+  orders,
+  destLat,
+  destLng,
+  destOrderId,
 }: RouteControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -113,6 +130,45 @@ export function RouteControls({
     const loc = savedLocations.find((l) => l.id === value);
     if (loc) setOrigin(loc.lat, loc.lng, loc.name);
   };
+
+  // ---- Destination (end point). Changing it re-computes, so drop ?optimize. ----
+  const clearDestination = () =>
+    replaceParams((p) => {
+      p.delete("destLat");
+      p.delete("destLng");
+      p.delete("destName");
+      p.delete("destOrderId");
+      p.delete("optimize");
+    });
+  const setDestLocation = (lat: number, lng: number, name: string) =>
+    replaceParams((p) => {
+      p.set("destLat", String(lat));
+      p.set("destLng", String(lng));
+      p.set("destName", name);
+      p.delete("destOrderId");
+      p.delete("optimize");
+    });
+  const setDestOrder = (orderId: string) =>
+    replaceParams((p) => {
+      p.set("destOrderId", orderId);
+      p.delete("destLat");
+      p.delete("destLng");
+      p.delete("destName");
+      p.delete("optimize");
+    });
+
+  const destValue = (() => {
+    if (destOrderId) return `${DEST_ORDER_PREFIX}${destOrderId}`;
+    // Match the saved location by coordinate (robust to renames / duplicate
+    // names); the URL carries the exact lat/lng this location was picked with.
+    if (destLat !== null && destLng !== null) {
+      const match = savedLocations.find(
+        (l) => l.lat === destLat && l.lng === destLng,
+      );
+      if (match) return `${DEST_LOC_PREFIX}${match.id}`;
+    }
+    return DEST_ROUND_TRIP;
+  })();
 
   const optimize = () => {
     replaceParams((p) => {
@@ -192,6 +248,19 @@ export function RouteControls({
             </SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-xs">Varış konumu</Label>
+        <DestinationPicker
+          savedLocations={savedLocations}
+          orders={orders}
+          value={destValue}
+          disabled={busy}
+          onRoundTrip={clearDestination}
+          onSavedLocation={(loc) => setDestLocation(loc.lat, loc.lng, loc.name)}
+          onOrder={setDestOrder}
+        />
       </div>
 
       {optimized ? (

@@ -94,23 +94,18 @@ export async function callGoogleDirections(
     );
   }
 
-  if (request.waypoints.length === 0) {
-    return err(
-      new DirectionsApiError({
-        googleStatus: "EMPTY_WAYPOINTS",
-        errorMessage: "Waypoints must include at least one stop.",
-      }),
-    );
-  }
-
   const formatCoord = (c: { lat: number; lng: number }) => `${c.lat},${c.lng}`;
   const url = new URL(ENDPOINT);
   url.searchParams.set("origin", formatCoord(request.origin));
   url.searchParams.set("destination", formatCoord(request.destination));
-  url.searchParams.set(
-    "waypoints",
-    `optimize:true|${request.waypoints.map(formatCoord).join("|")}`,
-  );
+  // Waypoints are optional: a direct origin → destination route (e.g. the only
+  // order is the chosen end point) has zero waypoints, so omit the param.
+  if (request.waypoints.length > 0) {
+    url.searchParams.set(
+      "waypoints",
+      `optimize:true|${request.waypoints.map(formatCoord).join("|")}`,
+    );
+  }
   url.searchParams.set("mode", "driving");
   url.searchParams.set("region", "tr");
   url.searchParams.set("language", "tr");

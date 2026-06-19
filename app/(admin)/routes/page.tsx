@@ -20,6 +20,10 @@ interface RoutesPageProps {
     originLat?: string;
     originLng?: string;
     originName?: string;
+    destLat?: string;
+    destLng?: string;
+    destName?: string;
+    destOrderId?: string;
   }>;
 }
 
@@ -92,6 +96,18 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
       : null;
   const originName = params.originName ?? null;
 
+  // Selected final destination (end point) — optional. An order takes
+  // precedence over a coordinate; absence = round trip back to the origin.
+  const destLat = parseCoord(params.destLat, -90, 90);
+  const destLng = parseCoord(params.destLng, -180, 180);
+  const destName = params.destName ?? null;
+  const destOrderId = params.destOrderId ?? null;
+  const destination = destOrderId
+    ? ({ kind: "order", orderId: destOrderId } as const)
+    : destLat !== null && destLng !== null
+      ? ({ kind: "location", lat: destLat, lng: destLng, name: destName ?? "Varış" } as const)
+      : undefined;
+
   // Always fetch the day's orders + saved locations for the list/header/picker.
   // If the user has clicked Optimize AND chosen an origin, run that too —
   // separate fetches keep the UI robust when Google fails.
@@ -111,7 +127,11 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
 
   const routeResult =
     wantsOptimize && origin && dayOrders.length > 0
-      ? await getDayRoute(date, { startTimeIso, origin })
+      ? await getDayRoute(date, {
+          startTimeIso,
+          origin,
+          ...(destination ? { destination } : {}),
+        })
       : null;
   const optimized = routeResult?.ok ? routeResult.value : null;
   const optimizeError =
@@ -127,6 +147,21 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
     driveQuery.set("originLng", String(origin.lng));
   }
   if (originName) driveQuery.set("originName", originName);
+  // Carry the chosen destination so the drive view ends at the same point.
+  if (destOrderId) {
+    driveQuery.set("destOrderId", destOrderId);
+  } else if (destLat !== null && destLng !== null) {
+    driveQuery.set("destLat", String(destLat));
+    driveQuery.set("destLng", String(destLng));
+    if (destName) driveQuery.set("destName", destName);
+  }
+
+  // Orders shaped for the destination picker ("end at an order").
+  const destinationOrders = dayOrders.map((o) => ({
+    order_id: o.order_id,
+    order_number: o.order_number,
+    customer_name: `${o.customer_first_name} ${o.customer_last_name}`,
+  }));
 
   return (
     <div className="space-y-5">
@@ -162,6 +197,10 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
         savedLocations={savedLocations}
         originName={originName}
         hasOrigin={!!origin}
+        orders={destinationOrders}
+        destLat={destLat}
+        destLng={destLng}
+        destOrderId={destOrderId}
       />
 
       {savedLocations.length === 0 ? (

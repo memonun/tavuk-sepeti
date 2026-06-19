@@ -35,6 +35,7 @@ export function RouteWorkspace({ apiKey, route }: RouteWorkspaceProps) {
           <RouteMap
             apiKey={apiKey}
             origin={route.origin}
+            destination={route.destination}
             stops={route.stops}
             stepPolylines={route.step_polylines}
             selectedStopId={selectedStopId}

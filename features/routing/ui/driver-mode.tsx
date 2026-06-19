@@ -30,6 +30,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crosshair,
+  Flag,
   List,
   Loader2,
   MapPin,
@@ -62,21 +63,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DEST_LOC_PREFIX,
+  DEST_ORDER_PREFIX,
+  DEST_ROUND_TRIP,
+  DestinationPicker,
+} from "@/features/routing/ui/destination-picker";
 import { cn } from "@/lib/utils";
 import { formatHHmm } from "@/shared/utils/date";
 
 import type { OptimizedRoute, RouteStop } from "@/features/routing/domain/route";
+import type { SavedLocation } from "@/features/routing/domain/saved-location";
 
 interface DriverModeProps {
   route: OptimizedRoute;
   initialDeliveredOrderIds: string[];
   mapsBrowserKey: string;
+  savedLocations: ReadonlyArray<SavedLocation>;
+  /** Current drive query string — mutated to change the destination mid-route. */
+  driveQuery: string;
 }
 
 export function DriverMode({
   route,
   initialDeliveredOrderIds,
   mapsBrowserKey,
+  savedLocations,
+  driveQuery,
 }: DriverModeProps) {
   const router = useRouter();
   const [transitionPending, startTransition] = useTransition();
@@ -99,6 +112,52 @@ export function DriverMode({
   const [queueOpen, setQueueOpen] = useState(false);
   // The just-delivered stop to collect payment for (null = popup closed).
   const [paymentStop, setPaymentStop] = useState<RouteStop | null>(null);
+  const [destOpen, setDestOpen] = useState(false);
+
+  // ---- Final-destination (change mid-route → re-navigate → re-optimize) ----
+  const destinationOrders = route.stops.map((s) => ({
+    order_id: s.order_id,
+    order_number: s.order_number,
+    customer_name: s.customer_name,
+  }));
+  const destLabel = route.destination?.name ?? "Başlangıç (depo)";
+  const destValue = (() => {
+    const d = route.destination;
+    if (!d) return DEST_ROUND_TRIP;
+    if (d.kind === "order") return `${DEST_ORDER_PREFIX}${d.order_id ?? ""}`;
+    // Match the saved location by coordinate (robust to renames / duplicate
+    // names); the URL carries the exact lat/lng this location was picked with.
+    const match = savedLocations.find((l) => l.lat === d.lat && l.lng === d.lng);
+    return match ? `${DEST_LOC_PREFIX}${match.id}` : DEST_ROUND_TRIP;
+  })();
+
+  const pushDestination = (mutate: (p: URLSearchParams) => void) => {
+    const p = new URLSearchParams(driveQuery);
+    mutate(p);
+    setDestOpen(false);
+    router.push(`/routes/drive?${p.toString()}`);
+  };
+  const destRoundTrip = () =>
+    pushDestination((p) => {
+      p.delete("destLat");
+      p.delete("destLng");
+      p.delete("destName");
+      p.delete("destOrderId");
+    });
+  const destSavedLocation = (loc: SavedLocation) =>
+    pushDestination((p) => {
+      p.set("destLat", String(loc.lat));
+      p.set("destLng", String(loc.lng));
+      p.set("destName", loc.name);
+      p.delete("destOrderId");
+    });
+  const destOrder = (orderId: string) =>
+    pushDestination((p) => {
+      p.set("destOrderId", orderId);
+      p.delete("destLat");
+      p.delete("destLng");
+      p.delete("destName");
+    });
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -296,6 +355,24 @@ export function DriverMode({
         </span>
       </header>
 
+      {/* Destination bar — shows the end point + a mid-route change control */}
+      <div className="flex items-center justify-between gap-2 border-b bg-muted/20 px-4 py-1.5">
+        <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+          <Flag className="h-3.5 w-3.5 shrink-0" />
+          Varış:{" "}
+          <span className="truncate font-medium text-foreground">{destLabel}</span>
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 shrink-0"
+          onClick={() => setDestOpen(true)}
+        >
+          Değiştir
+        </Button>
+      </div>
+
       {/* Stop stepper — step backward/forward through the queue */}
       {view ? (
         <div className="flex items-center gap-2 border-b bg-background px-3 py-2">
@@ -381,6 +458,7 @@ export function DriverMode({
         <RouteDriverMap
           apiKey={mapsBrowserKey}
           origin={route.origin}
+          destination={route.destination}
           stops={route.stops}
           stepPolylines={route.step_polylines}
           currentStopId={view?.order_id ?? null}
@@ -496,6 +574,28 @@ export function DriverMode({
         stop={paymentStop}
         onClose={() => setPaymentStop(null)}
       />
+
+      {/* Change destination (re-optimizes the remaining route) */}
+      <Dialog open={destOpen} onOpenChange={setDestOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Varış konumunu değiştir</DialogTitle>
+            <DialogDescription>
+              Kalan duraklar yeni varışa göre yeniden sıralanır. Teslim edilenler
+              korunur.
+            </DialogDescription>
+          </DialogHeader>
+          <DestinationPicker
+            savedLocations={savedLocations}
+            orders={destinationOrders}
+            value={destValue}
+            className="h-9 w-full"
+            onRoundTrip={destRoundTrip}
+            onSavedLocation={destSavedLocation}
+            onOrder={destOrder}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Exit confirmation */}
       <Dialog open={exitOpen} onOpenChange={setExitOpen}>

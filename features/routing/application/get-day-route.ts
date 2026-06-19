@@ -22,13 +22,16 @@ import {
   TooManyWaypointsError,
   WarehouseNotConfiguredError,
 } from "@/features/routing/domain/route.errors";
+import { resolveRouteDestination } from "@/features/routing/domain/route-destination";
 import { callGoogleDirections } from "@/features/routing/infrastructure/google-directions";
 import { fetchDeliveryDetails } from "@/features/routing/infrastructure/order-delivery-details";
 import { getDefaultSavedLocation } from "@/features/routing/infrastructure/saved-location.repository";
 import { ExternalApiError } from "@/shared/errors/app-error";
 import { env } from "@/shared/env";
+import { logger } from "@/shared/logger";
 import { err, isErr, ok, type Result } from "@/shared/result";
 
+import type { RouteDestinationOption } from "@/features/routing/domain/route-destination";
 import type {
   OptimizedRoute,
   RouteStop,
@@ -49,6 +52,9 @@ export interface GetDayRouteOptions {
   /** Route start point. When omitted, falls back to the default saved
    *  location, then the legacy env warehouse. */
   origin?: { lat: number; lng: number };
+  /** Where the route ends. Omitted = round trip back to the origin. An
+   *  "order" destination is pinned as the final stop. */
+  destination?: RouteDestinationOption;
 }
 
 export async function getDayRoute(
@@ -76,16 +82,32 @@ export async function getDayRoute(
   if (orders.length === 0) {
     return err(new NoConfirmedOrdersError(targetDate));
   }
-  if (orders.length > MAX_WAYPOINTS) {
+
+  // Resolve the end point: round trip (default), a saved location, or one of
+  // the day's orders (pinned as the final stop, pulled out of the waypoints).
+  const resolved = resolveRouteDestination(orders, origin, options.destination);
+  const waypointOrders = resolved.waypointOrders;
+  // Cap on actual waypoints (the destination is a separate point, not a
+  // waypoint), so an order-destination doesn't count against the limit twice.
+  if (waypointOrders.length > MAX_WAYPOINTS) {
     return err(
-      new TooManyWaypointsError({ count: orders.length, cap: MAX_WAYPOINTS }),
+      new TooManyWaypointsError({
+        count: waypointOrders.length,
+        cap: MAX_WAYPOINTS,
+      }),
+    );
+  }
+  if (options.destination?.kind === "order" && !resolved.appendStop) {
+    logger.warn(
+      { orderId: options.destination.orderId, targetDate },
+      "route_destination_order_not_found",
     );
   }
 
   const directionsResult = await callGoogleDirections({
     origin,
-    destination: origin, // round trip
-    waypoints: orders.map((o) => ({ lat: o.lat, lng: o.lng })),
+    destination: resolved.destCoord,
+    waypoints: waypointOrders.map((o) => ({ lat: o.lat, lng: o.lng })),
   });
   if (isErr(directionsResult)) return directionsResult;
   const directions = directionsResult.value;
@@ -108,7 +130,7 @@ export async function getDayRoute(
   let cumulativeDistanceM = 0;
   let cumulativeDurationS = 0;
   const stops: RouteStop[] = directions.waypointOrder.map((srcIdx, i) => {
-    const order = orders[srcIdx];
+    const order = waypointOrders[srcIdx];
     if (!order) {
       throw new Error(`waypoint_order[${i}]=${srcIdx} out of range`);
     }
@@ -140,8 +162,40 @@ export async function getDayRoute(
     };
   });
 
-  // Final leg back to warehouse — included in totals + finish ETA but not
-  // surfaced as a stop.
+  // Order destination: append it as the FINAL stop. Its leg is the last one
+  // (last waypoint → destination); accumulate so its ETA/cumulatives are right.
+  if (resolved.appendStop) {
+    const appended = resolved.appendStop;
+    const finalLeg = directions.legs[waypointOrders.length];
+    const legDistanceM = finalLeg?.distanceM ?? null;
+    const legDurationS = finalLeg?.durationS ?? null;
+    cumulativeDistanceM += legDistanceM ?? 0;
+    cumulativeDurationS += legDurationS ?? 0;
+    const etaIso = new Date(startMs + cumulativeDurationS * 1000).toISOString();
+    const detail = detailById.get(appended.order_id);
+    stops.push({
+      sequence: stops.length + 1,
+      order_id: appended.order_id,
+      order_number: appended.order_number,
+      customer_id: appended.customer_id,
+      customer_name: `${appended.customer_first_name} ${appended.customer_last_name}`,
+      customer_phone: appended.customer_phone,
+      lat: appended.lat,
+      lng: appended.lng,
+      delivery_notes: appended.delivery_notes,
+      total_minor: appended.total_minor,
+      amount_paid_minor: detail?.amount_paid_minor ?? 0,
+      items: detail?.items ?? [],
+      leg_distance_m: legDistanceM,
+      leg_duration_s: legDurationS,
+      cumulative_distance_m: cumulativeDistanceM,
+      cumulative_duration_s: cumulativeDurationS,
+      eta_iso: etaIso,
+    });
+  }
+
+  // Final leg (to the destination — origin on a round trip, the saved location,
+  // or the pinned order) is included in totals + finish ETA.
   const totalDistanceM = directions.legs.reduce((s, l) => s + l.distanceM, 0);
   const totalDurationS = directions.legs.reduce((s, l) => s + l.durationS, 0);
   const finishTimeIso = new Date(startMs + totalDurationS * 1000).toISOString();
@@ -149,6 +203,7 @@ export async function getDayRoute(
   return ok({
     date: targetDate,
     origin,
+    destination: resolved.routeDestination,
     stops,
     overview_polyline: directions.overviewPolyline,
     step_polylines: directions.stepPolylines,

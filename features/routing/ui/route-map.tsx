@@ -27,7 +27,11 @@ import {
 } from "@vis.gl/react-google-maps";
 import { useEffect, useRef } from "react";
 
-import type { RouteOrigin, RouteStop } from "@/features/routing/domain/route";
+import type {
+  RouteDestination,
+  RouteOrigin,
+  RouteStop,
+} from "@/features/routing/domain/route";
 
 type StopMarkerState = "default" | "selected" | "delivered";
 
@@ -45,6 +49,7 @@ function stopMarkerClass(state: StopMarkerState): string {
 interface RouteMapProps {
   apiKey: string;
   origin: RouteOrigin;
+  destination?: RouteDestination | null;
   stops: readonly RouteStop[];
   /** Per-step encoded polylines in route order. Empty when not optimized. */
   stepPolylines: readonly string[];
@@ -56,6 +61,7 @@ interface RouteMapProps {
 export function RouteMap({
   apiKey,
   origin,
+  destination,
   stops,
   stepPolylines,
   selectedStopId,
@@ -79,6 +85,7 @@ export function RouteMap({
         >
           <RouteLayer
             origin={origin}
+            destination={destination ?? null}
             stops={stops}
             stepPolylines={stepPolylines}
             selectedStopId={selectedStopId}
@@ -93,6 +100,7 @@ export function RouteMap({
 
 interface RouteLayerProps {
   origin: RouteOrigin;
+  destination?: RouteDestination | null;
   stops: readonly RouteStop[];
   stepPolylines: readonly string[];
   selectedStopId: string | null;
@@ -102,6 +110,7 @@ interface RouteLayerProps {
 
 function RouteLayer({
   origin,
+  destination,
   stops,
   stepPolylines,
   selectedStopId,
@@ -152,6 +161,22 @@ function RouteLayer({
       }),
     );
 
+    // Non-delivery end point (saved location). Order destinations are already
+    // drawn as the final numbered stop, so only render this for "location".
+    if (destination && destination.kind === "location") {
+      const destEl = document.createElement("div");
+      destEl.className =
+        "flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white shadow";
+      destEl.textContent = `🏁 ${destination.name}`;
+      created.push(
+        new markerLib.AdvancedMarkerElement({
+          position: { lat: destination.lat, lng: destination.lng },
+          content: destEl,
+          title: `Varış: ${destination.name}`,
+        }),
+      );
+    }
+
     for (const stop of stops) {
       const el = document.createElement("div");
       el.className = stopMarkerClass("default");
@@ -190,6 +215,9 @@ function RouteLayer({
       const bounds = new coreLib.LatLngBounds();
       bounds.extend({ lat: origin.lat, lng: origin.lng });
       for (const stop of stops) bounds.extend({ lat: stop.lat, lng: stop.lng });
+      if (destination && destination.kind === "location") {
+        bounds.extend({ lat: destination.lat, lng: destination.lng });
+      }
       map.fitBounds(bounds, 64);
     }
 
@@ -199,7 +227,7 @@ function RouteLayer({
       elByIdRef.current = new Map();
       markerByIdRef.current = new Map();
     };
-  }, [map, markerLib, coreLib, geometryLib, origin, stops, stepPolylines]);
+  }, [map, markerLib, coreLib, geometryLib, origin, destination, stops, stepPolylines]);
 
   // ---- RECOLOR + PAN effect: cheap, runs on selection/delivered change ----
   useEffect(() => {
