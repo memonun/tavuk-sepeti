@@ -263,10 +263,9 @@ function ProductCard({ product }: { product: Product }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <DetailChip label="Paket" value={String(product.package_size)} />
         <DetailChip label="Min." value={String(product.min_qty)} />
-        <DetailChip label="Adım" value={String(product.step)} />
       </div>
 
       <Separator />
