@@ -44,7 +44,6 @@ interface FieldsState {
   unit_label: string;
   package_size: string;
   min_qty: string;
-  step: string;
   base_price: string; // TRY — create only
 }
 
@@ -55,7 +54,6 @@ function initialFields(product?: Product): FieldsState {
     unit_label: product?.unit_label ?? "",
     package_size: product ? String(product.package_size) : "1",
     min_qty: product ? String(product.min_qty) : "1",
-    step: product ? String(product.step) : "1",
     base_price: "",
   };
 }
@@ -93,7 +91,10 @@ export function ProductFormDialog({
       unit_label: fields.unit_label,
       package_size: normalizeDecimal(fields.package_size),
       min_qty: normalizeDecimal(fields.min_qty),
-      step: normalizeDecimal(fields.step),
+      // ADIM (step) artık UI'dan girilmiyor; sipariş artış adımı paket boyunu
+      // izler (miktar = paket boyunun katı). Gerekirse ayrı alan olarak geri
+      // eklenebilir — domain/DB kuralı (`quantity % step === 0`) yerinde duruyor.
+      step: normalizeDecimal(fields.package_size),
     };
 
     startSaving(async () => {
@@ -188,7 +189,7 @@ export function ProductFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="pf-pkg">Paket boyutu</Label>
               <Input
@@ -206,16 +207,6 @@ export function ProductFormDialog({
                 inputMode="decimal"
                 value={fields.min_qty}
                 onChange={(e) => set({ min_qty: e.target.value })}
-                placeholder="1"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pf-step">Adım</Label>
-              <Input
-                id="pf-step"
-                inputMode="decimal"
-                value={fields.step}
-                onChange={(e) => set({ step: e.target.value })}
                 placeholder="1"
               />
             </div>
