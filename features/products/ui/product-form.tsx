@@ -91,10 +91,12 @@ export function ProductFormDialog({
       unit_label: fields.unit_label,
       package_size: normalizeDecimal(fields.package_size),
       min_qty: normalizeDecimal(fields.min_qty),
-      // ADIM (step) artık UI'dan girilmiyor; sipariş artış adımı paket boyunu
-      // izler (miktar = paket boyunun katı). Gerekirse ayrı alan olarak geri
-      // eklenebilir — domain/DB kuralı (`quantity % step === 0`) yerinde duruyor.
-      step: normalizeDecimal(fields.package_size),
+      // ADIM (step) artık UI'dan girilmiyor; sipariş artış adımı minimum
+      // miktarı izler (miktar = min_qty'nin katı). Bu, mevcut katalogun her
+      // ürününü korur (step === min_qty: eggs 1, cheese/yogurt 0.5) — paket
+      // boyu eşitlemek yumurtayı 15'erli pakete zorlardı. Gerekirse ayrı alan
+      // olarak geri eklenebilir; domain/DB kuralı (`quantity % step === 0`) duruyor.
+      step: normalizeDecimal(fields.min_qty),
     };
 
     startSaving(async () => {
