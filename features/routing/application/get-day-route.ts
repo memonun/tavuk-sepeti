@@ -1,19 +1,19 @@
 import "server-only";
 
 /**
- * Optimize the day's deliveries via Google Directions.
+ * Optimize the day's deliveries via the Google Routes API (computeRoutes).
  *
  * Pipeline:
  *   1. Resolve the warehouse origin from env. If missing → typed error.
  *   2. Fetch the day's orders via getDayOrders.
- *   3. Reject if zero orders or > Faz 1 cap (25 waypoints).
- *   4. Hand to callGoogleDirections; reorder orders by waypoint_order.
+ *   3. Reject if zero orders or > the optimization cap (98 waypoints).
+ *   4. Hand to callGoogleDirections; reorder orders by the optimized order.
  *   5. Walk the legs in order to compute cumulative distance/duration and
  *      ETA per stop, anchored to `startTimeIso` (default = now).
  *   6. Return OptimizedRoute with step polylines for high-fidelity render.
  *
- * Faz 2 will replace step 3-4 with a proper VRP solver; spec §7.2 calls
- * the 25-cap split a stop-gap.
+ * Faz 2 will replace step 3-4 with a proper VRP solver (multiple vehicles /
+ * time windows); spec §7.2 calls the single-request cap a stop-gap.
  */
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import {
@@ -37,7 +37,10 @@ import type {
   RouteStop,
 } from "@/features/routing/domain/route";
 
-const MAX_WAYPOINTS = 25; // Faz 1 — matches Google's standard plan limit.
+// Routes API `optimizeWaypointOrder` supports up to 98 intermediate stops when
+// every point is a lat/lng coordinate (we always send coordinates, never place
+// IDs). The destination is a separate point, not a waypoint.
+const MAX_WAYPOINTS = 98;
 
 export type GetDayRouteFailure =
   | WarehouseNotConfiguredError
@@ -124,7 +127,7 @@ export async function getDayRoute(
   })();
   const startTimeIso = new Date(startMs).toISOString();
 
-  // waypoint_order is indices into the input waypoints. Reorder orders +
+  // waypointOrder is indices into the input waypoints. Reorder orders +
   // walk legs in route sequence to derive cumulatives + ETAs. legs[i] is
   // the segment FROM stop i TO stop i+1, with leg[0] being origin → stop 1.
   let cumulativeDistanceM = 0;
@@ -132,7 +135,7 @@ export async function getDayRoute(
   const stops: RouteStop[] = directions.waypointOrder.map((srcIdx, i) => {
     const order = waypointOrders[srcIdx];
     if (!order) {
-      throw new Error(`waypoint_order[${i}]=${srcIdx} out of range`);
+      throw new Error(`waypointOrder[${i}]=${srcIdx} out of range`);
     }
     const leg = directions.legs[i];
     const legDistanceM = leg?.distanceM ?? null;
