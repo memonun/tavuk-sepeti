@@ -12,6 +12,7 @@ create or replace function create_orders_bulk(
   p_created_by uuid
 ) returns jsonb
 language plpgsql
+-- security invoker: runs as the caller; relies on the caller's RLS access to orders/order_items/order_status_events/addresses. Do not switch to security definer.
 security invoker
 set search_path = public
 as $$
@@ -22,7 +23,7 @@ declare
   v_results      jsonb := '[]'::jsonb;
   v_count        int;
 begin
-  select count(*) into v_count from jsonb_array_elements(p_orders);
+  v_count := coalesce(jsonb_array_length(p_orders), 0);
 
   if v_count = 0 then
     raise exception 'bulk order needs at least one order'
@@ -44,7 +45,7 @@ begin
       (v_elem->>'scheduled_for')::date,
       nullif(v_elem->>'time_slot', '')::time_slot,
       (v_elem->>'payment_method')::payment_method,
-      nullif(v_elem->>'delivery_notes', ''),
+      nullif(v_elem->>'delivery_notes', '')::text,
       coalesce((v_elem->>'delivery_fee_minor')::bigint, 0),
       p_created_by,
       v_elem->'items'
