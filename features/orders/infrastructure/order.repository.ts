@@ -530,3 +530,87 @@ export async function countOrdersByCustomer(
   }
   return ok(counts);
 }
+
+// ---- bulk create ------------------------------------------------------------
+
+export interface BulkOrderRepoInput {
+  scheduled_for: string;
+  time_slot: TimeSlot | null;
+  payment_method: PaymentMethod;
+  delivery_fee_minor: number;
+  created_by: string;
+  orders: ReadonlyArray<{
+    customer_id: string;
+    delivery_notes: string | null;
+    items: ReadonlyArray<{
+      product_key: string;
+      quantity: number;
+      unit_price_minor: number;
+      line_total_minor: number;
+      product_snapshot: {
+        display_name: string;
+        unit: string;
+        unit_label: string;
+      };
+    }>;
+  }>;
+}
+
+export interface BulkOrderResultRow {
+  customer_id: string;
+  order_id: string;
+  order_number: string;
+}
+
+export async function createOrdersBulk(
+  input: BulkOrderRepoInput,
+): Promise<Result<BulkOrderResultRow[], OrderRepoFailure>> {
+  const supabase = await createSupabaseServerClient();
+
+  const p_orders = input.orders.map((o) => ({
+    customer_id: o.customer_id,
+    scheduled_for: input.scheduled_for,
+    time_slot: input.time_slot,
+    payment_method: input.payment_method,
+    delivery_notes: o.delivery_notes,
+    delivery_fee_minor: input.delivery_fee_minor,
+    items: o.items,
+  }));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error: rpcError } = await (supabase as any).rpc(
+    "create_orders_bulk",
+    { p_orders, p_created_by: input.created_by },
+  );
+
+  if (rpcError) {
+    logger.error(
+      { code: rpcError.code, message: rpcError.message, count: p_orders.length },
+      "create_orders_bulk_rpc_failed",
+    );
+    if (rpcError.message?.includes("no primary address")) {
+      return err(
+        new ValidationError({
+          message:
+            "Seçili müşterilerden birinin kayıtlı adresi yok; toplu sipariş iptal edildi.",
+          cause: rpcError,
+        }),
+      );
+    }
+    return err(
+      new ExternalApiError({ message: rpcError.message, cause: rpcError }),
+    );
+  }
+
+  return ok(
+    ((data ?? []) as Array<{
+      customer_id: string;
+      order_id: string;
+      order_number: string;
+    }>).map((r) => ({
+      customer_id: r.customer_id,
+      order_id: r.order_id,
+      order_number: r.order_number,
+    })),
+  );
+}
