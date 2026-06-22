@@ -131,6 +131,12 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
   // needs the day's orders + their items.
   const manifest = await buildDayLoadManifest(dayOrders);
 
+  // Already-delivered orders, so the stop list shows their delivered state
+  // (not an active "Teslim Edildi" action) — matching the manifest's counts.
+  const deliveredOrderIds = new Set(
+    dayOrders.filter((o) => o.status === "delivered").map((o) => o.order_id),
+  );
+
   const routeResult =
     wantsOptimize && origin && dayOrders.length > 0
       ? await getDayRoute(date, {
@@ -241,6 +247,7 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
               ? { kind: "optimized", stops: optimized.stops }
               : { kind: "unoptimized", orders: dayOrders }
           }
+          deliveredOrderIds={deliveredOrderIds}
         />
       )}
     </div>

@@ -10,6 +10,7 @@
  * Selecting a row mirrors clicking its map marker — one shared selectedStopId.
  * Without the prop (the unoptimized server view) it's a plain static list.
  */
+import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useRef } from "react";
 
@@ -219,7 +220,14 @@ export function RouteList({
             </div>
             <div className="flex shrink-0 flex-col items-end gap-2">
               <p className="font-mono text-sm">{formatTRY(item.totalMinor)}</p>
-              <MarkDeliveredButton orderId={item.orderId} />
+              {isDelivered ? (
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Teslim edildi
+                </span>
+              ) : (
+                <MarkDeliveredButton orderId={item.orderId} />
+              )}
             </div>
           </li>
         );
