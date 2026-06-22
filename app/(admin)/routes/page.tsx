@@ -1,9 +1,11 @@
+import { buildDayLoadManifest } from "@/features/routing/application/get-day-load-manifest";
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { listSavedLocations } from "@/features/routing/application/list-saved-locations";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
+import { RouteManifestPanel } from "@/features/routing/ui/route-manifest-panel";
 import { RouteWorkspace } from "@/features/routing/ui/route-workspace";
 import { StartRouteButton } from "@/features/routing/ui/start-route-button";
 import { env } from "@/shared/env";
@@ -125,6 +127,10 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
   const dayOrders = ordersResult.value;
   const savedLocations = savedLocationsResult.ok ? savedLocationsResult.value : [];
 
+  // Load manifest is available straight away (no optimize needed) — it only
+  // needs the day's orders + their items.
+  const manifest = await buildDayLoadManifest(dayOrders);
+
   const routeResult =
     wantsOptimize && origin && dayOrders.length > 0
       ? await getDayRoute(date, {
@@ -213,6 +219,16 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
       {optimizeError ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Optimizasyon başarısız: {optimizeError}
+        </div>
+      ) : null}
+
+      {dayOrders.length > 0 ? (
+        <div className="w-full max-w-md">
+          <RouteManifestPanel
+            manifest={manifest}
+            {...(optimized ? { route: optimized } : {})}
+            variant="planning"
+          />
         </div>
       ) : null}
 

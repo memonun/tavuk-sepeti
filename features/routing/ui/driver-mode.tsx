@@ -34,6 +34,7 @@ import {
   List,
   Loader2,
   MapPin,
+  Package,
   SkipForward,
   Undo2,
   Wallet,
@@ -49,7 +50,9 @@ import { revertDeliveryAction } from "@/features/orders/application/revert-deliv
 import { ApproachPrompt } from "@/features/routing/ui/approach-prompt";
 import { DeliveryPaymentDialog } from "@/features/routing/ui/delivery-payment-dialog";
 import { RouteDriverMap } from "@/features/routing/ui/route-driver-map";
+import { RouteManifestPanel } from "@/features/routing/ui/route-manifest-panel";
 import { StopCard } from "@/features/routing/ui/stop-card";
+import { computeRouteManifest } from "@/features/routing/domain/route-manifest";
 import { useDriverState } from "@/features/routing/ui/use-driver-state";
 import { useGeolocation } from "@/features/routing/ui/use-geolocation";
 import { useRouteRealtime } from "@/features/routing/ui/hooks/use-route-realtime";
@@ -72,6 +75,7 @@ import {
 } from "@/features/routing/ui/destination-picker";
 import { cn } from "@/lib/utils";
 import { formatHHmm } from "@/shared/utils/date";
+import { formatTRY } from "@/shared/utils/money";
 
 import type { OptimizedRoute, RouteStop } from "@/features/routing/domain/route";
 import type { SavedLocation } from "@/features/routing/domain/saved-location";
@@ -111,6 +115,7 @@ export function DriverMode({
   const [exitOpen, setExitOpen] = useState(false);
   const [online, setOnline] = useState(true);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [manifestOpen, setManifestOpen] = useState(false);
   // The just-delivered stop to collect payment for (null = popup closed).
   const [paymentStop, setPaymentStop] = useState<RouteStop | null>(null);
   const [destOpen, setDestOpen] = useState(false);
@@ -176,6 +181,8 @@ export function DriverMode({
     ...optimisticDelivered,
   ]);
   for (const id of optimisticReverted) deliveredIds.delete(id);
+  // Live load manifest — `remainingLoads` shrinks as deliveries are marked.
+  const manifest = computeRouteManifest(route.stops, Array.from(deliveredIds));
   const driverState = useDriverState(route.stops, deliveredIds);
   const geo = useGeolocation();
   // Live per-stop content: external edits (office records a payment, edits a
@@ -379,6 +386,39 @@ export function DriverMode({
         >
           Değiştir
         </Button>
+      </div>
+
+      {/* Load manifest — what's still in the van + cash to collect */}
+      <div className="border-b bg-background">
+        <button
+          type="button"
+          onClick={() => setManifestOpen((o) => !o)}
+          className="flex w-full items-center gap-2 px-4 py-1.5 text-xs hover:bg-muted"
+        >
+          <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="font-medium">Yük</span>
+          <span className="text-muted-foreground">
+            · {manifest.remainingCount} durak kaldı
+          </span>
+          {manifest.toCollectMinor > 0 ? (
+            <span className="ml-auto font-medium">
+              Tahsil {formatTRY(manifest.toCollectMinor)}
+            </span>
+          ) : (
+            <span className="ml-auto" />
+          )}
+          <ChevronRight
+            className={cn(
+              "h-4 w-4 shrink-0 transition-transform",
+              manifestOpen && "rotate-90",
+            )}
+          />
+        </button>
+        {manifestOpen ? (
+          <div className="max-h-[40vh] overflow-y-auto border-t p-2">
+            <RouteManifestPanel manifest={manifest} route={route} variant="driver" />
+          </div>
+        ) : null}
       </div>
 
       {/* Stop stepper — step backward/forward through the queue */}
