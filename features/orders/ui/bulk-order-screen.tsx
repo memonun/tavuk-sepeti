@@ -13,6 +13,7 @@ import {
 import { BasketPanel } from "@/features/orders/ui/basket-panel";
 import { CustomerPickList } from "@/features/orders/ui/customer-pick-list";
 import { useDraftBatch } from "@/features/orders/ui/use-draft-batch";
+import { usePersistentState } from "@/features/orders/ui/use-persistent-state";
 import type { Product } from "@/features/products/application/list-products";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,14 @@ const SLOTS: Array<{ value: string; label: string }> = [
 export function BulkOrderScreen({ products, today }: Props) {
   const router = useRouter();
   const { batch, setDate, setDefaults, apply, remove, reset } = useDraftBatch(today);
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  // Selection persists across navigation (go view a customer, come back) — the
+  // draft basket already does via useDraftBatch; this keeps the left side too.
+  const [selectedIds, setSelectedIds] = usePersistentState<ReadonlySet<string>>(
+    "ts:bulk-order:selection:v1",
+    new Set<string>(),
+    (s) => JSON.stringify([...s]),
+    (raw) => new Set<string>(JSON.parse(raw) as string[]),
+  );
   const [missing, setMissing] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
