@@ -14,6 +14,7 @@ import type {
   Order,
   OrderItem,
   OrderListItem,
+  OrderSource,
   OrderStatus,
   OrderStatusEvent,
   PaymentMethod,
@@ -127,6 +128,8 @@ interface ListOrderRow {
   delivery_notes: string | null;
   delivery_fee_minor: number;
   created_at: string;
+  source: string;
+  recurring_template_id: string | null;
   customers: { first_name: string | null; last_name: string | null } | null;
 }
 
@@ -149,6 +152,8 @@ export function rowToListItem(row: ListOrderRow): OrderListItem {
     delivery_notes: row.delivery_notes,
     delivery_fee_minor: row.delivery_fee_minor,
     created_at: new Date(row.created_at),
+    source: row.source as OrderSource,
+    recurring_template_id: row.recurring_template_id,
   };
 }
 

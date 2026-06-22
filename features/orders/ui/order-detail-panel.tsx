@@ -114,9 +114,16 @@ export function OrderDetailPanel({
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-xl font-semibold tracking-tight">
-            {order.order_number}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-mono text-xl font-semibold tracking-tight">
+              {order.order_number}
+            </h2>
+            {order.source === "recurring_generated" ? (
+              <Badge variant="outline" className="text-xs">
+                Abonelik
+              </Badge>
+            ) : null}
+          </div>
           <p className="text-sm">
             <Link
               href={`/customers/${order.customer_id}`}
@@ -128,6 +135,16 @@ export function OrderDetailPanel({
             {formatDate(order.scheduled_for)}
             {order.time_slot ? ` · ${TIME_SLOT_LABEL[order.time_slot]}` : null}
           </p>
+          {order.source === "recurring_generated" ? (
+            <p className="text-xs text-muted-foreground">
+              <Link
+                href={`/customers/${order.customer_id}#recurring`}
+                className="underline-offset-2 hover:underline"
+              >
+                Bu sipariş bir abonelikten oluştu →
+              </Link>
+            </p>
+          ) : null}
         </div>
         <Badge variant={STATUS_VARIANT[order.status]} className="text-sm">
           {STATUS_LABEL[order.status]}

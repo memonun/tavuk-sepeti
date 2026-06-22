@@ -66,21 +66,28 @@ export function buildOrderColumns(
       id: "order_number",
       accessorKey: "order_number",
       header: "No",
-      size: 130,
+      size: 150,
       columnType: "text",
       defaultPin: "left",
       editable: false,
       cell: ({ row }) => (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenDetail(row.original);
-          }}
-          className="w-full text-left font-mono text-xs underline-offset-2 hover:underline"
-        >
-          {row.original.order_number}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetail(row.original);
+            }}
+            className="font-mono text-xs underline-offset-2 hover:underline"
+          >
+            {row.original.order_number}
+          </button>
+          {row.original.source === "recurring_generated" ? (
+            <Badge variant="outline" className="px-1 py-0 text-[10px] leading-tight">
+              Abonelik
+            </Badge>
+          ) : null}
+        </div>
       ),
     },
     {

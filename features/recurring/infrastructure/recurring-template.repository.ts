@@ -304,3 +304,24 @@ export async function listTemplatesByCustomer(
     ),
   );
 }
+
+export async function listAllTemplates(): Promise<Result<RecurringTemplateListItem[], ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("recurring_templates")
+    .select("*, customers!inner(first_name, last_name)")
+    .order("active", { ascending: false })
+    .order("next_run_at");
+
+  if (error) {
+    logger.error({ code: error.code }, "recurring_templates_list_all_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+
+  return ok(
+    ((data ?? []) as Array<Record<string, unknown> & { customers: { first_name: string | null; last_name: string | null } | null }>).map(
+      rowToListItem,
+    ),
+  );
+}

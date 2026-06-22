@@ -20,6 +20,7 @@ import {
   createTemplate,
   deleteTemplate,
   findTemplateById,
+  listAllTemplates,
   listTemplatesByCustomer,
   setTemplateActive,
   updateTemplate,
@@ -255,6 +256,21 @@ export async function listCustomerRecurringTemplatesAction(
   if (!auth.ok) return err(auth.error);
 
   const result = await listTemplatesByCustomer(customerId);
+  if (!result.ok) return err(result.error);
+  return ok(result.value);
+}
+
+// ---------------------------------------------------------------------------
+// List all templates — global overview (read — no audit)
+// ---------------------------------------------------------------------------
+
+export async function listAllRecurringTemplatesAction(): Promise<
+  Result<RecurringTemplateListItem[], AppError>
+> {
+  const auth = await assertAdmin();
+  if (!auth.ok) return err(auth.error);
+
+  const result = await listAllTemplates();
   if (!result.ok) return err(result.error);
   return ok(result.value);
 }
