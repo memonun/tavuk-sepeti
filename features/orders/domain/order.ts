@@ -120,4 +120,6 @@ export interface OrderListItem {
   readonly delivery_notes: string | null;
   readonly delivery_fee_minor: number;
   readonly created_at: Date;
+  readonly source: OrderSource;
+  readonly recurring_template_id: string | null;
 }

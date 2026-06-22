@@ -32,9 +32,15 @@ export type AuditAction =
   | "product.updated"
   | "product.archived"
   | "payment.recorded"
-  | "payment.deleted";
+  | "payment.deleted"
+  | "recurring.created"
+  | "recurring.updated"
+  | "recurring.paused"
+  | "recurring.resumed"
+  | "recurring.deleted"
+  | "recurring.order_generated";
 
-export type AuditEntityType = "customer" | "order" | "address" | "product";
+export type AuditEntityType = "customer" | "order" | "address" | "product" | "recurring_template";
 
 export interface LogAuditInput {
   actor_id: string | null;

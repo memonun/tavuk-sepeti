@@ -47,7 +47,7 @@ type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
  * from silently drifting apart.
  */
 const ORDER_LIST_SELECT =
-  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, customers!inner(first_name, last_name)" as const;
+  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, recurring_template_id, customers!inner(first_name, last_name)" as const;
 
 export interface CreateOrderInput {
   customer_id: string;
@@ -289,6 +289,8 @@ export async function listOrders(
         delivery_notes: row.delivery_notes,
         delivery_fee_minor: row.delivery_fee_minor ?? 0,
         created_at: row.created_at,
+        source: row.source ?? "admin_manual",
+        recurring_template_id: row.recurring_template_id ?? null,
         customers: row.customers,
       }),
     ),
