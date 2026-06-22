@@ -12,7 +12,7 @@ import { fetchDeliveryDetails } from "@/features/routing/infrastructure/order-de
  * Directions); the route page adds them to the footer once a route is optimized.
  */
 export async function buildDayLoadManifest(
-  orders: readonly { order_id: string; total_minor: number }[],
+  orders: readonly { order_id: string; total_minor: number; status: string }[],
 ): Promise<RouteManifest> {
   if (orders.length === 0) return computeRouteManifest([]);
 
@@ -28,5 +28,12 @@ export async function buildDayLoadManifest(
     };
   });
 
-  return computeRouteManifest(stops);
+  // Already-delivered orders shouldn't count toward "what's left to carry" —
+  // a day's route includes its completed stops, but the load/cash you still
+  // need is only the undelivered ones.
+  const deliveredOrderIds = orders
+    .filter((o) => o.status === "delivered")
+    .map((o) => o.order_id);
+
+  return computeRouteManifest(stops, deliveredOrderIds);
 }

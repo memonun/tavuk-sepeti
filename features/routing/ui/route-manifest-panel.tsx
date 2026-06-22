@@ -42,8 +42,10 @@ interface Props {
 
 export function RouteManifestPanel({ manifest, route, variant = "planning" }: Props) {
   const isDriver = variant === "driver";
-  // Driver mode starts on what's still in the van; planning shows the full load.
-  const [showRemaining, setShowRemaining] = useState(isDriver);
+  // Both views default to what's still to carry; the driver can flip to the
+  // full total. Planning has no delivered stops on an upcoming day, so
+  // remaining == total there anyway.
+  const [showRemaining, setShowRemaining] = useState(true);
   const lines = showRemaining ? manifest.remainingLoads : manifest.loads;
 
   return (
@@ -52,7 +54,7 @@ export function RouteManifestPanel({ manifest, route, variant = "planning" }: Pr
         <span className="flex items-center gap-1.5 text-sm font-medium">
           <Package className="h-4 w-4 text-muted-foreground" />
           Yük manifestosu
-          {isDriver && showRemaining ? (
+          {showRemaining && manifest.deliveredCount > 0 ? (
             <span className="text-muted-foreground">· kalan</span>
           ) : null}
         </span>
@@ -105,7 +107,12 @@ export function RouteManifestPanel({ manifest, route, variant = "planning" }: Pr
 
       {!isDriver ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
-          <span>{manifest.stopCount} durak</span>
+          <span>
+            {manifest.remainingCount} durak
+            {manifest.deliveredCount > 0
+              ? ` · ${manifest.deliveredCount} teslim edildi`
+              : ""}
+          </span>
           {route ? (
             <>
               <span>· {formatDistance(route.total_distance_m)}</span>
