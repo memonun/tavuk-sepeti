@@ -1,7 +1,7 @@
 import Link from "next/link";
 
+import { BulkOrderScreen } from "@/features/orders/ui/bulk-order-screen";
 import { listActiveProducts } from "@/features/products/application/list-products";
-import { OrderForm } from "@/features/orders/ui/order-form";
 import { toIstanbulDateString } from "@/shared/utils/date";
 
 export default async function NewOrderPage() {
@@ -17,20 +17,20 @@ export default async function NewOrderPage() {
   const today = toIstanbulDateString(new Date());
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="space-y-3">
       <div>
         <p className="text-xs text-muted-foreground">
           <Link href="/orders" className="hover:underline">
             ← Siparişler
           </Link>
         </p>
-        <h2 className="text-2xl font-semibold tracking-tight">Yeni Sipariş</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Sipariş Oluştur</h2>
         <p className="text-sm text-muted-foreground">
-          Müşteri seç, ürünleri ekle, tarihi ayarla.
+          Soldan müşterileri seç, sağdan ortak sepeti kur, topluca oluştur.
         </p>
       </div>
 
-      <OrderForm products={productsResult.value} defaultScheduledFor={today} />
+      <BulkOrderScreen products={productsResult.value} today={today} />
     </div>
   );
 }
