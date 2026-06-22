@@ -21,6 +21,10 @@ export const recurringTemplateFormSchema = z
     items: z.array(recurringItemSchema).min(1, "En az bir ürün gerekli."),
     payment_method: z.enum(["cash_on_delivery", "bank_transfer"]),
     active: z.boolean().default(true),
+    first_run_at: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
   })
   .superRefine((v, ctx) => {
     if (v.cadence === "monthly") {
