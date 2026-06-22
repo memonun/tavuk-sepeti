@@ -210,6 +210,10 @@ export function CustomerPickList({
 
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
+  // All filtered customers are selected → the select-all button becomes its own
+  // "deselect all" toggle (no separate Temizle needed in that state).
+  const allSelected = total > 0 && selectedIds.size >= total;
+
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -227,11 +231,14 @@ export function CustomerPickList({
           variant="outline"
           size="sm"
           disabled={selectingAll}
-          onClick={() => void selectAllFiltered()}
+          onClick={() => {
+            if (allSelected) onSelectionChange(new Set());
+            else void selectAllFiltered();
+          }}
         >
-          Tümünü seç
+          {allSelected ? `Tümünü kaldır (${selectedIds.size})` : "Tümünü seç"}
         </Button>
-        {selectedIds.size > 0 && (
+        {!allSelected && selectedIds.size > 0 && (
           <Button
             type="button"
             variant="ghost"
