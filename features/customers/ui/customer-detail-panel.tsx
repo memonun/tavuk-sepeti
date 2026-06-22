@@ -11,12 +11,15 @@ interface CustomerDetailPanelProps {
   readonly mapsKey: string;
   /** Slot for the customer's orders list (filled by a later plan). */
   readonly ordersSlot?: ReactNode;
+  /** Slot for the customer's recurring templates list. */
+  readonly recurringSlot?: ReactNode;
 }
 
 export function CustomerDetailPanel({
   customer,
   mapsKey,
   ordersSlot,
+  recurringSlot,
 }: CustomerDetailPanelProps) {
   // Domain entity → form input shape. The form's Zod schema accepts strings
   // for nullable fields (blank → null), so we coerce nulls to "" for inputs.
@@ -56,6 +59,7 @@ export function CustomerDetailPanel({
         }}
       />
       {ordersSlot}
+      {recurringSlot}
     </div>
   );
 }

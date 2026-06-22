@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { getCustomerById } from "@/features/customers/application/get-customer";
 import { CustomerDetailPanel } from "@/features/customers/ui/customer-detail-panel";
 import { CustomerOrdersList } from "@/features/orders/ui/customer-orders-list";
+import { listActiveProducts } from "@/features/products/application/list-products";
+import { CustomerRecurringList } from "@/features/recurring/ui/customer-recurring-list";
 import { env } from "@/shared/env";
 
 interface CustomerEditPageProps {
@@ -15,6 +17,9 @@ export default async function CustomerEditPage({ params }: CustomerEditPageProps
   const result = await getCustomerById(id);
   if (!result.ok) notFound();
   const customer = result.value;
+
+  const productsResult = await listActiveProducts();
+  const products = productsResult.ok ? productsResult.value : [];
 
   const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
   if (!mapsKey) {
@@ -45,6 +50,9 @@ export default async function CustomerEditPage({ params }: CustomerEditPageProps
         customer={customer}
         mapsKey={mapsKey}
         ordersSlot={<CustomerOrdersList customerId={id} />}
+        recurringSlot={
+          <CustomerRecurringList customerId={id} products={products} />
+        }
       />
     </div>
   );
