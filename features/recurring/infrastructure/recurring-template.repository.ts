@@ -205,6 +205,83 @@ export async function findTemplateById(
   return ok(rowToRecurringTemplate(data as Record<string, unknown>));
 }
 
+export async function listDueTemplates(
+  cutoff: Date,
+): Promise<Result<RecurringTemplate[], ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("recurring_templates")
+    .select(TEMPLATE_SELECT)
+    .eq("active", true)
+    .lte("next_run_at", cutoff.toISOString());
+
+  if (error) {
+    logger.error({ code: error.code }, "recurring_templates_list_due_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+
+  return ok(
+    ((data ?? []) as Array<Record<string, unknown>>).map(rowToRecurringTemplate),
+  );
+}
+
+export async function createRecurringOrder(input: {
+  template_id: string;
+  scheduled_for: string;
+  created_by: string | null;
+  items: ReadonlyArray<{
+    product_key: string;
+    quantity: number;
+    unit_price_minor: number;
+    product_snapshot: { display_name: string; unit: string; unit_label: string };
+  }>;
+}): Promise<Result<{ order_id: string }, RecurringRepoFailure>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error: rpcError } = await (supabase as any).rpc(
+    "create_recurring_order",
+    {
+      p_template_id: input.template_id,
+      p_scheduled_for: input.scheduled_for,
+      p_created_by: input.created_by,
+      p_items: input.items,
+    },
+  );
+
+  if (rpcError) {
+    logger.error(
+      { template_id: input.template_id, code: rpcError.code },
+      "recurring_order_create_failed",
+    );
+    if ((rpcError.message as string).includes("no primary address")) {
+      return err(new ValidationError({ message: rpcError.message, cause: rpcError }));
+    }
+    return err(new ExternalApiError({ message: rpcError.message, cause: rpcError }));
+  }
+
+  return ok({ order_id: String(data) });
+}
+
+export async function advanceNextRun(
+  id: string,
+  next: Date,
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from("recurring_templates")
+    .update({ next_run_at: next.toISOString() })
+    .eq("id", id);
+
+  if (error) {
+    logger.error({ id, code: error.code }, "recurring_template_advance_next_run_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+
+  return ok(undefined);
+}
+
 export async function listTemplatesByCustomer(
   customerId: string,
 ): Promise<Result<RecurringTemplateListItem[], RecurringRepoFailure>> {

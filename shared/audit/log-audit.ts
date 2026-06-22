@@ -37,7 +37,8 @@ export type AuditAction =
   | "recurring.updated"
   | "recurring.paused"
   | "recurring.resumed"
-  | "recurring.deleted";
+  | "recurring.deleted"
+  | "recurring.order_generated";
 
 export type AuditEntityType = "customer" | "order" | "address" | "product" | "recurring_template";
 

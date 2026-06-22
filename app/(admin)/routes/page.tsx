@@ -1,3 +1,4 @@
+import { materializeDueRecurring } from "@/features/recurring/application/materialize-due-recurring";
 import { buildDayLoadManifest } from "@/features/routing/application/get-day-load-manifest";
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
@@ -109,6 +110,10 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
     : destLat !== null && destLng !== null
       ? ({ kind: "location", lat: destLat, lng: destLng, name: destName ?? "Varış" } as const)
       : undefined;
+
+  // Lazy materialization: generate any due recurring orders before fetching.
+  // Never throws — failures are logged internally and the route page continues.
+  await materializeDueRecurring(date);
 
   // Always fetch the day's orders + saved locations for the list/header/picker.
   // If the user has clicked Optimize AND chosen an origin, run that too —
