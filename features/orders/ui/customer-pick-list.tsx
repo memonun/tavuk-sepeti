@@ -1,6 +1,8 @@
 // features/orders/ui/customer-pick-list.tsx
 "use client";
 
+import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getCustomersMissingPrimaryAddressAction } from "@/features/customers/application/customer-price-actions";
@@ -11,6 +13,7 @@ import {
 import type { CustomerSearchHit } from "@/features/customers/application/search-customers-action";
 import type { DraftBatch } from "@/features/orders/domain/draft-batch";
 import type { Product } from "@/features/products/application/list-products";
+import { usePersistentState } from "@/features/orders/ui/use-persistent-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +33,9 @@ export function CustomerPickList({
   selectedIds,
   onSelectionChange,
 }: Props) {
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
+  // Search + page persist too, so returning to the screen restores your spot.
+  const [q, setQ] = usePersistentState("ts:bulk-order:picker-q:v1", "");
+  const [page, setPage] = usePersistentState("ts:bulk-order:picker-page:v1", 1);
   const [rows, setRows] = useState<CustomerSearchHit[]>([]);
   const [total, setTotal] = useState(0);
   const [missing, setMissing] = useState<ReadonlySet<string>>(new Set());
@@ -289,6 +293,19 @@ export function CustomerPickList({
                   className="pointer-events-none size-4"
                 />
                 <span className="w-40 shrink-0 truncate font-medium">{r.name}</span>
+                <Link
+                  href={`/customers/${r.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  prefetch={false}
+                  title="Müşteri sayfasını yeni sekmede aç"
+                  aria-label="Müşteri detayını yeni sekmede aç"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <ExternalLink className="size-3.5" />
+                </Link>
                 {missing.has(r.id) && (
                   <Badge variant="destructive" className="text-[10px]">
                     ⚠ adres yok
