@@ -23,6 +23,7 @@ export type AuditAction =
   | "customer.updated"
   | "customer.deleted"
   | "order.created"
+  | "order.bulk_created"
   | "order.transitioned"
   | "order.delivery_reverted"
   | "order.updated"
