@@ -56,6 +56,13 @@ begin
     return v_existing;
   end if;
 
+  -- 2b. Defense-in-depth: never materialize an empty order (mirrors v2's guard;
+  -- the template schema enforces items.min(1), but the RPC is the last line).
+  if p_items is null or jsonb_array_length(p_items) = 0 then
+    raise exception 'recurring order needs at least one item'
+      using errcode = 'P0001';
+  end if;
+
   -- 3. Snapshot the customer's primary address — identical block to v2.
   select * into v_address_row
   from addresses a

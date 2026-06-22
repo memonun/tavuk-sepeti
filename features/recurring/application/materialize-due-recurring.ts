@@ -83,7 +83,11 @@ export async function materializeDueRecurring(
       );
 
       if (r.ok) {
-        await advanceNextRun(
+        // Only count + audit once the advance lands — otherwise a failed
+        // advance leaves the template "due" and the next (idempotent) pass
+        // would re-emit the audit row. The order itself already exists
+        // (dedupe index), so re-running is a safe no-op until advance succeeds.
+        const advanced = await advanceNextRun(
           tpl.id,
           computeNextRunAt(
             tpl.cadence,
@@ -91,14 +95,23 @@ export async function materializeDueRecurring(
             runInstant,
           ),
         );
-        generated++;
-        await logAudit({
-          actor_id: null,
-          action: "recurring.order_generated",
-          entity_type: "order",
-          entity_id: r.value.order_id,
-          after: { recurring_template_id: tpl.id, scheduled_for: forDate },
-        });
+        if (advanced.ok) {
+          generated++;
+          await logAudit({
+            actor_id: null,
+            action: "recurring.order_generated",
+            entity_type: "order",
+            entity_id: r.value.order_id,
+            after: { recurring_template_id: tpl.id, scheduled_for: forDate },
+          });
+        } else {
+          skipped++;
+          failures.push({ template_id: tpl.id, code: "ADVANCE_FAILED" });
+          logger.warn(
+            { template_id: tpl.id, code: advanced.error.code },
+            "recurring_materialize_advance_failed",
+          );
+        }
       } else {
         skipped++;
         failures.push({ template_id: tpl.id, code: r.error.code });
