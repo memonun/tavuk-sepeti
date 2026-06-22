@@ -1,9 +1,11 @@
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { listSavedLocations } from "@/features/routing/application/list-saved-locations";
+import { computeRouteManifest } from "@/features/routing/domain/route-manifest";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
+import { RouteManifestPanel } from "@/features/routing/ui/route-manifest-panel";
 import { RouteWorkspace } from "@/features/routing/ui/route-workspace";
 import { StartRouteButton } from "@/features/routing/ui/start-route-button";
 import { env } from "@/shared/env";
@@ -214,6 +216,14 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Optimizasyon başarısız: {optimizeError}
         </div>
+      ) : null}
+
+      {optimized ? (
+        <RouteManifestPanel
+          manifest={computeRouteManifest(optimized.stops)}
+          route={optimized}
+          variant="planning"
+        />
       ) : null}
 
       {optimized && mapsKey ? (
