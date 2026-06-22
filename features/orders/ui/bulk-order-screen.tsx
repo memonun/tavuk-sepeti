@@ -74,6 +74,7 @@ export function BulkOrderScreen({ products, today }: Props) {
         toast.error(`${miss.length} müşteride adres yok. Önce adres ekle ya da çıkar.`);
         return;
       }
+      setMissing([]);
 
       const payload = {
         scheduled_for: batch.scheduledFor,
