@@ -1,7 +1,7 @@
+import { buildDayLoadManifest } from "@/features/routing/application/get-day-load-manifest";
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { listSavedLocations } from "@/features/routing/application/list-saved-locations";
-import { computeRouteManifest } from "@/features/routing/domain/route-manifest";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
@@ -127,6 +127,10 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
   const dayOrders = ordersResult.value;
   const savedLocations = savedLocationsResult.ok ? savedLocationsResult.value : [];
 
+  // Load manifest is available straight away (no optimize needed) — it only
+  // needs the day's orders + their items.
+  const manifest = await buildDayLoadManifest(dayOrders);
+
   const routeResult =
     wantsOptimize && origin && dayOrders.length > 0
       ? await getDayRoute(date, {
@@ -218,10 +222,10 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
         </div>
       ) : null}
 
-      {optimized ? (
+      {dayOrders.length > 0 ? (
         <RouteManifestPanel
-          manifest={computeRouteManifest(optimized.stops)}
-          route={optimized}
+          manifest={manifest}
+          {...(optimized ? { route: optimized } : {})}
           variant="planning"
         />
       ) : null}

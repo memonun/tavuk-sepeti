@@ -29,7 +29,9 @@ function formatQty(n: number): string {
 
 interface Props {
   manifest: RouteManifest;
-  route: Pick<OptimizedRoute, "total_distance_m" | "total_duration_s" | "finish_time_iso">;
+  /** Optimized run summary. Absent on the route page before optimization —
+   *  the loads still show; only the distance/duration/finish chips are hidden. */
+  route?: Pick<OptimizedRoute, "total_distance_m" | "total_duration_s" | "finish_time_iso">;
   /**
    * "planning" → static card with the full run summary footer (load before
    * leaving). "driver" → adds a Kalan/Toplam toggle and drops the footer
@@ -106,9 +108,13 @@ export function RouteManifestPanel({ manifest, route, variant = "planning" }: Pr
       {!isDriver ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
           <span>{manifest.stopCount} durak</span>
-          <span>· {formatDistance(route.total_distance_m)}</span>
-          <span>· {formatDuration(route.total_duration_s)}</span>
-          <span>· ≈ {formatHHmm(route.finish_time_iso)} bitiş</span>
+          {route ? (
+            <>
+              <span>· {formatDistance(route.total_distance_m)}</span>
+              <span>· {formatDuration(route.total_duration_s)}</span>
+              <span>· ≈ {formatHHmm(route.finish_time_iso)} bitiş</span>
+            </>
+          ) : null}
           {manifest.toCollectMinor > 0 ? (
             <Badge variant="secondary" className="ml-auto gap-1">
               <Wallet className="h-3.5 w-3.5" />
