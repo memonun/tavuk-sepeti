@@ -118,7 +118,7 @@ export async function updateTemplate(
     })
     .eq("id", id)
     .select(TEMPLATE_SELECT)
-    .single();
+    .maybeSingle();
 
   if (error) {
     logger.error({ id, code: error.code }, "recurring_template_update_failed");
@@ -147,7 +147,7 @@ export async function setTemplateActive(
     })
     .eq("id", id)
     .select(TEMPLATE_SELECT)
-    .single();
+    .maybeSingle();
 
   if (error) {
     logger.error({ id, active, code: error.code }, "recurring_template_set_active_failed");
