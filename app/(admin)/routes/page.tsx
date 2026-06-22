@@ -223,11 +223,13 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
       ) : null}
 
       {dayOrders.length > 0 ? (
-        <RouteManifestPanel
-          manifest={manifest}
-          {...(optimized ? { route: optimized } : {})}
-          variant="planning"
-        />
+        <div className="w-full max-w-md">
+          <RouteManifestPanel
+            manifest={manifest}
+            {...(optimized ? { route: optimized } : {})}
+            variant="planning"
+          />
+        </div>
       ) : null}
 
       {optimized && mapsKey ? (

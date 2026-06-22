@@ -85,21 +85,19 @@ export function RouteManifestPanel({ manifest, route, variant = "planning" }: Pr
       {lines.length === 0 ? (
         <p className="px-3 py-3 text-sm text-muted-foreground">Yük yok.</p>
       ) : (
-        <ul className="divide-y">
+        <ul className="space-y-0.5 px-3 py-2">
           {lines.map((l) => (
             <li
               key={`${l.label} ${l.unit_label}`}
-              className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm"
+              className="flex flex-wrap items-baseline gap-x-1.5 text-sm"
             >
-              <span className="min-w-0 truncate">
-                {l.label}
-                {l.unit_label ? (
-                  <span className="text-muted-foreground"> · {l.unit_label}</span>
-                ) : null}
-              </span>
-              <span className="shrink-0 font-mono font-semibold tabular-nums">
+              <span className="font-medium">{l.label}</span>
+              <span className="font-mono font-semibold tabular-nums">
                 ×{formatQty(l.quantity)}
               </span>
+              {l.unit_label ? (
+                <span className="text-muted-foreground">{l.unit_label}</span>
+              ) : null}
             </li>
           ))}
         </ul>
