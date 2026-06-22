@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   deleteRecurringTemplateAction,
+  getRecurringTemplateAction,
   listCustomerRecurringTemplatesAction,
   setRecurringTemplateActiveAction,
 } from "@/features/recurring/application/recurring-template-actions";
@@ -137,47 +138,68 @@ function DeleteConfirmDialog({ templateId, onDeleted }: DeleteConfirmDialogProps
 }
 
 // ---------------------------------------------------------------------------
-// Edit dialog
+// Edit dialog — fetches the full template on demand
 // ---------------------------------------------------------------------------
 
 interface EditDialogProps {
+  readonly templateId: string;
   readonly customerId: string;
   readonly products: Product[];
-  readonly template: RecurringTemplate;
   readonly onSaved: () => void;
 }
 
-function EditDialog({ customerId, products, template, onSaved }: EditDialogProps) {
+function EditDialog({ templateId, customerId, products, onSaved }: EditDialogProps) {
   const [open, setOpen] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [template, setTemplate] = useState<RecurringTemplate | null>(null);
+
+  const handleOpen = async () => {
+    setFetching(true);
+    const result = await getRecurringTemplateAction(templateId);
+    setFetching(false);
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return;
+    }
+    setTemplate(result.value);
+    setOpen(true);
+  };
 
   const handleSaved = (_saved: RecurringTemplate) => {
     toast.success("Şablon güncellendi.");
     setOpen(false);
+    setTemplate(null);
     onSaved();
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          (<Button type="button" variant="ghost" size="sm" />) as ReactElement
-        }
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={fetching}
+        onClick={() => void handleOpen()}
       >
-        Düzenle
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Şablonu düzenle</DialogTitle>
-        </DialogHeader>
-        <RecurringTemplateForm
-          customerId={customerId}
-          products={products}
-          template={template}
-          onSaved={handleSaved}
-          onCancel={() => setOpen(false)}
-        />
-      </DialogContent>
-    </Dialog>
+        {fetching ? "…" : "Düzenle"}
+      </Button>
+      {template != null && (
+        <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setTemplate(null); }}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Şablonu düzenle</DialogTitle>
+            </DialogHeader>
+            <RecurringTemplateForm
+              customerId={customerId}
+              products={products}
+              template={template}
+              onSaved={handleSaved}
+              onCancel={() => { setOpen(false); setTemplate(null); }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 }
 
@@ -190,10 +212,6 @@ export function CustomerRecurringList({
   products,
 }: CustomerRecurringListProps) {
   const [items, setItems] = useState<RecurringTemplateListItem[] | null>(null);
-  // Full RecurringTemplate cache (items[]) — populated after create/update.
-  const [templatesById, setTemplatesById] = useState<
-    Map<string, RecurringTemplate>
-  >(new Map());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -226,11 +244,6 @@ export function CustomerRecurringList({
       toast.success(
         result.value.active ? "Şablon devam ettiriliyor." : "Şablon durduruldu.",
       );
-      setTemplatesById((prev) => {
-        const next = new Map(prev);
-        next.set(id, result.value);
-        return next;
-      });
       load();
     } else {
       toast.error(result.error.message);
@@ -240,9 +253,6 @@ export function CustomerRecurringList({
   const handleMutated = () => {
     load();
   };
-
-  const getFullTemplate = (id: string): RecurringTemplate | undefined =>
-    templatesById.get(id);
 
   if (loadError) {
     return (
@@ -283,12 +293,7 @@ export function CustomerRecurringList({
             <RecurringTemplateForm
               customerId={customerId}
               products={products}
-              onSaved={(saved) => {
-                setTemplatesById((prev) => {
-                  const next = new Map(prev);
-                  next.set(saved.id, saved);
-                  return next;
-                });
+              onSaved={(_saved) => {
                 toast.success("Şablon oluşturuldu.");
                 setCreateOpen(false);
                 load();
@@ -306,71 +311,56 @@ export function CustomerRecurringList({
         </p>
       ) : (
         <ul className="divide-y divide-border rounded-md border border-border">
-          {items.map((item) => {
-            const fullTemplate = getFullTemplate(item.id);
-            return (
-              <li
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
-              >
-                {/* Left: cadence + next run */}
-                <div className="min-w-0 flex-1">
-                  <span className="font-medium">{cadenceDayLabel(item)}</span>
-                  <span className="ml-2 text-muted-foreground">
-                    · {formatDate(item.next_run_at)}
-                  </span>
-                  <span className="ml-2 text-muted-foreground">
-                    · {item.item_count} ürün
-                  </span>
-                </div>
+          {items.map((item) => (
+            <li
+              key={item.id}
+              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+            >
+              {/* Left: cadence + next run */}
+              <div className="min-w-0 flex-1">
+                <span className="font-medium">{cadenceDayLabel(item)}</span>
+                <span className="ml-2 text-muted-foreground">
+                  · {formatDate(item.next_run_at)}
+                </span>
+                <span className="ml-2 text-muted-foreground">
+                  · {item.item_count} ürün
+                </span>
+              </div>
 
-                {/* Right: badge + actions */}
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Badge variant={item.active ? "default" : "secondary"}>
-                    {item.active ? "Aktif" : "Durdu"}
-                  </Badge>
+              {/* Right: badge + actions */}
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Badge variant={item.active ? "default" : "secondary"}>
+                  {item.active ? "Aktif" : "Durdu"}
+                </Badge>
 
-                  {fullTemplate != null ? (
-                    <EditDialog
-                      customerId={customerId}
-                      products={products}
-                      template={fullTemplate}
-                      onSaved={handleMutated}
-                    />
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled
-                      title="Düzenlemek için önce şablonu yeni oluşturun veya kaydedin"
-                    >
-                      Düzenle
-                    </Button>
-                  )}
+                <EditDialog
+                  templateId={item.id}
+                  customerId={customerId}
+                  products={products}
+                  onSaved={handleMutated}
+                />
 
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={togglingId === item.id}
-                    onClick={() => void handleToggleActive(item.id, item.active)}
-                  >
-                    {togglingId === item.id
-                      ? "…"
-                      : item.active
-                        ? "Durdur"
-                        : "Devam"}
-                  </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={togglingId === item.id}
+                  onClick={() => void handleToggleActive(item.id, item.active)}
+                >
+                  {togglingId === item.id
+                    ? "…"
+                    : item.active
+                      ? "Durdur"
+                      : "Devam"}
+                </Button>
 
-                  <DeleteConfirmDialog
-                    templateId={item.id}
-                    onDeleted={handleMutated}
-                  />
-                </div>
-              </li>
-            );
-          })}
+                <DeleteConfirmDialog
+                  templateId={item.id}
+                  onDeleted={handleMutated}
+                />
+              </div>
+            </li>
+          ))}
         </ul>
       )}
     </section>

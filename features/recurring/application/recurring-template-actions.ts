@@ -230,6 +230,21 @@ export async function deleteRecurringTemplateAction(
 }
 
 // ---------------------------------------------------------------------------
+// Get by id (read — no audit)
+// ---------------------------------------------------------------------------
+
+export async function getRecurringTemplateAction(
+  id: string,
+): Promise<Result<RecurringTemplate, AppError>> {
+  const auth = await assertAdmin();
+  if (!auth.ok) return err(auth.error);
+
+  const result = await findTemplateById(id);
+  if (!result.ok) return err(result.error);
+  return ok(result.value);
+}
+
+// ---------------------------------------------------------------------------
 // List by customer (read — no audit)
 // ---------------------------------------------------------------------------
 
