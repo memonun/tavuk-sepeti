@@ -36,6 +36,7 @@ export function CustomerPickList({
   const [total, setTotal] = useState(0);
   const [missing, setMissing] = useState<ReadonlySet<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [selectingAll, setSelectingAll] = useState(false);
 
   // Debounced fetch on q/page change.
   useEffect(() => {
@@ -44,15 +45,18 @@ export function CustomerPickList({
       void (async () => {
         if (cancelled) return;
         setLoading(true);
-        const res = await listCustomersForPicker(q.trim(), page, PAGE_SIZE);
-        if (cancelled) return;
-        setRows(res.items);
-        setTotal(res.total);
-        setLoading(false);
-        const miss = await getCustomersMissingPrimaryAddressAction(
-          res.items.map((r) => r.id),
-        );
-        if (!cancelled) setMissing(new Set(miss));
+        try {
+          const res = await listCustomersForPicker(q.trim(), page, PAGE_SIZE);
+          if (cancelled) return;
+          setRows(res.items);
+          setTotal(res.total);
+          const miss = await getCustomersMissingPrimaryAddressAction(
+            res.items.map((r) => r.id),
+          );
+          if (!cancelled) setMissing(new Set(miss));
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
       })();
     }, 250);
     return () => {
@@ -69,8 +73,14 @@ export function CustomerPickList({
   };
 
   const selectAllFiltered = async () => {
-    const ids = await listAllCustomerIds(q.trim());
-    onSelectionChange(new Set(ids));
+    if (selectingAll) return;
+    setSelectingAll(true);
+    try {
+      const ids = await listAllCustomerIds(q.trim());
+      onSelectionChange(new Set(ids));
+    } finally {
+      setSelectingAll(false);
+    }
   };
 
   const chips = (id: string) => {
@@ -108,6 +118,7 @@ export function CustomerPickList({
           type="button"
           variant="outline"
           size="sm"
+          disabled={selectingAll}
           onClick={() => void selectAllFiltered()}
         >
           Tümünü seç
