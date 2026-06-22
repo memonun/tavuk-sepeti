@@ -1,7 +1,7 @@
 // features/orders/ui/use-draft-batch.ts
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   applyLine,
@@ -28,35 +28,35 @@ function safeParseJson(raw: string): unknown {
 
 export function useDraftBatch(initialDate: string) {
   const [batch, setBatch] = useState<DraftBatch>(() => emptyBatch(initialDate));
-  const hydrated = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from localStorage after mount (SSR-safe).
   useEffect(() => {
     if (typeof window === "undefined") {
-      hydrated.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHydrated(true);
       return;
     }
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = parseStoredBatch(safeParseJson(raw));
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (parsed) setBatch(parsed);
     }
-    hydrated.current = true;
+    setHydrated(true);
   }, []);
 
   // Persist on change (only after hydration, so we never clobber stored state).
   useEffect(() => {
-    if (typeof window === "undefined" || !hydrated.current) return;
+    if (typeof window === "undefined" || !hydrated) return;
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ version: DRAFT_BATCH_VERSION, ...batch }),
+        JSON.stringify({ ...batch, version: DRAFT_BATCH_VERSION }),
       );
     } catch {
       // Quota / private mode — drop silently.
     }
-  }, [batch]);
+  }, [batch, hydrated]);
 
   const setDate = useCallback(
     (scheduledFor: string) => setBatch((b) => ({ ...b, scheduledFor })),
