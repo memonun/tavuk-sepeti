@@ -26,6 +26,8 @@ function stop(overrides: Partial<RouteStop> = {}): RouteStop {
     lat: 0,
     lng: 0,
     delivery_address: null,
+    delivery_street: null,
+    apartment_no: null,
     delivery_notes: null,
     total_minor: 0,
     amount_paid_minor: 0,

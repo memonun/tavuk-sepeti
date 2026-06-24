@@ -19,6 +19,10 @@ export interface DayOrder {
   readonly customer_phone: string | null;
   readonly lat: number;
   readonly lng: number;
+  /** Açık adres — the live primary address street line ("Adres" field). */
+  readonly street: string | null;
+  /** Daire / apartment no on the live primary address. */
+  readonly apartment_no: string | null;
   readonly delivery_notes: string | null;
   readonly total_minor: number;
 }
@@ -35,6 +39,8 @@ interface RpcRow {
   customer_phone: string | null;
   address_lat: number;
   address_lng: number;
+  address_street: string | null;
+  address_apartment_no: string | null;
   delivery_notes: string | null;
   total_minor: number;
 }
@@ -79,6 +85,8 @@ export async function getDayOrders(
       customer_phone: row.customer_phone,
       lat: row.address_lat,
       lng: row.address_lng,
+      street: row.address_street,
+      apartment_no: row.address_apartment_no,
       delivery_notes: row.delivery_notes,
       total_minor: row.total_minor,
     })),
