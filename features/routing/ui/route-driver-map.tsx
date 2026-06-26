@@ -28,6 +28,8 @@ import type {
 interface RouteDriverMapProps {
   apiKey: string;
   origin: RouteOrigin;
+  /** Origin pin label. Defaults to "Depo"; "Konumum" after re-optimize-from-GPS. */
+  originName?: string | null;
   destination?: RouteDestination | null;
   stops: readonly RouteStop[];
   stepPolylines: readonly string[];
@@ -38,6 +40,7 @@ interface RouteDriverMapProps {
 export function RouteDriverMap({
   apiKey,
   origin,
+  originName,
   destination,
   stops,
   stepPolylines,
@@ -57,6 +60,7 @@ export function RouteDriverMap({
         >
           <DriverLayer
             origin={origin}
+            originName={originName ?? null}
             destination={destination ?? null}
             stops={stops}
             stepPolylines={stepPolylines}
@@ -71,6 +75,7 @@ export function RouteDriverMap({
 
 interface DriverLayerProps {
   origin: RouteOrigin;
+  originName?: string | null;
   destination?: RouteDestination | null;
   stops: readonly RouteStop[];
   stepPolylines: readonly string[];
@@ -80,6 +85,7 @@ interface DriverLayerProps {
 
 function DriverLayer({
   origin,
+  originName,
   destination,
   stops,
   stepPolylines,
@@ -97,16 +103,19 @@ function DriverLayer({
 
     const created: google.maps.marker.AdvancedMarkerElement[] = [];
 
-    // Warehouse pin.
+    // Origin pin — the warehouse, or the driver's live position after a
+    // re-optimize-from-here (label carried in `originName`).
+    const originLabel = originName ?? "Depo";
     const originEl = document.createElement("div");
     originEl.className =
       "flex items-center gap-1 rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium text-background shadow";
-    originEl.textContent = "Depo";
+    originEl.textContent = originLabel;
     created.push(
       new markerLib.AdvancedMarkerElement({
+        map,
         position: { lat: origin.lat, lng: origin.lng },
         content: originEl,
-        title: "Depo",
+        title: originLabel,
       }),
     );
 
@@ -119,6 +128,7 @@ function DriverLayer({
       destEl.textContent = `🏁 ${destination.name}`;
       created.push(
         new markerLib.AdvancedMarkerElement({
+          map,
           position: { lat: destination.lat, lng: destination.lng },
           content: destEl,
           title: `Varış: ${destination.name}`,
@@ -136,6 +146,7 @@ function DriverLayer({
       el.textContent = String(stop.sequence);
       created.push(
         new markerLib.AdvancedMarkerElement({
+          map,
           position: { lat: stop.lat, lng: stop.lng },
           content: el,
           title: `${stop.sequence}. ${stop.customer_name}`,
@@ -151,6 +162,7 @@ function DriverLayer({
         "h-3.5 w-3.5 rounded-full bg-blue-500 shadow ring-4 ring-violet-500/40";
       created.push(
         new markerLib.AdvancedMarkerElement({
+          map,
           position: { lat: driverCoords.lat, lng: driverCoords.lng },
           content: driverEl,
           title: "Senin konumun",
@@ -202,6 +214,7 @@ function DriverLayer({
     coreLib,
     geometryLib,
     origin,
+    originName,
     destination,
     stops,
     stepPolylines,

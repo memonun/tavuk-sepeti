@@ -251,7 +251,9 @@ export function DriverMode({
       // Open the collect-on-delivery popup for this stop.
       const stop = route.stops.find((s) => s.order_id === orderId) ?? null;
       setPaymentStop(stop);
-      // Server data refreshes → delivered set reconciles with the optimistic one.
+      // Server data refreshes → delivered set reconciles with the optimistic
+      // one. Cheap: the full-day waypoint set is unchanged by a delivery, so
+      // getDayRoute re-uses the cached geometry (no paid Maps call, no reshuffle).
       router.refresh();
     });
   };
@@ -282,6 +284,29 @@ export function DriverMode({
       toast.success("Teslimat geri alındı");
       router.refresh();
     });
+  };
+
+  // Re-optimize the route from the driver's live position instead of the
+  // warehouse — the fix for "the re-optimization didn't regard where I am". One
+  // paid Maps call per tap; navigates with origin=GPS so getDayRoute sequences
+  // the day's stops from here. Already-delivered stops stay flagged done and the
+  // current stop is the nearest remaining one, so the driver is never routed
+  // back through completed stops. Keeping the full set in the request (vs.
+  // dropping delivered) keeps the waypoint cache key stable, so routine
+  // deliveries don't trigger a paid re-optimize (CLAUDE.md §8).
+  const reoptimizeFromHere = () => {
+    if (!geo.coords) {
+      geo.request();
+      toast.info("Konum alınıyor — geldiğinde tekrar dene.");
+      return;
+    }
+    const p = new URLSearchParams(driveQuery);
+    p.set("originLat", String(geo.coords.lat));
+    p.set("originLng", String(geo.coords.lng));
+    p.set("originName", "Konumum");
+    p.set("start", formatHHmm(new Date()));
+    toast.success("Rota bulunduğun yerden yeniden sıralanıyor…");
+    router.push(`/routes/drive?${p.toString()}`);
   };
 
   const handleApproachDismiss = (orderId: string) => {
@@ -387,6 +412,19 @@ export function DriverMode({
           Değiştir
         </Button>
       </div>
+
+      {/* Re-optimize the remaining route from the driver's live position. */}
+      <button
+        type="button"
+        onClick={reoptimizeFromHere}
+        className="flex w-full items-center gap-2 border-b bg-background px-4 py-1.5 text-xs hover:bg-muted"
+      >
+        <Crosshair className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="font-medium">Buradan optimize et</span>
+        <span className="truncate text-muted-foreground">
+          · kalan {remaining} durağı bulunduğun yerden sırala
+        </span>
+      </button>
 
       {/* Load manifest — what's still in the van + cash to collect */}
       <div className="border-b bg-background">
@@ -506,6 +544,7 @@ export function DriverMode({
         <RouteDriverMap
           apiKey={mapsBrowserKey}
           origin={route.origin}
+          originName={new URLSearchParams(driveQuery).get("originName")}
           destination={route.destination}
           stops={route.stops}
           stepPolylines={route.step_polylines}
