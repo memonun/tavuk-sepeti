@@ -36,6 +36,12 @@ export interface RouteStop {
   /** Written delivery address, from the customer's LIVE primary address —
    *  the same row the pin/legs use, so the text always matches the route. */
   readonly delivery_address: string | null;
+  /** Açık adres street line ("Adres" field) from the live primary address.
+   *  Kept alongside the composed `delivery_address` so the delivery-readiness
+   *  check can tell "no street" from "city/district only". */
+  readonly delivery_street: string | null;
+  /** Daire / apartment no from the live primary address. */
+  readonly apartment_no: string | null;
   readonly delivery_notes: string | null;
   readonly total_minor: number;
   /** Amount collected so far (kuruş). Drives the paid/partial/unpaid badge. */
