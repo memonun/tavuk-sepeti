@@ -155,6 +155,7 @@ function RouteLayer({
     originEl.textContent = "Depo";
     created.push(
       new markerLib.AdvancedMarkerElement({
+        map,
         position: { lat: origin.lat, lng: origin.lng },
         content: originEl,
         title: "Depo",
@@ -170,6 +171,7 @@ function RouteLayer({
       destEl.textContent = `🏁 ${destination.name}`;
       created.push(
         new markerLib.AdvancedMarkerElement({
+          map,
           position: { lat: destination.lat, lng: destination.lng },
           content: destEl,
           title: `Varış: ${destination.name}`,
@@ -182,6 +184,7 @@ function RouteLayer({
       el.className = stopMarkerClass("default");
       el.textContent = String(stop.sequence);
       const marker = new markerLib.AdvancedMarkerElement({
+        map,
         position: { lat: stop.lat, lng: stop.lng },
         content: el,
         title: `${stop.sequence}. ${stop.customer_name}`,
