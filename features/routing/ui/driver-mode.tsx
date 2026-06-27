@@ -52,6 +52,7 @@ import { DeliveryPaymentDialog } from "@/features/routing/ui/delivery-payment-di
 import { RouteDriverMap } from "@/features/routing/ui/route-driver-map";
 import { RouteManifestPanel } from "@/features/routing/ui/route-manifest-panel";
 import { StopCard } from "@/features/routing/ui/stop-card";
+import { serializeExcludeDelivered } from "@/features/routing/domain/exclude-delivered-url";
 import { computeRouteManifest } from "@/features/routing/domain/route-manifest";
 import { useDriverState } from "@/features/routing/ui/use-driver-state";
 import { useGeolocation } from "@/features/routing/ui/use-geolocation";
@@ -120,6 +121,16 @@ export function DriverMode({
   const [paymentStop, setPaymentStop] = useState<RouteStop | null>(null);
   const [destOpen, setDestOpen] = useState(false);
 
+  // Delivered set = server truth + optimistic deliveries − optimistic reverts.
+  // Drives the "done" flags, the manifest, and the current-stop derivation —
+  // and the frozen exclude set written into the URL when the driver explicitly
+  // re-optimizes (below), so freshly-delivered stops drop to map markers.
+  const deliveredIds = new Set<string>([
+    ...initialDeliveredOrderIds,
+    ...optimisticDelivered,
+  ]);
+  for (const id of optimisticReverted) deliveredIds.delete(id);
+
   // ---- Final-destination (change mid-route → re-navigate → re-optimize) ----
   const destinationOrders = route.stops.map((s) => ({
     order_id: s.order_id,
@@ -140,6 +151,10 @@ export function DriverMode({
   const pushDestination = (mutate: (p: URLSearchParams) => void) => {
     const p = new URLSearchParams(driveQuery);
     mutate(p);
+    // Changing the destination re-optimizes, so re-freeze the exclude set to
+    // everything delivered so far — anything delivered mid-drive drops to a
+    // marker rather than staying a waypoint.
+    p.set("excludeDelivered", serializeExcludeDelivered(deliveredIds));
     setDestOpen(false);
     router.push(`/routes/drive?${p.toString()}`);
   };
@@ -176,11 +191,6 @@ export function DriverMode({
     };
   }, []);
 
-  const deliveredIds = new Set<string>([
-    ...initialDeliveredOrderIds,
-    ...optimisticDelivered,
-  ]);
-  for (const id of optimisticReverted) deliveredIds.delete(id);
   // Live load manifest — `remainingLoads` shrinks as deliveries are marked.
   const manifest = computeRouteManifest(route.stops, Array.from(deliveredIds));
   const driverState = useDriverState(route.stops, deliveredIds);
@@ -289,11 +299,12 @@ export function DriverMode({
   // Re-optimize the route from the driver's live position instead of the
   // warehouse — the fix for "the re-optimization didn't regard where I am". One
   // paid Maps call per tap; navigates with origin=GPS so getDayRoute sequences
-  // the day's stops from here. Already-delivered stops stay flagged done and the
-  // current stop is the nearest remaining one, so the driver is never routed
-  // back through completed stops. Keeping the full set in the request (vs.
-  // dropping delivered) keeps the waypoint cache key stable, so routine
-  // deliveries don't trigger a paid re-optimize (CLAUDE.md §8).
+  // the day's stops from here. This is the explicit re-optimize, so it re-freezes
+  // the exclude set to everything delivered so far: completed stops drop OUT of
+  // the waypoints (kept as markers) and the optimizer only sequences what's left
+  // — no more detouring the route through places already visited. Routine
+  // deliveries between taps still cost no Google call: the frozen set in the URL
+  // keeps the waypoint set (and Directions cache key) stable until the next tap.
   const reoptimizeFromHere = () => {
     if (!geo.coords) {
       geo.request();
@@ -305,6 +316,7 @@ export function DriverMode({
     p.set("originLng", String(geo.coords.lng));
     p.set("originName", "Konumum");
     p.set("start", formatHHmm(new Date()));
+    p.set("excludeDelivered", serializeExcludeDelivered(deliveredIds));
     toast.success("Rota bulunduğun yerden yeniden sıralanıyor…");
     router.push(`/routes/drive?${p.toString()}`);
   };
@@ -547,6 +559,7 @@ export function DriverMode({
           originName={new URLSearchParams(driveQuery).get("originName")}
           destination={route.destination}
           stops={route.stops}
+          completedMarkers={route.completed_markers}
           stepPolylines={route.step_polylines}
           currentStopId={view?.order_id ?? null}
           driverCoords={geo.coords}

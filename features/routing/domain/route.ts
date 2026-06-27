@@ -66,6 +66,21 @@ export interface RouteOrigin {
 }
 
 /**
+ * A stop that was already delivered when the route was optimized, so it was
+ * deliberately kept OUT of the Google waypoint set — including it would distort
+ * the optimized driving path through a place the driver has already been.
+ * Rendered as a muted "done" pin for context; never part of the sequence, the
+ * legs, or the ETAs.
+ */
+export interface CompletedMarker {
+  readonly order_id: string;
+  readonly order_number: string;
+  readonly customer_name: string;
+  readonly lat: number;
+  readonly lng: number;
+}
+
+/**
  * Where the route ends, when it's NOT a round trip back to the origin.
  * `null` on OptimizedRoute means the legacy round-trip (end = origin).
  * For `kind: "order"`, the order also appears as the final RouteStop, so
@@ -88,6 +103,12 @@ export interface OptimizedRoute {
   /** Chosen end point. `null` = round trip back to the origin (default). */
   readonly destination: RouteDestination | null;
   readonly stops: readonly RouteStop[];
+  /**
+   * Orders already delivered at optimize time, pulled out of the waypoints so
+   * the optimizer doesn't route through completed stops. Shown as muted pins
+   * for context only — empty when nothing was delivered yet.
+   */
+  readonly completed_markers: readonly CompletedMarker[];
   /** Simplified summary polyline; kept for low-zoom contexts. */
   readonly overview_polyline: string;
   /**

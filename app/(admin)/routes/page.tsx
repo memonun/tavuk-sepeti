@@ -3,6 +3,7 @@ import { buildDayLoadManifest } from "@/features/routing/application/get-day-loa
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { listSavedLocations } from "@/features/routing/application/list-saved-locations";
+import { serializeExcludeDelivered } from "@/features/routing/domain/exclude-delivered-url";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
@@ -148,6 +149,11 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
           startTimeIso,
           origin,
           ...(destination ? { destination } : {}),
+          // Already-delivered orders are kept out of the optimized route (they
+          // show as muted "done" markers), so the path never detours through a
+          // completed stop. Computed live here — the planning view re-optimizes
+          // only on an explicit Optimize click, never on a passive refresh.
+          excludeOrderIds: Array.from(deliveredOrderIds),
         })
       : null;
   const optimized = routeResult?.ok ? routeResult.value : null;
@@ -172,6 +178,13 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
     driveQuery.set("destLng", String(destLng));
     if (destName) driveQuery.set("destName", destName);
   }
+  // Freeze the same already-delivered set into the drive URL so driver mode
+  // starts with an identical waypoint set (and the drive page doesn't redirect
+  // to canonicalize). Keeps the optimized order consistent planning → drive.
+  driveQuery.set(
+    "excludeDelivered",
+    serializeExcludeDelivered(deliveredOrderIds),
+  );
 
   // Orders shaped for the destination picker ("end at an order").
   const destinationOrders = dayOrders.map((o) => ({

@@ -37,6 +37,7 @@ export function RouteWorkspace({ apiKey, route }: RouteWorkspaceProps) {
             origin={route.origin}
             destination={route.destination}
             stops={route.stops}
+            completedMarkers={route.completed_markers}
             stepPolylines={route.step_polylines}
             selectedStopId={selectedStopId}
             onSelectStop={setSelectedStopId}

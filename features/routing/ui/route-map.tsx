@@ -28,6 +28,7 @@ import {
 import { useEffect, useRef } from "react";
 
 import type {
+  CompletedMarker,
   RouteDestination,
   RouteOrigin,
   RouteStop,
@@ -51,6 +52,8 @@ interface RouteMapProps {
   origin: RouteOrigin;
   destination?: RouteDestination | null;
   stops: readonly RouteStop[];
+  /** Already-delivered stops kept off the route — drawn as muted "done" pins. */
+  completedMarkers?: readonly CompletedMarker[] | undefined;
   /** Per-step encoded polylines in route order. Empty when not optimized. */
   stepPolylines: readonly string[];
   selectedStopId: string | null;
@@ -63,6 +66,7 @@ export function RouteMap({
   origin,
   destination,
   stops,
+  completedMarkers,
   stepPolylines,
   selectedStopId,
   deliveredOrderIds,
@@ -87,6 +91,7 @@ export function RouteMap({
             origin={origin}
             destination={destination ?? null}
             stops={stops}
+            completedMarkers={completedMarkers ?? []}
             stepPolylines={stepPolylines}
             selectedStopId={selectedStopId}
             deliveredOrderIds={deliveredOrderIds}
@@ -102,6 +107,7 @@ interface RouteLayerProps {
   origin: RouteOrigin;
   destination?: RouteDestination | null;
   stops: readonly RouteStop[];
+  completedMarkers: readonly CompletedMarker[];
   stepPolylines: readonly string[];
   selectedStopId: string | null;
   deliveredOrderIds?: ReadonlySet<string> | undefined;
@@ -112,6 +118,7 @@ function RouteLayer({
   origin,
   destination,
   stops,
+  completedMarkers,
   stepPolylines,
   selectedStopId,
   deliveredOrderIds,
@@ -179,6 +186,24 @@ function RouteLayer({
       );
     }
 
+    // Already-delivered stops kept off the route — muted grey "done" pins, no
+    // sequence number and no click target (they're context, not part of the
+    // plan). Drawn before the active stops so the numbered pins sit on top.
+    for (const marker of completedMarkers) {
+      const doneEl = document.createElement("div");
+      doneEl.className =
+        "flex h-5 w-5 items-center justify-center rounded-full bg-slate-400 text-[10px] font-bold text-white shadow ring-1 ring-background opacity-60";
+      doneEl.textContent = "✓";
+      created.push(
+        new markerLib.AdvancedMarkerElement({
+          map,
+          position: { lat: marker.lat, lng: marker.lng },
+          content: doneEl,
+          title: `Teslim edildi · ${marker.customer_name}`,
+        }),
+      );
+    }
+
     for (const stop of stops) {
       const el = document.createElement("div");
       el.className = stopMarkerClass("default");
@@ -218,6 +243,9 @@ function RouteLayer({
       const bounds = new coreLib.LatLngBounds();
       bounds.extend({ lat: origin.lat, lng: origin.lng });
       for (const stop of stops) bounds.extend({ lat: stop.lat, lng: stop.lng });
+      for (const marker of completedMarkers) {
+        bounds.extend({ lat: marker.lat, lng: marker.lng });
+      }
       if (destination && destination.kind === "location") {
         bounds.extend({ lat: destination.lat, lng: destination.lng });
       }
@@ -230,7 +258,7 @@ function RouteLayer({
       elByIdRef.current = new Map();
       markerByIdRef.current = new Map();
     };
-  }, [map, markerLib, coreLib, geometryLib, origin, destination, stops, stepPolylines]);
+  }, [map, markerLib, coreLib, geometryLib, origin, destination, stops, completedMarkers, stepPolylines]);
 
   // ---- RECOLOR + PAN effect: cheap, runs on selection/delivered change ----
   useEffect(() => {

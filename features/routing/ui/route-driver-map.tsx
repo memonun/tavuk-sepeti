@@ -20,6 +20,7 @@ import { useEffect, useRef } from "react";
 
 import type { LatLng } from "@/shared/geo/distance";
 import type {
+  CompletedMarker,
   RouteDestination,
   RouteOrigin,
   RouteStop,
@@ -32,6 +33,8 @@ interface RouteDriverMapProps {
   originName?: string | null;
   destination?: RouteDestination | null;
   stops: readonly RouteStop[];
+  /** Already-delivered stops kept off the route — drawn as muted "done" pins. */
+  completedMarkers?: readonly CompletedMarker[];
   stepPolylines: readonly string[];
   currentStopId: string | null;
   driverCoords: LatLng | null;
@@ -43,6 +46,7 @@ export function RouteDriverMap({
   originName,
   destination,
   stops,
+  completedMarkers,
   stepPolylines,
   currentStopId,
   driverCoords,
@@ -63,6 +67,7 @@ export function RouteDriverMap({
             originName={originName ?? null}
             destination={destination ?? null}
             stops={stops}
+            completedMarkers={completedMarkers ?? []}
             stepPolylines={stepPolylines}
             currentStopId={currentStopId}
             driverCoords={driverCoords}
@@ -78,6 +83,7 @@ interface DriverLayerProps {
   originName?: string | null;
   destination?: RouteDestination | null;
   stops: readonly RouteStop[];
+  completedMarkers: readonly CompletedMarker[];
   stepPolylines: readonly string[];
   currentStopId: string | null;
   driverCoords: LatLng | null;
@@ -88,6 +94,7 @@ function DriverLayer({
   originName,
   destination,
   stops,
+  completedMarkers,
   stepPolylines,
   currentStopId,
   driverCoords,
@@ -132,6 +139,24 @@ function DriverLayer({
           position: { lat: destination.lat, lng: destination.lng },
           content: destEl,
           title: `Varış: ${destination.name}`,
+        }),
+      );
+    }
+
+    // Already-delivered stops kept off the route — muted grey "done" pins so
+    // the driver still sees them for context without them being part of the
+    // sequence. Drawn first so active stops/polyline sit on top.
+    for (const marker of completedMarkers) {
+      const doneEl = document.createElement("div");
+      doneEl.className =
+        "flex h-5 w-5 items-center justify-center rounded-full bg-slate-400 text-[10px] font-bold text-white shadow ring-1 ring-background opacity-60";
+      doneEl.textContent = "✓";
+      created.push(
+        new markerLib.AdvancedMarkerElement({
+          map,
+          position: { lat: marker.lat, lng: marker.lng },
+          content: doneEl,
+          title: `Teslim edildi · ${marker.customer_name}`,
         }),
       );
     }
@@ -197,6 +222,9 @@ function DriverLayer({
       const bounds = new coreLib.LatLngBounds();
       bounds.extend({ lat: origin.lat, lng: origin.lng });
       for (const stop of stops) bounds.extend({ lat: stop.lat, lng: stop.lng });
+      for (const marker of completedMarkers) {
+        bounds.extend({ lat: marker.lat, lng: marker.lng });
+      }
       if (destination && destination.kind === "location") {
         bounds.extend({ lat: destination.lat, lng: destination.lng });
       }
@@ -217,6 +245,7 @@ function DriverLayer({
     originName,
     destination,
     stops,
+    completedMarkers,
     stepPolylines,
     currentStopId,
     driverCoords,

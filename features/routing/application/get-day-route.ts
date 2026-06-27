@@ -22,6 +22,7 @@ import {
   TooManyWaypointsError,
   WarehouseNotConfiguredError,
 } from "@/features/routing/domain/route.errors";
+import { partitionDeliveredOrders } from "@/features/routing/domain/partition-delivered-orders";
 import { resolveRouteDestination } from "@/features/routing/domain/route-destination";
 import { callGoogleDirections } from "@/features/routing/infrastructure/google-directions";
 import { fetchDeliveryDetails } from "@/features/routing/infrastructure/order-delivery-details";
@@ -58,6 +59,11 @@ export interface GetDayRouteOptions {
   /** Where the route ends. Omitted = round trip back to the origin. An
    *  "order" destination is pinned as the final stop. */
   destination?: RouteDestinationOption;
+  /** Order ids to keep OUT of the optimized waypoints (already-delivered stops),
+   *  surfaced instead as `completed_markers`. Frozen by the caller in the route
+   *  URL so it stays stable across refreshes (see partition-delivered-orders.ts).
+   *  Omitted = optimize every order for the day. */
+  excludeOrderIds?: readonly string[];
 }
 
 export async function getDayRoute(
@@ -86,9 +92,26 @@ export async function getDayRoute(
     return err(new NoConfirmedOrdersError(targetDate));
   }
 
+  // Pull already-delivered stops OUT of the optimizable set so the optimizer
+  // never sequences the drive through a place the driver has already been (and,
+  // on a re-optimize from the live position, never routes them backwards). They
+  // ride along as muted map markers. The excluded set is frozen by the caller
+  // (route URL), not read live from status, so the waypoint set — and thus the
+  // Directions cache key — stays stable across the refresh after each delivery:
+  // no Google call, no reshuffle. See partition-delivered-orders.ts.
+  const { routed, completedMarkers } = partitionDeliveredOrders(
+    orders,
+    options.excludeOrderIds ?? [],
+  );
+
+  if (routed.length === 0) {
+    // Every order for the day is already delivered — nothing left to route.
+    return err(new NoConfirmedOrdersError(targetDate));
+  }
+
   // Resolve the end point: round trip (default), a saved location, or one of
   // the day's orders (pinned as the final stop, pulled out of the waypoints).
-  const resolved = resolveRouteDestination(orders, origin, options.destination);
+  const resolved = resolveRouteDestination(routed, origin, options.destination);
   const waypointOrders = resolved.waypointOrders;
   // Cap on actual waypoints (the destination is a separate point, not a
   // waypoint), so an order-destination doesn't count against the limit twice.
@@ -116,7 +139,8 @@ export async function getDayRoute(
   const directions = directionsResult.value;
 
   // Enrich with paid amount + line items (one batched lookup for the route).
-  const detailById = await fetchDeliveryDetails(orders.map((o) => o.order_id));
+  // Only the routed stops need details — completed markers are pins, not stops.
+  const detailById = await fetchDeliveryDetails(routed.map((o) => o.order_id));
 
   // Anchor for ETAs. If the supplied start is malformed, fall back to now —
   // never throw on bad UI input.
@@ -216,6 +240,7 @@ export async function getDayRoute(
     origin,
     destination: resolved.routeDestination,
     stops,
+    completed_markers: completedMarkers,
     overview_polyline: directions.overviewPolyline,
     step_polylines: directions.stepPolylines,
     start_time_iso: startTimeIso,

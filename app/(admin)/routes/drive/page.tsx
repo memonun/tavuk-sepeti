@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { listSavedLocations } from "@/features/routing/application/list-saved-locations";
+import {
+  parseExcludeDelivered,
+  serializeExcludeDelivered,
+} from "@/features/routing/domain/exclude-delivered-url";
 import { DriverMode } from "@/features/routing/ui/driver-mode";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +25,7 @@ interface DrivePageProps {
     destLng?: string;
     destName?: string;
     destOrderId?: string;
+    excludeDelivered?: string;
   }>;
 }
 
@@ -83,26 +89,9 @@ export default async function DrivePage({ searchParams }: DrivePageProps) {
       ? ({ kind: "location", lat: destLat, lng: destLng, name: destName ?? "Varış" } as const)
       : undefined;
 
-  // Fetch + optimize. The route's stops include delivered ones (migration
-  // 019) so re-renders mid-run still see the full sequence; the delivered
-  // set below decides what's "done".
-  const routeResult = await getDayRoute(date, {
-    startTimeIso,
-    ...(origin ? { origin } : {}),
-    ...(destination ? { destination } : {}),
-  });
-  if (!routeResult.ok) {
-    return (
-      <DriveError title="Rota başlatılamadı">
-        {routeResult.error.message}
-      </DriveError>
-    );
-  }
-
-  // Independent fetch of all orders for the day so we know which are
-  // already delivered. getDayOrders uses the same RPC and returns every
-  // status in {pending, confirmed, delivered} for the date. Saved locations
-  // feed the mid-route "change destination" picker.
+  // Fetch the day's orders (to know what's already delivered) + saved locations
+  // (the mid-route "change destination" picker). getDayOrders uses the same RPC
+  // and returns every status in {pending, confirmed, delivered} for the date.
   const [ordersResult, savedLocationsResult] = await Promise.all([
     getDayOrders(date),
     listSavedLocations(),
@@ -114,8 +103,8 @@ export default async function DrivePage({ searchParams }: DrivePageProps) {
     : [];
   const savedLocations = savedLocationsResult.ok ? savedLocationsResult.value : [];
 
-  // Current drive params, so a mid-route destination change can re-navigate
-  // with everything else (date/start/origin) preserved.
+  // Drive params, so a mid-route destination change / re-optimize can
+  // re-navigate with everything else (date/start/origin) preserved.
   const driveQuery = new URLSearchParams();
   driveQuery.set("date", date);
   driveQuery.set("start", startHHmm);
@@ -130,6 +119,36 @@ export default async function DrivePage({ searchParams }: DrivePageProps) {
     driveQuery.set("destLat", String(destLat));
     driveQuery.set("destLng", String(destLng));
     if (destName) driveQuery.set("destName", destName);
+  }
+
+  // Freeze the "already-delivered, keep out of the optimizer" set in the URL.
+  // If the param is missing (direct entry / bookmark), canonicalize once to the
+  // currently-delivered set so the post-delivery router.refresh() reuses the
+  // SAME waypoint set → Directions cache hit → no reshuffle, no Google call.
+  // Only an explicit re-optimize (driver-mode) rewrites the param, dropping
+  // freshly-delivered stops to markers. See get-day-route.ts.
+  if (params.excludeDelivered === undefined) {
+    const canon = new URLSearchParams(driveQuery);
+    canon.set("excludeDelivered", serializeExcludeDelivered(deliveredOrderIds));
+    redirect(`/routes/drive?${canon.toString()}`);
+  }
+  const excludeOrderIds = parseExcludeDelivered(params.excludeDelivered);
+  driveQuery.set("excludeDelivered", serializeExcludeDelivered(excludeOrderIds));
+
+  // Optimize, excluding the frozen delivered set — they ride along as
+  // route.completed_markers (muted pins), never part of the sequence/ETAs.
+  const routeResult = await getDayRoute(date, {
+    startTimeIso,
+    ...(origin ? { origin } : {}),
+    ...(destination ? { destination } : {}),
+    excludeOrderIds,
+  });
+  if (!routeResult.ok) {
+    return (
+      <DriveError title="Rota başlatılamadı">
+        {routeResult.error.message}
+      </DriveError>
+    );
   }
 
   return (
