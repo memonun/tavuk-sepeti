@@ -1,6 +1,3 @@
-import { redirect } from "next/navigation";
-
-import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
 
@@ -8,14 +5,10 @@ import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
  * Storefront home: a soft brand hero with a one-line "what we are", then the
  * product catalog. That's the whole shop — catalog + ordering, nothing else.
  *
- * An admin who lands on the public root is sent to their dashboard — anon and
- * customers see the shop. (assertAdmin skips the is_admin() round-trip for anon,
- * so the common case stays cheap.)
+ * Admins see the shop too (the header shows a "Yönetim" button → /admin); they
+ * are not auto-redirected away, so they can preview the storefront.
  */
 export default async function ShopHomePage() {
-  const admin = await assertAdmin();
-  if (admin.ok) redirect("/admin");
-
   const catalog = await getStorefrontCatalog();
   const products = catalog.ok ? catalog.value : [];
 
