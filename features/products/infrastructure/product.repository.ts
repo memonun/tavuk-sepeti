@@ -51,6 +51,7 @@ export async function createProduct(
       package_size: input.package_size,
       min_qty: input.min_qty,
       step: input.step,
+      fulfillment_type: input.fulfillment_type,
       current_unit_price_minor: input.base_price_minor,
       created_at: now,
       updated_at: now,
@@ -93,6 +94,7 @@ export async function updateProductMetadata(
       package_size: fields.package_size,
       min_qty: fields.min_qty,
       step: fields.step,
+      fulfillment_type: fields.fulfillment_type,
       updated_at: new Date().toISOString(),
     })
     .eq("key", productKey);

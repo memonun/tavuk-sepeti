@@ -13,7 +13,10 @@ import { toast } from "sonner";
 
 import { createProductAction } from "@/features/products/application/create-product";
 import { updateProductMetadataAction } from "@/features/products/application/update-product-metadata";
-import { PRODUCT_UNIT_OPTIONS } from "@/features/products/domain/product.schema";
+import {
+  FULFILLMENT_TYPE_OPTIONS,
+  PRODUCT_UNIT_OPTIONS,
+} from "@/features/products/domain/product.schema";
 import { normalizeDecimal, parseTRY2 } from "@/features/products/ui/money";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +39,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import type { Product, ProductUnit } from "@/features/products/application/list-products";
+import type {
+  FulfillmentType,
+  Product,
+  ProductUnit,
+} from "@/features/products/application/list-products";
 
 interface FieldsState {
   display_name: string;
@@ -44,6 +51,7 @@ interface FieldsState {
   unit_label: string;
   package_size: string;
   min_qty: string;
+  fulfillment_type: FulfillmentType;
   base_price: string; // TRY — create only
 }
 
@@ -54,6 +62,7 @@ function initialFields(product?: Product): FieldsState {
     unit_label: product?.unit_label ?? "",
     package_size: product ? String(product.package_size) : "1",
     min_qty: product ? String(product.min_qty) : "1",
+    fulfillment_type: product?.fulfillment_type ?? "delivery",
     base_price: "",
   };
 }
@@ -97,6 +106,7 @@ export function ProductFormDialog({
       // boyu eşitlemek yumurtayı 15'erli pakete zorlardı. Gerekirse ayrı alan
       // olarak geri eklenebilir; domain/DB kuralı (`quantity % step === 0`) duruyor.
       step: normalizeDecimal(fields.min_qty),
+      fulfillment_type: fields.fulfillment_type,
     };
 
     startSaving(async () => {
@@ -212,6 +222,27 @@ export function ProductFormDialog({
                 placeholder="1"
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pf-fulfillment">Teslimat yöntemi</Label>
+            <Select
+              value={fields.fulfillment_type}
+              onValueChange={(value) =>
+                set({ fulfillment_type: value as FulfillmentType })
+              }
+            >
+              <SelectTrigger id="pf-fulfillment" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FULFILLMENT_TYPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {isCreate ? (

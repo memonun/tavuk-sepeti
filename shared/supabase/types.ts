@@ -593,6 +593,7 @@ export type Database = {
           created_at: string
           current_unit_price_minor: number
           display_name: string
+          fulfillment_type: string
           key: string
           min_qty: number
           package_size: number
@@ -606,6 +607,7 @@ export type Database = {
           created_at?: string
           current_unit_price_minor?: number
           display_name: string
+          fulfillment_type?: string
           key: string
           min_qty: number
           package_size: number
@@ -619,6 +621,7 @@ export type Database = {
           created_at?: string
           current_unit_price_minor?: number
           display_name?: string
+          fulfillment_type?: string
           key?: string
           min_qty?: number
           package_size?: number

@@ -37,6 +37,7 @@ const eggs: Product = {
   current_unit_price_minor: 12500,
   price_tiers: [],
   active: true,
+  fulfillment_type: "delivery",
 };
 
 const cheese: Product = {
@@ -50,6 +51,7 @@ const cheese: Product = {
   current_unit_price_minor: 10000,
   price_tiers: [],
   active: true,
+  fulfillment_type: "delivery",
 };
 
 const products: Product[] = [eggs, cheese];

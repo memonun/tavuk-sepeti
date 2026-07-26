@@ -12,7 +12,7 @@
  */
 import { z } from "zod";
 
-import type { ProductUnit } from "@/features/products/domain/product";
+import type { FulfillmentType, ProductUnit } from "@/features/products/domain/product";
 
 export const productUnitSchema = z.enum([
   "package",
@@ -30,6 +30,17 @@ export const PRODUCT_UNIT_OPTIONS: ReadonlyArray<{
   { value: "liter", label: "Litre" },
   { value: "kilogram", label: "Kilogram" },
   { value: "piece", label: "Adet" },
+];
+
+export const fulfillmentTypeSchema = z.enum(["delivery", "shipping"]);
+
+/** Fulfillment values + Turkish labels for the product form `<Select>`. */
+export const FULFILLMENT_TYPE_OPTIONS: ReadonlyArray<{
+  value: FulfillmentType;
+  label: string;
+}> = [
+  { value: "delivery", label: "Kendi teslimatı (rotaya dahil)" },
+  { value: "shipping", label: "Kargo (rotaya dahil değil)" },
 ];
 
 /** The editable content fields of a product (everything except key + price). */
@@ -52,6 +63,7 @@ export const productMetadataSchema = z.object({
     .number()
     .positive("Minimum miktar 0'dan büyük olmalı."),
   step: z.coerce.number().positive("Adım 0'dan büyük olmalı."),
+  fulfillment_type: fulfillmentTypeSchema.default("delivery"),
 });
 
 export type ProductMetadataInput = z.input<typeof productMetadataSchema>;

@@ -9,7 +9,11 @@ import type { Product, ProductUnit } from "@/features/products/domain/product";
 import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
 
 // Re-export the domain types as the products feature's public API surface.
-export type { Product, ProductUnit } from "@/features/products/domain/product";
+export type {
+  FulfillmentType,
+  Product,
+  ProductUnit,
+} from "@/features/products/domain/product";
 // Pure pricing helpers live in ./pricing (client-safe, no server-only guard).
 //
 // NOTE: caching this catalog (it's global + read-heavy, re-fetched on every
@@ -18,7 +22,7 @@ export type { Product, ProductUnit } from "@/features/products/domain/product";
 // as a dedicated follow-up so a stale cache can't ever serve a wrong price.
 
 const PRODUCT_COLUMNS =
-  "key, display_name, unit, unit_label, package_size, min_qty, step, current_unit_price_minor, active";
+  "key, display_name, unit, unit_label, package_size, min_qty, step, current_unit_price_minor, active, fulfillment_type";
 
 /**
  * Load every product's volume tiers, grouped by product key. Tiers live in
@@ -65,6 +69,7 @@ interface ProductRow {
   step: number | string;
   current_unit_price_minor: number;
   active: boolean;
+  fulfillment_type: string;
 }
 
 function toProduct(
@@ -84,6 +89,8 @@ function toProduct(
       (a, b) => a.min_qty - b.min_qty,
     ),
     active: row.active,
+    fulfillment_type:
+      row.fulfillment_type === "shipping" ? "shipping" : "delivery",
   };
 }
 

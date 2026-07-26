@@ -10,6 +10,13 @@ import type { ProductPriceTier } from "@/features/products/domain/product-pricin
 
 export type ProductUnit = "package" | "liter" | "kilogram" | "piece";
 
+/**
+ * How a product reaches the customer:
+ *   - "delivery": self-delivered on the daily route (default; dairy/eggs).
+ *   - "shipping": sent by cargo and excluded from the route (dried fruit, etc.).
+ */
+export type FulfillmentType = "delivery" | "shipping";
+
 export interface Product {
   readonly key: string;
   readonly display_name: string;
@@ -18,6 +25,7 @@ export interface Product {
   readonly package_size: number;
   readonly min_qty: number;
   readonly step: number;
+  readonly fulfillment_type: FulfillmentType;
   /** Flat/base price in kuruş. Used when no tier matches the quantity. */
   readonly current_unit_price_minor: number;
   /** Volume tiers (sorted by min_qty asc). Empty for flat-priced products. */
