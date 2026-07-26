@@ -86,6 +86,17 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
         ) : null}
       </div>
 
+      {mode === "signin" ? (
+        <div className="-mt-2 text-right">
+          <Link
+            href="/magaza/sifremi-unuttum"
+            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
+            Şifremi unuttum?
+          </Link>
+        </div>
+      ) : null}
+
       {state.status === "error" ? (
         <p className="text-sm text-destructive" role="alert">
           {state.message}
