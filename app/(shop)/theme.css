@@ -1,0 +1,54 @@
+/*
+ * Storefront theme — soft, warm "cream & honey", fixed light.
+ *
+ * Scoped to `.shop-theme` so it re-declares the design tokens ONLY within the
+ * shop subtree. Because app/globals.css maps them with `@theme inline`
+ * (`--color-*: var(--…)`), overriding the raw vars here re-skins every shadcn
+ * primitive (Button, Input, Sheet…) inside the shop without touching the admin
+ * theme — and without responding to the root `.dark` class, so the storefront
+ * stays graceful and light regardless of the visitor's system preference.
+ */
+.shop-theme {
+  --background: oklch(0.985 0.008 85);
+  --foreground: oklch(0.29 0.02 62);
+
+  --card: oklch(0.995 0.004 85);
+  --card-foreground: oklch(0.29 0.02 62);
+  --popover: oklch(0.995 0.004 85);
+  --popover-foreground: oklch(0.29 0.02 62);
+
+  /* Warm caramel/honey primary with cream text (AA on the button). */
+  --primary: oklch(0.62 0.13 66);
+  --primary-foreground: oklch(0.99 0.01 85);
+
+  --secondary: oklch(0.94 0.02 82);
+  --secondary-foreground: oklch(0.34 0.02 62);
+
+  --muted: oklch(0.95 0.014 84);
+  --muted-foreground: oklch(0.52 0.025 68);
+
+  --accent: oklch(0.93 0.03 80);
+  --accent-foreground: oklch(0.32 0.03 62);
+
+  --destructive: oklch(0.585 0.16 28);
+
+  --border: oklch(0.9 0.015 80);
+  --input: oklch(0.9 0.015 80);
+  --ring: oklch(0.72 0.1 70);
+
+  /* Softer, rounder than the admin (0.625rem). */
+  --radius: 1rem;
+
+  /* Elegant serif for display type; falls back to the app sans. */
+  --font-heading: var(--font-shop-serif, var(--font-sans));
+
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Display headings pick up the serif. */
+.shop-theme :is(h1, h2, .font-display) {
+  font-family: var(--font-shop-serif, var(--font-sans));
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}

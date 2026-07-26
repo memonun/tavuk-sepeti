@@ -56,6 +56,12 @@ const serverSchema = z.object({
   // Quota guard — see SPEC.md §6.3.
   GEOCODING_DAILY_LIMIT: z.coerce.number().int().positive().default(2000),
 
+  // Transactional email (Resend) — storefront order confirmations. Optional:
+  // when unset, the confirmation email is skipped (logged) and the order still
+  // succeeds. EMAIL_FROM must be a Resend-verified sender once the key is set.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(1).optional(),
+
   // Observability.
   SENTRY_DSN: z.string().url().optional(),
   LOG_LEVEL: z
@@ -104,6 +110,8 @@ const rawServer = isServer
       WAREHOUSE_LAT: process.env.WAREHOUSE_LAT,
       WAREHOUSE_LNG: process.env.WAREHOUSE_LNG,
       GEOCODING_DAILY_LIMIT: process.env.GEOCODING_DAILY_LIMIT,
+      RESEND_API_KEY: process.env.RESEND_API_KEY,
+      EMAIL_FROM: process.env.EMAIL_FROM,
       SENTRY_DSN: process.env.SENTRY_DSN,
       LOG_LEVEL: process.env.LOG_LEVEL,
       DEFAULT_TIMEZONE: process.env.DEFAULT_TIMEZONE,

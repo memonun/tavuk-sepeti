@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { AdminSidebar } from "@/app/(admin)/_components/admin-sidebar";
-import { getCurrentUser } from "@/features/auth/application/get-session";
+import { assertAdmin } from "@/features/auth/application/assert-admin";
+import { ErrorCode } from "@/shared/errors/error-codes";
 import {
   SidebarInset,
   SidebarProvider,
@@ -10,16 +11,22 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 
 /**
- * Admin shell. Defense-in-depth check on top of proxy.ts — if the proxy ever
- * fails-open, we still won't render admin chrome to an anon visitor.
+ * Admin shell. Requires an ADMIN session — not merely any logged-in user. Since
+ * Faz 2, customers authenticate through the same Supabase Auth, so "is someone
+ * signed in?" is no longer sufficient: a logged-in customer must never see
+ * admin chrome. assertAdmin() checks is_admin(); anon → /login, non-admin
+ * (customer) → the storefront.
  */
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const result = await assertAdmin();
+  if (!result.ok) {
+    redirect(result.error.code === ErrorCode.UNAUTHORIZED ? "/login" : "/magaza");
+  }
+  const user = result.value;
 
   return (
     <SidebarProvider>
