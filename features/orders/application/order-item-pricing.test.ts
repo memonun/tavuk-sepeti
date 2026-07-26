@@ -19,6 +19,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     current_unit_price_minor: 10000,
     price_tiers: [],
     active: true,
+    fulfillment_type: "delivery",
     ...overrides,
   };
 }

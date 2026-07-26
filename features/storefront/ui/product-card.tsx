@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, TruckIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { formatTRY } from "@/shared/utils/money";
@@ -37,6 +37,12 @@ export function ProductCard({ product }: { product: Product }) {
         {formatTRY(fromPriceMinor(product))}{" "}
         <span className="text-muted-foreground/80">/ {product.unit_label}</span>
       </p>
+
+      {product.fulfillment_type === "shipping" ? (
+        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
+          <TruckIcon className="size-3.5" /> Kargo ile gönderilir
+        </span>
+      ) : null}
 
       <div className="mt-5 flex items-center justify-between gap-3">
         {inCart ? (
