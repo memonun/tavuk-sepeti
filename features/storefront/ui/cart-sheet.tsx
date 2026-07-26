@@ -102,7 +102,7 @@ export function CartSheet({ products }: { products: readonly Product[] }) {
               </span>
             </div>
             <Link
-              href="/magaza/odeme"
+              href="/odeme"
               onClick={() => setOpen(false)}
               className={cn(buttonVariants({ size: "lg" }), "w-full rounded-full")}
             >

@@ -17,7 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default async function AccountPage() {
   const account = await getMyAccount();
-  if (!account) redirect("/magaza/giris");
+  if (!account) redirect("/giris");
 
   const fullName = `${account.profile.first_name} ${account.profile.last_name}`.trim();
 
@@ -56,7 +56,7 @@ export default async function AccountPage() {
           <div className="rounded-3xl border border-dashed border-border p-8 text-center">
             <p className="text-sm text-muted-foreground">Henüz siparişiniz yok.</p>
             <Link
-              href="/magaza"
+              href="/"
               className={cn(buttonVariants({ size: "lg" }), "mt-4 rounded-full")}
             >
               Alışverişe başla

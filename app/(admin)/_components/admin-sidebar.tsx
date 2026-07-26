@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { href: "/", label: "Panel", icon: LayoutDashboard, exact: true },
+  { href: "/admin", label: "Panel", icon: LayoutDashboard, exact: true },
   { href: "/customers", label: "Müşteriler", icon: Users, exact: false },
   { href: "/orders", label: "Siparişler", icon: Package, exact: false },
   { href: "/recurring", label: "Tekrarlananlar", icon: Repeat, exact: false },

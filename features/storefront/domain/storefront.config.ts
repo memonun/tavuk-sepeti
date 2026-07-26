@@ -1,5 +1,5 @@
 /**
- * Storefront configuration constants (Faz 2, `/magaza`).
+ * Storefront configuration constants (Faz 2, `/`).
  *
  * Kept in one place so business tweaks — delivery fee, how far out a customer
  * can schedule — are a single-line edit, not a hunt across components. All

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * Public storefront shell (`/magaza`). Nests inside the root layout but scopes
+ * Public storefront shell (`/`). Nests inside the root layout but scopes
  * its own soft light palette via `.shop-theme` (see theme.css) and wraps the
  * client cart. The header basket needs the catalog to resolve line names, so we
  * fetch it here (memoized — the page reuses the same query).

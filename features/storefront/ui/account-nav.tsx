@@ -12,7 +12,7 @@ export function AccountNav({ authed }: { authed: boolean }) {
   if (!authed) {
     return (
       <Link
-        href="/magaza/giris"
+        href="/giris"
         className={cn(
           buttonVariants({ variant: "ghost", size: "lg" }),
           "rounded-full",
@@ -27,7 +27,7 @@ export function AccountNav({ authed }: { authed: boolean }) {
   return (
     <div className="flex items-center gap-0.5">
       <Link
-        href="/magaza/hesap"
+        href="/hesap"
         className={cn(
           buttonVariants({ variant: "ghost", size: "lg" }),
           "rounded-full",
