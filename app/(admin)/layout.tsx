@@ -24,7 +24,7 @@ export default async function AdminLayout({
 }) {
   const result = await assertAdmin();
   if (!result.ok) {
-    redirect(result.error.code === ErrorCode.UNAUTHORIZED ? "/login" : "/magaza");
+    redirect(result.error.code === ErrorCode.UNAUTHORIZED ? "/login" : "/");
   }
   const user = result.value;
 

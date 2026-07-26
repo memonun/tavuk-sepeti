@@ -89,7 +89,7 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
       {mode === "signin" ? (
         <div className="-mt-2 text-right">
           <Link
-            href="/magaza/sifremi-unuttum"
+            href="/sifremi-unuttum"
             className="text-xs text-muted-foreground hover:text-foreground hover:underline"
           >
             Şifremi unuttum?
@@ -120,14 +120,14 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
         {mode === "signin" ? (
           <>
             Hesabınız yok mu?{" "}
-            <Link href="/magaza/kayit" className="text-primary hover:underline">
+            <Link href="/kayit" className="text-primary hover:underline">
               Kayıt olun
             </Link>
           </>
         ) : (
           <>
             Zaten hesabınız var mı?{" "}
-            <Link href="/magaza/giris" className="text-primary hover:underline">
+            <Link href="/giris" className="text-primary hover:underline">
               Giriş yapın
             </Link>
           </>

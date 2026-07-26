@@ -5,7 +5,7 @@ import { PasswordUpdateForm } from "@/features/storefront/ui/password-update-for
 
 /**
  * Set-new-password page. Reached via the recovery link, which lands on
- * /magaza/auth/confirm and establishes a recovery session before forwarding
+ * /auth/confirm and establishes a recovery session before forwarding
  * here. Without that session (link expired or opened directly) we show a
  * recovery prompt instead of the form.
  */
@@ -30,7 +30,7 @@ export default async function ResetPasswordPage() {
             sıfırlama isteği gönderin.
           </p>
           <Link
-            href="/magaza/sifremi-unuttum"
+            href="/sifremi-unuttum"
             className="mt-4 inline-block text-sm text-primary hover:underline"
           >
             Yeni bağlantı iste

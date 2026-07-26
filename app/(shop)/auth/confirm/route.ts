@@ -2,7 +2,7 @@
  * Email-confirmation / magic-link landing for customer accounts.
  *
  * Supabase's confirmation email links here (set the project's Site URL +
- * redirect allowlist to `${NEXT_PUBLIC_APP_URL}/magaza/auth/confirm`). We
+ * redirect allowlist to `${NEXT_PUBLIC_APP_URL}/auth/confirm`). We
  * exchange the token for a session cookie, then send the customer to their
  * account. Handles both the token_hash (verifyOtp) and PKCE code flows.
  */
@@ -15,7 +15,7 @@ import { createSupabaseServerClient } from "@/shared/supabase/server";
 /** Only allow same-origin relative redirects — never an attacker-supplied URL. */
 function safeNext(raw: string | null): string {
   if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
-  return "/magaza/hesap";
+  return "/hesap";
 }
 
 export async function GET(request: NextRequest) {
@@ -41,6 +41,6 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(
-    new URL("/magaza/giris?error=confirm", origin),
+    new URL("/giris?error=confirm", origin),
   );
 }

@@ -313,7 +313,7 @@ function EmptyCart() {
       <p className="text-sm text-muted-foreground">
         Sipariş vermek için önce sepetinize ürün ekleyin.
       </p>
-      <Link href="/magaza" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
+      <Link href="/" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
         Ürünlere göz at
       </Link>
     </div>
@@ -335,7 +335,7 @@ function OrderConfirmation({ orderNumber }: { orderNumber: string }) {
         Siparişinizi hazırlamaya başlıyoruz. Teslimat gününüzde kapıda ödeme ya
         da havale ile ödeyebilirsiniz.
       </p>
-      <Link href="/magaza" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
+      <Link href="/" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
         Alışverişe devam et
       </Link>
     </div>

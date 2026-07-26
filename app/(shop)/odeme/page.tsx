@@ -54,7 +54,7 @@ export default async function CheckoutPage() {
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <div className="mb-8">
         <Link
-          href="/magaza"
+          href="/"
           className="text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           ← Alışverişe dön

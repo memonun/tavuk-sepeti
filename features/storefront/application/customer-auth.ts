@@ -2,7 +2,7 @@
 
 /**
  * Storefront customer authentication (email + password via Supabase Auth).
- * Distinct from the admin auth actions: these redirect into `/magaza`, and
+ * Distinct from the admin auth actions: these redirect into `/`, and
  * signup does NOT grant any admin role — the auto-admin trigger was dropped in
  * migration 20260726120200, so a new auth user is just a customer.
  */
@@ -45,7 +45,7 @@ export async function customerSignInAction(
     return { status: "error", message: "E-posta veya şifre hatalı." };
   }
 
-  redirect("/magaza/hesap");
+  redirect("/hesap");
 }
 
 export async function customerSignUpAction(
@@ -70,7 +70,7 @@ export async function customerSignUpAction(
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/magaza/auth/confirm`,
+      emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/confirm`,
       data: {
         first_name: parsed.data.first_name,
         last_name: parsed.data.last_name,
@@ -95,13 +95,13 @@ export async function customerSignUpAction(
     return { status: "verify_email", email: parsed.data.email };
   }
 
-  redirect("/magaza/hesap");
+  redirect("/hesap");
 }
 
 export async function customerSignOutAction(): Promise<never> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
-  redirect("/magaza");
+  redirect("/");
 }
 
 export type PasswordResetRequestState =
@@ -112,7 +112,7 @@ export type PasswordResetRequestState =
 /**
  * "Forgot password" — email a recovery link. Always reports success (even when
  * the email isn't registered) so an attacker can't enumerate accounts. The
- * link lands on /magaza/auth/confirm, which establishes a recovery session and
+ * link lands on /auth/confirm, which establishes a recovery session and
  * forwards to the set-new-password page.
  */
 export async function requestPasswordResetAction(
@@ -133,7 +133,7 @@ export async function requestPasswordResetAction(
   const { error } = await supabase.auth.resetPasswordForEmail(
     parsed.data.email,
     {
-      redirectTo: `${env.NEXT_PUBLIC_APP_URL}/magaza/auth/confirm?next=/magaza/sifre-yenile`,
+      redirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=/sifre-yenile`,
     },
   );
   if (error) {
@@ -186,5 +186,5 @@ export async function updatePasswordAction(
     return { status: "error", message: "Şifre güncellenemedi, tekrar deneyin." };
   }
 
-  redirect("/magaza/hesap");
+  redirect("/hesap");
 }

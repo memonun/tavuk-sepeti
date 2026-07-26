@@ -49,5 +49,5 @@ export async function signInAction(
     };
   }
 
-  redirect("/");
+  redirect("/admin");
 }

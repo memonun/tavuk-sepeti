@@ -29,7 +29,7 @@ export function PasswordResetRequestForm() {
           kutunuzu (ve spam klasörünü) kontrol edin.
         </p>
         <Link
-          href="/magaza/giris"
+          href="/giris"
           className="mt-4 inline-block text-sm text-primary hover:underline"
         >
           Girişe dön
@@ -68,7 +68,7 @@ export function PasswordResetRequestForm() {
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        <Link href="/magaza/giris" className="text-primary hover:underline">
+        <Link href="/giris" className="text-primary hover:underline">
           Girişe dön
         </Link>
       </p>
