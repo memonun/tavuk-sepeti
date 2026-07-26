@@ -14,17 +14,22 @@
  *
  * Returns a serializable state for useActionState.
  */
+import { getCurrentUser } from "@/features/auth/application/get-session";
 import { geocodeAddress } from "@/features/geocoding/application/geocode-address";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
 import { listActiveProducts } from "@/features/products/application/list-products";
 import { addDaysIso, isWithinWindow } from "@/features/storefront/domain/delivery-date";
+import { buildOrderConfirmationEmail } from "@/features/storefront/domain/order-email";
 import {
   DELIVERY_FEE_MINOR,
   MAX_DELIVERY_HORIZON_DAYS,
   MIN_DELIVERY_LEAD_DAYS,
+  PAYMENT_METHOD_OPTIONS,
+  TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { webOrderSchema } from "@/features/storefront/domain/web-order.schema";
 import { placeWebOrder } from "@/features/storefront/infrastructure/web-order.repository";
+import { sendEmail } from "@/shared/email/send-email";
 import {
   composeFullAddress,
   composeGeocoderQuery,
@@ -120,6 +125,11 @@ export async function placeOrderAction(
     return { status: "validation_error", message: enriched.error.message };
   }
 
+  // Optional login: attach the order to the account when signed in (null =
+  // guest). The RPC reuses/links the customer by this id.
+  const user = await getCurrentUser();
+  const authUserId = user?.id ?? null;
+
   // Best-effort geocode. A missing Google key or a low-accuracy result does NOT
   // block the order — it's placed with the typed address snapshot and the admin
   // can drop the pin later. A good pin lets the RPC create the customer's
@@ -173,6 +183,7 @@ export async function placeOrderAction(
     delivery_notes: parsed.data.delivery_notes,
     delivery_fee_minor: DELIVERY_FEE_MINOR,
     items: enriched.value,
+    authUserId,
   });
 
   if (!placed.ok) {
@@ -184,5 +195,46 @@ export async function placeOrderAction(
     { orderNumber: placed.value.order_number, source: "customer_web" },
     "web_order_placed",
   );
+
+  // Confirmation email — best-effort. A missing Resend key or a send failure
+  // never fails the order; it's already saved.
+  const emailTo = parsed.data.contact.email ?? user?.email ?? null;
+  if (emailTo) {
+    const subtotalMinor = enriched.value.reduce(
+      (sum, item) => sum + item.line_total_minor,
+      0,
+    );
+    const email = buildOrderConfirmationEmail({
+      orderNumber: placed.value.order_number,
+      customerName:
+        `${parsed.data.contact.first_name} ${parsed.data.contact.last_name}`.trim(),
+      scheduledFor: parsed.data.scheduled_for,
+      timeSlotLabel:
+        TIME_SLOT_OPTIONS.find((o) => o.value === parsed.data.time_slot)?.label ??
+        null,
+      paymentMethodLabel:
+        PAYMENT_METHOD_OPTIONS.find((o) => o.value === parsed.data.payment_method)
+          ?.label ?? parsed.data.payment_method,
+      addressText: composeFullAddress(addr),
+      items: enriched.value.map((item) => ({
+        name: item.product_snapshot.display_name,
+        quantity: item.quantity,
+        lineTotalMinor: item.line_total_minor,
+      })),
+      subtotalMinor,
+      deliveryFeeMinor: DELIVERY_FEE_MINOR,
+      totalMinor: subtotalMinor + DELIVERY_FEE_MINOR,
+    });
+    const sent = await sendEmail({
+      to: emailTo,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+    if (!sent.ok) {
+      logger.warn({ code: sent.error.code }, "order_confirmation_email_failed");
+    }
+  }
+
   return { status: "success", orderNumber: placed.value.order_number };
 }

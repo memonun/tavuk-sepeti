@@ -56,6 +56,8 @@ export interface WebOrderRepoInput {
   delivery_notes: string | null;
   delivery_fee_minor: number;
   items: ReadonlyArray<WebOrderRepoItem>;
+  /** Logged-in customer's auth user id, or null for guest checkout. */
+  authUserId: string | null;
 }
 
 export interface WebOrderResult {
@@ -100,6 +102,7 @@ export async function placeWebOrder(
     p_delivery_notes: input.delivery_notes,
     p_delivery_fee_minor: input.delivery_fee_minor,
     p_items: input.items,
+    p_auth_user_id: input.authUserId,
   });
 
   if (error) {

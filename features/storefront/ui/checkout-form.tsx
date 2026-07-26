@@ -31,14 +31,36 @@ const initialState: PlaceOrderState = { status: "idle" };
 const controlClass =
   "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
+export interface CheckoutDefaults {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+  city: string;
+  district: string;
+  neighborhood: string;
+  street: string;
+  building_no: string;
+  apartment_no: string;
+  postal_code: string;
+  description: string;
+}
+
 interface CheckoutFormProps {
   products: readonly Product[];
   /** Delivery-date bounds, resolved to Europe/Istanbul on the server. */
   minDate: string;
   maxDate: string;
+  /** Prefill for a logged-in customer (from their profile + primary address). */
+  defaults?: CheckoutDefaults;
 }
 
-export function CheckoutForm({ products, minDate, maxDate }: CheckoutFormProps) {
+export function CheckoutForm({
+  products,
+  minDate,
+  maxDate,
+  defaults,
+}: CheckoutFormProps) {
   const { lines, hydrated, clear } = useCart();
   const [state, formAction, pending] = useActionState(
     placeOrderAction,
@@ -82,16 +104,16 @@ export function CheckoutForm({ products, minDate, maxDate }: CheckoutFormProps) 
         <Section title="İletişim">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Ad" htmlFor="first_name">
-              <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={pending} />
+              <Input id="first_name" name="first_name" autoComplete="given-name" defaultValue={defaults?.first_name} required disabled={pending} />
             </Field>
             <Field label="Soyad" htmlFor="last_name">
-              <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={pending} />
+              <Input id="last_name" name="last_name" autoComplete="family-name" defaultValue={defaults?.last_name} required disabled={pending} />
             </Field>
             <Field label="Telefon" htmlFor="phone">
-              <Input id="phone" name="phone" type="tel" inputMode="tel" placeholder="0532 123 45 67" autoComplete="tel" required disabled={pending} />
+              <Input id="phone" name="phone" type="tel" inputMode="tel" placeholder="0532 123 45 67" autoComplete="tel" defaultValue={defaults?.phone} required disabled={pending} />
             </Field>
             <Field label="E-posta (opsiyonel)" htmlFor="email">
-              <Input id="email" name="email" type="email" autoComplete="email" disabled={pending} />
+              <Input id="email" name="email" type="email" autoComplete="email" defaultValue={defaults?.email} disabled={pending} />
             </Field>
           </div>
         </Section>
@@ -99,28 +121,28 @@ export function CheckoutForm({ products, minDate, maxDate }: CheckoutFormProps) 
         <Section title="Teslimat adresi">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="İl" htmlFor="city">
-              <Input id="city" name="city" autoComplete="address-level1" required disabled={pending} />
+              <Input id="city" name="city" autoComplete="address-level1" defaultValue={defaults?.city} required disabled={pending} />
             </Field>
             <Field label="İlçe" htmlFor="district">
-              <Input id="district" name="district" autoComplete="address-level2" required disabled={pending} />
+              <Input id="district" name="district" autoComplete="address-level2" defaultValue={defaults?.district} required disabled={pending} />
             </Field>
             <Field label="Mahalle" htmlFor="neighborhood">
-              <Input id="neighborhood" name="neighborhood" required disabled={pending} />
+              <Input id="neighborhood" name="neighborhood" defaultValue={defaults?.neighborhood} required disabled={pending} />
             </Field>
             <Field label="Cadde / Sokak" htmlFor="street">
-              <Input id="street" name="street" autoComplete="address-line1" disabled={pending} />
+              <Input id="street" name="street" autoComplete="address-line1" defaultValue={defaults?.street} disabled={pending} />
             </Field>
             <Field label="Bina no" htmlFor="building_no">
-              <Input id="building_no" name="building_no" disabled={pending} />
+              <Input id="building_no" name="building_no" defaultValue={defaults?.building_no} disabled={pending} />
             </Field>
             <Field label="Daire no" htmlFor="apartment_no">
-              <Input id="apartment_no" name="apartment_no" disabled={pending} />
+              <Input id="apartment_no" name="apartment_no" defaultValue={defaults?.apartment_no} disabled={pending} />
             </Field>
             <Field label="Posta kodu" htmlFor="postal_code">
-              <Input id="postal_code" name="postal_code" autoComplete="postal-code" inputMode="numeric" disabled={pending} />
+              <Input id="postal_code" name="postal_code" autoComplete="postal-code" inputMode="numeric" defaultValue={defaults?.postal_code} disabled={pending} />
             </Field>
             <Field label="Adres tarifi (opsiyonel)" htmlFor="description">
-              <Input id="description" name="description" placeholder="Kapı kodu, kat vb." disabled={pending} />
+              <Input id="description" name="description" placeholder="Kapı kodu, kat vb." defaultValue={defaults?.description} disabled={pending} />
             </Field>
           </div>
         </Section>
