@@ -22,7 +22,7 @@ export type {
 // as a dedicated follow-up so a stale cache can't ever serve a wrong price.
 
 const PRODUCT_COLUMNS =
-  "key, display_name, unit, unit_label, package_size, min_qty, step, current_unit_price_minor, active, fulfillment_type";
+  "key, display_name, unit, unit_label, package_size, min_qty, step, current_unit_price_minor, active, fulfillment_type, is_web_visible, is_featured, web_description, image_path, image_alt";
 
 /**
  * Load every product's volume tiers, grouped by product key. Tiers live in
@@ -70,6 +70,11 @@ interface ProductRow {
   current_unit_price_minor: number;
   active: boolean;
   fulfillment_type: string;
+  is_web_visible: boolean | null;
+  is_featured: boolean | null;
+  web_description: string | null;
+  image_path: string | null;
+  image_alt: string | null;
 }
 
 function toProduct(
@@ -91,6 +96,11 @@ function toProduct(
     active: row.active,
     fulfillment_type:
       row.fulfillment_type === "shipping" ? "shipping" : "delivery",
+    is_web_visible: row.is_web_visible ?? true,
+    is_featured: row.is_featured ?? false,
+    web_description: row.web_description ?? null,
+    image_path: row.image_path ?? null,
+    image_alt: row.image_alt ?? null,
   };
 }
 

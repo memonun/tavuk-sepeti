@@ -13,6 +13,22 @@ const nextConfig: NextConfig = {
   // page only ships the icons it uses.
   experimental: {
     optimizePackageImports: ["lucide-react"],
+    // Product image uploads flow through a server action; images are compressed
+    // client-side first, but allow headroom up to the 5 MB bucket limit in case
+    // a browser can't re-encode and sends the original.
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
+  },
+  images: {
+    // Product cover images served from the public Supabase Storage bucket.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
   },
 };
 

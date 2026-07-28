@@ -43,6 +43,15 @@ export const FULFILLMENT_TYPE_OPTIONS: ReadonlyArray<{
   { value: "shipping", label: "Kargo (rotaya dahil değil)" },
 ];
 
+/** Optional free-text field: trims, caps length, maps empty → null. */
+const nullableText = (max: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, message)
+    .nullish()
+    .transform((v) => (v && v.length > 0 ? v : null));
+
 /** The editable content fields of a product (everything except key + price). */
 export const productMetadataSchema = z.object({
   display_name: z
@@ -64,6 +73,8 @@ export const productMetadataSchema = z.object({
     .positive("Minimum miktar 0'dan büyük olmalı."),
   step: z.coerce.number().positive("Adım 0'dan büyük olmalı."),
   fulfillment_type: fulfillmentTypeSchema.default("delivery"),
+  web_description: nullableText(500, "En fazla 500 karakter olabilir."),
+  image_alt: nullableText(200, "En fazla 200 karakter olabilir."),
 });
 
 export type ProductMetadataInput = z.input<typeof productMetadataSchema>;
@@ -95,3 +106,21 @@ export const setProductActiveSchema = z.object({
 });
 
 export type SetProductActiveInput = z.input<typeof setProductActiveSchema>;
+
+/** Storefront-flag toggle payload — either or both switches (visible/featured). */
+export const updateProductFlagsSchema = z
+  .object({
+    product_key: z.string().min(1),
+    is_web_visible: z.boolean().optional(),
+    is_featured: z.boolean().optional(),
+  })
+  .refine((v) => v.is_web_visible !== undefined || v.is_featured !== undefined, {
+    message: "Güncellenecek bir alan yok.",
+  });
+
+export type UpdateProductFlagsInput = z.input<typeof updateProductFlagsSchema>;
+
+/** Minimal payload that only identifies a product (e.g. image removal). */
+export const productKeySchema = z.object({
+  product_key: z.string().min(1),
+});

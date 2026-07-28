@@ -3,8 +3,10 @@ import "server-only";
 import { ExternalApiError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
+import { getSupabaseAdminClient } from "@/shared/supabase/admin";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
+import { PRODUCT_IMAGE_BUCKET } from "@/features/products/domain/product-image";
 import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
 import type { ProductMetadata } from "@/features/products/domain/product.schema";
 import { slugifyProductKey } from "@/features/products/domain/product-key";
@@ -52,6 +54,8 @@ export async function createProduct(
       min_qty: input.min_qty,
       step: input.step,
       fulfillment_type: input.fulfillment_type,
+      web_description: input.web_description,
+      image_alt: input.image_alt,
       current_unit_price_minor: input.base_price_minor,
       created_at: now,
       updated_at: now,
@@ -95,6 +99,8 @@ export async function updateProductMetadata(
       min_qty: fields.min_qty,
       step: fields.step,
       fulfillment_type: fields.fulfillment_type,
+      web_description: fields.web_description,
+      image_alt: fields.image_alt,
       updated_at: new Date().toISOString(),
     })
     .eq("key", productKey);
@@ -123,6 +129,112 @@ export async function setProductActive(
       { productKey, active, code: error.code },
       "set_product_active_failed",
     );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
+
+/** Update a product's storefront flags (only the provided ones are written). */
+export async function updateProductFlags(
+  productKey: string,
+  patch: {
+    is_web_visible?: boolean | undefined;
+    is_featured?: boolean | undefined;
+  },
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const update: {
+    is_web_visible?: boolean;
+    is_featured?: boolean;
+    updated_at: string;
+  } = { updated_at: new Date().toISOString() };
+  if (patch.is_web_visible !== undefined) update.is_web_visible = patch.is_web_visible;
+  if (patch.is_featured !== undefined) update.is_featured = patch.is_featured;
+
+  const { error } = await supabase
+    .from("products")
+    .update(update)
+    .eq("key", productKey);
+  if (error) {
+    logger.error({ productKey, code: error.code }, "update_product_flags_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
+
+/** Read a product's current cover-image object key (null when none). */
+export async function getProductImagePath(
+  productKey: string,
+): Promise<Result<string | null, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("image_path")
+    .eq("key", productKey)
+    .single();
+  if (error) {
+    logger.error({ productKey, code: error.code }, "get_product_image_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(data?.image_path ?? null);
+}
+
+/** Point a product row at a cover image (or clear it), optionally with alt. */
+export async function setProductImagePath(
+  productKey: string,
+  imagePath: string | null,
+  imageAlt?: string | null,
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const update: {
+    image_path: string | null;
+    image_alt?: string | null;
+    updated_at: string;
+  } = { image_path: imagePath, updated_at: new Date().toISOString() };
+  if (imageAlt !== undefined) update.image_alt = imageAlt;
+
+  const { error } = await supabase
+    .from("products")
+    .update(update)
+    .eq("key", productKey);
+  if (error) {
+    logger.error({ productKey, code: error.code }, "set_product_image_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
+
+/**
+ * Write a product image to the public bucket. Uses the service-role client
+ * (storage writes bypass RLS) — the caller has already asserted admin. `upsert`
+ * is on so a retried upload to the same key is idempotent.
+ */
+export async function uploadProductImageObject(
+  objectKey: string,
+  body: Uint8Array,
+  contentType: string,
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.storage
+    .from(PRODUCT_IMAGE_BUCKET)
+    .upload(objectKey, body, { contentType, upsert: true });
+  if (error) {
+    logger.error({ objectKey, message: error.message }, "upload_product_image_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
+
+/** Delete a product image object (best-effort cleanup after replace/remove). */
+export async function deleteProductImageObject(
+  objectKey: string,
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.storage
+    .from(PRODUCT_IMAGE_BUCKET)
+    .remove([objectKey]);
+  if (error) {
+    logger.warn({ objectKey, message: error.message }, "delete_product_image_failed");
     return err(new ExternalApiError({ message: error.message, cause: error }));
   }
   return ok(undefined);
