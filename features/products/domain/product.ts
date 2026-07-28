@@ -26,6 +26,16 @@ export interface Product {
   readonly min_qty: number;
   readonly step: number;
   readonly fulfillment_type: FulfillmentType;
+  /** Shown on the public storefront when true (admin toggle, default true). */
+  readonly is_web_visible: boolean;
+  /** Highlighted ("öne çıkan") on the storefront when true. */
+  readonly is_featured: boolean;
+  /** Optional short marketing blurb shown on the shop card, or null. */
+  readonly web_description: string | null;
+  /** Cover-image object key in the product-images bucket, or null. */
+  readonly image_path: string | null;
+  /** Cover-image alt text (a11y/SEO), or null to fall back to display_name. */
+  readonly image_alt: string | null;
   /** Flat/base price in kuruş. Used when no tier matches the quantity. */
   readonly current_unit_price_minor: number;
   /** Volume tiers (sorted by min_qty asc). Empty for flat-priced products. */

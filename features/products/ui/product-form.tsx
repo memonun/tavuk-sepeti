@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 import type {
   FulfillmentType,
@@ -52,6 +53,8 @@ interface FieldsState {
   package_size: string;
   min_qty: string;
   fulfillment_type: FulfillmentType;
+  web_description: string;
+  image_alt: string;
   base_price: string; // TRY — create only
 }
 
@@ -63,6 +66,8 @@ function initialFields(product?: Product): FieldsState {
     package_size: product ? String(product.package_size) : "1",
     min_qty: product ? String(product.min_qty) : "1",
     fulfillment_type: product?.fulfillment_type ?? "delivery",
+    web_description: product?.web_description ?? "",
+    image_alt: product?.image_alt ?? "",
     base_price: "",
   };
 }
@@ -107,6 +112,8 @@ export function ProductFormDialog({
       // olarak geri eklenebilir; domain/DB kuralı (`quantity % step === 0`) duruyor.
       step: normalizeDecimal(fields.min_qty),
       fulfillment_type: fields.fulfillment_type,
+      web_description: fields.web_description,
+      image_alt: fields.image_alt,
     };
 
     startSaving(async () => {
@@ -243,6 +250,33 @@ export function ProductFormDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pf-desc">Vitrin açıklaması — opsiyonel</Label>
+            <Textarea
+              id="pf-desc"
+              value={fields.web_description}
+              onChange={(e) => set({ web_description: e.target.value })}
+              placeholder="Ürünü mağazada tanıtan kısa bir metin."
+              rows={2}
+            />
+            <p className="text-xs text-muted-foreground">
+              Mağaza kartında ürün adının altında görünür.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pf-alt">Görsel alt metni — opsiyonel</Label>
+            <Input
+              id="pf-alt"
+              value={fields.image_alt}
+              onChange={(e) => set({ image_alt: e.target.value })}
+              placeholder="ör. Beyaz kasede köy yumurtaları"
+            />
+            <p className="text-xs text-muted-foreground">
+              Erişilebilirlik ve SEO için; karttan yüklediğiniz görseli tanımlar.
+            </p>
           </div>
 
           {isCreate ? (

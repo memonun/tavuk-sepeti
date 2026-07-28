@@ -594,6 +594,10 @@ export type Database = {
           current_unit_price_minor: number
           display_name: string
           fulfillment_type: string
+          image_alt: string | null
+          image_path: string | null
+          is_featured: boolean
+          is_web_visible: boolean
           key: string
           min_qty: number
           package_size: number
@@ -601,6 +605,7 @@ export type Database = {
           unit: string
           unit_label: string
           updated_at: string
+          web_description: string | null
         }
         Insert: {
           active?: boolean
@@ -608,6 +613,10 @@ export type Database = {
           current_unit_price_minor?: number
           display_name: string
           fulfillment_type?: string
+          image_alt?: string | null
+          image_path?: string | null
+          is_featured?: boolean
+          is_web_visible?: boolean
           key: string
           min_qty: number
           package_size: number
@@ -615,6 +624,7 @@ export type Database = {
           unit: string
           unit_label: string
           updated_at?: string
+          web_description?: string | null
         }
         Update: {
           active?: boolean
@@ -622,6 +632,10 @@ export type Database = {
           current_unit_price_minor?: number
           display_name?: string
           fulfillment_type?: string
+          image_alt?: string | null
+          image_path?: string | null
+          is_featured?: boolean
+          is_web_visible?: boolean
           key?: string
           min_qty?: number
           package_size?: number
@@ -629,6 +643,7 @@ export type Database = {
           unit?: string
           unit_label?: string
           updated_at?: string
+          web_description?: string | null
         }
         Relationships: []
       }

@@ -20,6 +20,11 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     price_tiers: [],
     active: true,
     fulfillment_type: "delivery",
+    is_web_visible: true,
+    is_featured: false,
+    web_description: null,
+    image_path: null,
+    image_alt: null,
     ...overrides,
   };
 }

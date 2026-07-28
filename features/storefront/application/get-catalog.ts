@@ -33,9 +33,17 @@ export const getStorefrontCatalog = cache(
       return err(result.error);
     }
 
+    // A product reaches the shop only when it is web-visible AND sellable
+    // (a base price or at least one tier — never a ₺0,00 item). Featured
+    // products float to the top, stable within each group.
     const sellable = result.value.filter(
-      (p) => p.current_unit_price_minor > 0 || p.price_tiers.length > 0,
+      (p) =>
+        p.is_web_visible &&
+        (p.current_unit_price_minor > 0 || p.price_tiers.length > 0),
     );
-    return ok(sellable);
+    const ordered = [...sellable].sort(
+      (a, b) => Number(b.is_featured) - Number(a.is_featured),
+    );
+    return ok(ordered);
   },
 );

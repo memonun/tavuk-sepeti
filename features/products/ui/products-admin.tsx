@@ -28,13 +28,16 @@ import { toast } from "sonner";
 
 import { saveProductPricingAction } from "@/features/products/application/save-product-pricing";
 import { setProductActiveAction } from "@/features/products/application/set-product-active";
+import { updateProductFlagsAction } from "@/features/products/application/set-product-flags";
 import { ProductFormDialog } from "@/features/products/ui/product-form";
+import { ProductImageDropzone } from "@/features/products/ui/product-image-dropzone";
 import { formatTRY4, parseTRY2, parseTRY4 } from "@/features/products/ui/money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 
 import type { Product } from "@/features/products/application/list-products";
 
@@ -193,7 +196,22 @@ function DetailChip({ label, value }: { label: string; value: string }) {
 function ProductCard({ product }: { product: Product }) {
   const router = useRouter();
   const [toggling, startToggling] = useTransition();
+  const [flagPending, startFlag] = useTransition();
   const archived = !product.active;
+
+  const setFlag = (patch: { is_web_visible?: boolean; is_featured?: boolean }) => {
+    startFlag(async () => {
+      const result = await updateProductFlagsAction({
+        product_key: product.key,
+        ...patch,
+      });
+      if (result.ok) {
+        router.refresh();
+      } else {
+        toast.error(result.error.message);
+      }
+    });
+  };
 
   const toggleActive = () => {
     startToggling(async () => {
@@ -260,6 +278,32 @@ function ProductCard({ product }: { product: Product }) {
             )}
             {archived ? "Geri yükle" : "Arşivle"}
           </Button>
+        </div>
+      </div>
+
+      <ProductImageDropzone
+        productKey={product.key}
+        imagePath={product.image_path}
+        imageAlt={product.image_alt}
+        displayName={product.display_name}
+      />
+
+      <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
+        <div className="flex items-center gap-2 text-sm">
+          <Switch
+            checked={product.is_web_visible}
+            onCheckedChange={(v) => setFlag({ is_web_visible: v })}
+            disabled={flagPending}
+          />
+          <span>Sitede göster</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Switch
+            checked={product.is_featured}
+            onCheckedChange={(v) => setFlag({ is_featured: v })}
+            disabled={flagPending}
+          />
+          <span>Öne çıkan</span>
         </div>
       </div>
 
