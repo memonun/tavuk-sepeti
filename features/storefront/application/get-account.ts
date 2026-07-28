@@ -7,7 +7,6 @@ import "server-only";
  * 20260726120200) are what actually restrict rows to `auth_user_id = auth.uid()`
  * — we don't re-filter here.
  */
-import { getCurrentUser } from "@/features/auth/application/get-session";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 export interface AccountProfile {
@@ -45,10 +44,11 @@ export interface CustomerAccount {
 }
 
 export async function getMyAccount(): Promise<CustomerAccount | null> {
-  const user = await getCurrentUser();
-  if (!user) return null;
-
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
 
   const { data: cust } = await supabase
     .from("customers")
@@ -71,11 +71,20 @@ export async function getMyAccount(): Promise<CustomerAccount | null> {
     .order("created_at", { ascending: false })
     .limit(50);
 
+  // Name falls back to the auth user's signup metadata when the customers row
+  // is missing or incomplete (registered but hasn't ordered yet).
+  const meta = (user.user_metadata ?? {}) as {
+    first_name?: unknown;
+    last_name?: unknown;
+  };
+  const metaFirst = typeof meta.first_name === "string" ? meta.first_name : "";
+  const metaLast = typeof meta.last_name === "string" ? meta.last_name : "";
+
   return {
     email: user.email ?? cust?.email ?? "",
     profile: {
-      first_name: cust?.first_name ?? "",
-      last_name: cust?.last_name ?? "",
+      first_name: cust?.first_name ?? metaFirst,
+      last_name: cust?.last_name ?? metaLast,
       phone: cust?.phone ?? "",
       email: cust?.email ?? user.email ?? "",
     },

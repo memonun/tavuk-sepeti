@@ -14,6 +14,7 @@ import {
   passwordResetRequestSchema,
   passwordUpdateSchema,
 } from "@/features/storefront/domain/customer-auth.schema";
+import { linkCustomerAccount } from "@/features/storefront/infrastructure/customer-account.repository";
 import { env } from "@/shared/env";
 import { logger } from "@/shared/logger";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
@@ -57,6 +58,7 @@ export async function customerSignUpAction(
     password: formData.get("password"),
     first_name: formData.get("first_name"),
     last_name: formData.get("last_name"),
+    phone: formData.get("phone"),
   });
   if (!parsed.success) {
     return {
@@ -74,6 +76,7 @@ export async function customerSignUpAction(
       data: {
         first_name: parsed.data.first_name,
         last_name: parsed.data.last_name,
+        phone: parsed.data.phone,
         role: "customer",
       },
     },
@@ -88,6 +91,22 @@ export async function customerSignUpAction(
         ? "Bu e-posta ile zaten bir hesap var. Giriş yapın."
         : "Kayıt oluşturulamadı, tekrar deneyin.",
     };
+  }
+
+  // Create/link the CRM customer for this new login so it appears in the admin
+  // immediately (not only after the first order). Best-effort — the account
+  // page self-heals too. Runs even when email confirmation is still pending.
+  if (data.user) {
+    const linked = await linkCustomerAccount({
+      authUserId: data.user.id,
+      firstName: parsed.data.first_name || null,
+      lastName: parsed.data.last_name || null,
+      phone: parsed.data.phone,
+      email: parsed.data.email,
+    });
+    if (!linked.ok) {
+      logger.warn({ code: linked.error.code }, "customer_link_on_signup_failed");
+    }
   }
 
   // Email confirmation on → a user exists but there's no active session yet.

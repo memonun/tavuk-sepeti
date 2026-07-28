@@ -2,11 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { customerSignOutAction } from "@/features/storefront/application/customer-auth";
+import { ensureCustomerProfile } from "@/features/storefront/application/ensure-customer-profile";
 import { getMyAccount } from "@/features/storefront/application/get-account";
+import { AccountProfileForm } from "@/features/storefront/ui/account-profile-form";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatTRY } from "@/shared/utils/money";
-import { formatTRPhone } from "@/shared/utils/phone";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",
@@ -16,10 +17,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function AccountPage() {
+  // Make sure this login has a linked CRM customer row (self-heals accounts
+  // created before customer-linking), then read the account.
+  await ensureCustomerProfile();
   const account = await getMyAccount();
   if (!account) redirect("/giris");
-
-  const fullName = `${account.profile.first_name} ${account.profile.last_name}`.trim();
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -32,23 +34,14 @@ export default async function AccountPage() {
         </form>
       </div>
 
-      <section className="mt-6 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
-        <h2 className="font-display text-lg">Bilgilerim</h2>
-        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-muted-foreground">Ad Soyad</dt>
-            <dd>{fullName || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">E-posta</dt>
-            <dd>{account.email || "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Telefon</dt>
-            <dd>{account.profile.phone ? formatTRPhone(account.profile.phone) : "—"}</dd>
-          </div>
-        </dl>
-      </section>
+      <div className="mt-6">
+        <AccountProfileForm
+          firstName={account.profile.first_name}
+          lastName={account.profile.last_name}
+          phone={account.profile.phone}
+          email={account.email}
+        />
+      </div>
 
       <section className="mt-6">
         <h2 className="mb-3 font-display text-lg">Siparişlerim</h2>
