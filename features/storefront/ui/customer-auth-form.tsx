@@ -58,6 +58,23 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
         </div>
       ) : null}
 
+      {mode === "signup" ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="phone">Telefon — opsiyonel</Label>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="0532 123 45 67"
+            disabled={pending}
+          />
+          <p className="text-xs text-muted-foreground">
+            Teslimat için; sonra hesabınızdan da ekleyebilirsiniz.
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">E-posta</Label>
         <Input

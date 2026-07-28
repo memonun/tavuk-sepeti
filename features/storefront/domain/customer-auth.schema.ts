@@ -4,6 +4,35 @@
  */
 import { z } from "zod";
 
+import { isE164TR, normalizeTRPhone } from "@/shared/utils/phone";
+
+/**
+ * Optional TR phone: empty → null, otherwise normalized to E.164 — the same
+ * rule as checkout, so a phone entered at signup/profile dedupes against a
+ * guest customer created from a prior order.
+ */
+const optionalPhoneTR = z.preprocess(
+  (v) =>
+    v === undefined || v === null || (typeof v === "string" && v.trim() === "")
+      ? null
+      : v,
+  z
+    .string()
+    .nullable()
+    .transform((s, ctx) => {
+      if (s === null) return null;
+      const normalized = normalizeTRPhone(s);
+      if (normalized === null || !isE164TR(normalized)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Geçerli bir telefon girin (ör. 0532 123 45 67).",
+        });
+        return z.NEVER;
+      }
+      return normalized;
+    }),
+);
+
 export const customerSignInSchema = z.object({
   email: z
     .string()
@@ -22,7 +51,17 @@ export const customerSignUpSchema = z.object({
   password: z.string().min(8, "Şifre en az 8 karakter olmalı."),
   first_name: z.string().trim().max(100).default(""),
   last_name: z.string().trim().max(100).default(""),
+  phone: optionalPhoneTR,
 });
+
+/** Account "Bilgilerim" editor — name required, phone optional (E.164). */
+export const customerProfileSchema = z.object({
+  first_name: z.string().trim().min(1, "Ad gerekli.").max(100),
+  last_name: z.string().trim().min(1, "Soyad gerekli.").max(100),
+  phone: optionalPhoneTR,
+});
+
+export type CustomerProfileInput = z.input<typeof customerProfileSchema>;
 
 /** "Forgot password" — request a reset link by email. */
 export const passwordResetRequestSchema = z.object({
