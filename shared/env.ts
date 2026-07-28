@@ -62,6 +62,14 @@ const serverSchema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(1).optional(),
 
+  // PayTR card payments (server-only merchant secrets). Optional: when any is
+  // unset the card option is hidden and checkout falls back to COD / transfer.
+  // PAYTR_TEST_MODE "1" = test (no real charge), "0" = live.
+  PAYTR_MERCHANT_ID: z.string().min(1).optional(),
+  PAYTR_MERCHANT_KEY: z.string().min(1).optional(),
+  PAYTR_MERCHANT_SALT: z.string().min(1).optional(),
+  PAYTR_TEST_MODE: z.enum(["0", "1"]).default("1"),
+
   // Observability.
   SENTRY_DSN: z.string().url().optional(),
   LOG_LEVEL: z
@@ -112,6 +120,10 @@ const rawServer = isServer
       GEOCODING_DAILY_LIMIT: process.env.GEOCODING_DAILY_LIMIT,
       RESEND_API_KEY: process.env.RESEND_API_KEY,
       EMAIL_FROM: process.env.EMAIL_FROM,
+      PAYTR_MERCHANT_ID: process.env.PAYTR_MERCHANT_ID,
+      PAYTR_MERCHANT_KEY: process.env.PAYTR_MERCHANT_KEY,
+      PAYTR_MERCHANT_SALT: process.env.PAYTR_MERCHANT_SALT,
+      PAYTR_TEST_MODE: process.env.PAYTR_TEST_MODE,
       SENTRY_DSN: process.env.SENTRY_DSN,
       LOG_LEVEL: process.env.LOG_LEVEL,
       DEFAULT_TIMEZONE: process.env.DEFAULT_TIMEZONE,

@@ -53,6 +53,8 @@ interface CheckoutFormProps {
   maxDate: string;
   /** Prefill for a logged-in customer (from their profile + primary address). */
   defaults?: CheckoutDefaults;
+  /** Whether PayTR card payment is available (merchant configured). */
+  paytrEnabled: boolean;
 }
 
 export function CheckoutForm({
@@ -60,6 +62,7 @@ export function CheckoutForm({
   minDate,
   maxDate,
   defaults,
+  paytrEnabled,
 }: CheckoutFormProps) {
   const { lines, hydrated, clear } = useCart();
   const [state, formAction, pending] = useActionState(
@@ -67,10 +70,12 @@ export function CheckoutForm({
     initialState,
   );
 
-  // Empty the basket once the order is placed.
+  // Empty the basket on inline success; for the card path, hand off to PayTR
+  // (the basket is cleared on the success return page after payment).
   useEffect(() => {
     if (state.status === "success") clear();
-  }, [state.status, clear]);
+    else if (state.status === "redirect") window.location.href = state.url;
+  }, [state, clear]);
 
   if (state.status === "success") {
     return <OrderConfirmation orderNumber={state.orderNumber} />;
@@ -176,7 +181,9 @@ export function CheckoutForm({
 
         <Section title="Ödeme">
           <div className="grid gap-2 sm:grid-cols-2">
-            {PAYMENT_METHOD_OPTIONS.map((option, index) => (
+            {PAYMENT_METHOD_OPTIONS.filter(
+              (option) => option.value !== "credit_card" || paytrEnabled,
+            ).map((option, index) => (
               <label
                 key={option.value}
                 className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input p-3 text-sm transition-colors has-checked:border-primary has-checked:bg-secondary/50"
@@ -263,7 +270,9 @@ export function CheckoutForm({
             {pending ? "Gönderiliyor…" : "Siparişi ver"}
           </Button>
           <p className="text-center text-xs text-muted-foreground">
-            Ödeme teslimatta alınır. Online ödeme yok.
+            {paytrEnabled
+              ? "Kart seçilirse güvenli ödeme sayfasına (PayTR) yönlendirilirsiniz."
+              : "Ödeme teslimatta veya havale ile alınır."}
           </p>
         </div>
       </aside>

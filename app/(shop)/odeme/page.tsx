@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { isPaytrEnabled } from "@/features/payments/application/paytr";
 import { getMyAccount } from "@/features/storefront/application/get-account";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import {
@@ -71,6 +72,7 @@ export default async function CheckoutPage() {
         products={products}
         minDate={minDate}
         maxDate={maxDate}
+        paytrEnabled={isPaytrEnabled()}
         {...(defaults ? { defaults } : {})}
       />
     </main>

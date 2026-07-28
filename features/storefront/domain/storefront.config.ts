@@ -31,6 +31,7 @@ export const TIME_SLOT_OPTIONS = [
 /** Payment options shown at checkout. Values mirror the DB `payment_method`
  *  enum. No online payment in Faz 2 (CLAUDE.md §13). */
 export const PAYMENT_METHOD_OPTIONS = [
+  { value: "credit_card", label: "Kredi / Banka Kartı (Güvenli Ödeme)" },
   { value: "cash_on_delivery", label: "Kapıda nakit ödeme" },
   { value: "bank_transfer", label: "Havale / EFT" },
 ] as const;

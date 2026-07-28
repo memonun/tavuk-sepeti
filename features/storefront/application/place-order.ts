@@ -14,9 +14,15 @@
  *
  * Returns a serializable state for useActionState.
  */
+import { headers } from "next/headers";
+
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { geocodeAddress } from "@/features/geocoding/application/geocode-address";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
+import {
+  createPaytrPaymentSession,
+  isPaytrEnabled,
+} from "@/features/payments/application/paytr";
 import { listActiveProducts } from "@/features/products/application/list-products";
 import { addDaysIso, isWithinWindow } from "@/features/storefront/domain/delivery-date";
 import { buildOrderConfirmationEmail } from "@/features/storefront/domain/order-email";
@@ -41,6 +47,7 @@ import { isErr } from "@/shared/result";
 export type PlaceOrderState =
   | { status: "idle" }
   | { status: "success"; orderNumber: string }
+  | { status: "redirect"; url: string }
   | { status: "validation_error"; message: string }
   | { status: "error"; message: string };
 
@@ -129,6 +136,22 @@ export async function placeOrderAction(
   // guest). The RPC reuses/links the customer by this id.
   const user = await getCurrentUser();
   const authUserId = user?.id ?? null;
+  const emailTo = parsed.data.contact.email ?? user?.email ?? null;
+  const isCard = parsed.data.payment_method === "credit_card";
+
+  // Card payments go through PayTR — guard BEFORE creating the order so a
+  // misconfigured card path never strands a pending order.
+  if (isCard) {
+    if (!isPaytrEnabled()) {
+      return { status: "error", message: "Kart ile ödeme şu anda kullanılamıyor." };
+    }
+    if (!emailTo) {
+      return {
+        status: "validation_error",
+        message: "Kart ile ödeme için e-posta adresi gerekli.",
+      };
+    }
+  }
 
   // Best-effort geocode. A missing Google key or a low-accuracy result does NOT
   // block the order — it's placed with the typed address snapshot and the admin
@@ -196,14 +219,56 @@ export async function placeOrderAction(
     "web_order_placed",
   );
 
-  // Confirmation email — best-effort. A missing Resend key or a send failure
-  // never fails the order; it's already saved.
-  const emailTo = parsed.data.contact.email ?? user?.email ?? null;
+  const subtotalMinor = enriched.value.reduce(
+    (sum, item) => sum + item.line_total_minor,
+    0,
+  );
+  const totalMinor = subtotalMinor + DELIVERY_FEE_MINOR;
+
+  // ---- Card path → PayTR hosted payment (order stays pending until callback).
+  if (isCard && emailTo) {
+    const hdrs = await headers();
+    const userIp =
+      hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      hdrs.get("x-real-ip") ||
+      "0.0.0.0";
+    const basket = enriched.value.map((item) => ({
+      label: `${item.product_snapshot.display_name} × ${item.quantity.toLocaleString(
+        "tr-TR",
+        { maximumFractionDigits: 2 },
+      )}`,
+      totalMinor: item.line_total_minor,
+    }));
+    if (DELIVERY_FEE_MINOR > 0) {
+      basket.push({ label: "Teslimat", totalMinor: DELIVERY_FEE_MINOR });
+    }
+
+    const session = await createPaytrPaymentSession({
+      orderId: placed.value.order_id,
+      orderNumber: placed.value.order_number,
+      amountMinor: totalMinor,
+      email: emailTo,
+      userName:
+        `${parsed.data.contact.first_name} ${parsed.data.contact.last_name}`.trim(),
+      userAddress: composeFullAddress(addr),
+      userPhone: parsed.data.contact.phone,
+      userIp,
+      basket,
+      nowMs: Date.now(),
+    });
+    if (!session.ok) {
+      logger.error({ code: session.error.code }, "paytr_session_failed");
+      return {
+        status: "error",
+        message:
+          "Ödeme başlatılamadı. Lütfen tekrar deneyin veya başka bir yöntem seçin.",
+      };
+    }
+    return { status: "redirect", url: session.value.paymentUrl };
+  }
+
+  // ---- COD / bank transfer → confirmation email + inline success ----------
   if (emailTo) {
-    const subtotalMinor = enriched.value.reduce(
-      (sum, item) => sum + item.line_total_minor,
-      0,
-    );
     const email = buildOrderConfirmationEmail({
       orderNumber: placed.value.order_number,
       customerName:
@@ -223,7 +288,7 @@ export async function placeOrderAction(
       })),
       subtotalMinor,
       deliveryFeeMinor: DELIVERY_FEE_MINOR,
-      totalMinor: subtotalMinor + DELIVERY_FEE_MINOR,
+      totalMinor,
     });
     const sent = await sendEmail({
       to: emailTo,
