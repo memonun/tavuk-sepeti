@@ -17,7 +17,7 @@ const shopSerif = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Tavuk Sepeti — Taze ürünler, kapınızda",
+  title: "Apuhan Çiftliği — Taze ürünler, kapınızda",
   description:
     "Çiftlikten sofranıza taze yumurta ve süt ürünleri. Online sipariş verin, biz getirelim.",
 };

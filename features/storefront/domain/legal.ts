@@ -31,7 +31,7 @@ export interface Company {
 // TODO(owner): replace every "[…]" placeholder with real registration data.
 export const COMPANY: Company = {
   tradeName: "[FİRMA ÜNVANI — ör. Apuhan Çiftliği Gıda Ltd. Şti.]",
-  brand: "Tavuk Sepeti",
+  brand: "Apuhan Çiftliği",
   address: "[AÇIK ADRES — Mahalle, Cadde/Sokak No, İlçe/İl]",
   phone: "[+90 5xx xxx xx xx]",
   email: "[iletisim@apuhançiftliği.com]",
