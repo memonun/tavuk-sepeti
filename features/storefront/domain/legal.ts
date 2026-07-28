@@ -29,15 +29,17 @@ export interface Company {
 }
 
 // Şahıs işletmesi (Hamit Apuhan) — vergi levhasından dolduruldu.
-// TODO(owner): phone + email zorunlu (yasal); taxNo herkese açık gösterim kararı bekliyor.
+// Vergi/TC no bilinçli olarak herkese açık GÖSTERİLMEZ (KVKK/gizlilik). Footer ve
+// sözleşmede yalnızca ünvan + adres + telefon + e-posta gösterilir.
+// TODO(owner): phone + email gerçek değerlerle doldurulacak (yasal zorunluluk).
 export const COMPANY: Company = {
   tradeName: "Hamit Apuhan",
   brand: "Apuhan Çiftliği",
   address: "Bahri Mah. Mezarlık Cad. No: 17, Akçadağ / Malatya",
   phone: "[+90 5xx xxx xx xx]",
   email: "[iletisim@apuhançiftliği.com]",
-  taxOffice: "Akçadağ",
-  taxNo: "[VERGİ / TC KİMLİK NO — bkz. not]",
+  taxOffice: "Akçadağ", // kayıt için tutulur, sitede gösterilmez
+  taxNo: "", // TC/VKN repo'da saklanmaz, sitede gösterilmez
   mersisNo: "",
   kepAddress: "",
   siteUrl: "https://xn--apuhaniftlii-pdb30f.com",
@@ -76,7 +78,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     sections: [
       s(
         "1. Taraflar",
-        `SATICI: ${COMPANY.tradeName}, Adres: ${COMPANY.address}, Telefon: ${COMPANY.phone}, E-posta: ${COMPANY.email}, Vergi Dairesi/No: ${COMPANY.taxOffice} / ${COMPANY.taxNo}.`,
+        `SATICI: ${COMPANY.tradeName}, Adres: ${COMPANY.address}, Telefon: ${COMPANY.phone}, E-posta: ${COMPANY.email}.`,
         "ALICI: Siparişi veren, bilgileri sipariş formunda yer alan müşteri.",
       ),
       s(
