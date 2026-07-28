@@ -19,7 +19,7 @@ export default async function ShopHomePage() {
           Taze · Günlük · Kapınızda
         </p>
         <h1 className="mt-4 font-display text-4xl leading-tight sm:text-5xl">
-          Tavuk Sepeti
+          Apuhan Çiftliği
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-pretty text-muted-foreground">
           Çiftlikten sofranıza taze yumurta ve süt ürünleri. Sepetinizi

@@ -1,4 +1,4 @@
-# Tavuk Sepeti — Admin CRM
+# Apuhan Çiftliği — Admin CRM
 
 Admin-first delivery CRM for a Turkish dairy/eggs operation
 (süt / yumurta / peynir / yoğurt). Replaces a WordPress + Excel + manual

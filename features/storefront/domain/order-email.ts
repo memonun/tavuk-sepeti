@@ -74,7 +74,7 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
     `Ödeme: ${input.paymentMethodLabel}`,
     "",
     "Teşekkürler,",
-    "Tavuk Sepeti",
+    "Apuhan Çiftliği",
   ].join("\n");
 
   const itemsHtml = input.items
@@ -108,7 +108,7 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
       <strong>Adres:</strong> ${escapeHtml(input.addressText)}<br/>
       <strong>Ödeme:</strong> ${escapeHtml(input.paymentMethodLabel)}
     </p>
-    <p style="color:#8a7c6f;font-size:13px;">Teşekkürler,<br/>Tavuk Sepeti</p>
+    <p style="color:#8a7c6f;font-size:13px;">Teşekkürler,<br/>Apuhan Çiftliği</p>
   </div>`;
 
   return { subject, html, text };

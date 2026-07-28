@@ -54,7 +54,7 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
             TS
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold leading-tight">Tavuk Sepeti</span>
+            <span className="text-sm font-semibold leading-tight">Apuhan Çiftliği</span>
             <span className="text-xs text-muted-foreground leading-tight">Yönetim</span>
           </div>
         </div>

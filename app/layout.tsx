@@ -24,7 +24,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tavuk Sepeti — Admin",
+  title: "Apuhan Çiftliği — Admin",
   description: "Sipariş, müşteri ve teslimat yönetimi.",
 };
 

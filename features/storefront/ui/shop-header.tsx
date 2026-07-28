@@ -19,7 +19,7 @@ export async function ShopHeader({ products }: { products: readonly Product[] })
             🧺
           </span>
           <span className="font-display text-lg font-semibold tracking-tight text-foreground">
-            Tavuk Sepeti
+            Apuhan Çiftliği
           </span>
         </Link>
         <div className="flex items-center gap-1">
