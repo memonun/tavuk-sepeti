@@ -31,13 +31,12 @@ export interface Company {
 // Şahıs işletmesi (Hamit Apuhan) — vergi levhasından dolduruldu.
 // Vergi/TC no bilinçli olarak herkese açık GÖSTERİLMEZ (KVKK/gizlilik). Footer ve
 // sözleşmede yalnızca ünvan + adres + telefon + e-posta gösterilir.
-// TODO(owner): phone + email gerçek değerlerle doldurulacak (yasal zorunluluk).
 export const COMPANY: Company = {
   tradeName: "Hamit Apuhan",
   brand: "Apuhan Çiftliği",
   address: "Bahri Mah. Mezarlık Cad. No: 17, Akçadağ / Malatya",
-  phone: "[+90 5xx xxx xx xx]",
-  email: "[iletisim@apuhançiftliği.com]",
+  phone: "+90 533 255 64 44",
+  email: "hamitapuhanlive@gmail.com",
   taxOffice: "Akçadağ", // kayıt için tutulur, sitede gösterilmez
   taxNo: "", // TC/VKN repo'da saklanmaz, sitede gösterilmez
   mersisNo: "",
