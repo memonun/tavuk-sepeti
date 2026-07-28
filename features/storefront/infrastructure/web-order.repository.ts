@@ -52,7 +52,7 @@ export interface WebOrderRepoInput {
   };
   scheduled_for: string;
   time_slot: "morning" | "afternoon" | "evening" | null;
-  payment_method: "cash_on_delivery" | "bank_transfer";
+  payment_method: "cash_on_delivery" | "bank_transfer" | "credit_card";
   delivery_notes: string | null;
   delivery_fee_minor: number;
   items: ReadonlyArray<WebOrderRepoItem>;

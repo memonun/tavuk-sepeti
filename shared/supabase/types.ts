@@ -1766,7 +1766,7 @@ export type Database = {
       order_source: "admin_manual" | "customer_web" | "recurring_generated"
       order_status: "pending" | "confirmed" | "delivered" | "cancelled"
       payment_channel: "cash" | "bank_transfer" | "card"
-      payment_method: "cash_on_delivery" | "bank_transfer"
+      payment_method: "cash_on_delivery" | "bank_transfer" | "credit_card"
       payment_status: "pending" | "paid" | "failed" | "refunded" | "partial"
       recurring_cadence: "weekly" | "biweekly" | "monthly"
       time_slot: "morning" | "afternoon" | "evening"
@@ -1925,7 +1925,7 @@ export const Constants = {
       order_source: ["admin_manual", "customer_web", "recurring_generated"],
       order_status: ["pending", "confirmed", "delivered", "cancelled"],
       payment_channel: ["cash", "bank_transfer", "card"],
-      payment_method: ["cash_on_delivery", "bank_transfer"],
+      payment_method: ["cash_on_delivery", "bank_transfer", "credit_card"],
       payment_status: ["pending", "paid", "failed", "refunded", "partial"],
       recurring_cadence: ["weekly", "biweekly", "monthly"],
       time_slot: ["morning", "afternoon", "evening"],

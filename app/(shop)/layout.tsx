@@ -3,6 +3,7 @@ import { Fraunces } from "next/font/google";
 
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { CartProvider } from "@/features/storefront/ui/cart-provider";
+import { ShopFooter } from "@/features/storefront/ui/shop-footer";
 import { ShopHeader } from "@/features/storefront/ui/shop-header";
 
 import "./theme.css";
@@ -42,12 +43,7 @@ export default async function ShopLayout({
       <CartProvider>
         <ShopHeader products={products} />
         <div className="flex-1">{children}</div>
-        <footer className="border-t border-border/60">
-          <div className="mx-auto max-w-5xl px-4 py-8 text-sm text-muted-foreground sm:px-6">
-            <p className="font-display text-base text-foreground">Tavuk Sepeti</p>
-            <p className="mt-1">Taze yumurta ve süt ürünleri · kapınıza teslim.</p>
-          </div>
-        </footer>
+        <ShopFooter />
       </CartProvider>
     </div>
   );

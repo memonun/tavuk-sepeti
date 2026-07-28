@@ -77,7 +77,7 @@ export const webOrderSchema = z.object({
     blankToNull,
     z.enum(["morning", "afternoon", "evening"]).nullable(),
   ),
-  payment_method: z.enum(["cash_on_delivery", "bank_transfer"], {
+  payment_method: z.enum(["cash_on_delivery", "bank_transfer", "credit_card"], {
     message: "Ödeme yöntemi seçin.",
   }),
   delivery_notes: z.preprocess(
