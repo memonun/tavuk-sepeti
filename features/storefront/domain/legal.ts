@@ -28,17 +28,18 @@ export interface Company {
   readonly etbisUrl: string;
 }
 
-// TODO(owner): replace every "[…]" placeholder with real registration data.
+// Şahıs işletmesi (Hamit Apuhan) — vergi levhasından dolduruldu.
+// TODO(owner): phone + email zorunlu (yasal); taxNo herkese açık gösterim kararı bekliyor.
 export const COMPANY: Company = {
-  tradeName: "[FİRMA ÜNVANI — ör. Apuhan Çiftliği Gıda Ltd. Şti.]",
+  tradeName: "Hamit Apuhan",
   brand: "Apuhan Çiftliği",
-  address: "[AÇIK ADRES — Mahalle, Cadde/Sokak No, İlçe/İl]",
+  address: "Bahri Mah. Mezarlık Cad. No: 17, Akçadağ / Malatya",
   phone: "[+90 5xx xxx xx xx]",
   email: "[iletisim@apuhançiftliği.com]",
-  taxOffice: "[VERGİ DAİRESİ]",
-  taxNo: "[VERGİ / TC KİMLİK NO]",
-  mersisNo: "[MERSİS NO — şahıs şirketiyseniz boş bırakın]",
-  kepAddress: "[KEP ADRESİ — yoksa boş bırakın]",
+  taxOffice: "Akçadağ",
+  taxNo: "[VERGİ / TC KİMLİK NO — bkz. not]",
+  mersisNo: "",
+  kepAddress: "",
   siteUrl: "https://xn--apuhaniftlii-pdb30f.com",
   etbisUrl: "https://etbis.ticaret.gov.tr/",
 };
