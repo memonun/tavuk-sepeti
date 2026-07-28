@@ -22,9 +22,6 @@ export function ShopFooter() {
               <p>
                 {COMPANY.phone} · {COMPANY.email}
               </p>
-              <p>
-                Vergi Dairesi/No: {COMPANY.taxOffice} / {COMPANY.taxNo}
-              </p>
               {COMPANY.mersisNo ? <p>MERSİS: {COMPANY.mersisNo}</p> : null}
             </div>
           </div>

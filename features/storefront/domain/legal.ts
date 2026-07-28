@@ -28,17 +28,19 @@ export interface Company {
   readonly etbisUrl: string;
 }
 
-// TODO(owner): replace every "[…]" placeholder with real registration data.
+// Şahıs işletmesi (Hamit Apuhan) — vergi levhasından dolduruldu.
+// Vergi/TC no bilinçli olarak herkese açık GÖSTERİLMEZ (KVKK/gizlilik). Footer ve
+// sözleşmede yalnızca ünvan + adres + telefon + e-posta gösterilir.
 export const COMPANY: Company = {
-  tradeName: "[FİRMA ÜNVANI — ör. Apuhan Çiftliği Gıda Ltd. Şti.]",
+  tradeName: "Hamit Apuhan",
   brand: "Apuhan Çiftliği",
-  address: "[AÇIK ADRES — Mahalle, Cadde/Sokak No, İlçe/İl]",
-  phone: "[+90 5xx xxx xx xx]",
-  email: "[iletisim@apuhançiftliği.com]",
-  taxOffice: "[VERGİ DAİRESİ]",
-  taxNo: "[VERGİ / TC KİMLİK NO]",
-  mersisNo: "[MERSİS NO — şahıs şirketiyseniz boş bırakın]",
-  kepAddress: "[KEP ADRESİ — yoksa boş bırakın]",
+  address: "Bahri Mah. Mezarlık Cad. No: 17, Akçadağ / Malatya",
+  phone: "+90 533 255 64 44",
+  email: "hamitapuhanlive@gmail.com",
+  taxOffice: "Akçadağ", // kayıt için tutulur, sitede gösterilmez
+  taxNo: "", // TC/VKN repo'da saklanmaz, sitede gösterilmez
+  mersisNo: "",
+  kepAddress: "",
   siteUrl: "https://xn--apuhaniftlii-pdb30f.com",
   etbisUrl: "https://etbis.ticaret.gov.tr/",
 };
@@ -75,7 +77,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     sections: [
       s(
         "1. Taraflar",
-        `SATICI: ${COMPANY.tradeName}, Adres: ${COMPANY.address}, Telefon: ${COMPANY.phone}, E-posta: ${COMPANY.email}, Vergi Dairesi/No: ${COMPANY.taxOffice} / ${COMPANY.taxNo}.`,
+        `SATICI: ${COMPANY.tradeName}, Adres: ${COMPANY.address}, Telefon: ${COMPANY.phone}, E-posta: ${COMPANY.email}.`,
         "ALICI: Siparişi veren, bilgileri sipariş formunda yer alan müşteri.",
       ),
       s(
