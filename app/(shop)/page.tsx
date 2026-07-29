@@ -1,4 +1,7 @@
+import { MapPinIcon } from "lucide-react";
+
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
+import { FULFILLMENT_NOTICE } from "@/features/storefront/domain/storefront.config";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
 
 /**
@@ -26,6 +29,11 @@ export default async function ShopHomePage() {
           hazırlayın, teslimat gününü seçin — gerisini biz halledelim.
         </p>
       </section>
+
+      <div className="mx-auto mb-10 flex max-w-2xl items-start gap-2.5 rounded-2xl border border-border/60 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+        <MapPinIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+        <p>{FULFILLMENT_NOTICE}</p>
+      </div>
 
       <section aria-labelledby="catalog-heading">
         <h2 id="catalog-heading" className="sr-only">

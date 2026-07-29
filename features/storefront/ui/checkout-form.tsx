@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect } from "react";
-import { CheckCircle2Icon, ShoppingBasketIcon } from "lucide-react";
+import { CheckCircle2Icon, MapPinIcon, ShoppingBasketIcon } from "lucide-react";
 
 import {
   placeOrderAction,
@@ -11,6 +11,7 @@ import {
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
 import {
   DELIVERY_FEE_MINOR,
+  FULFILLMENT_NOTICE,
   PAYMENT_METHOD_OPTIONS,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
@@ -124,6 +125,10 @@ export function CheckoutForm({
         </Section>
 
         <Section title="Teslimat adresi">
+          <p className="mb-1 flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
+            <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+            <span>{FULFILLMENT_NOTICE}</span>
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="İl" htmlFor="city">
               <Input id="city" name="city" autoComplete="address-level1" defaultValue={defaults?.city} required disabled={pending} />
