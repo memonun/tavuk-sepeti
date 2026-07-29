@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, TruckIcon } from "lucide-react";
+import { MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { formatTRY } from "@/shared/utils/money";
 import { env } from "@/shared/env";
 
 import { productImagePublicUrl } from "@/features/products/application/product-image";
+import { DELIVERY_ONLY_BADGE } from "@/features/storefront/domain/storefront.config";
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import {
   fromPriceMinor,
@@ -69,7 +70,11 @@ export function ProductCard({ product }: { product: Product }) {
         <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
           <TruckIcon className="size-3.5" /> Kargo ile gönderilir
         </span>
-      ) : null}
+      ) : (
+        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+          <MapPinIcon className="size-3.5" /> {DELIVERY_ONLY_BADGE}
+        </span>
+      )}
 
       <div className="mt-5 flex items-center justify-between gap-3">
         {inCart ? (

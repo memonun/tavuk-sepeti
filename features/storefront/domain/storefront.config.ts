@@ -14,6 +14,19 @@
  */
 export const DELIVERY_FEE_MINOR = 0;
 
+/**
+ * Province where delivery-only (non-cargoable) products are hand-delivered on
+ * our own route. Products with fulfillment_type "shipping" go anywhere by cargo;
+ * "delivery" products (fresh dairy, eggs) are restricted to this province.
+ */
+export const DELIVERY_PROVINCE = "Malatya";
+
+/** Short per-product badge shown on delivery-only (non-cargoable) items. */
+export const DELIVERY_ONLY_BADGE = `Yalnızca ${DELIVERY_PROVINCE}'da teslim`;
+
+/** Full customer-facing notice (home page + checkout). */
+export const FULFILLMENT_NOTICE = `Taze ürünlerimiz (süt ürünleri ve yumurta gibi kargoya verilemeyen ürünler) yalnızca ${DELIVERY_PROVINCE} il sınırları içinde teslim edilir. Kargoyla gönderilebilen ürünler Türkiye'nin her yerine gönderilir.`;
+
 /** Earliest delivery is this many days after "today" (1 = tomorrow). */
 export const MIN_DELIVERY_LEAD_DAYS = 1;
 
