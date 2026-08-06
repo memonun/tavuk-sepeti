@@ -15,37 +15,53 @@
 -- ('delivery' / 'shipping') rather than inventing route/cargo. One concept, one
 -- vocabulary. The Turkish UI labels stay "Rota" / "Kargo".
 
-create type fulfillment_channel as enum ('delivery', 'shipping');
+-- Every statement below is written to be re-runnable. A first attempt failed
+-- part-way through (the backfill CASE below), and depending on how the runner
+-- wrapped the file, some of the earlier DDL may already be in place.
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'fulfillment_channel') then
+    create type fulfillment_channel as enum ('delivery', 'shipping');
+  end if;
+end $$;
 
 -- ---- Per-line frozen fulfillment type ---------------------------------------
 -- A real column, not a key inside product_snapshot jsonb: the route query and
 -- reports filter on it, and `->>` is untyped and unindexable.
 alter table order_items
-  add column fulfillment_type text not null default 'delivery'
+  add column if not exists fulfillment_type text not null default 'delivery'
     check (fulfillment_type in ('delivery', 'shipping'));
 
 update order_items oi
    set fulfillment_type = p.fulfillment_type
   from products p
- where p.key = oi.product_key;
+ where p.key = oi.product_key
+   and oi.fulfillment_type is distinct from p.fulfillment_type;
 
 comment on column order_items.fulfillment_type is
   'Frozen copy of products.fulfillment_type at order time. Changing the product later never rewrites this.';
 
 -- ---- Order-level channel ----------------------------------------------------
-alter table orders add column fulfillment_channel fulfillment_channel;
+alter table orders add column if not exists fulfillment_channel fulfillment_channel;
 
 -- BEHAVIOUR-PRESERVING backfill. This predicate is character-for-character the
 -- EXISTS clause find_orders_for_route uses today, so every order currently on the
 -- route stays on the route and no other order joins it.
+--
+-- Both CASE branches carry an explicit ::fulfillment_channel cast. Without them
+-- the branches are `unknown` literals, CASE resolves the whole expression to
+-- `text`, and Postgres refuses text -> enum in an UPDATE SET:
+--   ERROR: column "fulfillment_channel" is of type fulfillment_channel but
+--          expression is of type text (42804)
 update orders o set fulfillment_channel = case
   when exists (
     select 1 from order_items oi
     join products p on p.key = oi.product_key
     where oi.order_id = o.id and p.fulfillment_type = 'delivery'
-  ) then 'delivery'
-  else 'shipping'
-end;
+  ) then 'delivery'::fulfillment_channel
+  else 'shipping'::fulfillment_channel
+end
+where o.fulfillment_channel is null;
 
 alter table orders alter column fulfillment_channel set not null;
 
@@ -53,7 +69,8 @@ comment on column orders.fulfillment_channel is
   'delivery = hand-delivered on our route; shipping = sent by cargo. Computed from the items at creation and FROZEN — a later products.fulfillment_type edit does not move existing orders.';
 
 -- Serves both hot queries: the daily route scan and the cargo queue.
-create index orders_channel_scheduled_idx on orders (fulfillment_channel, scheduled_for);
+create index if not exists orders_channel_scheduled_idx
+  on orders (fulfillment_channel, scheduled_for);
 
 -- ---- Channel resolvers -------------------------------------------------------
 -- Both look the type up from `products`, never from caller-supplied jsonb, so a

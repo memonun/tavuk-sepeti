@@ -17,8 +17,11 @@
 -- deleted out from under the route. orders.customer_id is already RESTRICT, so
 -- customer deletion behaviour is unchanged.
 
+-- Re-runnable, like the previous migration: the loop below only ever touches
+-- orders whose address_id is still null, so a retry cannot create duplicate
+-- synthesized addresses.
 alter table orders
-  add column address_id uuid references addresses(id) on delete restrict;
+  add column if not exists address_id uuid references addresses(id) on delete restrict;
 
 -- ---- Step 1: the happy path — today's route target, made explicit ------------
 -- Pointing at the current primary address reproduces exactly what the route
@@ -28,7 +31,8 @@ update orders o
      select a.id from addresses a
      where a.customer_id = o.customer_id and a.is_primary
      limit 1
-   );
+   )
+ where o.address_id is null;
 
 -- ---- Step 2: recover the residue --------------------------------------------
 -- Orders whose customer has no primary address are the invisible ones from (2)
@@ -99,4 +103,4 @@ comment on column orders.address_id is
 
 -- Route join, plus "which orders depend on this address" when an admin edits or
 -- deletes one (the ON DELETE RESTRICT check needs it too).
-create index orders_address_id_idx on orders (address_id);
+create index if not exists orders_address_id_idx on orders (address_id);
