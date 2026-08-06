@@ -250,6 +250,10 @@ export function ProductFormDialog({
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Yalnızca yeni siparişleri etkiler — mevcut siparişlerin kanalı
+              (Rota / Kargo) sipariş anında donduruldu ve değişmez.
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">

@@ -9,7 +9,11 @@ import type { Coordinate } from "@/shared/geo/coordinate";
 
 export type OrderStatus = "pending" | "confirmed" | "delivered" | "cancelled";
 export type TimeSlot = "morning" | "afternoon" | "evening";
-export type PaymentMethod = "cash_on_delivery" | "bank_transfer";
+/** Mirrors the DB `payment_method` enum. `credit_card` arrives from the
+ *  storefront's PayTR flow — it was in the DB enum since 20260728120000 but
+ *  missing here, so a card-paid web order read back as an unmodelled value and
+ *  the admin panel rendered it as "Havale". */
+export type PaymentMethod = "cash_on_delivery" | "bank_transfer" | "credit_card";
 export type PaymentStatus =
   | "pending"
   | "partial"
@@ -20,6 +24,20 @@ export type OrderSource =
   | "admin_manual"
   | "customer_web"
   | "recurring_generated";
+
+/**
+ * How the order physically reaches the customer. Computed from the order's items
+ * at creation and FROZEN on the row (`orders.fulfillment_channel`) — it is not
+ * re-derived from `products.fulfillment_type`, so flipping a product later never
+ * moves an existing order on or off the route.
+ *
+ *   delivery — hand-delivered on our own route (Turkish UI label: "Rota")
+ *   shipping — sent by cargo, excluded from the route (label: "Kargo")
+ *
+ * A basket mixing both inside the delivery province is ONE `delivery` order: the
+ * cargo-capable goods ride along in the van (owner decision 2026-08-05).
+ */
+export type FulfillmentChannel = "delivery" | "shipping";
 
 /** Frozen address snapshot — what the customer's address looked like AT
  *  order time. Independent of any later customer.address mutation.
@@ -57,6 +75,8 @@ export interface OrderItem {
     readonly unit: string;
     readonly unit_label: string;
   };
+  /** Frozen copy of the product's fulfillment type at order time. */
+  readonly fulfillment_type: FulfillmentChannel;
 }
 
 export interface OrderStatusEvent {
@@ -76,6 +96,10 @@ export interface Order {
   readonly status: OrderStatus;
 
   // Delivery
+  /** The address row this order is delivered to. The route joins THIS, not the
+   *  customer's current primary address. */
+  readonly address_id: string;
+  readonly fulfillment_channel: FulfillmentChannel;
   readonly scheduled_for: string; // YYYY-MM-DD (Europe/Istanbul calendar day)
   readonly time_slot: TimeSlot | null;
   readonly delivery_address_snapshot: DeliveryAddressSnapshot;
@@ -121,5 +145,15 @@ export interface OrderListItem {
   readonly delivery_fee_minor: number;
   readonly created_at: Date;
   readonly source: OrderSource;
+  readonly fulfillment_channel: FulfillmentChannel;
   readonly recurring_template_id: string | null;
 }
+
+/** Turkish labels for the fulfillment channel — the grid, the detail panel and
+ *  the filter all read these rather than inlining strings. */
+export const FULFILLMENT_CHANNEL_LABELS: Readonly<
+  Record<FulfillmentChannel, string>
+> = {
+  delivery: "Rota",
+  shipping: "Kargo",
+};

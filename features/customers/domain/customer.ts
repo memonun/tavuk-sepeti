@@ -43,6 +43,24 @@ export type CustomerOrderType =
   | "wholesale"
   | "bazaar";
 
+/**
+ * Which channel created this customer record.
+ *
+ *   admin_manual — entered in the CRM/panel. These are the legacy phone-ordering
+ *                  customers; a storefront signup NEVER merges into one.
+ *   customer_web — created by a storefront signup, always from scratch.
+ *
+ * Immutable: the partial unique indexes on phone/email are partitioned by it,
+ * so one legacy row and one web row may hold the same phone number.
+ */
+export type CustomerOrigin = "admin_manual" | "customer_web";
+
+/** Turkish labels for the "Kaynak" column / filter. */
+export const CUSTOMER_ORIGIN_LABELS: Readonly<Record<CustomerOrigin, string>> = {
+  admin_manual: "Panel",
+  customer_web: "Web",
+};
+
 export interface Customer {
   readonly id: string;
   readonly first_name: string | null;
@@ -58,6 +76,7 @@ export interface Customer {
   readonly order_type: CustomerOrderType | null;
   readonly tag: string | null;
   readonly legacy_segment: string | null;
+  readonly origin: CustomerOrigin;
   readonly address: CustomerAddress | null;
   readonly created_at: Date;
   readonly updated_at: Date;
@@ -76,6 +95,7 @@ export interface CustomerListItem {
   readonly order_type: CustomerOrderType | null;
   readonly tag: string | null;
   readonly legacy_segment: string | null;
+  readonly origin: CustomerOrigin;
   readonly city: string | null;
   readonly lat: number | null;
   readonly lng: number | null;

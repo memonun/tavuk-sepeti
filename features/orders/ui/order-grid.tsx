@@ -64,6 +64,17 @@ const FILTERABLE_COLUMNS: ReadonlyArray<FilterableColumn> = [
     ],
   },
   {
+    // Rota / Kargo. Filtering to "shipping" gives the cargo packing queue
+    // without a separate page — save it as a view to pin it to the sidebar.
+    id: "fulfillment_channel",
+    label: "Kanal",
+    kind: "select",
+    options: [
+      { value: "delivery", label: "Rota" },
+      { value: "shipping", label: "Kargo" },
+    ],
+  },
+  {
     id: "payment_status",
     label: "Ödeme",
     kind: "select",

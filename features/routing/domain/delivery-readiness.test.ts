@@ -69,4 +69,45 @@ describe("missingDeliveryFields", () => {
       }),
     ).toEqual(["phone", "address", "apartment", "location"]);
   });
+
+  // is_within_service_area is three-valued: only an explicit `false` means the
+  // pin is provably outside a configured zone. NULL means no zone exists yet, and
+  // painting every stop red in that case would be worse than saying nothing.
+  describe("service area", () => {
+    it("flags a pin outside the configured delivery zone", () => {
+      expect(
+        missingDeliveryFields({ ...complete, inServiceArea: false }),
+      ).toEqual(["outside_area"]);
+    });
+
+    it("does not flag a pin inside the zone", () => {
+      expect(
+        missingDeliveryFields({ ...complete, inServiceArea: true }),
+      ).toEqual([]);
+    });
+
+    it("stays silent when no service area is configured", () => {
+      expect(
+        missingDeliveryFields({ ...complete, inServiceArea: null }),
+      ).toEqual([]);
+      expect(
+        missingDeliveryFields({ ...complete, inServiceArea: undefined }),
+      ).toEqual([]);
+      // Omitting the field entirely must behave the same as null.
+      expect(missingDeliveryFields(complete)).toEqual([]);
+    });
+
+    it("reports outside_area last, after the missing-field chips", () => {
+      expect(
+        missingDeliveryFields({
+          phone: null,
+          street: null,
+          apartmentNo: null,
+          lat: 0,
+          lng: 0,
+          inServiceArea: false,
+        }),
+      ).toEqual(["phone", "address", "apartment", "location", "outside_area"]);
+    });
+  });
 });

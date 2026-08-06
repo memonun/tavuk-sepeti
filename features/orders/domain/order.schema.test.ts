@@ -69,6 +69,25 @@ describe("orderEditSchema", () => {
     expect(r.success).toBe(false);
   });
 
+  // A storefront order paid by card must survive an admin edit. Before the DB
+  // enum's credit_card value was mirrored here, saving any edit to such an order
+  // failed validation — and the detail panel rendered it as "Havale".
+  it("accepts credit_card so a card-paid web order round-trips", () => {
+    const r = orderEditSchema.safeParse({
+      ...validPayload,
+      payment_method: "credit_card",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.payment_method).toBe("credit_card");
+  });
+
+  it("still accepts the two admin-createable methods", () => {
+    for (const method of ["cash_on_delivery", "bank_transfer"] as const) {
+      const r = orderEditSchema.safeParse({ ...validPayload, payment_method: method });
+      expect(r.success).toBe(true);
+    }
+  });
+
   it("rejects badly-formatted scheduled_for", () => {
     const r = orderEditSchema.safeParse({ ...validPayload, scheduled_for: "01-07-2026" });
     expect(r.success).toBe(false);

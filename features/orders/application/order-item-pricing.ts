@@ -27,6 +27,13 @@ export interface EnrichedOrderItem {
     unit: string;
     unit_label: string;
   };
+  /**
+   * How this line is fulfilled, carried through from the catalog. The storefront
+   * uses it to decide which address form the basket requires; the DB writers do
+   * NOT trust it — they re-read products.fulfillment_type inside the transaction
+   * so a client can never talk its way onto (or off) the delivery route.
+   */
+  fulfillment_type: "delivery" | "shipping";
 }
 
 /**
@@ -96,6 +103,7 @@ export function enrichOrderItems(
         unit: product.unit,
         unit_label: product.unit_label,
       },
+      fulfillment_type: product.fulfillment_type,
     });
   }
 

@@ -11,6 +11,7 @@ import type { Coordinate } from "@/shared/geo/coordinate";
 
 import type {
   DeliveryAddressSnapshot,
+  FulfillmentChannel,
   Order,
   OrderItem,
   OrderListItem,
@@ -73,6 +74,13 @@ function rowToProductSnapshot(value: unknown): OrderItem["product_snapshot"] {
   };
 }
 
+/** The DB CHECK constrains this to two values, but the generated types call it
+ *  `string` — narrow explicitly rather than casting so a surprise value degrades
+ *  to "delivery" (route-visible, i.e. noticed) instead of silently vanishing. */
+function toFulfillmentChannel(value: unknown): FulfillmentChannel {
+  return value === "shipping" ? "shipping" : "delivery";
+}
+
 function rowToItem(row: OrderItemRow): OrderItem {
   return {
     id: row.id,
@@ -82,6 +90,9 @@ function rowToItem(row: OrderItemRow): OrderItem {
     unit_price_minor: row.unit_price_minor,
     line_total_minor: row.line_total_minor ?? 0,
     product_snapshot: rowToProductSnapshot(row.product_snapshot),
+    fulfillment_type: toFulfillmentChannel(
+      (row as { fulfillment_type?: string | null }).fulfillment_type,
+    ),
   };
 }
 
@@ -91,6 +102,10 @@ export function rowToOrder(row: OrderRowWithItems): Order {
     order_number: row.order_number,
     customer_id: row.customer_id,
     status: row.status as OrderStatus,
+    address_id: (row as { address_id?: string | null }).address_id ?? "",
+    fulfillment_channel: toFulfillmentChannel(
+      (row as { fulfillment_channel?: string | null }).fulfillment_channel,
+    ),
     scheduled_for: row.scheduled_for,
     time_slot: (row.time_slot as TimeSlot | null) ?? null,
     delivery_address_snapshot: rowToSnapshot(row.delivery_address_snapshot),
@@ -129,6 +144,7 @@ interface ListOrderRow {
   delivery_fee_minor: number;
   created_at: string;
   source: string;
+  fulfillment_channel: string | null;
   recurring_template_id: string | null;
   customers: { first_name: string | null; last_name: string | null } | null;
 }
@@ -153,6 +169,7 @@ export function rowToListItem(row: ListOrderRow): OrderListItem {
     delivery_fee_minor: row.delivery_fee_minor,
     created_at: new Date(row.created_at),
     source: row.source as OrderSource,
+    fulfillment_channel: toFulfillmentChannel(row.fulfillment_channel),
     recurring_template_id: row.recurring_template_id,
   };
 }

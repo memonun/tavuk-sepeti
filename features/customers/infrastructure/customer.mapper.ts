@@ -14,6 +14,7 @@ import type {
   CustomerAddress,
   CustomerListItem,
   CustomerOrderType,
+  CustomerOrigin,
   CustomerStatus,
 } from "@/features/customers/domain/customer";
 
@@ -81,6 +82,12 @@ export function rowToAddress(row: AddressRow): CustomerAddress {
   };
 }
 
+/** Anything other than the explicit web value is a panel/legacy row. Narrowing
+ *  rather than casting keeps an unexpected DB value out of the domain type. */
+function asOrigin(value: unknown): CustomerOrigin {
+  return value === "customer_web" ? "customer_web" : "admin_manual";
+}
+
 export function rowToCustomer(row: CustomerWithAddressRow): Customer {
   const primary = row.addresses.find((a) => a.is_primary);
   return {
@@ -95,6 +102,7 @@ export function rowToCustomer(row: CustomerWithAddressRow): Customer {
     order_type: asOrderType(row.order_type),
     tag: row.tag,
     legacy_segment: row.legacy_segment,
+    origin: asOrigin((row as { origin?: unknown }).origin),
     address: primary ? rowToAddress(primary) : null,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
@@ -113,6 +121,7 @@ interface ListProjectionRow {
   order_type: string | null;
   tag: string | null;
   legacy_segment: string | null;
+  origin: string | null;
   created_at: string;
   addresses: Pick<AddressRow, "city" | "lat" | "lng" | "is_primary">[];
 }
@@ -130,6 +139,7 @@ export function rowToListItem(row: ListProjectionRow): CustomerListItem {
     order_type: asOrderType(row.order_type),
     tag: row.tag,
     legacy_segment: row.legacy_segment,
+    origin: asOrigin((row as { origin?: unknown }).origin),
     city: primary?.city ?? null,
     lat: primary?.lat ?? null,
     lng: primary?.lng ?? null,
