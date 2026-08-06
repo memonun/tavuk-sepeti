@@ -93,9 +93,9 @@ export async function customerSignUpAction(
     };
   }
 
-  // Create/link the CRM customer for this new login so it appears in the admin
-  // immediately (not only after the first order). Best-effort — the account
-  // page self-heals too. Runs even when email confirmation is still pending.
+  // Create the CRM customer for this new login so it appears in the admin
+  // immediately (not only after the first order). Never matches an existing
+  // record — a legacy phone-ordered row with the same number stays untouched.
   if (data.user) {
     const linked = await linkCustomerAccount({
       authUserId: data.user.id,
@@ -106,6 +106,13 @@ export async function customerSignUpAction(
     });
     if (!linked.ok) {
       logger.warn({ code: linked.error.code }, "customer_link_on_signup_failed");
+      // A phone/email already taken by ANOTHER WEB account is a real, fixable
+      // condition — surface it instead of leaving the customer with an account
+      // whose phone was silently dropped (which is what used to happen, and it
+      // produced route stops flagged "Telefon eksik" out of nowhere).
+      if (linked.error.code === "VALIDATION_ERROR") {
+        return { status: "error", message: linked.error.message };
+      }
     }
   }
 

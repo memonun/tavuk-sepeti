@@ -1,12 +1,16 @@
 import "server-only";
 
 /**
- * Reads the logged-in customer's own account: profile, primary address (for
- * checkout prefill) and recent orders. All queries run through the cookie-bound
- * anon client, so the customer-scoped RLS policies (migration
- * 20260726120200) are what actually restrict rows to `auth_user_id = auth.uid()`
- * — we don't re-filter here.
+ * Reads the logged-in customer's own account: profile, saved addresses and
+ * recent orders. All queries run through the cookie-bound anon client, so the
+ * customer-scoped RLS policies (migration 20260726120200) are what actually
+ * restrict rows to `auth_user_id = auth.uid()` — we don't re-filter here.
+ *
+ * Addresses are a LIST now, not one primary row: an order binds to a specific
+ * address (`orders.address_id`), so an account can keep "Ev" and "İş" and choose
+ * per order.
  */
+import { listMyAddresses, type SavedAddress } from "@/features/storefront/application/list-addresses";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 export interface AccountProfile {
@@ -16,16 +20,7 @@ export interface AccountProfile {
   email: string;
 }
 
-export interface AccountAddress {
-  city: string;
-  district: string;
-  neighborhood: string;
-  street: string;
-  building_no: string;
-  apartment_no: string;
-  postal_code: string;
-  description: string;
-}
+export type AccountAddress = SavedAddress;
 
 export interface AccountOrder {
   order_number: string;
@@ -34,12 +29,16 @@ export interface AccountOrder {
   payment_status: string;
   total_minor: number;
   created_at: string;
+  /** Rota / Kargo — so "Siparişlerim" can say how it will arrive. */
+  fulfillment_channel: "delivery" | "shipping";
 }
 
 export interface CustomerAccount {
   email: string;
   profile: AccountProfile;
-  address: AccountAddress | null;
+  addresses: AccountAddress[];
+  /** The default address, or null when the account has none saved yet. */
+  primaryAddress: AccountAddress | null;
   orders: AccountOrder[];
 }
 
@@ -55,18 +54,16 @@ export async function getMyAccount(): Promise<CustomerAccount | null> {
     .select("first_name,last_name,phone,email")
     .maybeSingle();
 
-  const { data: addr } = await supabase
-    .from("addresses")
-    .select(
-      "city,district,neighborhood,street,building_no,apartment_no,postal_code,description",
-    )
-    .eq("is_primary", true)
-    .maybeSingle();
+  const addressesResult = await listMyAddresses();
+  const addresses = addressesResult.ok ? addressesResult.value : [];
 
-  const { data: orders } = await supabase
+  // `fulfillment_channel` isn't in the generated Database type yet (migration
+  // 20260805090300) — the repo's un-generated-column cast.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orders } = await (supabase as any)
     .from("orders")
     .select(
-      "order_number,scheduled_for,status,payment_status,total_minor,created_at",
+      "order_number,scheduled_for,status,payment_status,total_minor,created_at,fulfillment_channel",
     )
     .order("created_at", { ascending: false })
     .limit(50);
@@ -88,25 +85,19 @@ export async function getMyAccount(): Promise<CustomerAccount | null> {
       phone: cust?.phone ?? "",
       email: cust?.email ?? user.email ?? "",
     },
-    address: addr
-      ? {
-          city: addr.city ?? "",
-          district: addr.district ?? "",
-          neighborhood: addr.neighborhood ?? "",
-          street: addr.street ?? "",
-          building_no: addr.building_no ?? "",
-          apartment_no: addr.apartment_no ?? "",
-          postal_code: addr.postal_code ?? "",
-          description: addr.description ?? "",
-        }
-      : null,
-    orders: (orders ?? []).map((o) => ({
-      order_number: o.order_number,
-      scheduled_for: o.scheduled_for,
-      status: o.status,
-      payment_status: o.payment_status,
-      total_minor: o.total_minor ?? 0,
-      created_at: o.created_at,
+    addresses,
+    primaryAddress: addresses.find((a) => a.is_primary) ?? addresses[0] ?? null,
+    orders: ((orders ?? []) as Array<Record<string, unknown>>).map((o) => ({
+      order_number: String(o.order_number),
+      scheduled_for: String(o.scheduled_for),
+      status: String(o.status),
+      payment_status: String(o.payment_status),
+      total_minor: Number(o.total_minor ?? 0),
+      created_at: String(o.created_at),
+      fulfillment_channel:
+        o.fulfillment_channel === "shipping"
+          ? ("shipping" as const)
+          : ("delivery" as const),
     })),
   };
 }

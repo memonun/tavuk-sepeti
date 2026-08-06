@@ -21,8 +21,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
-import { AddressAutocomplete } from "@/features/customers/ui/address-autocomplete";
-import { AddressPinCorrector } from "@/features/customers/ui/address-pin-corrector";
+import { AddressAutocomplete } from "@/components/address/address-autocomplete";
+import { AddressPinCorrector } from "@/components/address/address-pin-corrector";
 import { createCustomerAction } from "@/features/customers/application/create-customer";
 import { updateCustomerAction } from "@/features/customers/application/update-customer";
 import { customerFormSchema } from "@/features/customers/domain/customer.schema";
@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import { composeGeocoderQuery, hasGeocodableShape } from "@/shared/utils/address";
 
-import type { ParsedAddress } from "@/features/customers/ui/address-autocomplete";
+import type { ParsedAddress } from "@/components/address/address-autocomplete";
 import type {
   CustomerFormInput,
   CustomerFormParsed,
@@ -388,6 +388,9 @@ const addressAccuracy = watch("address.accuracy");
                 lat={addressLat}
                 lng={addressLng}
                 accuracy={addressAccuracy ?? "unknown"}
+                // An admin moving the pin is a correction, not the resident
+                // placing their own door — the storefront passes "user_pin".
+                pinSource="admin_corrected"
                 onChange={onPinChange}
               />
             ) : null}

@@ -1,12 +1,17 @@
 /**
- * Persistence for guest storefront checkout.
+ * Persistence for storefront checkout.
  *
  * Calls the `place_web_order` RPC (SECURITY DEFINER; service_role-only) via the
- * service-role client for atomicity: customer find-or-create, optional address,
- * order + items + initial status event in one transaction. This is the
- * sanctioned use of the admin client — a system-internal write on behalf of no
- * signed-in user (shared/supabase/admin.ts). The customer never touches a table
- * directly, and prices were already frozen from the catalog by the caller.
+ * service-role client for atomicity: order + items + initial status event in one
+ * transaction. This is the sanctioned use of the admin client — a system-internal
+ * write on behalf of a customer who has no table-write policy of their own
+ * (shared/supabase/admin.ts).
+ *
+ * Since migration 20260805090500 the RPC takes a customer id and an address id
+ * rather than a name/phone/email tuple. That is the parity fix: the web writer
+ * now has the same precondition as `create_order_with_items` ("an existing
+ * customer with an existing address") and shares its `address_snapshot()`, so an
+ * admin order and a web order for the same inputs produce the same row.
  *
  * The item shape is declared structurally here (not imported from the orders
  * feature) so this infrastructure module stays within its import boundary
@@ -15,7 +20,11 @@
  */
 import "server-only";
 
-import { ExternalApiError } from "@/shared/errors/app-error";
+import {
+  AppError,
+  ExternalApiError,
+  ValidationError,
+} from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { getSupabaseAdminClient } from "@/shared/supabase/admin";
@@ -29,83 +38,58 @@ export interface WebOrderRepoItem {
 }
 
 export interface WebOrderRepoInput {
-  contact: {
-    first_name: string;
-    last_name: string;
-    phone: string;
-    email: string | null;
-  };
-  address: {
-    raw_text: string;
-    description: string | null;
-    city: string;
-    district: string;
-    neighborhood: string;
-    street: string;
-    building_no: string;
-    apartment_no: string;
-    postal_code: string;
-    lat: number | null;
-    lng: number | null;
-    source: string | null;
-    accuracy: string | null;
-  };
+  /** Resolved from the LOGIN by resolve-checkout-customer. Never from a phone. */
+  customerId: string;
+  /** One of that customer's own addresses. The RPC re-checks ownership. */
+  addressId: string;
   scheduled_for: string;
   time_slot: "morning" | "afternoon" | "evening" | null;
   payment_method: "cash_on_delivery" | "bank_transfer" | "credit_card";
   delivery_notes: string | null;
   delivery_fee_minor: number;
   items: ReadonlyArray<WebOrderRepoItem>;
-  /** Logged-in customer's auth user id, or null for guest checkout. */
-  authUserId: string | null;
 }
 
 export interface WebOrderResult {
   order_id: string;
   order_number: string;
+  fulfillment_channel: "delivery" | "shipping";
 }
+
+/** Turkish messages for the RPC's guard codes — see migration 20260805090500. */
+const GUARD_MESSAGES: Readonly<Record<string, string>> = {
+  P0002: "Hesabınız bulunamadı. Sayfayı yenileyip tekrar deneyin.",
+  P0004: "Bu adres hesabınıza ait değil.",
+  P0006: "Teslimat adresinde açık adres ve daire no eksik.",
+  P0007: "Bu adres teslimat bölgemizin dışında.",
+};
 
 export async function placeWebOrder(
   input: WebOrderRepoInput,
-): Promise<Result<WebOrderResult, ExternalApiError>> {
+): Promise<Result<WebOrderResult, AppError>> {
   const supabase = getSupabaseAdminClient();
 
-  const pAddress = {
-    raw_text: input.address.raw_text,
-    description: input.address.description,
-    city: input.address.city,
-    district: input.address.district,
-    neighborhood: input.address.neighborhood,
-    street: input.address.street,
-    building_no: input.address.building_no,
-    apartment_no: input.address.apartment_no,
-    postal_code: input.address.postal_code,
-    lat: input.address.lat,
-    lng: input.address.lng,
-    source: input.address.source,
-    accuracy: input.address.accuracy,
-  };
-
-  // The RPC isn't in the generated Database type (added by the storefront
-  // migration, not yet regenerated) — mirror the codebase's un-generated-RPC
-  // cast pattern (see order.repository.ts).
+  // The RPC isn't in the generated Database type (added by migration, not yet
+  // regenerated) — mirror the codebase's un-generated-RPC cast pattern.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any).rpc("place_web_order", {
-    p_first_name: input.contact.first_name,
-    p_last_name: input.contact.last_name,
-    p_phone: input.contact.phone,
-    p_email: input.contact.email,
-    p_address: pAddress,
+    p_customer_id: input.customerId,
+    p_address_id: input.addressId,
     p_scheduled_for: input.scheduled_for,
     p_time_slot: input.time_slot,
     p_payment_method: input.payment_method,
     p_delivery_notes: input.delivery_notes,
     p_delivery_fee_minor: input.delivery_fee_minor,
     p_items: input.items,
-    p_auth_user_id: input.authUserId,
   });
 
   if (error) {
+    const guard = typeof error.code === "string" ? GUARD_MESSAGES[error.code] : undefined;
+    if (guard) {
+      // Expected, user-actionable states — warn, don't error-page.
+      logger.warn({ code: error.code }, "place_web_order_rejected");
+      return err(new ValidationError({ message: guard }));
+    }
     logger.error(
       { code: error.code, message: error.message },
       "place_web_order_rpc_failed",
@@ -114,7 +98,7 @@ export async function placeWebOrder(
   }
 
   const row = (Array.isArray(data) ? data[0] : data) as
-    | { order_id?: string; order_number?: string }
+    | { order_id?: string; order_number?: string; fulfillment_channel?: string }
     | null
     | undefined;
 
@@ -126,5 +110,7 @@ export async function placeWebOrder(
   return ok({
     order_id: String(row.order_id),
     order_number: String(row.order_number),
+    fulfillment_channel:
+      row.fulfillment_channel === "shipping" ? "shipping" : "delivery",
   });
 }

@@ -30,39 +30,47 @@ describe("passwordUpdateSchema", () => {
 });
 
 describe("customerSignUpSchema", () => {
-  it("defaults optional names to empty strings and phone to null", () => {
-    const parsed = customerSignUpSchema.parse({
-      email: "new@example.com",
-      password: "supersecret",
-    });
-    expect(parsed.first_name).toBe("");
-    expect(parsed.last_name).toBe("");
-    expect(parsed.phone).toBeNull();
+  const validSignUp = {
+    email: "new@example.com",
+    password: "supersecret",
+    first_name: "Ayşe",
+    last_name: "Yılmaz",
+    phone: "0532 123 45 67",
+  };
+
+  it("normalizes a provided phone to E.164", () => {
+    const parsed = customerSignUpSchema.parse(validSignUp);
+    expect(parsed.phone).toBe("+905321234567");
+    expect(parsed.email).toBe("new@example.com");
   });
 
-  it("normalizes a provided phone to E.164 and blank to null", () => {
-    const withPhone = customerSignUpSchema.parse({
-      email: "a@b.co",
-      password: "supersecret",
-      phone: "0532 123 45 67",
-    });
-    expect(withPhone.phone).toBe("+905321234567");
+  // Name and phone became REQUIRED when the storefront started producing route
+  // orders: the driver phones the customer, and the CRM keys on the number.
+  // Previously both defaulted to blank/null, which produced accounts that could
+  // order but showed "Telefon eksik" on the driver's stop.
+  it("requires ad and soyad", () => {
+    expect(
+      customerSignUpSchema.safeParse({ ...validSignUp, first_name: "" }).success,
+    ).toBe(false);
+    expect(
+      customerSignUpSchema.safeParse({ ...validSignUp, last_name: "  " }).success,
+    ).toBe(false);
+  });
 
-    const blank = customerSignUpSchema.parse({
-      email: "a@b.co",
-      password: "supersecret",
-      phone: "   ",
-    });
-    expect(blank.phone).toBeNull();
+  it("requires a phone", () => {
+    const { phone: _phone, ...noPhone } = validSignUp;
+    expect(customerSignUpSchema.safeParse(noPhone).success).toBe(false);
+    expect(
+      customerSignUpSchema.safeParse({ ...validSignUp, phone: "" }).success,
+    ).toBe(false);
+    expect(
+      customerSignUpSchema.safeParse({ ...validSignUp, phone: "   " }).success,
+    ).toBe(false);
   });
 
   it("rejects an invalid phone", () => {
     expect(
-      customerSignUpSchema.safeParse({
-        email: "a@b.co",
-        password: "supersecret",
-        phone: "123",
-      }).success,
+      customerSignUpSchema.safeParse({ ...validSignUp, phone: "123" }).success,
     ).toBe(false);
   });
 });

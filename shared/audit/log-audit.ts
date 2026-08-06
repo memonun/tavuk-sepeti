@@ -38,7 +38,12 @@ export type AuditAction =
   | "recurring.paused"
   | "recurring.resumed"
   | "recurring.deleted"
-  | "recurring.order_generated";
+  | "recurring.order_generated"
+  // Storefront (customer-initiated). The actor is the customer's auth user,
+  // not an admin — before this the web order path wrote no audit trail at all.
+  | "order.web_placed"
+  | "customer.web_registered"
+  | "address.web_updated";
 
 export type AuditEntityType = "customer" | "order" | "address" | "product" | "recurring_template";
 

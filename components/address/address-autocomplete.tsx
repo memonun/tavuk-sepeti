@@ -1,17 +1,21 @@
 "use client";
 
 /**
- * Google Places autocomplete helper for the customer address form.
+ * Google Places autocomplete for structured Türkiye addresses.
  *
  * Uses the NEW Places Autocomplete Data API (AutocompleteSuggestion /
  * fetchAutocompleteSuggestions) via `useMapsLibrary("places")`. It MUST be
- * rendered inside an `<APIProvider>` — the form lifts that provider up so the
+ * rendered inside an `<APIProvider>` — use `<AddressMapsProvider>` so the
  * autocomplete and the pin map share one Google Maps script load + billing
  * session.
  *
- * On selecting a suggestion it resolves the place's address components +
- * location and emits a ParsedAddress; the form maps those onto its structured
- * Türkiye address fields and the coordinate.
+ * Lives in `components/` rather than in a feature so BOTH the admin customer
+ * form and the storefront checkout can use it: the ESLint boundaries config
+ * forbids feature-ui → feature-ui imports, and `shared/` may not import
+ * `components/ui/*`. `ui-primitive` is the only layer every caller may reach.
+ *
+ * The Google → TR field mapping is NOT here — it lives in
+ * `shared/geo/tr-address-components.ts` so it is unit-testable.
  *
  * Session tokens follow Google's billing convention: one token per typing
  * session, refreshed after a completed selection.
@@ -20,17 +24,11 @@ import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useEffect, useRef, useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import { mapGooglePlaceComponents } from "@/shared/geo/tr-address-components";
 
-export interface ParsedAddress {
-  city: string;
-  district: string;
-  neighborhood: string;
-  street: string;
-  building_no: string;
-  postal_code: string;
-  lat: number;
-  lng: number;
-}
+import type { ParsedAddress } from "@/shared/geo/tr-address-components";
+
+export type { ParsedAddress };
 
 interface AddressAutocompleteProps {
   onSelect: (a: ParsedAddress) => void;
@@ -38,13 +36,24 @@ interface AddressAutocompleteProps {
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
+  /** Restrict suggestions to these ISO region codes. Defaults to Türkiye. */
+  regionCodes?: readonly string[];
+  disabled?: boolean;
+  id?: string;
+  "aria-label"?: string;
 }
+
+const DEFAULT_REGION_CODES = ["tr"] as const;
 
 export function AddressAutocomplete({
   onSelect,
   value,
   onChange,
   placeholder,
+  regionCodes = DEFAULT_REGION_CODES,
+  disabled,
+  id,
+  "aria-label": ariaLabel,
 }: AddressAutocompleteProps) {
   const places = useMapsLibrary("places");
   const [internal, setInternal] = useState("");
@@ -57,6 +66,9 @@ export function AddressAutocomplete({
   const [open, setOpen] = useState(false);
   const tokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Depend on the region list by VALUE, not identity: a caller passing a fresh
+  // array literal each render would otherwise restart the debounce every time.
+  const regionKey = regionCodes.join(",");
 
   useEffect(() => {
     if (places && !tokenRef.current) tokenRef.current = new places.AutocompleteSessionToken();
@@ -76,7 +88,7 @@ export function AddressAutocomplete({
         const res = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input,
           ...(tokenRef.current ? { sessionToken: tokenRef.current } : {}),
-          includedRegionCodes: ["tr"],
+          includedRegionCodes: regionKey.split(","),
           language: "tr",
         });
         setSuggestions(res.suggestions ?? []);
@@ -89,31 +101,20 @@ export function AddressAutocomplete({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [places, input]);
+  }, [places, input, regionKey]);
 
   async function choose(s: google.maps.places.AutocompleteSuggestion) {
     const pred = s.placePrediction;
     if (!pred || !places) return;
     const place = pred.toPlace();
     await place.fetchFields({ fields: ["addressComponents", "location"] });
-    const comp = place.addressComponents ?? [];
-    const long = (type: string) =>
-      comp.find((c) => c.types.includes(type))?.longText ?? "";
     const loc = place.location;
-    onSelect({
-      city: long("administrative_area_level_1"),
-      district: long("administrative_area_level_2"),
-      neighborhood:
-        long("administrative_area_level_4") ||
-        long("neighborhood") ||
-        long("sublocality_level_1") ||
-        long("sublocality_level_2"),
-      street: long("route"),
-      building_no: long("street_number"),
-      postal_code: long("postal_code"),
-      lat: loc ? loc.lat() : 0,
-      lng: loc ? loc.lng() : 0,
-    });
+    onSelect(
+      mapGooglePlaceComponents(
+        place.addressComponents ?? [],
+        loc ? { lat: loc.lat(), lng: loc.lng() } : null,
+      ),
+    );
     setInput(pred.text?.text ?? "");
     setSuggestions([]);
     setOpen(false);
@@ -128,7 +129,9 @@ export function AddressAutocomplete({
         onChange={(e) => setInput(e.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        aria-label="Adres"
+        aria-label={ariaLabel ?? "Adres"}
+        {...(id ? { id } : {})}
+        {...(disabled ? { disabled: true } : {})}
         {...(placeholder ? { placeholder } : {})}
       />
       {open && suggestions.length > 0 ? (

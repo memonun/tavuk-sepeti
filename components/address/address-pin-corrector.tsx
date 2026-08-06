@@ -4,16 +4,22 @@
  * Address pin corrector — embeds a Google Map with a draggable AdvancedMarker.
  *
  * Lat/lng come in as props (initial value set by the geocoding pipeline);
- * dragging the pin emits onChange with the new coordinate AND the source
- * flag flipped to "admin_corrected". The form treats these as the authoritative
+ * dragging the pin emits onChange with the new coordinate AND `pinSource` as
+ * the coordinate's provenance. The caller treats that as the authoritative
  * coordinate from then on.
  *
- * Accuracy badge surfaces SPEC.md §6.4 LOW_ACCURACY UX: orange warning when
- * the auto-geocode landed on `approximate` / `unknown`, prompting the admin
- * to drag the pin precisely.
+ * `pinSource` is a required prop rather than a hard-coded "admin_corrected"
+ * because this component is now shared: the admin form passes
+ * "admin_corrected", the storefront passes "user_pin" (the customer placed it
+ * on their own door). That distinction is what lets the web-order schema honour
+ * CLAUDE.md §8 — an `approximate` coordinate is only acceptable when the person
+ * standing at the address dragged the pin themselves.
  *
- * Note: this component assumes a `<APIProvider>` ancestor — the form lifts the
- * provider up so this map and the address autocomplete share one script load.
+ * Accuracy badge surfaces SPEC.md §6.4 LOW_ACCURACY UX: orange warning when the
+ * auto-geocode landed on `approximate` / `unknown`, prompting a precise drag.
+ *
+ * Note: this component assumes an `<APIProvider>` ancestor — use
+ * `<AddressMapsProvider>` so this map and the autocomplete share one script load.
  */
 import { AdvancedMarker, Map } from "@vis.gl/react-google-maps";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -25,7 +31,12 @@ interface AddressPinCorrectorProps {
   lat: number;
   lng: number;
   accuracy: CoordinateAccuracy;
+  /** Provenance stamped on the coordinate when the user drags the pin. */
+  pinSource: CoordinateSource;
   onChange: (next: { lat: number; lng: number; source: CoordinateSource }) => void;
+  /** Overrides the accuracy-derived caption (the storefront asks for a
+   *  confirmation rather than describing geocoder precision). */
+  hint?: string;
 }
 
 const ACCURACY_LABEL: Record<CoordinateAccuracy, string> = {
@@ -40,7 +51,9 @@ export function AddressPinCorrector({
   lat,
   lng,
   accuracy,
+  pinSource,
   onChange,
+  hint,
 }: AddressPinCorrectorProps) {
   const low = isLowAccuracy(accuracy);
 
@@ -58,7 +71,7 @@ export function AddressPinCorrector({
           ) : (
             <CheckCircle2 className="h-4 w-4 shrink-0" />
           )}
-          <span>{ACCURACY_LABEL[accuracy]}</span>
+          <span>{hint ?? ACCURACY_LABEL[accuracy]}</span>
         </div>
 
         <div className="overflow-hidden rounded-lg border">
@@ -80,7 +93,7 @@ export function AddressPinCorrector({
                 onChange({
                   lat: next.lat(),
                   lng: next.lng(),
-                  source: "admin_corrected",
+                  source: pinSource,
                 });
               }}
             >
