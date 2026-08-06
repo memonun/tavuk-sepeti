@@ -22,10 +22,11 @@ export interface DeliveryDetail {
   /** Customer-level note (live), from customers.notes. */
   readonly customer_notes: string | null;
   /**
-   * Written delivery address. Composed from the customer's LIVE primary address
-   * (the same `addresses` row find_orders_for_route uses for the pin/legs), so
-   * the text the driver reads always matches where the route sends them. NOT
-   * the frozen order snapshot — that would diverge from the live pin.
+   * Written delivery address, composed from the address row THIS ORDER points at
+   * (`orders.address_id` — the same row find_orders_for_route joins for the pin
+   * and the legs), so the text the driver reads always matches where the route
+   * sends them. NOT the frozen order snapshot, and no longer the customer's
+   * current primary address either.
    */
   readonly delivery_address: string | null;
 }
@@ -55,7 +56,7 @@ export async function fetchDeliveryDetails(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from("orders")
-      .select("id, customer_id, amount_paid_minor, customers(notes)")
+      .select("id, customer_id, address_id, amount_paid_minor, customers(notes)")
       .in("id", ids),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
@@ -75,40 +76,43 @@ export async function fetchDeliveryDetails(
 
   const paidById = new Map<string, number>();
   const notesById = new Map<string, string | null>();
-  const customerByOrder = new Map<string, string>();
+  const addressIdByOrder = new Map<string, string>();
   for (const r of (orderRes.data ?? []) as Array<{
     id: string;
     customer_id: string;
+    address_id: string | null;
     amount_paid_minor: number | string | null;
     // PostgREST returns the embedded to-one as an object, but tolerate an array.
     customers: { notes?: unknown } | Array<{ notes?: unknown }> | null;
   }>) {
     paidById.set(r.id, Number(r.amount_paid_minor ?? 0));
-    if (r.customer_id) customerByOrder.set(r.id, r.customer_id);
+    if (r.address_id) addressIdByOrder.set(r.id, r.address_id);
     const customer = Array.isArray(r.customers) ? r.customers[0] : r.customers;
     const notes = customer?.notes;
     notesById.set(r.id, typeof notes === "string" && notes.trim() ? notes : null);
   }
 
-  // Live primary address per customer — same source as the route pin/legs.
-  const customerIds = [...new Set(customerByOrder.values())];
-  const addressByCustomer = new Map<string, string | null>();
-  if (customerIds.length > 0) {
+  // The address THIS ORDER was placed to — the same row find_orders_for_route
+  // joins for the pin/legs. Previously this looked up the customer's current
+  // primary address, which could differ from where the route was actually
+  // sending the driver.
+  const addressIds = [...new Set(addressIdByOrder.values())];
+  const addressById = new Map<string, string | null>();
+  if (addressIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const addrRes = await (supabase as any)
       .from("addresses")
-      .select("customer_id, raw_text, description")
-      .in("customer_id", customerIds)
-      .eq("is_primary", true);
+      .select("id, raw_text, description")
+      .in("id", addressIds);
     if (addrRes.error) {
       logger.warn({ message: addrRes.error.message }, "route_address_lookup_failed");
     }
     for (const a of (addrRes.data ?? []) as Array<{
-      customer_id: string;
+      id: string;
       raw_text: unknown;
       description: unknown;
     }>) {
-      addressByCustomer.set(a.customer_id, composeAddress(a.raw_text, a.description));
+      addressById.set(a.id, composeAddress(a.raw_text, a.description));
     }
   }
 
@@ -143,14 +147,12 @@ export async function fetchDeliveryDetails(
   }
 
   for (const id of orderIds) {
-    const customerId = customerByOrder.get(id);
+    const addressId = addressIdByOrder.get(id);
     byId.set(id, {
       amount_paid_minor: paidById.get(id) ?? 0,
       items: itemsByOrder.get(id) ?? [],
       customer_notes: notesById.get(id) ?? null,
-      delivery_address: customerId
-        ? (addressByCustomer.get(customerId) ?? null)
-        : null,
+      delivery_address: addressId ? (addressById.get(addressId) ?? null) : null,
     });
   }
   return byId;

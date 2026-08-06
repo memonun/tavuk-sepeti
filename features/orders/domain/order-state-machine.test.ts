@@ -13,6 +13,8 @@ const baseOrder: Order = {
   order_number: "ORD-2026-00001",
   customer_id: "customer-1",
   status: "pending",
+  address_id: "address-1",
+  fulfillment_channel: "delivery",
   scheduled_for: "2026-05-10",
   time_slot: null,
   delivery_address_snapshot: {

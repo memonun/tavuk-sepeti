@@ -22,7 +22,10 @@ import { orderStatusEditor } from "@/features/orders/ui/order-status-cell";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 
-import type { OrderListItem } from "@/features/orders/domain/order";
+import {
+  FULFILLMENT_CHANNEL_LABELS,
+  type OrderListItem,
+} from "@/features/orders/domain/order";
 
 import { z } from "zod";
 
@@ -48,6 +51,7 @@ const TIME_SLOT_OPTIONS = [
 export const ORDER_COLUMN_LABELS: Readonly<Record<string, string>> = {
   order_number: "No",
   customer: "Müşteri",
+  fulfillment_channel: "Kanal",
   status: "Durum",
   scheduled_for: "Teslim",
   time_slot: "Zaman",
@@ -106,6 +110,28 @@ export function buildOrderColumns(
           >
             {name && name.length > 0 ? name : "(isimsiz)"}
           </Link>
+        );
+      },
+    },
+    {
+      id: "fulfillment_channel",
+      accessorKey: "fulfillment_channel",
+      header: "Kanal",
+      size: 100,
+      columnType: "select",
+      // Read-only: the channel is frozen at creation and derived from the items.
+      // Changing it means changing what was ordered, which happens in the detail
+      // panel's item editor — not by editing a cell.
+      editable: false,
+      cell: ({ row }) => {
+        const channel = row.original.fulfillment_channel;
+        return (
+          <Badge
+            variant={channel === "shipping" ? "outline" : "secondary"}
+            className="px-1.5 py-0 text-[11px] leading-tight"
+          >
+            {FULFILLMENT_CHANNEL_LABELS[channel]}
+          </Badge>
         );
       },
     },

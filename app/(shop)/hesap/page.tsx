@@ -4,9 +4,11 @@ import { redirect } from "next/navigation";
 import { customerSignOutAction } from "@/features/storefront/application/customer-auth";
 import { ensureCustomerProfile } from "@/features/storefront/application/ensure-customer-profile";
 import { getMyAccount } from "@/features/storefront/application/get-account";
+import { AccountAddresses } from "@/features/storefront/ui/account-addresses";
 import { AccountProfileForm } from "@/features/storefront/ui/account-profile-form";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -14,6 +16,11 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: "Onaylandı",
   delivered: "Teslim edildi",
   cancelled: "İptal edildi",
+};
+
+const CHANNEL_LABELS: Record<string, string> = {
+  delivery: "Elden teslim",
+  shipping: "Kargo",
 };
 
 export default async function AccountPage() {
@@ -43,6 +50,11 @@ export default async function AccountPage() {
         />
       </div>
 
+      <AccountAddresses
+        addresses={account.addresses}
+        mapsKey={env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY}
+      />
+
       <section className="mt-6">
         <h2 className="mb-3 font-display text-lg">Siparişlerim</h2>
         {account.orders.length === 0 ? (
@@ -65,7 +77,9 @@ export default async function AccountPage() {
                 <div>
                   <p className="font-mono font-medium">{order.order_number}</p>
                   <p className="text-muted-foreground">
-                    Teslimat: {order.scheduled_for}
+                    Teslimat: {order.scheduled_for} ·{" "}
+                    {CHANNEL_LABELS[order.fulfillment_channel] ??
+                      order.fulfillment_channel}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

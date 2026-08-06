@@ -47,7 +47,7 @@ type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
  * from silently drifting apart.
  */
 const ORDER_LIST_SELECT =
-  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, recurring_template_id, customers!inner(first_name, last_name)" as const;
+  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, fulfillment_channel, recurring_template_id, customers!inner(first_name, last_name)" as const;
 
 export interface CreateOrderInput {
   customer_id: string;
@@ -218,6 +218,8 @@ const ORDER_FILTERABLE = new Set([
   "scheduled_for",
   "time_slot",
   "created_at",
+  // Rota / Kargo. Frozen on the row, so filtering it is a plain equality test.
+  "fulfillment_channel",
 ]);
 
 export async function listOrders(
@@ -238,6 +240,9 @@ export async function listOrders(
 
   if (query.status) {
     builder = builder.eq("status", query.status);
+  }
+  if (query.fulfillment_channel) {
+    builder = builder.eq("fulfillment_channel", query.fulfillment_channel);
   }
   if (query.customer_id) {
     builder = builder.eq("customer_id", query.customer_id);
@@ -290,6 +295,7 @@ export async function listOrders(
         delivery_fee_minor: row.delivery_fee_minor ?? 0,
         created_at: row.created_at,
         source: row.source ?? "admin_manual",
+        fulfillment_channel: row.fulfillment_channel ?? null,
         recurring_template_id: row.recurring_template_id ?? null,
         customers: row.customers,
       }),

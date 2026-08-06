@@ -125,4 +125,32 @@ describe("enrichOrderItems", () => {
     if (result.ok) return;
     expect(result.error.message).toMatch(/0\.5 kg katı olmalı/);
   });
+
+  // The storefront reads this to decide whether the basket needs a route-grade
+  // address (pin + street + daire) or a plain cargo one. The DB writers re-read
+  // products.fulfillment_type inside the transaction, so this value is a UI
+  // convenience — but it must still reflect the catalog faithfully.
+  it("carries each product's fulfillment_type through to the enriched line", () => {
+    const apricot = makeProduct({
+      key: "gun-kurusu-kayisi",
+      display_name: "Gün Kurusu Kayısı",
+      fulfillment_type: "shipping",
+    });
+    const mixedCatalog = [CHEESE, apricot];
+
+    const result = enrichOrderItems(
+      [
+        { product_key: "cheese", quantity: 1 },
+        { product_key: "gun-kurusu-kayisi", quantity: 1 },
+      ],
+      mixedCatalog,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.map((l) => l.fulfillment_type)).toEqual([
+      "delivery",
+      "shipping",
+    ]);
+  });
 });

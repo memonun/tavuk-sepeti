@@ -14,7 +14,9 @@ import { dateCellEditor } from "@/components/data-grid/cells/date-cell";
 import { readonlyCellEditor } from "@/components/data-grid/cells/readonly-cell";
 import { selectCellEditor } from "@/components/data-grid/cells/select-cell";
 import { textCellEditor } from "@/components/data-grid/cells/text-cell";
+import { Badge } from "@/components/ui/badge";
 import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
+import { CUSTOMER_ORIGIN_LABELS } from "@/features/customers/domain/customer";
 import { customerCellPatchSchemas } from "@/features/customers/domain/customer.schema";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRPhone } from "@/shared/utils/phone";
@@ -54,6 +56,7 @@ export const CUSTOMER_COLUMN_LABELS: Readonly<Record<string, string>> = {
   account_type: "Tip",
   order_type: "Sipariş Tipi",
   legacy_segment: "Segment",
+  origin: "Kaynak",
   status: "Durum",
   created_at: "Eklenme",
   actions: "İşlem",
@@ -214,6 +217,28 @@ export function buildCustomerColumns(
       editor: textCellEditor({
         schema: customerCellPatchSchemas.legacy_segment as unknown as z.ZodType<string | null>,
       }) as never,
+    },
+    {
+      id: "origin",
+      accessorKey: "origin",
+      header: "Kaynak",
+      size: 100,
+      columnType: "select",
+      // Read-only: origin is set once by whichever channel created the row and
+      // the phone/email unique indexes are partitioned by it — flipping it could
+      // collide a web row with a legacy one holding the same number.
+      editable: false,
+      cell: ({ row }) => {
+        const origin = row.original.origin;
+        return (
+          <Badge
+            variant={origin === "customer_web" ? "default" : "outline"}
+            className="px-1.5 py-0 text-[11px] leading-tight"
+          >
+            {CUSTOMER_ORIGIN_LABELS[origin]}
+          </Badge>
+        );
+      },
     },
     {
       id: "status",

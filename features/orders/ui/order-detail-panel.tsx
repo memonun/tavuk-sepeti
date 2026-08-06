@@ -15,7 +15,7 @@
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,10 +41,12 @@ import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
 import type { OrderPayment } from "@/features/orders/domain/payment";
 import type { Product } from "@/features/products/application/list-products";
+import { FULFILLMENT_CHANNEL_LABELS } from "@/features/orders/domain/order";
 import type {
   Order,
   OrderStatus,
   OrderStatusEvent,
+  PaymentMethod,
   PaymentStatus,
   TimeSlot,
 } from "@/features/orders/domain/order";
@@ -93,6 +95,15 @@ const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   refunded: "İade",
 };
 
+/** Covers every value of the DB payment_method enum. The panel used to render
+ *  `cash_on_delivery ? "Kapıda" : "Havale"`, so a card-paid storefront order
+ *  displayed as "Havale" — wrong, and invisible unless you knew to look. */
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  cash_on_delivery: "Kapıda",
+  bank_transfer: "Havale",
+  credit_card: "Kredi kartı",
+};
+
 /** Sentinel select value for "no time slot" — base-ui Select can't bind "". */
 const NO_TIME_SLOT = "none";
 
@@ -118,6 +129,19 @@ export function OrderDetailPanel({
             <h2 className="font-mono text-xl font-semibold tracking-tight">
               {order.order_number}
             </h2>
+            <Badge
+              variant={
+                order.fulfillment_channel === "shipping" ? "outline" : "secondary"
+              }
+              className="text-xs"
+            >
+              {FULFILLMENT_CHANNEL_LABELS[order.fulfillment_channel]}
+            </Badge>
+            {order.source === "customer_web" ? (
+              <Badge variant="outline" className="text-xs">
+                Web
+              </Badge>
+            ) : null}
             {order.source === "recurring_generated" ? (
               <Badge variant="outline" className="text-xs">
                 Abonelik
@@ -335,6 +359,14 @@ function OrderEditForm({
             <SelectContent>
               <SelectItem value="cash_on_delivery">Kapıda</SelectItem>
               <SelectItem value="bank_transfer">Havale</SelectItem>
+              {/* Only offered when the order ALREADY is a card payment (i.e. it
+                  came from the storefront's PayTR flow). An admin can't open a
+                  card session at the door, so this is a round-trip affordance,
+                  not a choice — without it, saving any edit to a card order
+                  would silently rewrite its payment method. */}
+              {order.payment_method === "credit_card" ? (
+                <SelectItem value="credit_card">Kredi kartı</SelectItem>
+              ) : null}
             </SelectContent>
           </Select>
         </div>
@@ -448,6 +480,17 @@ function TotalsBlock({ order }: { order: Order }) {
  *  not editable from the order; it's a point-in-time copy). */
 function DeliveryAddress({ order }: { order: Order }) {
   const snapshot = order.delivery_address_snapshot;
+  // The structured parts were mapped into the domain object but never shown —
+  // exactly the fields the driver needs (mahalle / cadde / bina / daire).
+  const detailRows: Array<[string, string | null]> = [
+    ["Mahalle", snapshot.neighborhood],
+    ["Cadde / sokak", snapshot.street],
+    ["Bina no", snapshot.building_no],
+    ["Daire no", snapshot.apartment_no],
+    ["İlçe / il", [snapshot.district, snapshot.city].filter(Boolean).join(" / ") || null],
+  ];
+  const hasPin = !(snapshot.lat === 0 && snapshot.lng === 0);
+
   return (
     <section className="rounded-lg border bg-card p-4">
       <h3 className="mb-2 text-sm font-semibold">Teslimat adresi</h3>
@@ -456,18 +499,33 @@ function DeliveryAddress({ order }: { order: Order }) {
         <p className="text-xs text-muted-foreground">{snapshot.description}</p>
       ) : null}
       <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+        {detailRows.map(([label, value]) =>
+          value ? (
+            <Fragment key={label}>
+              <span className="text-muted-foreground">{label}</span>
+              <span className="text-right">{value}</span>
+            </Fragment>
+          ) : null,
+        )}
         <span className="text-muted-foreground">Ödeme yöntemi</span>
         <span className="text-right">
-          {order.payment_method === "cash_on_delivery" ? "Kapıda" : "Havale"}
+          {PAYMENT_METHOD_LABEL[order.payment_method]}
         </span>
         <span className="text-muted-foreground">Ödeme durumu</span>
         <span className="text-right">
           {PAYMENT_STATUS_LABEL[order.payment_status]}
         </span>
       </div>
-      <p className="mt-2 font-mono text-xs text-muted-foreground">
-        {snapshot.lat.toFixed(6)}, {snapshot.lng.toFixed(6)}
-      </p>
+      {hasPin ? (
+        <p className="mt-2 font-mono text-xs text-muted-foreground">
+          {snapshot.lat.toFixed(6)}, {snapshot.lng.toFixed(6)}
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-destructive">
+          Konum pini yok — bu sipariş rotada &quot;Konum&quot; eksik olarak
+          işaretlenir.
+        </p>
+      )}
     </section>
   );
 }

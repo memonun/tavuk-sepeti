@@ -10,8 +10,9 @@ import {
 import { addDaysIso } from "@/features/storefront/domain/delivery-date";
 import {
   CheckoutForm,
-  type CheckoutDefaults,
+  type CheckoutIdentityDefaults,
 } from "@/features/storefront/ui/checkout-form";
+import { env } from "@/shared/env";
 
 /** "Today" as a YYYY-MM-DD calendar day in Europe/Istanbul. */
 function todayInIstanbul(): string {
@@ -24,6 +25,9 @@ function todayInIstanbul(): string {
 }
 
 export default async function CheckoutPage() {
+  // Deliberately NOT redirecting an anonymous visitor: an account is required to
+  // place an order, but it is created inside the checkout form itself so a full
+  // basket is never bounced to a login page.
   const [catalog, account] = await Promise.all([
     getStorefrontCatalog(),
     getMyAccount(),
@@ -34,22 +38,14 @@ export default async function CheckoutPage() {
   const minDate = addDaysIso(today, MIN_DELIVERY_LEAD_DAYS);
   const maxDate = addDaysIso(today, MAX_DELIVERY_HORIZON_DAYS);
 
-  const defaults: CheckoutDefaults | undefined = account
+  const identity: CheckoutIdentityDefaults | null = account
     ? {
         first_name: account.profile.first_name,
         last_name: account.profile.last_name,
         phone: account.profile.phone,
         email: account.profile.email,
-        city: account.address?.city ?? "",
-        district: account.address?.district ?? "",
-        neighborhood: account.address?.neighborhood ?? "",
-        street: account.address?.street ?? "",
-        building_no: account.address?.building_no ?? "",
-        apartment_no: account.address?.apartment_no ?? "",
-        postal_code: account.address?.postal_code ?? "",
-        description: account.address?.description ?? "",
       }
-    : undefined;
+    : null;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -61,19 +57,16 @@ export default async function CheckoutPage() {
           ← Alışverişe dön
         </Link>
         <h1 className="mt-2 font-display text-3xl">Siparişi tamamla</h1>
-        {account ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Hesabınızdaki bilgiler dolduruldu — kontrol edip gönderin.
-          </p>
-        ) : null}
       </div>
 
       <CheckoutForm
         products={products}
+        addresses={account?.addresses ?? []}
+        identity={identity}
         minDate={minDate}
         maxDate={maxDate}
         paytrEnabled={isPaytrEnabled()}
-        {...(defaults ? { defaults } : {})}
+        mapsKey={env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY}
       />
     </main>
   );

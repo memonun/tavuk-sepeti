@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ShoppingBasketIcon } from "lucide-react";
+import { MapPinIcon, ShoppingBasketIcon, TruckIcon } from "lucide-react";
 
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
+import { requiredAddressMode } from "@/features/storefront/domain/fulfillment-channel";
+import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
@@ -37,6 +39,15 @@ export function CartSheet({ products }: { products: readonly Product[] }) {
 
   const subtotal = cartSubtotalMinor(
     rows.map((r) => lineTotalMinor(r.product, r.quantity)),
+  );
+
+  // Same rule the checkout and the server use: any fresh line makes the whole
+  // basket a route order.
+  const mode = requiredAddressMode(
+    rows.map((r) => ({
+      product_key: r.product.key,
+      fulfillment_type: r.product.fulfillment_type,
+    })),
   );
 
   return (
@@ -95,6 +106,20 @@ export function CartSheet({ products }: { products: readonly Product[] }) {
 
         {rows.length > 0 ? (
           <SheetFooter className="border-t border-border/60">
+            {/* Say how this basket will arrive BEFORE checkout, so the delivery
+                restriction is never a surprise at the address step. */}
+            <p className="flex items-start gap-2 rounded-lg bg-secondary/60 px-2.5 py-2 text-xs text-muted-foreground">
+              {mode === "route" ? (
+                <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+              ) : (
+                <TruckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+              )}
+              <span>
+                {mode === "route"
+                  ? `Sepetinizde taze ürün var — bu sipariş yalnızca ${DELIVERY_PROVINCE} içine, kendi ekibimizle elden teslim edilir.`
+                  : "Bu sepetin tamamı kargoyla gönderilir — Türkiye'nin her yerine."}
+              </span>
+            </p>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Ara toplam</span>
               <span className="font-semibold tabular-nums">

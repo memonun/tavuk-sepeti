@@ -85,6 +85,7 @@ export function RouteList({
             apartmentNo: stop.apartment_no,
             lat: stop.lat,
             lng: stop.lng,
+            inServiceArea: stop.in_service_area,
           }),
         }))
       : rows.orders.map((order, idx) => ({
@@ -107,6 +108,7 @@ export function RouteList({
             apartmentNo: order.apartment_no,
             lat: order.lat,
             lng: order.lng,
+            inServiceArea: order.in_service_area,
           }),
         }));
 

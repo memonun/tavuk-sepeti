@@ -71,6 +71,17 @@ const FILTERABLE_COLUMNS: ReadonlyArray<FilterableColumn> = [
   { id: "city", label: "Şehir", kind: "text" },
   { id: "tag", label: "Kanal", kind: "text" },
   { id: "legacy_segment", label: "Segment", kind: "text" },
+  {
+    // Which channel created the row. Filtering to "Panel" is how you confirm the
+    // legacy customer base is untouched by storefront signups.
+    id: "origin",
+    label: "Kaynak",
+    kind: "select",
+    options: [
+      { value: "admin_manual", label: "Panel" },
+      { value: "customer_web", label: "Web" },
+    ],
+  },
   { id: "created_at", label: "Eklenme", kind: "date" },
 ];
 

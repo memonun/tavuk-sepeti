@@ -43,6 +43,7 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
               id="first_name"
               name="first_name"
               autoComplete="given-name"
+              required
               disabled={pending}
             />
           </div>
@@ -52,6 +53,7 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
               id="last_name"
               name="last_name"
               autoComplete="family-name"
+              required
               disabled={pending}
             />
           </div>
@@ -60,17 +62,19 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
 
       {mode === "signup" ? (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="phone">Telefon — opsiyonel</Label>
+          <Label htmlFor="phone">Telefon</Label>
           <Input
             id="phone"
             name="phone"
             type="tel"
+            inputMode="tel"
             autoComplete="tel"
             placeholder="0532 123 45 67"
+            required
             disabled={pending}
           />
           <p className="text-xs text-muted-foreground">
-            Teslimat için; sonra hesabınızdan da ekleyebilirsiniz.
+            Teslimat sırasında size ulaşabilmemiz için gerekli.
           </p>
         </div>
       ) : null}

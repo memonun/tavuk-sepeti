@@ -37,7 +37,11 @@ export const orderFormSchema = z.object({
     blankToNull,
     z.enum(["morning", "afternoon", "evening"]).nullable(),
   ),
-  payment_method: z.enum(["cash_on_delivery", "bank_transfer"]),
+  // Includes credit_card so an order paid by card on the storefront can be
+  // round-tripped through the admin editor. It is deliberately NOT offered in
+  // the admin *create* UI (an admin cannot open a PayTR session at the door) —
+  // see bulk-order.schema.ts, which stays at two values on purpose.
+  payment_method: z.enum(["cash_on_delivery", "bank_transfer", "credit_card"]),
   delivery_notes: z.preprocess(
     blankToNull,
     z.string().max(2000).nullable(),
@@ -122,6 +126,7 @@ export const GRID_PAGE_SIZE = 2000;
 
 export const orderListQuerySchema = z.object({
   status: z.enum(["pending", "confirmed", "delivered", "cancelled"]).optional(),
+  fulfillment_channel: z.enum(["delivery", "shipping"]).optional(),
   scheduled_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   scheduled_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   customer_id: z.string().uuid().optional(),

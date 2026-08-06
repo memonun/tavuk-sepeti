@@ -38,6 +38,17 @@ type CustomerUpdate = Database["public"]["Tables"]["customers"]["Update"];
 type AddressUpdate = Database["public"]["Tables"]["addresses"]["Update"];
 
 /**
+ * List-item projection shared by every customer list query, so the call sites
+ * cannot drift apart.
+ *
+ * `origin` is not in the generated Database type yet (added by migration
+ * 20260805090000; `pnpm db:types` regenerates it), so the callers cast the
+ * client — the repo's documented un-generated-column pattern.
+ */
+const CUSTOMER_LIST_SELECT =
+  "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, origin, created_at, addresses(city, lat, lng, is_primary)" as const;
+
+/**
  * Whitelist of column ids the filter builder may target. Acts as a
  * second wall behind the Zod parse — even if a tampered URL slipped
  * through with `column: "id; drop table"`, the lookup here drops it
@@ -54,6 +65,9 @@ const FILTERABLE_COLUMNS: ReadonlySet<string> = new Set([
   "city",
   "tag",
   "legacy_segment",
+  // Panel (legacy) vs Web — lets an admin confirm at a glance that storefront
+  // signups never merged into the phone-ordering customer base.
+  "origin",
   "created_at",
 ]);
 
@@ -232,12 +246,10 @@ export async function listCustomers(
   const from = (query.page - 1) * query.pageSize;
   const to = from + query.pageSize - 1;
 
-  let builder = supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let builder: any = (supabase as any)
     .from("customers")
-    .select(
-      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, lat, lng, is_primary)",
-      { count: "exact" },
-    )
+    .select(CUSTOMER_LIST_SELECT, { count: "exact" })
     .order(query.sort, { ascending: query.order === "asc" })
     .range(from, to);
 
@@ -267,12 +279,14 @@ export async function listCustomers(
   }
 
   return ok({
-    items: (data ?? []).map((row) =>
-      rowToListItem({
-        ...row,
-        status: row.status as CustomerStatus,
-        addresses: row.addresses ?? [],
-      }),
+    items: (data ?? []).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (row: any) =>
+        rowToListItem({
+          ...row,
+          status: row.status as CustomerStatus,
+          addresses: row.addresses ?? [],
+        }),
     ),
     total: count ?? 0,
     page: query.page,
@@ -292,10 +306,11 @@ export async function findListItemsByIds(
 ): Promise<Result<CustomerListItem[], ExternalApiError>> {
   if (ids.length === 0) return ok([]);
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, lat, lng, is_primary)",
+      CUSTOMER_LIST_SELECT,
     )
     .in("id", [...ids]);
   if (error || !data) {
@@ -311,12 +326,14 @@ export async function findListItemsByIds(
     );
   }
   return ok(
-    data.map((row) =>
-      rowToListItem({
-        ...row,
-        status: row.status as CustomerStatus,
-        addresses: row.addresses ?? [],
-      }),
+    data.map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (row: any) =>
+        rowToListItem({
+          ...row,
+          status: row.status as CustomerStatus,
+          addresses: row.addresses ?? [],
+        }),
     ),
   );
 }
@@ -457,10 +474,11 @@ export async function findListItemById(
   id: string,
 ): Promise<Result<CustomerListItem, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from("customers")
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, lat, lng, is_primary)",
+      CUSTOMER_LIST_SELECT,
     )
     .eq("id", id)
     .single();
@@ -632,11 +650,12 @@ export async function addCustomerRow(
   createdBy: string,
 ): Promise<Result<CustomerListItem, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from("customers")
     .insert({ created_by: createdBy })
     .select(
-      "id, first_name, last_name, phone, email, status, account_type, order_type, tag, legacy_segment, created_at, addresses(city, lat, lng, is_primary)",
+      CUSTOMER_LIST_SELECT,
     )
     .single();
   if (error || !data) {

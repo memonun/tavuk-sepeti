@@ -49,9 +49,25 @@ export const customerSignUpSchema = z.object({
     .email("Geçerli bir e-posta girin.")
     .toLowerCase(),
   password: z.string().min(8, "Şifre en az 8 karakter olmalı."),
-  first_name: z.string().trim().max(100).default(""),
-  last_name: z.string().trim().max(100).default(""),
-  phone: optionalPhoneTR,
+  first_name: z.string().trim().min(1, "Ad gerekli.").max(100),
+  last_name: z.string().trim().min(1, "Soyad gerekli.").max(100),
+  // Required, not optional. A delivery the driver cannot phone fails at the
+  // door, and phone is the field the CRM and the route readiness check key on.
+  // The same rule applies to the inline signup at checkout.
+  phone: z
+    .string()
+    .min(1, "Telefon gerekli.")
+    .transform((s, ctx) => {
+      const normalized = normalizeTRPhone(s);
+      if (normalized === null || !isE164TR(normalized)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Geçerli bir telefon girin (ör. 0532 123 45 67).",
+        });
+        return z.NEVER;
+      }
+      return normalized;
+    }),
 });
 
 /** Account "Bilgilerim" editor — name required, phone optional (E.164). */

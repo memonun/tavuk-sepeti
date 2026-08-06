@@ -15,6 +15,14 @@
 export const DELIVERY_FEE_MINOR = 0;
 
 /**
+ * Flat fee on a CARGO order (kuruş). Separate from DELIVERY_FEE_MINOR on
+ * purpose: shipping a parcel nationwide and driving a van across Malatya are
+ * different costs, and conflating them would force one to change when the other
+ * does. Launch default is 0 (free shipping).
+ */
+export const CARGO_FEE_MINOR = 0;
+
+/**
  * Province where delivery-only (non-cargoable) products are hand-delivered on
  * our own route. Products with fulfillment_type "shipping" go anywhere by cargo;
  * "delivery" products (fresh dairy, eggs) are restricted to this province.

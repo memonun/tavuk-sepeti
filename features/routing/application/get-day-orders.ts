@@ -19,10 +19,18 @@ export interface DayOrder {
   readonly customer_phone: string | null;
   readonly lat: number;
   readonly lng: number;
-  /** Açık adres — the live primary address street line ("Adres" field). */
+  /** Açık adres — street line of the address THIS ORDER was placed to. */
   readonly street: string | null;
-  /** Daire / apartment no on the live primary address. */
+  /** Bina no on the order's address. */
+  readonly building_no: string | null;
+  /** Daire / apartment no on the order's address. */
   readonly apartment_no: string | null;
+  /**
+   * Whether the pin falls inside a configured delivery service area.
+   * `null` = no service area configured at all, so the stop is NOT flagged
+   * (see is_within_service_area — it is deliberately three-valued).
+   */
+  readonly in_service_area: boolean | null;
   readonly delivery_notes: string | null;
   readonly total_minor: number;
 }
@@ -40,14 +48,23 @@ interface RpcRow {
   address_lat: number;
   address_lng: number;
   address_street: string | null;
+  address_building_no: string | null;
   address_apartment_no: string | null;
+  in_service_area: boolean | null;
   delivery_notes: string | null;
   total_minor: number;
 }
 
 /**
- * Fetch the day's confirmed/pending orders + each customer's primary
- * address coordinate. Calls the `find_orders_for_route` RPC (migration 013).
+ * Fetch the day's route-channel orders together with the address each one was
+ * placed to. Calls the `find_orders_for_route` RPC.
+ *
+ * Since 20260805090600 the RPC joins `orders.address_id` rather than the
+ * customer's current primary address, and filters the FROZEN
+ * `orders.fulfillment_channel` instead of re-deriving route membership from the
+ * live products table — so editing a customer's address no longer silently
+ * redirects a pending order, and flipping a product to cargo no longer empties a
+ * past route.
  *
  * The RPC isn't yet in the auto-generated Database type (Docker has been
  * down across recent regenerations); we cast `supabase.rpc(...)` until
@@ -86,7 +103,9 @@ export async function getDayOrders(
       lat: row.address_lat,
       lng: row.address_lng,
       street: row.address_street,
+      building_no: row.address_building_no,
       apartment_no: row.address_apartment_no,
+      in_service_area: row.in_service_area ?? null,
       delivery_notes: row.delivery_notes,
       total_minor: row.total_minor,
     })),

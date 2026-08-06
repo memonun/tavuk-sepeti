@@ -1,16 +1,44 @@
 "use client";
 
+/**
+ * Checkout — one form, one submit.
+ *
+ * The owner's rule was "hesap zorunlu olsun ama sipariş anına kadar friction
+ * koyma". So the account block lives INSIDE this form: an anonymous visitor
+ * browses, fills the basket, comes here and creates the account in the same
+ * action that places the order. No redirect to /kayit, no lost basket. It reads
+ * like guest checkout and produces a real account.
+ *
+ * The basket decides which address form is required. Any fresh (delivery)
+ * product pulls the whole order onto our own route, which means a route-grade
+ * address: cadde, bina, daire and a pin the customer confirmed on the map. An
+ * all-cargo basket needs only a written address and ships nationwide.
+ *
+ * Everything here is a hint for the customer. The action re-derives the channel
+ * from re-priced items, re-checks that the address belongs to the account, and
+ * the RPC checks the service area again inside the transaction.
+ */
 import Link from "next/link";
-import { useActionState, useEffect } from "react";
-import { CheckCircle2Icon, MapPinIcon, ShoppingBasketIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import {
+  CheckCircle2Icon,
+  MailCheckIcon,
+  MapPinIcon,
+  ShoppingBasketIcon,
+  TruckIcon,
+} from "lucide-react";
 
 import {
   placeOrderAction,
   type PlaceOrderState,
 } from "@/features/storefront/application/place-order";
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
+import { requiredAddressMode } from "@/features/storefront/domain/fulfillment-channel";
 import {
+  CARGO_FEE_MINOR,
   DELIVERY_FEE_MINOR,
+  DELIVERY_PROVINCE,
   FULFILLMENT_NOTICE,
   PAYMENT_METHOD_OPTIONS,
   TIME_SLOT_OPTIONS,
@@ -22,9 +50,11 @@ import { cn } from "@/lib/utils";
 import { formatTRY } from "@/shared/utils/money";
 
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { AddressPicker } from "@/features/storefront/ui/address-picker";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 
+import type { SavedAddress } from "@/features/storefront/application/list-addresses";
 import type { Product } from "@/features/products/application/list-products";
 
 const initialState: PlaceOrderState = { status: "idle" };
@@ -32,43 +62,42 @@ const initialState: PlaceOrderState = { status: "idle" };
 const controlClass =
   "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
-export interface CheckoutDefaults {
+export interface CheckoutIdentityDefaults {
   first_name: string;
   last_name: string;
   phone: string;
   email: string;
-  city: string;
-  district: string;
-  neighborhood: string;
-  street: string;
-  building_no: string;
-  apartment_no: string;
-  postal_code: string;
-  description: string;
 }
 
 interface CheckoutFormProps {
   products: readonly Product[];
-  /** Delivery-date bounds, resolved to Europe/Istanbul on the server. */
+  addresses: readonly SavedAddress[];
+  /** Null when nobody is signed in — the account block renders instead. */
+  identity: CheckoutIdentityDefaults | null;
   minDate: string;
   maxDate: string;
-  /** Prefill for a logged-in customer (from their profile + primary address). */
-  defaults?: CheckoutDefaults;
-  /** Whether PayTR card payment is available (merchant configured). */
   paytrEnabled: boolean;
+  mapsKey: string | undefined;
 }
 
 export function CheckoutForm({
   products,
+  addresses,
+  identity,
   minDate,
   maxDate,
-  defaults,
   paytrEnabled,
+  mapsKey,
 }: CheckoutFormProps) {
+  const router = useRouter();
   const { lines, hydrated, clear } = useCart();
   const [state, formAction, pending] = useActionState(
     placeOrderAction,
     initialState,
+  );
+  const [accountMode, setAccountMode] = useState<"signup" | "signin">("signup");
+  const [addressId, setAddressId] = useState<string | null>(
+    addresses.find((a) => a.is_primary)?.id ?? addresses[0]?.id ?? null,
   );
 
   // Empty the basket on inline success; for the card path, hand off to PayTR
@@ -78,88 +107,119 @@ export function CheckoutForm({
     else if (state.status === "redirect") window.location.href = state.url;
   }, [state, clear]);
 
+  const rows = useMemo(
+    () =>
+      lines.flatMap((line) => {
+        const product = products.find((p) => p.key === line.product_key);
+        return product ? [{ product, quantity: line.quantity }] : [];
+      }),
+    [lines, products],
+  );
+
+  // Which address form the basket demands. Mirrors the server's re-derivation.
+  const mode = useMemo(
+    () =>
+      requiredAddressMode(
+        rows.map((r) => ({
+          product_key: r.product.key,
+          fulfillment_type: r.product.fulfillment_type,
+        })),
+      ),
+    [rows],
+  );
+
   if (state.status === "success") {
     return <OrderConfirmation orderNumber={state.orderNumber} />;
   }
 
+  if (state.status === "verify_email") {
+    return <VerifyEmail email={state.email} />;
+  }
+
   if (!hydrated) {
-    return (
-      <p className="py-16 text-center text-muted-foreground">Yükleniyor…</p>
-    );
+    return <p className="py-16 text-center text-muted-foreground">Yükleniyor…</p>;
   }
 
   if (lines.length === 0) {
     return <EmptyCart />;
   }
 
-  const rows = lines.flatMap((line) => {
-    const product = products.find((p) => p.key === line.product_key);
-    return product ? [{ product, quantity: line.quantity }] : [];
-  });
+  const feeMinor = mode === "route" ? DELIVERY_FEE_MINOR : CARGO_FEE_MINOR;
   const subtotal = cartSubtotalMinor(
     rows.map((r) => lineTotalMinor(r.product, r.quantity)),
   );
-  const total = subtotal + DELIVERY_FEE_MINOR;
+  const total = subtotal + feeMinor;
   const itemsJson = JSON.stringify(
     lines.map((l) => ({ product_key: l.product_key, quantity: l.quantity })),
   );
+  const canSubmit = !pending && addressId !== null;
 
   return (
     <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-8">
-        <Section title="İletişim">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Ad" htmlFor="first_name">
-              <Input id="first_name" name="first_name" autoComplete="given-name" defaultValue={defaults?.first_name} required disabled={pending} />
-            </Field>
-            <Field label="Soyad" htmlFor="last_name">
-              <Input id="last_name" name="last_name" autoComplete="family-name" defaultValue={defaults?.last_name} required disabled={pending} />
-            </Field>
-            <Field label="Telefon" htmlFor="phone">
-              <Input id="phone" name="phone" type="tel" inputMode="tel" placeholder="0532 123 45 67" autoComplete="tel" defaultValue={defaults?.phone} required disabled={pending} />
-            </Field>
-            <Field label="E-posta (opsiyonel)" htmlFor="email">
-              <Input id="email" name="email" type="email" autoComplete="email" defaultValue={defaults?.email} disabled={pending} />
-            </Field>
-          </div>
+        <Section title="Hesap">
+          {identity ? (
+            <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm">
+              Merhaba{" "}
+              <strong className="font-medium">
+                {identity.first_name || identity.email}
+              </strong>{" "}
+              — siparişiniz bu hesaba kaydedilecek.
+            </p>
+          ) : (
+            <AccountBlock
+              mode={accountMode}
+              onModeChange={setAccountMode}
+              disabled={pending}
+            />
+          )}
+          <input
+            type="hidden"
+            name="account_mode"
+            value={identity ? "existing" : accountMode}
+          />
         </Section>
 
         <Section title="Teslimat adresi">
           <p className="mb-1 flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
-            <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
-            <span>{FULFILLMENT_NOTICE}</span>
+            {mode === "route" ? (
+              <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+            ) : (
+              <TruckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+            )}
+            <span>
+              {mode === "route"
+                ? `Sepetinizde taze ürün var — bu sipariş ${DELIVERY_PROVINCE} içinde kendi ekibimizle elden teslim edilir. Haritada konumunuzu onaylamanız gerekiyor.`
+                : "Sepetinizdeki ürünlerin tamamı kargoyla gönderilir — Türkiye'nin her yerine teslimat yapılır."}
+            </span>
           </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="İl" htmlFor="city">
-              <Input id="city" name="city" autoComplete="address-level1" defaultValue={defaults?.city} required disabled={pending} />
-            </Field>
-            <Field label="İlçe" htmlFor="district">
-              <Input id="district" name="district" autoComplete="address-level2" defaultValue={defaults?.district} required disabled={pending} />
-            </Field>
-            <Field label="Mahalle" htmlFor="neighborhood">
-              <Input id="neighborhood" name="neighborhood" defaultValue={defaults?.neighborhood} required disabled={pending} />
-            </Field>
-            <Field label="Cadde / Sokak" htmlFor="street">
-              <Input id="street" name="street" autoComplete="address-line1" defaultValue={defaults?.street} disabled={pending} />
-            </Field>
-            <Field label="Bina no" htmlFor="building_no">
-              <Input id="building_no" name="building_no" defaultValue={defaults?.building_no} disabled={pending} />
-            </Field>
-            <Field label="Daire no" htmlFor="apartment_no">
-              <Input id="apartment_no" name="apartment_no" defaultValue={defaults?.apartment_no} disabled={pending} />
-            </Field>
-            <Field label="Posta kodu" htmlFor="postal_code">
-              <Input id="postal_code" name="postal_code" autoComplete="postal-code" inputMode="numeric" defaultValue={defaults?.postal_code} disabled={pending} />
-            </Field>
-            <Field label="Adres tarifi (opsiyonel)" htmlFor="description">
-              <Input id="description" name="description" placeholder="Kapı kodu, kat vb." defaultValue={defaults?.description} disabled={pending} />
-            </Field>
-          </div>
+
+          {identity ? (
+            <AddressPicker
+              addresses={addresses}
+              mode={mode}
+              mapsKey={mapsKey}
+              selectedId={addressId}
+              onSelect={setAddressId}
+              onChanged={() => router.refresh()}
+              disabled={pending}
+            />
+          ) : (
+            <p className="rounded-xl border border-dashed border-input px-3 py-6 text-center text-sm text-muted-foreground">
+              Adresinizi girebilmek için önce yukarıdan hesabınızı oluşturun ya
+              da giriş yapın.
+            </p>
+          )}
+          <input type="hidden" name="address_id" value={addressId ?? ""} />
+          <input type="hidden" name="address_mode" value={mode} />
         </Section>
 
-        <Section title="Teslimat zamanı">
+        <Section title={mode === "route" ? "Teslimat zamanı" : "Gönderim günü"}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Teslimat günü" htmlFor="scheduled_for">
+            <Field
+              label={mode === "route" ? "Teslimat günü" : "Hazırlanma günü"}
+              htmlFor="scheduled_for"
+            >
               <Input
                 id="scheduled_for"
                 name="scheduled_for"
@@ -171,16 +231,26 @@ export function CheckoutForm({
                 disabled={pending}
               />
             </Field>
-            <Field label="Zaman aralığı" htmlFor="time_slot">
-              <select id="time_slot" name="time_slot" defaultValue="" className={controlClass} disabled={pending}>
-                <option value="">Fark etmez</option>
-                {TIME_SLOT_OPTIONS.map((slot) => (
-                  <option key={slot.value} value={slot.value}>
-                    {slot.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {/* A cargo order has no delivery window — there is no van to
+                schedule, so the slot selector is not shown at all. */}
+            {mode === "route" ? (
+              <Field label="Zaman aralığı" htmlFor="time_slot">
+                <select
+                  id="time_slot"
+                  name="time_slot"
+                  defaultValue=""
+                  className={controlClass}
+                  disabled={pending}
+                >
+                  <option value="">Fark etmez</option>
+                  {TIME_SLOT_OPTIONS.map((slot) => (
+                    <option key={slot.value} value={slot.value}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
           </div>
         </Section>
 
@@ -253,9 +323,11 @@ export function CheckoutForm({
               <span className="tabular-nums">{formatTRY(subtotal)}</span>
             </div>
             <div className="mt-1 flex justify-between">
-              <span className="text-muted-foreground">Teslimat</span>
+              <span className="text-muted-foreground">
+                {mode === "route" ? "Teslimat" : "Kargo"}
+              </span>
               <span className="tabular-nums">
-                {DELIVERY_FEE_MINOR === 0 ? "Ücretsiz" : formatTRY(DELIVERY_FEE_MINOR)}
+                {feeMinor === 0 ? "Ücretsiz" : formatTRY(feeMinor)}
               </span>
             </div>
             <div className="mt-2 flex justify-between border-t border-border/60 pt-2 text-base font-semibold">
@@ -264,6 +336,12 @@ export function CheckoutForm({
             </div>
           </div>
 
+          {mode === "route" ? (
+            <p className="rounded-lg bg-secondary/60 px-2.5 py-1.5 text-center text-xs text-muted-foreground">
+              {FULFILLMENT_NOTICE}
+            </p>
+          ) : null}
+
           {state.status === "validation_error" || state.status === "error" ? (
             <p className="text-sm text-destructive" role="alert">
               {state.message}
@@ -271,27 +349,165 @@ export function CheckoutForm({
           ) : null}
 
           <input type="hidden" name="items_json" value={itemsJson} />
-          <Button type="submit" size="lg" className="w-full rounded-full" disabled={pending}>
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full rounded-full"
+            disabled={!canSubmit}
+          >
             {pending ? "Gönderiliyor…" : "Siparişi ver"}
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            {paytrEnabled
-              ? "Kart seçilirse güvenli ödeme sayfasına (PayTR) yönlendirilirsiniz."
-              : "Ödeme teslimatta veya havale ile alınır."}
-          </p>
+          {!identity ? (
+            <p className="text-center text-xs text-muted-foreground">
+              Hesabınız sipariş verirken oluşturulur — sepetiniz kaybolmaz.
+            </p>
+          ) : addressId === null ? (
+            <p className="text-center text-xs text-muted-foreground">
+              Devam etmek için bir teslimat adresi seçin.
+            </p>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">
+              {paytrEnabled
+                ? "Kart seçilirse güvenli ödeme sayfasına (PayTR) yönlendirilirsiniz."
+                : "Ödeme teslimatta veya havale ile alınır."}
+            </p>
+          )}
         </div>
       </aside>
     </form>
   );
 }
 
-function Section({
-  title,
-  children,
+/**
+ * Inline account creation / sign-in. Rendered in place rather than as a
+ * redirect, because bouncing someone with a full basket to /giris is exactly
+ * the friction the owner asked us not to add.
+ */
+function AccountBlock({
+  mode,
+  onModeChange,
+  disabled,
 }: {
-  title: string;
-  children: React.ReactNode;
+  mode: "signup" | "signin";
+  onModeChange: (mode: "signup" | "signin") => void;
+  disabled: boolean;
 }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-2 text-sm">
+        <button
+          type="button"
+          onClick={() => onModeChange("signup")}
+          className={cn(
+            "rounded-full px-3 py-1.5 transition-colors",
+            mode === "signup" ? "bg-primary text-primary-foreground" : "bg-secondary",
+          )}
+          disabled={disabled}
+        >
+          Hesap oluştur
+        </button>
+        <button
+          type="button"
+          onClick={() => onModeChange("signin")}
+          className={cn(
+            "rounded-full px-3 py-1.5 transition-colors",
+            mode === "signin" ? "bg-primary text-primary-foreground" : "bg-secondary",
+          )}
+          disabled={disabled}
+        >
+          Zaten hesabım var
+        </button>
+      </div>
+
+      {mode === "signup" ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Ad" htmlFor="first_name">
+            <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} />
+          </Field>
+          <Field label="Soyad" htmlFor="last_name">
+            <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} />
+          </Field>
+          {/* Required, not optional: a stop the driver can't phone is a delivery
+              that fails at the door, and it's the field the CRM keys on. */}
+          <Field label="Telefon" htmlFor="phone">
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              inputMode="tel"
+              placeholder="0532 123 45 67"
+              autoComplete="tel"
+              required
+              disabled={disabled}
+            />
+          </Field>
+          <Field label="E-posta" htmlFor="account_email">
+            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} />
+          </Field>
+          <Field label="Şifre (en az 8 karakter)" htmlFor="account_password">
+            <Input
+              id="account_password"
+              name="account_password"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              disabled={disabled}
+            />
+          </Field>
+          <label className="flex cursor-pointer items-start gap-2.5 self-end rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50">
+            <input
+              type="checkbox"
+              name="kvkk_accepted"
+              className="mt-0.5 size-4 accent-primary"
+              required
+              disabled={disabled}
+            />
+            <span>
+              <Link href="/kvkk" className="underline underline-offset-2" target="_blank">
+                KVKK Aydınlatma Metni
+              </Link>{" "}
+              ve{" "}
+              <Link
+                href="/mesafeli-satis-sozlesmesi"
+                className="underline underline-offset-2"
+                target="_blank"
+              >
+                Mesafeli Satış Sözleşmesi
+              </Link>
+              &apos;ni okudum, onaylıyorum.
+            </span>
+          </label>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="E-posta" htmlFor="account_email">
+            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} />
+          </Field>
+          <Field label="Şifre" htmlFor="account_password">
+            <Input
+              id="account_password"
+              name="account_password"
+              type="password"
+              autoComplete="current-password"
+              required
+              disabled={disabled}
+            />
+          </Field>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Şifrenizi mi unuttunuz?{" "}
+            <Link href="/sifremi-unuttum" className="underline underline-offset-2">
+              Sıfırlayın
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-4">
       <h2 className="font-display text-lg text-foreground">{title}</h2>
@@ -334,6 +550,27 @@ function EmptyCart() {
   );
 }
 
+/** Supabase is configured to require e-mail confirmation, so the account exists
+ *  but has no session yet and the order cannot be written. The basket is
+ *  deliberately NOT cleared — the customer confirms and comes straight back. */
+function VerifyEmail({ email }: { email: string }) {
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
+      <MailCheckIcon className="size-12 text-primary" />
+      <h2 className="font-display text-2xl">E-postanızı doğrulayın</h2>
+      <p className="text-sm text-muted-foreground">
+        <strong className="font-medium text-foreground">{email}</strong> adresine
+        bir doğrulama bağlantısı gönderdik. Bağlantıya tıkladıktan sonra bu
+        sayfaya dönün — sepetiniz duruyor, siparişinizi tek tıkla
+        tamamlayabilirsiniz.
+      </p>
+      <Link href="/odeme" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
+        Siparişe dön
+      </Link>
+    </div>
+  );
+}
+
 function OrderConfirmation({ orderNumber }: { orderNumber: string }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
@@ -346,12 +583,20 @@ function OrderConfirmation({ orderNumber }: { orderNumber: string }) {
         </p>
       </div>
       <p className="text-sm text-muted-foreground">
-        Siparişinizi hazırlamaya başlıyoruz. Teslimat gününüzde kapıda ödeme ya
-        da havale ile ödeyebilirsiniz.
+        Siparişinizi hazırlamaya başlıyoruz. Durumunu istediğiniz zaman
+        hesabınızdan takip edebilirsiniz.
       </p>
-      <Link href="/" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
-        Alışverişe devam et
-      </Link>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Link href="/" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
+          Alışverişe devam et
+        </Link>
+        <Link
+          href="/hesap"
+          className={cn(buttonVariants({ size: "lg", variant: "outline" }), "rounded-full")}
+        >
+          Siparişlerim
+        </Link>
+      </div>
     </div>
   );
 }

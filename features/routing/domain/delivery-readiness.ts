@@ -15,7 +15,12 @@
  */
 
 /** Which required delivery field is missing. Order = display order. */
-export type MissingDeliveryField = "phone" | "address" | "apartment" | "location";
+export type MissingDeliveryField =
+  | "phone"
+  | "address"
+  | "apartment"
+  | "location"
+  | "outside_area";
 
 /** Turkish labels for the warning chips — UI reads these, no inline strings. */
 export const MISSING_FIELD_LABELS: Readonly<Record<MissingDeliveryField, string>> = {
@@ -23,6 +28,7 @@ export const MISSING_FIELD_LABELS: Readonly<Record<MissingDeliveryField, string>
   address: "Açık adres",
   apartment: "Daire",
   location: "Konum",
+  outside_area: "Bölge dışı",
 };
 
 /** The slice of a stop/order the check needs — both DayOrder and RouteStop
@@ -38,6 +44,13 @@ export interface DeliveryReadinessInput {
   readonly lat: number | null;
   /** Map pin longitude. */
   readonly lng: number | null;
+  /**
+   * Whether the pin is inside a configured delivery service area.
+   * `false` flags the stop; `null` (or omitted) means no service area has been
+   * configured at all, so there is nothing to judge against and we stay silent
+   * rather than painting every stop red.
+   */
+  readonly inServiceArea?: boolean | null | undefined;
 }
 
 const isBlank = (value: string | null): boolean =>
@@ -64,5 +77,7 @@ export function missingDeliveryFields(
   if (isBlank(input.street)) missing.push("address");
   if (isBlank(input.apartmentNo)) missing.push("apartment");
   if (hasNoLocation(input.lat, input.lng)) missing.push("location");
+  // Only an explicit `false` is a problem. `null`/undefined = unconfigured.
+  if (input.inServiceArea === false) missing.push("outside_area");
   return missing;
 }
