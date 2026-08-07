@@ -83,12 +83,43 @@ export const routeAddressSchema = z
     }
   });
 
-export const cargoAddressSchema = z.object({
-  ...addressBase,
-  street: z.string().trim().max(150).default(""),
-  building_no: z.string().trim().max(20).default(""),
-  apartment_no: z.string().trim().max(20).default(""),
-});
+/**
+ * A cargo address takes a pin too — OPTIONALLY.
+ *
+ * A courier still needs nothing but the written address, so the pin is never
+ * required and its absence is the (0,0) sentinel exactly as before. But since
+ * the form now opens on a map in both modes, a cargo customer routinely DOES
+ * place one, and throwing it away would be the worst of both worlds: we ask for
+ * a location, show it filling the fields, then silently forget it and later
+ * tell the same customer their address "has no map pin" when they order fresh
+ * products.
+ *
+ * The §8 rule still holds for whatever pin does arrive: an approximate
+ * coordinate is only acceptable when the customer placed it themselves.
+ */
+export const cargoAddressSchema = z
+  .object({
+    ...addressBase,
+    street: z.string().trim().max(150).default(""),
+    building_no: z.string().trim().max(20).default(""),
+    apartment_no: z.string().trim().max(20).default(""),
+    lat: z.coerce.number().gte(-90).lte(90).default(0),
+    lng: z.coerce.number().gte(-180).lte(180).default(0),
+    accuracy: coordinateAccuracySchema.default("unknown"),
+    source: coordinateSourceSchema.default("user_pin"),
+  })
+  .superRefine((address, ctx) => {
+    const hasPin = address.lat !== 0 || address.lng !== 0;
+    if (!hasPin) return;
+    if (isLowAccuracy(address.accuracy) && address.source !== "user_pin") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["lat"],
+        message:
+          "Konum yaklaşık. Lütfen haritadaki pini tam adresinize sürükleyin.",
+      });
+    }
+  });
 
 export type RouteAddressInput = z.input<typeof routeAddressSchema>;
 export type RouteAddressParsed = z.output<typeof routeAddressSchema>;

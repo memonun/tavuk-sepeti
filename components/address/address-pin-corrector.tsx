@@ -21,9 +21,9 @@
  * Note: this component assumes an `<APIProvider>` ancestor — use
  * `<AddressMapsProvider>` so this map and the autocomplete share one script load.
  */
-import { AdvancedMarker, Map } from "@vis.gl/react-google-maps";
+import { AdvancedMarker, Map, useMap } from "@vis.gl/react-google-maps";
 import { AlertTriangle, CheckCircle2, MapPin } from "lucide-react";
-import { useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { isLowAccuracy } from "@/shared/geo/accuracy";
 import type { CoordinateAccuracy, CoordinateSource } from "@/shared/geo/coordinate";
@@ -48,6 +48,49 @@ interface AddressPinCorrectorProps {
   hasPin?: boolean;
 }
 
+/**
+ * Imperative re-centring, the only safe way to move an uncontrolled map.
+ *
+ * It runs ONLY for coordinates that arrived from outside — an autocomplete
+ * selection, or an address opened for editing. A point the user just dragged or
+ * tapped is skipped: the map is already showing it, and panning under their
+ * finger is the exact "the map fights me" feeling this component had.
+ *
+ * Must be a child of `<Map>`: `useMap()` reads the instance off its context, so
+ * the component that renders `<Map>` cannot call it.
+ */
+function CameraSync({
+  lat,
+  lng,
+  active,
+  selfEmitted,
+}: {
+  lat: number;
+  lng: number;
+  active: boolean;
+  selfEmitted: React.RefObject<{ lat: number; lng: number } | null>;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !active) return;
+    const own = selfEmitted.current;
+    if (own && own.lat === lat && own.lng === lng) return;
+    map.panTo({ lat, lng });
+    // A search result lands on a map still showing the whole province, where a
+    // single door is invisible. Zoom in to street level — but only when we are
+    // further out than that, so a customer who zoomed in deliberately is not
+    // pulled back out.
+    const zoom = map.getZoom();
+    if (zoom === undefined || zoom < STREET_ZOOM) map.setZoom(STREET_ZOOM);
+  }, [map, lat, lng, active, selfEmitted]);
+
+  return null;
+}
+
+/** Zoom at which individual buildings are distinguishable. */
+const STREET_ZOOM = 17;
+
 const ACCURACY_LABEL: Record<CoordinateAccuracy, string> = {
   rooftop: "Bina seviyesi — kesin",
   range_interpolated: "Sokak üzerinde — kesin",
@@ -56,7 +99,16 @@ const ACCURACY_LABEL: Record<CoordinateAccuracy, string> = {
   unknown: "Bilinmiyor — pin'i taşı ve onayla",
 };
 
-export function AddressPinCorrector({
+/**
+ * Memoized: the map subtree is by far the most expensive thing on the address
+ * form, and it lives next to text inputs whose state sits in the parent. Without
+ * this, every keystroke in "Daire no" re-renders the whole map — which also
+ * re-runs the library's per-render camera and options effects. Callers must pass
+ * a stable `onChange` (see `useCallback` in address-form) or this does nothing.
+ */
+export const AddressPinCorrector = memo(AddressPinCorrectorImpl);
+
+function AddressPinCorrectorImpl({
   lat,
   lng,
   accuracy,
@@ -67,11 +119,26 @@ export function AddressPinCorrector({
 }: AddressPinCorrectorProps) {
   const low = isLowAccuracy(accuracy);
 
-  // Recentre only when the coordinate itself moves. A fresh object literal on
-  // every render would re-apply `center` continuously and fight the user's own
-  // panning — which is fatal here, since panning is how you find your door
-  // before there is a pin to drag.
-  const center = useMemo(() => ({ lat, lng }), [lat, lng]);
+  const initialCenter = useMemo(
+    () => ({ lat, lng }),
+    // Mount-time view only — `defaultCenter` is read once, and re-centring
+    // afterwards is CameraSync's job. Recomputing it on every coordinate change
+    // would be dead weight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // Coordinates this component itself just emitted, so CameraSync can tell a
+  // drag/tap the user performed from a coordinate pushed in from outside.
+  const selfEmitted = useRef<{ lat: number; lng: number } | null>(null);
+
+  const emit = useCallback(
+    (next: { lat: number; lng: number; source: CoordinateSource }) => {
+      selfEmitted.current = { lat: next.lat, lng: next.lng };
+      onChange(next);
+    },
+    [onChange],
+  );
 
   return (
     <div className="space-y-2">
@@ -95,28 +162,44 @@ export function AddressPinCorrector({
         <div className="overflow-hidden rounded-lg border">
           <Map
             mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "customer-address"}
-            defaultCenter={center}
-            center={center}
+            // UNCONTROLLED camera — `defaultCenter`/`defaultZoom` only, never
+            // `center`/`zoom`. Those two are controlled props: passing them
+            // without an `onCameraChanged` handler that writes the new camera
+            // back to state makes the library re-apply the old camera, so every
+            // pan and zoom snaps straight back and the map reads as frozen.
+            // Re-centring is done imperatively by CameraSync below instead.
+            defaultCenter={initialCenter}
             defaultZoom={hasPin && !low ? 17 : 14}
             gestureHandling="greedy"
             disableDefaultUI={false}
+            // Forced on rather than left to the default: Maps hides the zoom
+            // buttons on small viewports, which leaves pinch as the only way to
+            // zoom — awkward one-handed, and zooming is most of the work when
+            // you are hunting for your own street.
+            zoomControl
             style={{ width: "100%", height: "clamp(220px, 45vh, 320px)" }}
             // Tapping the map is the primary way to place the first pin —
             // dragging only works once a marker already exists.
             onClick={(event) => {
               const next = event.detail.latLng;
               if (!next) return;
-              onChange({ lat: next.lat, lng: next.lng, source: pinSource });
+              emit({ lat: next.lat, lng: next.lng, source: pinSource });
             }}
           >
+            <CameraSync
+              lat={lat}
+              lng={lng}
+              active={hasPin}
+              selfEmitted={selfEmitted}
+            />
             {hasPin ? (
             <AdvancedMarker
-              position={center}
+              position={{ lat, lng }}
               draggable
               onDragEnd={(event) => {
                 const next = event.latLng;
                 if (!next) return;
-                onChange({
+                emit({
                   lat: next.lat(),
                   lng: next.lng(),
                   source: pinSource,
