@@ -37,8 +37,12 @@ export default async function ShopLayout({
   const products = catalog.ok ? catalog.value : [];
 
   return (
+    // `min-h-dvh`, not `min-h-screen`: on mobile Safari/Chrome `100vh` is the
+    // LARGE viewport (toolbars collapsed), so a `100vh` shell is always taller
+    // than what is actually on screen and the page picks up a phantom scroll
+    // that never reaches real content. `dvh` tracks the visible viewport.
     <div
-      className={`${shopSerif.variable} shop-theme flex min-h-screen flex-col bg-background text-foreground`}
+      className={`${shopSerif.variable} shop-theme flex min-h-dvh flex-col bg-background text-foreground`}
     >
       <CartProvider>
         <ShopHeader products={products} />

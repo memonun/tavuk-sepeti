@@ -42,12 +42,18 @@ export default function RootLayout({
   return (
     // suppressHydrationWarning is required by next-themes — it injects the
     // `class="dark"` before React hydrates, which would otherwise mismatch.
+    //
+    // No height/flex constraints on <html>/<body>: every subtree below
+    // (storefront, admin shell, /login) sets its own full-height wrapper, and a
+    // definite `height: 100%` root over a flex `body` makes WebKit resolve the
+    // body's height as definite — the document's scrollable height stays pinned
+    // to one viewport and everything past the fold becomes unreachable on iOS.
     <html
       lang="tr"
       suppressHydrationWarning
-      className={`${interSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${interSans.variable} ${geistMono.variable} antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-dvh">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
