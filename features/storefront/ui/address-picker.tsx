@@ -18,6 +18,10 @@ import { CheckIcon, MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddressForm } from "@/features/storefront/ui/address-form";
 import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
+import {
+  routeBlockReason,
+  type RouteBlockReason,
+} from "@/features/storefront/domain/route-capability";
 
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
 
@@ -32,10 +36,10 @@ interface AddressPickerProps {
   disabled?: boolean;
 }
 
-/** A pin on the null island is the repo's "no pin" sentinel. */
-function isRouteCapable(address: SavedAddress): boolean {
-  return address.lat !== 0 || address.lng !== 0;
-}
+const BLOCK_MESSAGE: Record<RouteBlockReason, string> = {
+  no_pin: `Taze ürünler için konum onayı gerekiyor — bu adreste harita pini yok. Adresi düzenleyip haritadan ${DELIVERY_PROVINCE} konumunuzu onaylayın.`,
+  other_province: `Taze ürünler yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Bu adres başka bir ilde — kargo siparişleri için kullanılabilir.`,
+};
 
 export function AddressPicker({
   addresses,
@@ -66,7 +70,8 @@ export function AddressPicker({
   return (
     <div className="flex flex-col gap-2.5">
       {addresses.map((address) => {
-        const usable = mode === "cargo" || isRouteCapable(address);
+        const blockReason = mode === "cargo" ? null : routeBlockReason(address);
+        const usable = blockReason === null;
         const selected = address.id === selectedId;
         return (
           <button
@@ -104,11 +109,9 @@ export function AddressPicker({
                   {address.raw_text}
                 </span>
               ) : null}
-              {!usable ? (
+              {blockReason ? (
                 <span className="mt-1 block text-xs text-destructive">
-                  Taze ürünler için konum onayı gerekiyor — bu adreste harita pini
-                  yok. Yeni adres ekleyip {DELIVERY_PROVINCE} konumunuzu
-                  onaylayın.
+                  {BLOCK_MESSAGE[blockReason]}
                 </span>
               ) : null}
             </span>

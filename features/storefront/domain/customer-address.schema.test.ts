@@ -134,4 +134,67 @@ describe("cargoAddressSchema", () => {
     expect(cargoAddressSchema.safeParse({ ...cargoAddress, district: "" }).success).toBe(false);
     expect(cargoAddressSchema.safeParse({ ...cargoAddress, neighborhood: "" }).success).toBe(false);
   });
+
+  it("defaults to the no-pin sentinel when the customer never touched the map", () => {
+    const parsed = cargoAddressSchema.parse(cargoAddress);
+    expect(parsed.lat).toBe(0);
+    expect(parsed.lng).toBe(0);
+  });
+
+  // The point of accepting a pin here: the customer placed one on the map, and
+  // keeping it is what lets the same address serve a later fresh-product order
+  // instead of being rejected for "no pin".
+  it("keeps a pin the customer did place", () => {
+    const parsed = cargoAddressSchema.parse({
+      ...cargoAddress,
+      lat: 41.0082,
+      lng: 28.9784,
+      accuracy: "rooftop",
+      source: "user_pin",
+    });
+    expect(parsed.lat).toBeCloseTo(41.0082);
+    expect(parsed.lng).toBeCloseTo(28.9784);
+  });
+
+  it("applies the §8 rule to a pin that does arrive", () => {
+    // Approximate coordinate NOT placed by the customer — same refusal the
+    // route schema makes, so a cargo save cannot be used to smuggle one in.
+    expect(
+      cargoAddressSchema.safeParse({
+        ...cargoAddress,
+        lat: 41.0082,
+        lng: 28.9784,
+        accuracy: "approximate",
+        source: "geocoded_auto",
+      }).success,
+    ).toBe(false);
+
+    expect(
+      cargoAddressSchema.safeParse({
+        ...cargoAddress,
+        lat: 41.0082,
+        lng: 28.9784,
+        accuracy: "approximate",
+        source: "user_pin",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("does not apply the accuracy rule when there is no pin at all", () => {
+    expect(
+      cargoAddressSchema.safeParse({
+        ...cargoAddress,
+        lat: 0,
+        lng: 0,
+        accuracy: "unknown",
+        source: "geocoded_auto",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an out-of-range coordinate", () => {
+    expect(
+      cargoAddressSchema.safeParse({ ...cargoAddress, lat: 91, lng: 0 }).success,
+    ).toBe(false);
+  });
 });

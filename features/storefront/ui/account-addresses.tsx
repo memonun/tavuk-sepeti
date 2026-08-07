@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { deleteAddressAction } from "@/features/storefront/application/delete-address";
 import { AddressForm } from "@/features/storefront/ui/address-form";
 import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
+import { isRouteCapable } from "@/features/storefront/domain/route-capability";
 
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
 
@@ -94,7 +95,9 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
 
       <ul className="flex flex-col gap-2">
         {addresses.map((address) => {
-          const routeCapable = address.lat !== 0 || address.lng !== 0;
+          // Same predicate the checkout picker uses — a badge that disagreed
+          // with what checkout will accept is worse than no badge.
+          const routeCapable = isRouteCapable(address);
           return (
             <li
               key={address.id}

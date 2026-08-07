@@ -96,16 +96,26 @@ export async function saveAddressAction(
         message: parsed.error.issues[0]?.message ?? "Adres bilgileri eksik.",
       };
     }
-    address = {
-      ...parsed.data,
-      lat: 0,
-      lng: 0,
-      source: "user_pin",
-      accuracy: "unknown",
-    };
+    address = { ...parsed.data };
   }
 
   let geoVerified = false;
+
+  if (args.mode === "cargo" && (address.lat !== 0 || address.lng !== 0)) {
+    // Non-blocking on purpose. A cargo address is valid anywhere in Türkiye, so
+    // being outside the van's area is NOT a reason to reject it — the check runs
+    // only to decide whether this address may ALSO serve a future route order.
+    // Failures degrade to "not verified", never to a refused save.
+    const area = await checkServiceArea(address.lat, address.lng);
+    if (!area.ok) {
+      logger.warn(
+        { code: area.error.code },
+        "cargo_pin_service_area_check_unavailable",
+      );
+    } else if (area.value === "inside") {
+      geoVerified = true;
+    }
+  }
 
   if (args.mode === "route") {
     const area = await checkServiceArea(address.lat, address.lng);

@@ -206,7 +206,11 @@ export function AddressForm({
         apartment_no: detached
           ? DETACHED_HOUSE_APARTMENT_NO
           : fields.apartment_no,
-        ...(mode === "route"
+        // Sent in BOTH modes now. A cargo order does not need the pin, but the
+        // customer placed one on the map and the address book keeps it, so the
+        // same address can serve a fresh-product order later instead of being
+        // rejected for "no pin".
+        ...(hasPin
           ? {
               lat: pin.lat,
               lng: pin.lng,
