@@ -18,10 +18,12 @@
  * schema enforces the same rule server-side (source must be "user_pin" when the
  * accuracy is low), so a tampered submit gains nothing.
  *
- * A CARGO address needs none of that: a courier delivers anywhere in Türkiye
- * from the written address alone, so the map is not rendered at all.
+ * A CARGO address needs none of that — a courier delivers anywhere in Türkiye
+ * from the written address alone — but it gets the same map, because picking a
+ * point is how the fields get filled without typing. There the pin is optional:
+ * it is saved if placed, and nothing blocks the save if it is not.
  */
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { MapPinIcon } from "lucide-react";
 
 import { AddressAutocomplete } from "@/components/address/address-autocomplete";
@@ -172,7 +174,7 @@ export function AddressForm({
    * A failure is deliberately soft — the pin still stands and the fields stay
    * editable, so a Google outage costs precision, not the order.
    */
-  async function fillFromPin(lat: number, lng: number) {
+  const fillFromPin = useCallback(async (lat: number, lng: number) => {
     const seq = ++lookupSeq.current;
     setLookupError(null);
     const result = await reverseGeocodeAction({ lat, lng });
@@ -192,7 +194,26 @@ export function AddressForm({
       building_no: a.building_no,
       postal_code: a.postal_code,
     }));
-  }
+  }, []);
+
+  /**
+   * Stable by design — `AddressPinCorrector` is memoized, and an inline arrow
+   * here would give it a new prop on every keystroke and defeat that entirely.
+   * Everything it touches is a setter or a ref, so it needs no dependencies.
+   */
+  const handlePinChange = useCallback(
+    (next: { lat: number; lng: number; source: CoordinateSource }) => {
+      setPin({
+        lat: next.lat,
+        lng: next.lng,
+        accuracy: "rooftop",
+        source: next.source,
+      });
+      setConfirmed(false);
+      void fillFromPin(next.lat, next.lng);
+    },
+    [fillFromPin],
+  );
 
   async function submit() {
     setError(null);
@@ -269,16 +290,7 @@ export function AddressForm({
                 ? "Pini kapınızın tam önüne sürükleyin, sonra aşağıdan onaylayın."
                 : "Pini sürükleyerek konumu düzeltebilirsiniz."
           }
-          onChange={(next) => {
-            setPin({
-              lat: next.lat,
-              lng: next.lng,
-              accuracy: "rooftop",
-              source: next.source,
-            });
-            setConfirmed(false);
-            void fillFromPin(next.lat, next.lng);
-          }}
+          onChange={handlePinChange}
         />
 
         {lookupError ? (
