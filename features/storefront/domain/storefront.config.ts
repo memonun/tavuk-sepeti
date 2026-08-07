@@ -29,6 +29,15 @@ export const CARGO_FEE_MINOR = 0;
  */
 export const DELIVERY_PROVINCE = "Malatya";
 
+/**
+ * Where the address map opens before the customer has chosen anything — the
+ * centre of the delivery province. A neutral starting view, not a suggestion:
+ * no pin is placed here, the customer still taps their own spot. A cargo
+ * customer elsewhere in Türkiye simply pans away, which is cheaper than making
+ * everyone start from a world view.
+ */
+export const DELIVERY_PROVINCE_CENTER = { lat: 38.3552, lng: 38.3095 } as const;
+
 /** Short per-product badge shown on delivery-only (non-cargoable) items. */
 export const DELIVERY_ONLY_BADGE = `Yalnızca ${DELIVERY_PROVINCE}'da teslim`;
 

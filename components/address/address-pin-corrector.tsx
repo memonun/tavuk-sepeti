@@ -22,7 +22,8 @@
  * `<AddressMapsProvider>` so this map and the autocomplete share one script load.
  */
 import { AdvancedMarker, Map } from "@vis.gl/react-google-maps";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, MapPin } from "lucide-react";
+import { useMemo } from "react";
 
 import { isLowAccuracy } from "@/shared/geo/accuracy";
 import type { CoordinateAccuracy, CoordinateSource } from "@/shared/geo/coordinate";
@@ -37,6 +38,14 @@ interface AddressPinCorrectorProps {
   /** Overrides the accuracy-derived caption (the storefront asks for a
    *  confirmation rather than describing geocoder precision). */
   hint?: string;
+  /**
+   * False while the customer has not chosen a point yet. The map still renders
+   * — centred on `lat`/`lng` as a neutral starting view — but shows no marker,
+   * so an empty map reads as "pick a spot" rather than as a pin already on the
+   * wrong door. Defaults to true for the admin form, which always opens with a
+   * geocoded pin.
+   */
+  hasPin?: boolean;
 }
 
 const ACCURACY_LABEL: Record<CoordinateAccuracy, string> = {
@@ -54,19 +63,28 @@ export function AddressPinCorrector({
   pinSource,
   onChange,
   hint,
+  hasPin = true,
 }: AddressPinCorrectorProps) {
   const low = isLowAccuracy(accuracy);
+
+  // Recentre only when the coordinate itself moves. A fresh object literal on
+  // every render would re-apply `center` continuously and fight the user's own
+  // panning — which is fatal here, since panning is how you find your door
+  // before there is a pin to drag.
+  const center = useMemo(() => ({ lat, lng }), [lat, lng]);
 
   return (
     <div className="space-y-2">
         <div
           className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
-            low
+            !hasPin || low
               ? "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300"
               : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
           }`}
         >
-          {low ? (
+          {!hasPin ? (
+            <MapPin className="h-4 w-4 shrink-0" />
+          ) : low ? (
             <AlertTriangle className="h-4 w-4 shrink-0" />
           ) : (
             <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -77,15 +95,23 @@ export function AddressPinCorrector({
         <div className="overflow-hidden rounded-lg border">
           <Map
             mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "customer-address"}
-            defaultCenter={{ lat, lng }}
-            center={{ lat, lng }}
-            defaultZoom={low ? 14 : 17}
+            defaultCenter={center}
+            center={center}
+            defaultZoom={hasPin && !low ? 17 : 14}
             gestureHandling="greedy"
             disableDefaultUI={false}
             style={{ width: "100%", height: "clamp(220px, 45vh, 320px)" }}
+            // Tapping the map is the primary way to place the first pin —
+            // dragging only works once a marker already exists.
+            onClick={(event) => {
+              const next = event.detail.latLng;
+              if (!next) return;
+              onChange({ lat: next.lat, lng: next.lng, source: pinSource });
+            }}
           >
+            {hasPin ? (
             <AdvancedMarker
-              position={{ lat, lng }}
+              position={center}
               draggable
               onDragEnd={(event) => {
                 const next = event.latLng;
@@ -107,6 +133,7 @@ export function AddressPinCorrector({
                 <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-violet-600" />
               </div>
             </AdvancedMarker>
+            ) : null}
           </Map>
         </div>
     </div>
