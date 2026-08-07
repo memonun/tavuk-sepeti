@@ -26,6 +26,7 @@ import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 
 import type { CoordinateAccuracy } from "@/shared/geo/coordinate";
+import type { GoogleRestAddressComponentLike } from "@/shared/geo/tr-address-components";
 
 // ---- Wire response schema -------------------------------------------------
 // Only the fields we consume — Google sends much more, we discard via Zod's
@@ -41,6 +42,14 @@ const googleStatusSchema = z.enum([
   "UNKNOWN_ERROR",
 ]);
 
+// `address_components` is only consumed by the REVERSE path (coordinate →
+// structured fields); the forward path takes the coordinate and ignores it.
+// Optional with a default so a forward response that omits it still parses.
+const googleAddressComponentSchema = z.object({
+  types: z.array(z.string()).default([]),
+  long_name: z.string().optional(),
+});
+
 const googleResultSchema = z.object({
   formatted_address: z.string(),
   geometry: z.object({
@@ -50,6 +59,7 @@ const googleResultSchema = z.object({
     }),
     location_type: z.string().optional(),
   }),
+  address_components: z.array(googleAddressComponentSchema).default([]),
 });
 
 const googleResponseSchema = z.object({
@@ -65,6 +75,10 @@ export interface GeocodeResponse {
   lng: number;
   accuracy: CoordinateAccuracy;
   formattedAddress: string;
+  /** Structured components of the first result. Empty on the forward path,
+   *  which only wants the coordinate; the reverse path maps these into the
+   *  TR address fields. */
+  addressComponents: readonly GoogleRestAddressComponentLike[];
   /** Full Google payload — persisted in geocoding_cache.raw_response so we
    *  can re-derive accuracy if our mapping logic changes. */
   rawResponse: unknown;
@@ -92,6 +106,30 @@ const TIMEOUT_MS = 5_000;
 export async function callGoogleGeocoder(
   rawAddress: string,
 ): Promise<CallGoogleResult> {
+  return callGeocodeEndpoint({ address: rawAddress }, rawAddress);
+}
+
+/**
+ * Reverse geocode: coordinate → structured address. Same endpoint, same
+ * timeout/quota/error contract as the forward call; only the query parameter
+ * differs (`latlng` instead of `address`).
+ */
+export async function callGoogleReverseGeocoder(
+  lat: number,
+  lng: number,
+): Promise<CallGoogleResult> {
+  const latlng = `${lat},${lng}`;
+  return callGeocodeEndpoint({ latlng }, latlng);
+}
+
+/**
+ * Shared transport for both directions. `inputLabel` is only used to describe
+ * the input in a ZERO_RESULTS error — it never reaches Google.
+ */
+async function callGeocodeEndpoint(
+  params: Readonly<Record<string, string>>,
+  inputLabel: string,
+): Promise<CallGoogleResult> {
   const key = env.GOOGLE_MAPS_SERVER_KEY;
   if (!key) {
     return {
@@ -107,7 +145,9 @@ export async function callGoogleGeocoder(
   }
 
   const url = new URL(ENDPOINT);
-  url.searchParams.set("address", rawAddress);
+  for (const [name, value] of Object.entries(params)) {
+    url.searchParams.set(name, value);
+  }
   url.searchParams.set("key", key);
   url.searchParams.set("language", "tr");
   url.searchParams.set("region", "tr");
@@ -167,7 +207,7 @@ export async function callGoogleGeocoder(
       const first = data.results[0];
       if (!first) {
         return {
-          result: err(new GeocodingZeroResultsError({ input: rawAddress })),
+          result: err(new GeocodingZeroResultsError({ input: inputLabel })),
           responseTimeMs,
           googleStatus: data.status,
         };
@@ -178,6 +218,7 @@ export async function callGoogleGeocoder(
           lng: first.geometry.location.lng,
           accuracy: mapGoogleAccuracy(first.geometry.location_type),
           formattedAddress: first.formatted_address,
+          addressComponents: first.address_components,
           rawResponse: data,
         }),
         responseTimeMs,
@@ -186,7 +227,7 @@ export async function callGoogleGeocoder(
     }
     case "ZERO_RESULTS":
       return {
-        result: err(new GeocodingZeroResultsError({ input: rawAddress })),
+        result: err(new GeocodingZeroResultsError({ input: inputLabel })),
         responseTimeMs,
         googleStatus: data.status,
       };

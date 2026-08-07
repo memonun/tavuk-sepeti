@@ -24,6 +24,29 @@ export interface GoogleAddressComponentLike {
   readonly longText: string | null;
 }
 
+/**
+ * The same component as the REST Geocoding API spells it (`long_name`), which
+ * is what the server-side reverse geocode receives. Google uses two different
+ * casings for one concept across its two APIs; normalising here keeps the TR
+ * mapping below single-source instead of forked per caller.
+ */
+export interface GoogleRestAddressComponentLike {
+  readonly types: readonly string[];
+  // `| undefined` is explicit because `exactOptionalPropertyTypes` is on and
+  // Zod's `.optional()` produces exactly that.
+  readonly long_name?: string | null | undefined;
+}
+
+/** REST (`long_name`) → Places JS (`longText`) component shape. */
+export function fromRestAddressComponents(
+  components: readonly GoogleRestAddressComponentLike[],
+): GoogleAddressComponentLike[] {
+  return components.map((c) => ({
+    types: c.types,
+    longText: c.long_name ?? null,
+  }));
+}
+
 /** Structured TR address as the forms hold it. Coordinates are (0,0) when the
  *  place carried no location — `delivery-readiness` treats that as "no pin". */
 export interface ParsedAddress {

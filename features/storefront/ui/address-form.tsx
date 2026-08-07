@@ -21,7 +21,7 @@
  * A CARGO address needs none of that: a courier delivers anywhere in Türkiye
  * from the written address alone, so the map is not rendered at all.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MapPinIcon } from "lucide-react";
 
 import { AddressAutocomplete } from "@/components/address/address-autocomplete";
@@ -30,9 +30,13 @@ import { AddressPinCorrector } from "@/components/address/address-pin-corrector"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { reverseGeocodeAction } from "@/features/geocoding/application/reverse-geocode-action";
 import { saveAddressAction } from "@/features/storefront/application/save-address";
 import { DETACHED_HOUSE_APARTMENT_NO } from "@/features/storefront/domain/customer-address.schema";
-import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
+import {
+  DELIVERY_PROVINCE,
+  DELIVERY_PROVINCE_CENTER,
+} from "@/features/storefront/domain/storefront.config";
 
 import type { ParsedAddress } from "@/components/address/address-autocomplete";
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
@@ -115,6 +119,10 @@ export function AddressForm({
   const [confirmed, setConfirmed] = useState(Boolean(initial?.geo_verified));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  // Guards against a slow reverse lookup landing after a newer one and
+  // overwriting the fields with the previous point's address.
+  const lookupSeq = useRef(0);
 
   const set = (patch: Partial<FormFields>) =>
     setFields((prev) => ({ ...prev, ...patch }));
@@ -143,6 +151,47 @@ export function AddressForm({
       });
       setConfirmed(false);
     }
+  }
+
+  /**
+   * Dropped pin → filled fields.
+   *
+   * Anything Google names is overwritten — the pin is the newer statement of
+   * intent, and the customer can still edit every field afterwards. What it
+   * does with a BLANK differs by field, on purpose:
+   *
+   *   - bina no / posta kodu are point-specific, so a blank clears them.
+   *     Carrying the previous door's number over to a new pin is the one error
+   *     a customer would not think to check.
+   *   - il / ilçe / mahalle / cadde keep their old value when Google returns
+   *     nothing. These are required, and silently emptying them would turn a
+   *     thin geocoder result into a form that refuses to save.
+   *
+   * `label` and `description` are the customer's own words and never touched.
+   *
+   * A failure is deliberately soft — the pin still stands and the fields stay
+   * editable, so a Google outage costs precision, not the order.
+   */
+  async function fillFromPin(lat: number, lng: number) {
+    const seq = ++lookupSeq.current;
+    setLookupError(null);
+    const result = await reverseGeocodeAction({ lat, lng });
+    if (seq !== lookupSeq.current) return; // a newer pin already won
+
+    if (!result.ok) {
+      setLookupError(result.message);
+      return;
+    }
+    const a = result.address;
+    setFields((prev) => ({
+      ...prev,
+      city: a.city || prev.city,
+      district: a.district || prev.district,
+      neighborhood: a.neighborhood || prev.neighborhood,
+      street: a.street || prev.street,
+      building_no: a.building_no,
+      postal_code: a.postal_code,
+    }));
   }
 
   async function submit() {
@@ -178,20 +227,65 @@ export function AddressForm({
     }
   }
 
-  const mapBlock = needsPin ? (
+  const mapBlock = (
     <AddressMapsProvider
       apiKey={mapsKey}
       fallback={
-        <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          Harita yüklenemedi. Taze ürün siparişi için konum onayı gerektiğinden
-          şu an bu adres kaydedilemiyor.
-        </p>
+        needsPin ? (
+          <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            Harita yüklenemedi. Taze ürün siparişi için konum onayı
+            gerektiğinden şu an bu adres kaydedilemiyor.
+          </p>
+        ) : (
+          // Cargo does not depend on the map, so a missing key is a downgrade,
+          // not a dead end: the fields below are still fully usable by hand.
+          <p className="rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
+            Harita şu an kullanılamıyor — adres alanlarını elle
+            doldurabilirsiniz.
+          </p>
+        )
       }
     >
       <div className="flex flex-col gap-3">
+        {/* Map first: picking the point is the fast path, and it fills every
+            field below, so the customer edits pre-filled text instead of
+            typing an address from scratch on a phone. */}
+        <AddressPinCorrector
+          lat={hasPin ? pin.lat : DELIVERY_PROVINCE_CENTER.lat}
+          lng={hasPin ? pin.lng : DELIVERY_PROVINCE_CENTER.lng}
+          hasPin={hasPin}
+          accuracy={pin.accuracy}
+          // The customer placed this pin on their own door — that is what
+          // lets an approximate geocode be accepted at all (CLAUDE.md §8).
+          pinSource="user_pin"
+          hint={
+            !hasPin
+              ? "Haritada konumunuza dokunun — adres alanları kendiliğinden dolar."
+              : needsPin
+                ? "Pini kapınızın tam önüne sürükleyin, sonra aşağıdan onaylayın."
+                : "Pini sürükleyerek konumu düzeltebilirsiniz."
+          }
+          onChange={(next) => {
+            setPin({
+              lat: next.lat,
+              lng: next.lng,
+              accuracy: "rooftop",
+              source: next.source,
+            });
+            setConfirmed(false);
+            void fillFromPin(next.lat, next.lng);
+          }}
+        />
+
+        {lookupError ? (
+          <p className="text-xs text-muted-foreground" role="status">
+            {lookupError}
+          </p>
+        ) : null}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="af-search" className="text-muted-foreground">
-            Adres ara
+            veya adres arayın
           </Label>
           <AddressAutocomplete
             id="af-search"
@@ -201,52 +295,34 @@ export function AddressForm({
           />
         </div>
 
-        {hasPin ? (
-          <>
-            <AddressPinCorrector
-              lat={pin.lat}
-              lng={pin.lng}
-              accuracy={pin.accuracy}
-              // The customer placed this pin on their own door — that is what
-              // lets an approximate geocode be accepted at all (CLAUDE.md §8).
-              pinSource="user_pin"
-              hint="Pini kapınızın tam önüne sürükleyin, sonra aşağıdan onaylayın."
-              onChange={(next) => {
-                setPin({
-                  lat: next.lat,
-                  lng: next.lng,
-                  accuracy: "rooftop",
-                  source: next.source,
-                });
-                setConfirmed(false);
-              }}
+        {needsPin && hasPin ? (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-sm has-checked:border-primary has-checked:bg-secondary/50">
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+              className="mt-0.5 size-4 accent-primary"
+              disabled={saving}
             />
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-sm has-checked:border-primary has-checked:bg-secondary/50">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(e) => setConfirmed(e.target.checked)}
-                className="mt-0.5 size-4 accent-primary"
-                disabled={saving}
-              />
-              <span>
-                Haritadaki konum teslimat adresim. Kurye/dağıtım bu noktaya
-                gelecek.
-              </span>
-            </label>
-          </>
-        ) : (
+            <span>
+              Haritadaki konum teslimat adresim. Kurye/dağıtım bu noktaya
+              gelecek.
+            </span>
+          </label>
+        ) : null}
+
+        {needsPin && !hasPin ? (
           <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
             <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
             <span>
-              Adresinizi yukarıdan arayın — haritada konumunuzu onaylamanız
+              Taze ürün siparişi için haritadan konumunuzu seçip onaylamanız
               gerekiyor.
             </span>
           </p>
-        )}
+        ) : null}
       </div>
     </AddressMapsProvider>
-  ) : null;
+  );
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-4">

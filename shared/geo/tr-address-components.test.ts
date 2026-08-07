@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  fromRestAddressComponents,
   mapGooglePlaceComponents,
   type GoogleAddressComponentLike,
 } from "@/shared/geo/tr-address-components";
@@ -113,6 +114,51 @@ describe("mapGooglePlaceComponents", () => {
       postal_code: "",
       lat: 1,
       lng: 2,
+    });
+  });
+});
+
+describe("fromRestAddressComponents", () => {
+  it("maps the REST long_name shape onto the Places longText shape", () => {
+    expect(
+      fromRestAddressComponents([
+        { types: ["administrative_area_level_1"], long_name: "Malatya" },
+        { types: ["route"], long_name: "Atatürk Caddesi" },
+      ]),
+    ).toEqual([
+      { types: ["administrative_area_level_1"], longText: "Malatya" },
+      { types: ["route"], longText: "Atatürk Caddesi" },
+    ]);
+  });
+
+  it("turns a missing long_name into null rather than undefined", () => {
+    expect(fromRestAddressComponents([{ types: ["route"] }])).toEqual([
+      { types: ["route"], longText: null },
+    ]);
+  });
+
+  it("feeds straight into the TR mapper", () => {
+    // The reverse-geocode path composes exactly these two calls.
+    const result = mapGooglePlaceComponents(
+      fromRestAddressComponents([
+        { types: ["administrative_area_level_1"], long_name: "Malatya" },
+        { types: ["administrative_area_level_2"], long_name: "Yeşilyurt" },
+        { types: ["neighborhood"], long_name: "Karakavak" },
+        { types: ["route"], long_name: "Turgut Özal Bulvarı" },
+        { types: ["street_number"], long_name: "7" },
+      ]),
+      { lat: 38.3552, lng: 38.3095 },
+    );
+
+    expect(result).toEqual({
+      city: "Malatya",
+      district: "Yeşilyurt",
+      neighborhood: "Karakavak",
+      street: "Turgut Özal Bulvarı",
+      building_no: "7",
+      postal_code: "",
+      lat: 38.3552,
+      lng: 38.3095,
     });
   });
 });
