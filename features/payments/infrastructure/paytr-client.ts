@@ -52,7 +52,9 @@ export async function requestPaytrToken(
     merchant_ok_url: req.merchant_ok_url,
     merchant_fail_url: req.merchant_fail_url,
     timeout_limit: "30",
-    debug_on: "1",
+    // PayTR asks for debug_on=0 on live merchants; keeping it tied to
+    // test_mode means going live flips it without a second thing to remember.
+    debug_on: req.test_mode === "1" ? "1" : "0",
     lang: "tr",
   });
 

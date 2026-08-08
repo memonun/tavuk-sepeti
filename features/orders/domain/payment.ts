@@ -38,6 +38,24 @@ export function derivePaymentStatus(
   return "paid";
 }
 
+/**
+ * True when an order is a card order whose money never arrived — the customer
+ * chose "kart", the order was written, and the PayTR callback either failed or
+ * never came (abandoned checkout).
+ *
+ * Operationally this is NOT the same as a pending cash-on-delivery order: those
+ * are pending right up to the doorstep and ride the van normally, whereas an
+ * unpaid card order is deliberately held back by find_orders_for_route
+ * (20260808120100). The grid uses this to say so instead of showing the same
+ * neutral "Bekliyor" for both.
+ */
+export function isAwaitingCardPayment(order: {
+  payment_method: string;
+  payment_status: string;
+}): boolean {
+  return order.payment_method === "credit_card" && order.payment_status !== "paid";
+}
+
 const blankToNull = (v: unknown): unknown =>
   typeof v === "string" && v.trim() === "" ? null : v;
 

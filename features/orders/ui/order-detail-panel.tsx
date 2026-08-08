@@ -39,7 +39,10 @@ import { priceOrderLine } from "@/features/products/application/pricing";
 import { formatDate, formatDateTime } from "@/shared/utils/date";
 import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
-import type { OrderPayment } from "@/features/orders/domain/payment";
+import {
+  isAwaitingCardPayment,
+  type OrderPayment,
+} from "@/features/orders/domain/payment";
 import type { Product } from "@/features/products/application/list-products";
 import { FULFILLMENT_CHANNEL_LABELS } from "@/features/orders/domain/order";
 import type {
@@ -516,6 +519,12 @@ function DeliveryAddress({ order }: { order: Order }) {
           {PAYMENT_STATUS_LABEL[order.payment_status]}
         </span>
       </div>
+      {isAwaitingCardPayment(order) ? (
+        <p className="mt-2 text-xs text-destructive">
+          Kart ödemesi tamamlanmadı — bu sipariş, ödeme gelene kadar günün
+          rotasına dahil edilmez.
+        </p>
+      ) : null}
       {hasPin ? (
         <p className="mt-2 font-mono text-xs text-muted-foreground">
           {snapshot.lat.toFixed(6)}, {snapshot.lng.toFixed(6)}

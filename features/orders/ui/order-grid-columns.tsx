@@ -18,6 +18,7 @@ import { textCellEditor } from "@/components/data-grid/cells/text-cell";
 import { Badge } from "@/components/ui/badge";
 import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
 import { orderCellPatchSchemas } from "@/features/orders/domain/order.schema";
+import { isAwaitingCardPayment } from "@/features/orders/domain/payment";
 import { orderStatusEditor } from "@/features/orders/ui/order-status-cell";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
@@ -178,10 +179,15 @@ export function buildOrderColumns(
       editable: false,
       cell: ({ row }) => {
         const o = row.original;
-        const meta = PAYMENT_LABELS[o.payment_status] ?? {
-          label: o.payment_status,
-          variant: "secondary" as const,
-        };
+        // An unpaid card order is held off the route, so it must not look like
+        // an ordinary "Bekliyor" (which for cash-on-delivery is business as
+        // usual). Call it out — this order needs attention or it ships nothing.
+        const meta = isAwaitingCardPayment(o)
+          ? { label: "Kart bekliyor", variant: "destructive" as const }
+          : (PAYMENT_LABELS[o.payment_status] ?? {
+              label: o.payment_status,
+              variant: "secondary" as const,
+            });
         const balance = o.total_minor - o.amount_paid_minor;
         return (
           <div className="flex items-center gap-1.5">

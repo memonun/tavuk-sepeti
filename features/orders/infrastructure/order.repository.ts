@@ -47,7 +47,7 @@ type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
  * from silently drifting apart.
  */
 const ORDER_LIST_SELECT =
-  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, fulfillment_channel, recurring_template_id, customers!inner(first_name, last_name)" as const;
+  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_method, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, fulfillment_channel, recurring_template_id, customers!inner(first_name, last_name)" as const;
 
 export interface CreateOrderInput {
   customer_id: string;
@@ -288,6 +288,7 @@ export async function listOrders(
         time_slot: row.time_slot,
         // Generated column; nullable in supabase-js but always populated.
         total_minor: row.total_minor ?? 0,
+        payment_method: row.payment_method,
         payment_status: row.payment_status,
         amount_paid_minor:
           (row as { amount_paid_minor?: number | null }).amount_paid_minor ?? 0,
