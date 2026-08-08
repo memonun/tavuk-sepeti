@@ -139,6 +139,10 @@ export interface OrderListItem {
   readonly scheduled_for: string;
   readonly time_slot: TimeSlot | null;
   readonly total_minor: number;
+  /** Needed by the list, not just the detail panel: an unpaid CARD order is
+   *  held off the route, so the grid has to tell it apart from a pending
+   *  cash-on-delivery one. */
+  readonly payment_method: PaymentMethod;
   readonly payment_status: PaymentStatus;
   readonly amount_paid_minor: number;
   readonly delivery_notes: string | null;

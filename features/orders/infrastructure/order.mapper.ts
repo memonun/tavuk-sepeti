@@ -138,6 +138,7 @@ interface ListOrderRow {
   scheduled_for: string;
   time_slot: string | null;
   total_minor: number;
+  payment_method: string;
   payment_status: string;
   amount_paid_minor: number;
   delivery_notes: string | null;
@@ -163,6 +164,7 @@ export function rowToListItem(row: ListOrderRow): OrderListItem {
     scheduled_for: row.scheduled_for,
     time_slot: row.time_slot as TimeSlot | null,
     total_minor: row.total_minor,
+    payment_method: row.payment_method as PaymentMethod,
     payment_status: row.payment_status as PaymentStatus,
     amount_paid_minor: row.amount_paid_minor ?? 0,
     delivery_notes: row.delivery_notes,

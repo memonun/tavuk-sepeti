@@ -399,6 +399,8 @@ export type Database = {
           note: string | null
           order_id: string
           paid_at: string
+          provider: string | null
+          provider_ref: string | null
         }
         Insert: {
           amount_minor: number
@@ -409,6 +411,8 @@ export type Database = {
           note?: string | null
           order_id: string
           paid_at?: string
+          provider?: string | null
+          provider_ref?: string | null
         }
         Update: {
           amount_minor?: number
@@ -419,6 +423,8 @@ export type Database = {
           note?: string | null
           order_id?: string
           paid_at?: string
+          provider?: string | null
+          provider_ref?: string | null
         }
         Relationships: [
           {

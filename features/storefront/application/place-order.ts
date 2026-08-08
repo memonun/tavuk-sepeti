@@ -288,6 +288,9 @@ export async function placeOrderAction(
     .trim();
 
   // ---- Card path → PayTR hosted payment (order stays pending until callback)
+  // No confirmation e-mail here: at this point the payment hasn't happened yet.
+  // The webhook sends it once the money actually lands — see
+  // features/storefront/application/send-order-confirmation.ts.
   if (isCard && emailTo) {
     const hdrs = await headers();
     const userIp =
