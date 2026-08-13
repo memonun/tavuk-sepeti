@@ -478,7 +478,13 @@ export function CheckoutForm({
           {summary}
 
           <div className="flex flex-col gap-2 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
-            {!minimum.ok ? (
+            {/* Held back until an address is actually known (selected, or
+                just entered) — the cargo floor is a property of THAT
+                address's channel, not of the basket in isolation, and
+                nagging about it before checkout even asks for one reads as
+                premature. A returning customer with a saved address sees it
+                immediately, since `addressId` is already set on mount. */}
+            {addressId !== null && !minimum.ok ? (
               <p
                 className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
                 role="alert"
