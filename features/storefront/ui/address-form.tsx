@@ -134,11 +134,17 @@ export function AddressForm({
   const canSubmit = !saving && (!needsPin || (hasPin && confirmed));
 
   function applySuggestion(place: ParsedAddress) {
+    // Same blank-keeps-old-value rule as fillFromPin: a search result that
+    // only resolves to province/district level must not wipe out a
+    // neighborhood/street the map (or a previous search) already filled in.
+    // This is what lets "Malatya Akçadağ Bahri" + a map pick, or the other
+    // order, both land on the same address instead of one overwriting the
+    // other's fields with blanks.
     set({
       city: place.city || fields.city,
-      district: place.district,
-      neighborhood: place.neighborhood,
-      street: place.street,
+      district: place.district || fields.district,
+      neighborhood: place.neighborhood || fields.neighborhood,
+      street: place.street || fields.street,
       building_no: place.building_no,
       postal_code: place.postal_code,
     });

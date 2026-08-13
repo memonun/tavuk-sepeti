@@ -64,8 +64,14 @@ export function AddressAutocomplete({
   };
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompleteSuggestion[]>([]);
   const [open, setOpen] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const tokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // `choose()` sets the input to the picked suggestion's text, which is a
+  // dependency of the search effect below — without this guard that write
+  // re-triggers a search for the text the user just finished selecting,
+  // reopening the dropdown right after it closed.
+  const skipNextSearchRef = useRef(false);
   // Depend on the region list by VALUE, not identity: a caller passing a fresh
   // array literal each render would otherwise restart the debounce every time.
   const regionKey = regionCodes.join(",");
@@ -76,12 +82,17 @@ export function AddressAutocomplete({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
+      return;
+    }
     // All state writes are deferred into the debounce timer — the effect body
     // never calls setState synchronously (react-hooks/set-state-in-effect).
     debounceRef.current = setTimeout(async () => {
       if (!places || input.trim().length < 3) {
         setSuggestions([]);
         setOpen(false);
+        setSearchError(false);
         return;
       }
       try {
@@ -93,9 +104,16 @@ export function AddressAutocomplete({
         });
         setSuggestions(res.suggestions ?? []);
         setOpen(true);
+        setSearchError(false);
       } catch {
-        // Places API not enabled on the key, or transient error — fail quiet.
+        // Places API not enabled on the key, or a transient error. Not logged
+        // via shared/logger — that module reads server-only env vars and
+        // throws immediately if imported into a browser bundle. Surfacing it
+        // in the UI instead is what keeps this from looking like "search does
+        // nothing" with zero trace of why.
         setSuggestions([]);
+        setOpen(false);
+        setSearchError(true);
       }
     }, 300);
     return () => {
@@ -115,6 +133,7 @@ export function AddressAutocomplete({
         loc ? { lat: loc.lat(), lng: loc.lng() } : null,
       ),
     );
+    skipNextSearchRef.current = true;
     setInput(pred.text?.text ?? "");
     setSuggestions([]);
     setOpen(false);
@@ -152,6 +171,12 @@ export function AddressAutocomplete({
             </li>
           ))}
         </ul>
+      ) : null}
+      {searchError ? (
+        <p className="mt-1 text-xs text-muted-foreground" role="status">
+          Adres araması şu an kullanılamıyor — haritadan seçebilir veya
+          alanları elle doldurabilirsiniz.
+        </p>
       ) : null}
     </div>
   );
