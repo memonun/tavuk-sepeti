@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       addresses: {
@@ -22,10 +27,12 @@ export type Database = {
           customer_id: string
           description: string | null
           district: string | null
+          geo_verified_at: string | null
           geocoded_at: string | null
           geocoder_response_hash: string | null
           id: string
           is_primary: boolean
+          label: string | null
           lat: number
           lng: number
           neighborhood: string | null
@@ -47,10 +54,12 @@ export type Database = {
           customer_id: string
           description?: string | null
           district?: string | null
+          geo_verified_at?: string | null
           geocoded_at?: string | null
           geocoder_response_hash?: string | null
           id?: string
           is_primary?: boolean
+          label?: string | null
           lat: number
           lng: number
           neighborhood?: string | null
@@ -72,10 +81,12 @@ export type Database = {
           customer_id?: string
           description?: string | null
           district?: string | null
+          geo_verified_at?: string | null
           geocoded_at?: string | null
           geocoder_response_hash?: string | null
           id?: string
           is_primary?: boolean
+          label?: string | null
           lat?: number
           lng?: number
           neighborhood?: string | null
@@ -230,6 +241,7 @@ export type Database = {
       customers: {
         Row: {
           account_type: string | null
+          auth_user_id: string | null
           created_at: string
           created_by: string | null
           email: string | null
@@ -239,6 +251,7 @@ export type Database = {
           legacy_segment: string | null
           notes: string | null
           order_type: Database["public"]["Enums"]["customer_order_type"] | null
+          origin: Database["public"]["Enums"]["customer_origin"]
           phone: string | null
           status: Database["public"]["Enums"]["customer_status"]
           tag: string | null
@@ -246,6 +259,7 @@ export type Database = {
         }
         Insert: {
           account_type?: string | null
+          auth_user_id?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -255,6 +269,7 @@ export type Database = {
           legacy_segment?: string | null
           notes?: string | null
           order_type?: Database["public"]["Enums"]["customer_order_type"] | null
+          origin?: Database["public"]["Enums"]["customer_origin"]
           phone?: string | null
           status?: Database["public"]["Enums"]["customer_status"]
           tag?: string | null
@@ -262,6 +277,7 @@ export type Database = {
         }
         Update: {
           account_type?: string | null
+          auth_user_id?: string | null
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -271,6 +287,7 @@ export type Database = {
           legacy_segment?: string | null
           notes?: string | null
           order_type?: Database["public"]["Enums"]["customer_order_type"] | null
+          origin?: Database["public"]["Enums"]["customer_origin"]
           phone?: string | null
           status?: Database["public"]["Enums"]["customer_status"]
           tag?: string | null
@@ -344,6 +361,7 @@ export type Database = {
       order_items: {
         Row: {
           created_at: string
+          fulfillment_type: string
           id: string
           line_total_minor: number | null
           order_id: string
@@ -354,6 +372,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          fulfillment_type?: string
           id?: string
           line_total_minor?: number | null
           order_id: string
@@ -364,6 +383,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          fulfillment_type?: string
           id?: string
           line_total_minor?: number | null
           order_id?: string
@@ -476,6 +496,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          address_id: string
           amount_paid_minor: number
           created_at: string
           created_by: string | null
@@ -484,6 +505,7 @@ export type Database = {
           delivery_address_snapshot: Json
           delivery_fee_minor: number
           delivery_notes: string | null
+          fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           id: string
           order_number: string
           paid_at: string | null
@@ -499,6 +521,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address_id: string
           amount_paid_minor?: number
           created_at?: string
           created_by?: string | null
@@ -507,6 +530,7 @@ export type Database = {
           delivery_address_snapshot: Json
           delivery_fee_minor?: number
           delivery_notes?: string | null
+          fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           id?: string
           order_number?: string
           paid_at?: string | null
@@ -522,6 +546,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address_id?: string
           amount_paid_minor?: number
           created_at?: string
           created_by?: string | null
@@ -530,6 +555,7 @@ export type Database = {
           delivery_address_snapshot?: Json
           delivery_fee_minor?: number
           delivery_notes?: string | null
+          fulfillment_channel?: Database["public"]["Enums"]["fulfillment_channel"]
           id?: string
           order_number?: string
           paid_at?: string | null
@@ -545,6 +571,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_customer_id_fkey"
             columns: ["customer_id"]
@@ -664,6 +697,7 @@ export type Database = {
           id: string
           items: Json
           next_run_at: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
           updated_at: string
         }
         Insert: {
@@ -676,6 +710,7 @@ export type Database = {
           id?: string
           items: Json
           next_run_at: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
           updated_at?: string
         }
         Update: {
@@ -688,6 +723,7 @@ export type Database = {
           id?: string
           items?: Json
           next_run_at?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
           updated_at?: string
         }
         Relationships: [
@@ -699,6 +735,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      saved_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          lat: number
+          lng: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          lat: number
+          lng: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          lat?: number
+          lng?: number
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_areas: {
+        Row: {
+          active: boolean
+          area: unknown
+          created_at: string
+          id: string
+          name: string
+          province: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          area: unknown
+          created_at?: string
+          id?: string
+          name: string
+          province: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          area?: unknown
+          created_at?: string
+          id?: string
+          name?: string
+          province?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       spatial_ref_sys: {
         Row: {
@@ -721,6 +817,30 @@ export type Database = {
           proj4text?: string | null
           srid?: number
           srtext?: string | null
+        }
+        Relationships: []
+      }
+      storefront_settings: {
+        Row: {
+          cargo_min_order_minor: number
+          home_delivery_days: number[]
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cargo_min_order_minor?: number
+          home_delivery_days?: number[]
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cargo_min_order_minor?: number
+          home_delivery_days?: number[]
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -897,6 +1017,10 @@ export type Database = {
             }
             Returns: string
           }
+      address_snapshot: {
+        Args: { a: Database["public"]["Tables"]["addresses"]["Row"] }
+        Returns: Json
+      }
       confirm_route_orders: {
         Args: { p_actor_id: string; p_order_ids: string[] }
         Returns: {
@@ -923,6 +1047,19 @@ export type Database = {
         }
         Returns: string
       }
+      create_orders_bulk: {
+        Args: { p_created_by: string; p_orders: Json }
+        Returns: Json
+      }
+      create_recurring_order: {
+        Args: {
+          p_created_by: string
+          p_items: Json
+          p_scheduled_for: string
+          p_template_id: string
+        }
+        Returns: string
+      }
       customer_filter_options: {
         Args: never
         Returns: {
@@ -930,6 +1067,10 @@ export type Database = {
           legacy_segments: string[]
           tags: string[]
         }[]
+      }
+      delete_customer_address: {
+        Args: { p_address_id: string; p_auth_user_id: string }
+        Returns: undefined
       }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
@@ -979,13 +1120,17 @@ export type Database = {
       find_orders_for_route: {
         Args: { target_date: string }
         Returns: {
+          address_apartment_no: string
+          address_building_no: string
           address_lat: number
           address_lng: number
+          address_street: string
           customer_first_name: string
           customer_id: string
           customer_last_name: string
           customer_phone: string
           delivery_notes: string
+          in_service_area: boolean
           order_id: string
           order_number: string
           scheduled_for: string
@@ -1107,8 +1252,39 @@ export type Database = {
       }
       gettransactionid: { Args: never; Returns: unknown }
       is_admin: { Args: never; Returns: boolean }
+      is_within_service_area: {
+        Args: { p_lat: number; p_lng: number }
+        Returns: boolean
+      }
+      link_customer_account: {
+        Args: {
+          p_auth_user_id: string
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+        }
+        Returns: string
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       next_order_number: { Args: never; Returns: string }
+      place_web_order: {
+        Args: {
+          p_address_id: string
+          p_customer_id: string
+          p_delivery_fee_minor: number
+          p_delivery_notes: string
+          p_items: Json
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+          p_scheduled_for: string
+          p_time_slot: Database["public"]["Enums"]["time_slot"]
+        }
+        Returns: {
+          fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
+          order_id: string
+          order_number: string
+        }[]
+      }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }
@@ -1152,6 +1328,14 @@ export type Database = {
       recompute_order_payment: {
         Args: { p_order_id: string }
         Returns: undefined
+      }
+      resolve_channel_for_items: {
+        Args: { p_items: Json }
+        Returns: Database["public"]["Enums"]["fulfillment_channel"]
+      }
+      resolve_order_channel: {
+        Args: { p_order_id: string }
+        Returns: Database["public"]["Enums"]["fulfillment_channel"]
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -1746,6 +1930,15 @@ export type Database = {
         Returns: undefined
       }
       unlockrows: { Args: { "": string }; Returns: number }
+      update_customer_profile: {
+        Args: {
+          p_auth_user_id: string
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+        }
+        Returns: undefined
+      }
       update_order_with_items: {
         Args: {
           p_delivery_fee_minor: number
@@ -1768,6 +1961,15 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_customer_address: {
+        Args: {
+          p_address: Json
+          p_address_id: string
+          p_auth_user_id: string
+          p_make_primary: boolean
+        }
+        Returns: string
+      }
     }
     Enums: {
       address_source: "admin_input" | "customer_signup" | "bulk_import"
@@ -1783,7 +1985,9 @@ export type Database = {
         | "user_pin"
         | "admin_corrected"
       customer_order_type: "delivery" | "retail" | "wholesale" | "bazaar"
+      customer_origin: "admin_manual" | "customer_web"
       customer_status: "active" | "inactive" | "blocked"
+      fulfillment_channel: "delivery" | "shipping"
       order_source: "admin_manual" | "customer_web" | "recurring_generated"
       order_status: "pending" | "confirmed" | "delivered" | "cancelled"
       payment_channel: "cash" | "bank_transfer" | "card"
@@ -1942,7 +2146,9 @@ export const Constants = {
         "admin_corrected",
       ],
       customer_order_type: ["delivery", "retail", "wholesale", "bazaar"],
+      customer_origin: ["admin_manual", "customer_web"],
       customer_status: ["active", "inactive", "blocked"],
+      fulfillment_channel: ["delivery", "shipping"],
       order_source: ["admin_manual", "customer_web", "recurring_generated"],
       order_status: ["pending", "confirmed", "delivered", "cancelled"],
       payment_channel: ["cash", "bank_transfer", "card"],
@@ -1954,4 +2160,3 @@ export const Constants = {
     },
   },
 } as const
-
