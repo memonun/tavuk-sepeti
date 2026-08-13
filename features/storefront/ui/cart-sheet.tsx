@@ -5,8 +5,18 @@ import { useState } from "react";
 import { MapPinIcon, ShoppingBasketIcon, TruckIcon } from "lucide-react";
 
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
-import { requiredAddressMode } from "@/features/storefront/domain/fulfillment-channel";
-import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
+import {
+  requiredAddressMode,
+  resolveOrderChannel,
+} from "@/features/storefront/domain/fulfillment-channel";
+import {
+  checkOrderMinimum,
+  orderMinimumMessage,
+} from "@/features/storefront/domain/order-minimum";
+import {
+  CARGO_FREE_SHIPPING_NOTICE,
+  DELIVERY_PROVINCE,
+} from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
@@ -28,7 +38,15 @@ import type { Product } from "@/features/products/application/list-products";
 
 /** Header basket button + slide-over. Resolves each line against the live
  *  catalog so displayed prices are never stale. */
-export function CartSheet({ products }: { products: readonly Product[] }) {
+export function CartSheet({
+  products,
+  cargoMinOrderMinor,
+}: {
+  products: readonly Product[];
+  /** Cargo order floor in kuruş — stated here so a customer never carries a
+   *  too-small basket all the way to checkout only to be refused. */
+  cargoMinOrderMinor: number;
+}) {
   const { lines, lineCount, hydrated } = useCart();
   const [open, setOpen] = useState(false);
 
@@ -43,11 +61,15 @@ export function CartSheet({ products }: { products: readonly Product[] }) {
 
   // Same rule the checkout and the server use: any fresh line makes the whole
   // basket a route order.
-  const mode = requiredAddressMode(
-    rows.map((r) => ({
-      product_key: r.product.key,
-      fulfillment_type: r.product.fulfillment_type,
-    })),
+  const channelItems = rows.map((r) => ({
+    product_key: r.product.key,
+    fulfillment_type: r.product.fulfillment_type,
+  }));
+  const mode = requiredAddressMode(channelItems);
+  const minimum = checkOrderMinimum(
+    resolveOrderChannel(channelItems),
+    subtotal,
+    cargoMinOrderMinor,
   );
 
   return (
@@ -117,7 +139,7 @@ export function CartSheet({ products }: { products: readonly Product[] }) {
               <span>
                 {mode === "route"
                   ? `Sepetinizde taze ürün var — bu sipariş yalnızca ${DELIVERY_PROVINCE} içine, kendi ekibimizle elden teslim edilir.`
-                  : "Bu sepetin tamamı kargoyla gönderilir — Türkiye'nin her yerine."}
+                  : `Bu sepetin tamamı kargoyla gönderilir — Türkiye'nin her yerine. ${CARGO_FREE_SHIPPING_NOTICE}`}
               </span>
             </p>
             <div className="flex items-center justify-between text-sm">
@@ -126,13 +148,34 @@ export function CartSheet({ products }: { products: readonly Product[] }) {
                 {formatTRY(subtotal)}
               </span>
             </div>
-            <Link
-              href="/odeme"
-              onClick={() => setOpen(false)}
-              className={cn(buttonVariants({ size: "lg" }), "w-full rounded-full")}
-            >
-              Siparişi tamamla
-            </Link>
+            {minimum.ok ? (
+              <Link
+                href="/odeme"
+                onClick={() => setOpen(false)}
+                className={cn(buttonVariants({ size: "lg" }), "w-full rounded-full")}
+              >
+                Siparişi tamamla
+              </Link>
+            ) : (
+              // Below the cargo floor: say so here rather than letting the
+              // customer discover it after filling in the whole checkout.
+              <div className="flex flex-col gap-2">
+                <p
+                  className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
+                  role="status"
+                >
+                  {orderMinimumMessage(cargoMinOrderMinor, minimum.shortfallMinor)}
+                </p>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="w-full rounded-full"
+                  disabled
+                >
+                  Siparişi tamamla
+                </Button>
+              </div>
+            )}
           </SheetFooter>
         ) : null}
       </SheetContent>

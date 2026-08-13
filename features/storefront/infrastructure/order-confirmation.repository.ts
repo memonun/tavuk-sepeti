@@ -44,6 +44,9 @@ const customerSchema = z.object({
 const rowSchema = z.object({
   order_number: z.string(),
   scheduled_for: z.string(),
+  // Frozen on the row by the writer. Decides whether the e-mail promises a
+  // delivery day or says the parcel ships when ready.
+  fulfillment_channel: z.enum(["delivery", "shipping"]).catch("delivery"),
   time_slot: z.string().nullable(),
   payment_method: z.string(),
   subtotal_minor: z.coerce.number(),
@@ -75,6 +78,7 @@ export interface OrderConfirmationSnapshot {
   /** null when the customer record carries no e-mail — nothing to send to. */
   readonly customerEmail: string | null;
   readonly customerName: string;
+  readonly channel: "delivery" | "shipping";
   readonly scheduledFor: string;
   /** Raw enum value; the application layer maps it to a Turkish label. */
   readonly timeSlot: string | null;
@@ -94,7 +98,7 @@ export async function getOrderConfirmationSnapshot(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      `order_number, scheduled_for, time_slot, payment_method,
+      `order_number, scheduled_for, time_slot, payment_method, fulfillment_channel,
        subtotal_minor, delivery_fee_minor, total_minor,
        delivery_address_snapshot,
        customers ( first_name, last_name, email ),
@@ -128,6 +132,7 @@ export async function getOrderConfirmationSnapshot(
     orderNumber: row.order_number,
     customerEmail: customer?.email ?? null,
     customerName,
+    channel: row.fulfillment_channel,
     scheduledFor: row.scheduled_for,
     timeSlot: row.time_slot,
     paymentMethod: row.payment_method,

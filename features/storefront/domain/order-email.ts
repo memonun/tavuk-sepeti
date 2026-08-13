@@ -16,6 +16,14 @@ export interface OrderEmailLine {
 export interface OrderEmailInput {
   readonly orderNumber: string;
   readonly customerName: string;
+  /**
+   * How the order reaches the customer. A delivery names the day the van comes;
+   * a cargo order deliberately does NOT — the owner dropped the "hazırlanma
+   * günü" question for out-of-city parcels, so `scheduledFor` on those rows is
+   * an internal ops date the customer never chose and must not be shown as a
+   * promise.
+   */
+  readonly channel: "delivery" | "shipping";
   readonly scheduledFor: string;
   readonly timeSlotLabel: string | null;
   readonly paymentMethodLabel: string;
@@ -46,9 +54,15 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
   const subject = `Siparişiniz alındı — ${input.orderNumber}`;
   const greetingName = input.customerName.trim();
   const greeting = greetingName ? `Merhaba ${greetingName},` : "Merhaba,";
+  const isCargo = input.channel === "shipping";
   const deliveryFee =
     input.deliveryFeeMinor === 0 ? "Ücretsiz" : formatTRY(input.deliveryFeeMinor);
+  const feeLabel = isCargo ? "Kargo" : "Teslimat";
   const slot = input.timeSlotLabel ? ` (${input.timeSlotLabel})` : "";
+  const scheduleLabel = isCargo ? "Gönderim" : "Teslimat günü";
+  const scheduleValue = isCargo
+    ? "Siparişiniz hazırlanıp kargoya verilecektir."
+    : `${input.scheduledFor}${slot}`;
 
   const itemsText = input.items
     .map(
@@ -66,10 +80,10 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
     itemsText,
     "",
     `Ara toplam: ${formatTRY(input.subtotalMinor)}`,
-    `Teslimat: ${deliveryFee}`,
+    `${feeLabel}: ${deliveryFee}`,
     `Toplam: ${formatTRY(input.totalMinor)}`,
     "",
-    `Teslimat günü: ${input.scheduledFor}${slot}`,
+    `${scheduleLabel}: ${scheduleValue}`,
     `Adres: ${input.addressText}`,
     `Ödeme: ${input.paymentMethodLabel}`,
     "",
@@ -98,13 +112,13 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
       <tfoot>
         <tr><td style="padding-top:10px;border-top:1px solid #eee;">Ara toplam</td>
             <td style="padding-top:10px;border-top:1px solid #eee;text-align:right;">${formatTRY(input.subtotalMinor)}</td></tr>
-        <tr><td>Teslimat</td><td style="text-align:right;">${escapeHtml(deliveryFee)}</td></tr>
+        <tr><td>${escapeHtml(feeLabel)}</td><td style="text-align:right;">${escapeHtml(deliveryFee)}</td></tr>
         <tr><td style="font-weight:700;padding-top:6px;">Toplam</td>
             <td style="font-weight:700;padding-top:6px;text-align:right;">${formatTRY(input.totalMinor)}</td></tr>
       </tfoot>
     </table>
     <p style="font-size:14px;">
-      <strong>Teslimat günü:</strong> ${escapeHtml(input.scheduledFor)}${escapeHtml(slot)}<br/>
+      <strong>${escapeHtml(scheduleLabel)}:</strong> ${escapeHtml(scheduleValue)}<br/>
       <strong>Adres:</strong> ${escapeHtml(input.addressText)}<br/>
       <strong>Ödeme:</strong> ${escapeHtml(input.paymentMethodLabel)}
     </p>

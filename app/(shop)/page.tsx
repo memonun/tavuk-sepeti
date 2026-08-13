@@ -1,7 +1,13 @@
-import { MapPinIcon } from "lucide-react";
+import { MapPinIcon, TruckIcon } from "lucide-react";
 
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
-import { FULFILLMENT_NOTICE } from "@/features/storefront/domain/storefront.config";
+import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
+import { formatHomeDeliveryDays } from "@/features/storefront/domain/delivery-window";
+import { orderMinimumNotice } from "@/features/storefront/domain/order-minimum";
+import {
+  CARGO_FREE_SHIPPING_NOTICE,
+  FULFILLMENT_NOTICE,
+} from "@/features/storefront/domain/storefront.config";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
 
 /**
@@ -12,7 +18,10 @@ import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
  * are not auto-redirected away, so they can preview the storefront.
  */
 export default async function ShopHomePage() {
-  const catalog = await getStorefrontCatalog();
+  const [catalog, settings] = await Promise.all([
+    getStorefrontCatalog(),
+    getStorefrontSettings(),
+  ]);
   const products = catalog.ok ? catalog.value : [];
 
   return (
@@ -30,9 +39,28 @@ export default async function ShopHomePage() {
         </p>
       </section>
 
-      <div className="mx-auto mb-10 flex max-w-2xl items-start gap-2.5 rounded-2xl border border-border/60 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
-        <MapPinIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-        <p>{FULFILLMENT_NOTICE}</p>
+      {/* Both fulfilment stories, stated up front: when the van comes, and what
+          shipping costs. Both are rules the owner edits in the admin. */}
+      <div className="mx-auto mb-10 flex max-w-2xl flex-col gap-2.5 rounded-2xl border border-border/60 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground">
+        <p className="flex items-start gap-2.5">
+          <MapPinIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          <span>
+            {FULFILLMENT_NOTICE} Eve servis günlerimiz:{" "}
+            <strong className="font-medium text-foreground">
+              {formatHomeDeliveryDays(settings.homeDeliveryDays)}
+            </strong>
+            .
+          </span>
+        </p>
+        <p className="flex items-start gap-2.5">
+          <TruckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+          <span>
+            {CARGO_FREE_SHIPPING_NOTICE}{" "}
+            {settings.cargoMinOrderMinor > 0
+              ? orderMinimumNotice(settings.cargoMinOrderMinor)
+              : null}
+          </span>
+        </p>
       </div>
 
       <section aria-labelledby="catalog-heading">

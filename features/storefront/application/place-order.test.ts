@@ -37,8 +37,23 @@ vi.mock("@/features/products/application/list-products", () => ({
 }));
 
 const resolveCheckoutSession = vi.fn();
-vi.mock("@/features/storefront/application/checkout-account", () => ({
-  resolveCheckoutSession: (...a: unknown[]) => resolveCheckoutSession(...a),
+vi.mock("@/features/storefront/application/checkout-account", async () => {
+  // readCheckoutAccountInput is pure FormData plumbing shared with the account
+  // step — mocking it would test nothing and hide a field-name mismatch.
+  const actual = await vi.importActual<
+    typeof import("@/features/storefront/application/checkout-account")
+  >("@/features/storefront/application/checkout-account");
+  return {
+    readCheckoutAccountInput: actual.readCheckoutAccountInput,
+    resolveCheckoutSession: (...a: unknown[]) => resolveCheckoutSession(...a),
+  };
+});
+
+// The owner-editable rules. Mocked so the tests state the rule they exercise
+// instead of depending on whatever the settings row happens to hold.
+const getStorefrontSettings = vi.fn();
+vi.mock("@/features/storefront/application/get-storefront-settings", () => ({
+  getStorefrontSettings: () => getStorefrontSettings(),
 }));
 
 const resolveCheckoutCustomer = vi.fn();
@@ -141,18 +156,52 @@ function buildForm(overrides: Record<string, string> = {}): FormData {
   return fd;
 }
 
-/** Tomorrow in Europe/Istanbul — the earliest date the window allows. */
+/** The next configured "eve servis" day (Wed/Sat) at least a day out — the
+ *  same date the checkout's day picker would offer. */
 function futureDate(): string {
-  const now = new Date();
-  now.setUTCDate(now.getUTCDate() + 3);
-  return now.toISOString().slice(0, 10);
+  const cursor = new Date();
+  cursor.setUTCDate(cursor.getUTCDate() + 1);
+  while (![3, 6].includes(cursor.getUTCDay())) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return cursor.toISOString().slice(0, 10);
 }
+
+/** A day the van does NOT drive, inside the scheduling window. */
+function nonDeliveryDate(): string {
+  const cursor = new Date();
+  cursor.setUTCDate(cursor.getUTCDate() + 1);
+  while ([3, 6].includes(cursor.getUTCDay())) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return cursor.toISOString().slice(0, 10);
+}
+
+/** Tomorrow — what the action stamps on a cargo order, which is never asked
+ *  for a preparation day. */
+function tomorrow(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(new Date(Date.now() + 24 * 60 * 60 * 1000))
+    .slice(0, 10);
+}
+
+/** An all-cargo basket that clears the 1.000 ₺ floor (10 × 125 ₺). */
+const CARGO_ITEMS = JSON.stringify([{ product_key: "kayisi", quantity: 10 }]);
 
 const idle = { status: "idle" } as const;
 
 beforeEach(() => {
   vi.clearAllMocks();
   listActiveProducts.mockResolvedValue({ ok: true, value: [EGGS, APRICOT] });
+  getStorefrontSettings.mockResolvedValue({
+    homeDeliveryDays: [3, 6], // Çarşamba + Cumartesi
+    cargoMinOrderMinor: 100_000, // 1.000 ₺
+  });
   resolveCheckoutSession.mockResolvedValue({
     ok: true,
     value: {
@@ -291,7 +340,8 @@ describe("placeOrderAction — fulfillment channel", () => {
         address_mode: "cargo",
         address_id: ISTANBUL_ADDRESS.id,
         time_slot: "morning",
-        items_json: JSON.stringify([{ product_key: "kayisi", quantity: 1 }]),
+        payment_method: "bank_transfer",
+        items_json: CARGO_ITEMS,
       }),
     );
 
@@ -373,6 +423,184 @@ describe("placeOrderAction — pricing and payment", () => {
       url: "https://paytr.example/pay/abc",
     });
     expect(placeWebOrder).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("placeOrderAction — eve servis günleri", () => {
+  it("accepts a day the van drives", async () => {
+    const state = await placeOrderAction(idle, buildForm());
+
+    expect(state.status).toBe("success");
+    expect(placeWebOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduled_for: futureDate() }),
+    );
+  });
+
+  // The day picker only offers real delivery days; this is the same rule
+  // enforced where it counts, so a hand-crafted submit cannot book a van on a
+  // day it does not go out.
+  it("refuses a day outside the configured delivery days", async () => {
+    const state = await placeOrderAction(
+      idle,
+      buildForm({ scheduled_for: nonDeliveryDate() }),
+    );
+
+    expect(state.status).toBe("validation_error");
+    if (state.status !== "validation_error") return;
+    expect(state.message).toMatch(/Çarşamba ve Cumartesi/);
+    expect(placeWebOrder).not.toHaveBeenCalled();
+  });
+
+  it("follows the owner's day change without a deploy", async () => {
+    getStorefrontSettings.mockResolvedValue({
+      homeDeliveryDays: [1], // Pazartesi only
+      cargoMinOrderMinor: 100_000,
+    });
+
+    const state = await placeOrderAction(idle, buildForm());
+
+    expect(state.status).toBe("validation_error");
+    if (state.status !== "validation_error") return;
+    expect(state.message).toMatch(/Pazartesi/);
+  });
+
+  // Out-of-city parcels are not asked for a "hazırlanma günü" at all, so the
+  // form sends none and the action stamps the earliest allowed day itself
+  // (the column is NOT NULL and every ops list sorts by it).
+  it("stamps the earliest day on a cargo order that sends none", async () => {
+    placeWebOrder.mockResolvedValue({
+      ok: true,
+      value: {
+        order_id: "order-3",
+        order_number: "ORD-2026-00003",
+        fulfillment_channel: "shipping",
+      },
+    });
+
+    const state = await placeOrderAction(
+      idle,
+      buildForm({
+        address_mode: "cargo",
+        address_id: ISTANBUL_ADDRESS.id,
+        scheduled_for: "",
+        payment_method: "bank_transfer",
+        items_json: CARGO_ITEMS,
+      }),
+    );
+
+    expect(state.status).toBe("success");
+    expect(placeWebOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduled_for: tomorrow() }),
+    );
+  });
+});
+
+describe("placeOrderAction — cargo order floor", () => {
+  it("refuses a cargo basket below the limit and says what is missing", async () => {
+    const state = await placeOrderAction(
+      idle,
+      buildForm({
+        address_mode: "cargo",
+        address_id: ISTANBUL_ADDRESS.id,
+        payment_method: "bank_transfer",
+        items_json: JSON.stringify([{ product_key: "kayisi", quantity: 2 }]),
+      }),
+    );
+
+    expect(state.status).toBe("validation_error");
+    if (state.status !== "validation_error") return;
+    expect(state.message).toMatch(/1\.000,00/);
+    expect(state.message).toMatch(/750,00/); // 1000 ₺ − 250 ₺ already in the basket
+    expect(placeWebOrder).not.toHaveBeenCalled();
+  });
+
+  // The floor is measured on the RE-PRICED subtotal, never on anything the
+  // browser computed.
+  it("lets a cargo basket exactly on the limit through", async () => {
+    placeWebOrder.mockResolvedValue({
+      ok: true,
+      value: {
+        order_id: "order-4",
+        order_number: "ORD-2026-00004",
+        fulfillment_channel: "shipping",
+      },
+    });
+
+    const state = await placeOrderAction(
+      idle,
+      buildForm({
+        address_mode: "cargo",
+        address_id: ISTANBUL_ADDRESS.id,
+        payment_method: "bank_transfer",
+        items_json: JSON.stringify([{ product_key: "kayisi", quantity: 8 }]),
+      }),
+    );
+
+    expect(state.status).toBe("success");
+  });
+
+  // A basket with a fresh line rides the van; there is no shipping cost to
+  // recover, so the floor must not apply to it.
+  it("never applies the floor to a home-delivery basket", async () => {
+    const state = await placeOrderAction(
+      idle,
+      buildForm({ items_json: JSON.stringify([{ product_key: "eggs", quantity: 1 }]) }),
+    );
+
+    expect(state.status).toBe("success");
+  });
+});
+
+describe("placeOrderAction — payment method by channel", () => {
+  // Our driver takes cash at the door; a cargo courier collects nothing on our
+  // behalf, so an unpaid parcel would ship across Türkiye with no way back.
+  it("refuses kapıda nakit ödeme on a cargo order", async () => {
+    const state = await placeOrderAction(
+      idle,
+      buildForm({
+        address_mode: "cargo",
+        address_id: ISTANBUL_ADDRESS.id,
+        payment_method: "cash_on_delivery",
+        items_json: CARGO_ITEMS,
+      }),
+    );
+
+    expect(state.status).toBe("validation_error");
+    if (state.status !== "validation_error") return;
+    expect(state.message).toMatch(/yalnızca eve servis/);
+    expect(placeWebOrder).not.toHaveBeenCalled();
+  });
+
+  it("still allows kapıda nakit ödeme on a home delivery", async () => {
+    const state = await placeOrderAction(
+      idle,
+      buildForm({ payment_method: "cash_on_delivery" }),
+    );
+
+    expect(state.status).toBe("success");
+  });
+
+  it("allows havale on a cargo order", async () => {
+    placeWebOrder.mockResolvedValue({
+      ok: true,
+      value: {
+        order_id: "order-5",
+        order_number: "ORD-2026-00005",
+        fulfillment_channel: "shipping",
+      },
+    });
+
+    const state = await placeOrderAction(
+      idle,
+      buildForm({
+        address_mode: "cargo",
+        address_id: ISTANBUL_ADDRESS.id,
+        payment_method: "bank_transfer",
+        items_json: CARGO_ITEMS,
+      }),
+    );
+
+    expect(state.status).toBe("success");
   });
 });
 

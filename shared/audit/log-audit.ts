@@ -47,9 +47,26 @@ export type AuditAction =
   // not an admin — before this the web order path wrote no audit trail at all.
   | "order.web_placed"
   | "customer.web_registered"
-  | "address.web_updated";
+  | "address.web_updated"
+  // Shop rules the owner edits (delivery days, cargo order floor). Worth an
+  // audit row: a changed delivery day silently reshapes every future checkout.
+  | "storefront_settings.updated";
 
-export type AuditEntityType = "customer" | "order" | "address" | "product" | "recurring_template";
+export type AuditEntityType =
+  | "customer"
+  | "order"
+  | "address"
+  | "product"
+  | "recurring_template"
+  | "storefront_settings";
+
+/**
+ * `audit_log.entity_id` is a uuid column, but a singleton config row has no
+ * uuid of its own. The nil UUID is the conventional stand-in — it identifies
+ * "the one and only row of this entity type" and can never collide with a
+ * generated id.
+ */
+export const SINGLETON_ENTITY_ID = "00000000-0000-0000-0000-000000000000";
 
 export interface LogAuditInput {
   actor_id: string | null;

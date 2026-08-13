@@ -93,9 +93,26 @@ export const webOrderSchema = z.object({
    * while the tab was open) gets caught instead of silently changing channel.
    */
   address_mode: z.enum(["route", "cargo"]),
-  scheduled_for: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Teslimat günü seçin."),
+  /**
+   * Nullable because a CARGO basket is never asked for one: the owner dropped
+   * the "hazırlanma günü" question for out-of-city parcels, so that form has no
+   * date field at all and the action stamps the earliest allowed day itself.
+   * A delivery order still requires it — and the action additionally checks it
+   * against the owner's "eve servis günleri", which no client hint can bypass.
+   */
+  scheduled_for: z.preprocess(
+    // Absent (no field rendered), blank, or explicitly null all mean the same
+    // thing here — "the customer was not asked" — and must land on ONE value so
+    // the action has a single case to branch on.
+    (value) =>
+      value === undefined || (typeof value === "string" && value.trim() === "")
+        ? null
+        : value,
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Teslimat günü seçin.")
+      .nullable(),
+  ),
   time_slot: z.preprocess(
     blankToNull,
     z.enum(["morning", "afternoon", "evening"]).nullable(),

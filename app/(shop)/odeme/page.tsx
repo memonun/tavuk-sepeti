@@ -3,11 +3,16 @@ import Link from "next/link";
 import { isPaytrEnabled } from "@/features/payments/application/paytr";
 import { getMyAccount } from "@/features/storefront/application/get-account";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
+import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import {
   MAX_DELIVERY_HORIZON_DAYS,
   MIN_DELIVERY_LEAD_DAYS,
 } from "@/features/storefront/domain/storefront.config";
 import { addDaysIso } from "@/features/storefront/domain/delivery-date";
+import {
+  formatHomeDeliveryDays,
+  listHomeDeliveryDates,
+} from "@/features/storefront/domain/delivery-window";
 import {
   CheckoutForm,
   type CheckoutIdentityDefaults,
@@ -28,15 +33,22 @@ export default async function CheckoutPage() {
   // Deliberately NOT redirecting an anonymous visitor: an account is required to
   // place an order, but it is created inside the checkout form itself so a full
   // basket is never bounced to a login page.
-  const [catalog, account] = await Promise.all([
+  const [catalog, account, settings] = await Promise.all([
     getStorefrontCatalog(),
     getMyAccount(),
+    getStorefrontSettings(),
   ]);
   const products = catalog.ok ? catalog.value : [];
 
+  // Only the days the van actually drives, inside the scheduling horizon. The
+  // Server Action re-checks both — this list is what the customer picks from,
+  // not what decides.
   const today = todayInIstanbul();
-  const minDate = addDaysIso(today, MIN_DELIVERY_LEAD_DAYS);
-  const maxDate = addDaysIso(today, MAX_DELIVERY_HORIZON_DAYS);
+  const deliveryDates = listHomeDeliveryDates(
+    addDaysIso(today, MIN_DELIVERY_LEAD_DAYS),
+    addDaysIso(today, MAX_DELIVERY_HORIZON_DAYS),
+    settings.homeDeliveryDays,
+  );
 
   const identity: CheckoutIdentityDefaults | null = account
     ? {
@@ -63,8 +75,9 @@ export default async function CheckoutPage() {
         products={products}
         addresses={account?.addresses ?? []}
         identity={identity}
-        minDate={minDate}
-        maxDate={maxDate}
+        deliveryDates={deliveryDates}
+        deliveryDaysLabel={formatHomeDeliveryDays(settings.homeDeliveryDays)}
+        cargoMinOrderMinor={settings.cargoMinOrderMinor}
         paytrEnabled={isPaytrEnabled()}
         mapsKey={env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY}
       />

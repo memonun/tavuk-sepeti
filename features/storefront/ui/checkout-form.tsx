@@ -1,22 +1,36 @@
 "use client";
 
 /**
- * Checkout — one form, one submit.
+ * Checkout — two steps, and only because the first one is unavoidable.
  *
- * The owner's rule was "hesap zorunlu olsun ama sipariş anına kadar friction
- * koyma". So the account block lives INSIDE this form: an anonymous visitor
- * browses, fills the basket, comes here and creates the account in the same
- * action that places the order. No redirect to /kayit, no lost basket. It reads
- * like guest checkout and produces a real account.
+ * The owner's rule is still "hesap zorunlu olsun ama sipariş anına kadar
+ * friction koyma": a visitor browses and fills the basket anonymously, and only
+ * meets the account here. What changed is that the account now has its OWN
+ * submit button.
  *
- * The basket decides which address form is required. Any fresh (delivery)
- * product pulls the whole order onto our own route, which means a route-grade
- * address: cadde, bina, daire and a pin the customer confirmed on the map. An
- * all-cargo basket needs only a written address and ships nationwide.
+ * Why it has to: a delivery address can only be saved by an authenticated
+ * customer (RLS keys the address rows off auth.uid()), and an order binds to a
+ * saved `address_id`. With account creation buried inside the single "Siparişi
+ * ver" submit — which stayed disabled until an address was selected — an
+ * anonymous visitor could fill every field and nothing would happen. That is
+ * exactly the reported bug ("hesap oluştur gibi bir buton yok, ilerlemiyor" /
+ * "üye girişi yapmadan adres seçimi çalışmıyor"). So: step 1 establishes the
+ * session, the page re-renders, step 2 is the ordinary one-submit checkout. The
+ * basket lives in localStorage, so nothing is lost in between.
  *
- * Everything here is a hint for the customer. The action re-derives the channel
- * from re-priced items, re-checks that the address belongs to the account, and
- * the RPC checks the service area again inside the transaction.
+ * The basket also decides what the rest of the form asks for:
+ *
+ *   route (any fresh line) — a route-grade address with a confirmed pin, a day
+ *     the van actually drives ("eve servis günleri", owner-editable), a time
+ *     slot, and kapıda nakit ödeme as an option.
+ *   cargo (all-shipping)  — a written address anywhere in Türkiye, NO
+ *     preparation-day question at all, free shipping, a 1.000 ₺ order floor and
+ *     prepaid methods only.
+ *
+ * Everything here is a hint. The action re-derives the channel from re-priced
+ * items, re-checks the delivery day, the order floor, the payment method and
+ * that the address belongs to the account; the RPC checks the service area
+ * again inside the transaction.
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -25,22 +39,37 @@ import {
   CheckCircle2Icon,
   MailCheckIcon,
   MapPinIcon,
+  PackageCheckIcon,
   ShoppingBasketIcon,
   TruckIcon,
 } from "lucide-react";
 
 import {
+  createCheckoutAccountAction,
+  type CheckoutAccountState,
+} from "@/features/storefront/application/create-checkout-account";
+import {
   placeOrderAction,
   type PlaceOrderState,
 } from "@/features/storefront/application/place-order";
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
-import { requiredAddressMode } from "@/features/storefront/domain/fulfillment-channel";
+import { formatDeliveryDateLabel } from "@/features/storefront/domain/delivery-window";
+import {
+  requiredAddressMode,
+  resolveOrderChannel,
+} from "@/features/storefront/domain/fulfillment-channel";
+import {
+  checkOrderMinimum,
+  orderMinimumMessage,
+  orderMinimumNotice,
+} from "@/features/storefront/domain/order-minimum";
+import { paymentMethodsForChannel } from "@/features/storefront/domain/payment-options";
 import {
   CARGO_FEE_MINOR,
+  CARGO_FREE_SHIPPING_NOTICE,
   DELIVERY_FEE_MINOR,
   DELIVERY_PROVINCE,
   FULFILLMENT_NOTICE,
-  PAYMENT_METHOD_OPTIONS,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -58,6 +87,7 @@ import type { SavedAddress } from "@/features/storefront/application/list-addres
 import type { Product } from "@/features/products/application/list-products";
 
 const initialState: PlaceOrderState = { status: "idle" };
+const initialAccountState: CheckoutAccountState = { status: "idle" };
 
 const controlClass =
   "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -72,10 +102,15 @@ export interface CheckoutIdentityDefaults {
 interface CheckoutFormProps {
   products: readonly Product[];
   addresses: readonly SavedAddress[];
-  /** Null when nobody is signed in — the account block renders instead. */
+  /** Null when nobody is signed in — the account step renders instead. */
   identity: CheckoutIdentityDefaults | null;
-  minDate: string;
-  maxDate: string;
+  /** Selectable delivery days (ISO), already filtered to the owner's
+   *  "eve servis günleri" and the scheduling horizon. */
+  deliveryDates: readonly string[];
+  /** "Çarşamba ve Cumartesi" — printed so the rule is visible, not implied. */
+  deliveryDaysLabel: string;
+  /** Cargo order floor in kuruş (0 = none). */
+  cargoMinOrderMinor: number;
   paytrEnabled: boolean;
   mapsKey: string | undefined;
 }
@@ -84,8 +119,9 @@ export function CheckoutForm({
   products,
   addresses,
   identity,
-  minDate,
-  maxDate,
+  deliveryDates,
+  deliveryDaysLabel,
+  cargoMinOrderMinor,
   paytrEnabled,
   mapsKey,
 }: CheckoutFormProps) {
@@ -94,6 +130,10 @@ export function CheckoutForm({
   const [state, formAction, pending] = useActionState(
     placeOrderAction,
     initialState,
+  );
+  const [accountState, accountAction, accountPending] = useActionState(
+    createCheckoutAccountAction,
+    initialAccountState,
   );
   const [accountMode, setAccountMode] = useState<"signup" | "signin">("signup");
   const [addressId, setAddressId] = useState<string | null>(
@@ -107,6 +147,13 @@ export function CheckoutForm({
     else if (state.status === "redirect") window.location.href = state.url;
   }, [state, clear]);
 
+  // The session now exists, but `identity` and the saved addresses are read on
+  // the server — so the page has to be re-rendered before the address step can
+  // appear. The basket is in localStorage and survives the refresh.
+  useEffect(() => {
+    if (accountState.status === "success") router.refresh();
+  }, [accountState, router]);
+
   const rows = useMemo(
     () =>
       lines.flatMap((line) => {
@@ -116,17 +163,18 @@ export function CheckoutForm({
     [lines, products],
   );
 
-  // Which address form the basket demands. Mirrors the server's re-derivation.
-  const mode = useMemo(
-    () =>
-      requiredAddressMode(
-        rows.map((r) => ({
-          product_key: r.product.key,
-          fulfillment_type: r.product.fulfillment_type,
-        })),
-      ),
-    [rows],
-  );
+  // What the basket is. `mode` picks the address form, `channel` is the same
+  // decision in the server's vocabulary — both mirror the action's re-derivation.
+  const { mode, channel } = useMemo(() => {
+    const items = rows.map((r) => ({
+      product_key: r.product.key,
+      fulfillment_type: r.product.fulfillment_type,
+    }));
+    return {
+      mode: requiredAddressMode(items),
+      channel: resolveOrderChannel(items),
+    };
+  }, [rows]);
 
   if (state.status === "success") {
     return <OrderConfirmation orderNumber={state.orderNumber} />;
@@ -134,6 +182,9 @@ export function CheckoutForm({
 
   if (state.status === "verify_email") {
     return <VerifyEmail email={state.email} />;
+  }
+  if (accountState.status === "verify_email") {
+    return <VerifyEmail email={accountState.email} />;
   }
 
   if (!hydrated) {
@@ -149,38 +200,98 @@ export function CheckoutForm({
     rows.map((r) => lineTotalMinor(r.product, r.quantity)),
   );
   const total = subtotal + feeMinor;
-  const itemsJson = JSON.stringify(
-    lines.map((l) => ({ product_key: l.product_key, quantity: l.quantity })),
+  const minimum = checkOrderMinimum(channel, subtotal, cargoMinOrderMinor);
+  const noDeliveryDay = mode === "route" && deliveryDates.length === 0;
+
+  const summary = (
+    <OrderSummary
+      rows={rows}
+      mode={mode}
+      subtotal={subtotal}
+      feeMinor={feeMinor}
+      total={total}
+    />
   );
-  const canSubmit = !pending && addressId !== null;
+
+  // ---- Step 1: the account ---------------------------------------------------
+  // Its own <form> and its own submit — see the file header for why this cannot
+  // ride along on the order submit.
+  if (!identity) {
+    return (
+      <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+        <form action={accountAction} className="flex flex-col gap-8">
+          <Section title="1. Hesap">
+            <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
+              Siparişinizi tamamlamak için önce hesabınızı oluşturun ya da giriş
+              yapın. Sepetiniz kaybolmaz — bir sonraki adımda adresinizi girip
+              siparişi tamamlayacaksınız.
+            </p>
+            <AccountBlock
+              mode={accountMode}
+              onModeChange={setAccountMode}
+              disabled={accountPending}
+            />
+            <input type="hidden" name="account_mode" value={accountMode} />
+
+            {accountState.status === "error" ? (
+              <p className="text-sm text-destructive" role="alert">
+                {accountState.message}
+              </p>
+            ) : null}
+
+            <div>
+              <Button
+                type="submit"
+                size="lg"
+                className="rounded-full"
+                disabled={accountPending}
+              >
+                {accountPending
+                  ? "Gönderiliyor…"
+                  : accountMode === "signup"
+                    ? "Hesabımı oluştur ve devam et"
+                    : "Giriş yap ve devam et"}
+              </Button>
+            </div>
+          </Section>
+
+          {/* The steps that follow, so the account block doesn't read like the
+              whole checkout. */}
+          <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Sonraki adımlar</p>
+            <p>2. Teslimat adresi</p>
+            <p>{mode === "route" ? "3. Teslimat zamanı" : "3. Gönderim"}</p>
+            <p>4. Ödeme yöntemi</p>
+          </div>
+        </form>
+
+        <aside className="lg:sticky lg:top-24 lg:self-start">{summary}</aside>
+      </div>
+    );
+  }
+
+  // ---- Step 2: the order -----------------------------------------------------
+  const paymentOptions = paymentMethodsForChannel(channel).filter(
+    (option) => option.value !== "credit_card" || paytrEnabled,
+  );
+  const canSubmit =
+    !pending && addressId !== null && minimum.ok && !noDeliveryDay;
 
   return (
     <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-8">
-        <Section title="Hesap">
-          {identity ? (
-            <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm">
-              Merhaba{" "}
-              <strong className="font-medium">
-                {identity.first_name || identity.email}
-              </strong>{" "}
-              — siparişiniz bu hesaba kaydedilecek.
-            </p>
-          ) : (
-            <AccountBlock
-              mode={accountMode}
-              onModeChange={setAccountMode}
-              disabled={pending}
-            />
-          )}
-          <input
-            type="hidden"
-            name="account_mode"
-            value={identity ? "existing" : accountMode}
-          />
+        <Section title="1. Hesap">
+          <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm">
+            Merhaba{" "}
+            <strong className="font-medium">
+              {identity.first_name || identity.email}
+            </strong>{" "}
+            — siparişiniz bu hesaba kaydedilecek.
+          </p>
+          <input type="hidden" name="account_mode" value="existing" />
         </Section>
 
-        <Section title="Teslimat adresi">
+        <Section title="2. Teslimat adresi">
           <p className="mb-1 flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
             {mode === "route" ? (
               <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
@@ -190,75 +301,109 @@ export function CheckoutForm({
             <span>
               {mode === "route"
                 ? `Sepetinizde taze ürün var — bu sipariş ${DELIVERY_PROVINCE} içinde kendi ekibimizle elden teslim edilir. Haritada konumunuzu onaylamanız gerekiyor.`
-                : "Sepetinizdeki ürünlerin tamamı kargoyla gönderilir — Türkiye'nin her yerine teslimat yapılır."}
+                : `Sepetinizdeki ürünlerin tamamı kargoyla gönderilir — Türkiye'nin her yerine teslimat yapılır. ${CARGO_FREE_SHIPPING_NOTICE}`}
             </span>
           </p>
 
-          {identity ? (
-            <AddressPicker
-              addresses={addresses}
-              mode={mode}
-              mapsKey={mapsKey}
-              selectedId={addressId}
-              onSelect={setAddressId}
-              onChanged={() => router.refresh()}
-              disabled={pending}
-            />
-          ) : (
-            <p className="rounded-xl border border-dashed border-input px-3 py-6 text-center text-sm text-muted-foreground">
-              Adresinizi girebilmek için önce yukarıdan hesabınızı oluşturun ya
-              da giriş yapın.
-            </p>
-          )}
+          <AddressPicker
+            addresses={addresses}
+            mode={mode}
+            mapsKey={mapsKey}
+            selectedId={addressId}
+            onSelect={setAddressId}
+            onChanged={() => router.refresh()}
+            disabled={pending}
+          />
           <input type="hidden" name="address_id" value={addressId ?? ""} />
           <input type="hidden" name="address_mode" value={mode} />
         </Section>
 
-        <Section title={mode === "route" ? "Teslimat zamanı" : "Gönderim günü"}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              label={mode === "route" ? "Teslimat günü" : "Hazırlanma günü"}
-              htmlFor="scheduled_for"
-            >
-              <Input
-                id="scheduled_for"
-                name="scheduled_for"
-                type="date"
-                min={minDate}
-                max={maxDate}
-                defaultValue={minDate}
-                required
-                disabled={pending}
-              />
-            </Field>
-            {/* A cargo order has no delivery window — there is no van to
-                schedule, so the slot selector is not shown at all. */}
-            {mode === "route" ? (
-              <Field label="Zaman aralığı" htmlFor="time_slot">
-                <select
-                  id="time_slot"
-                  name="time_slot"
-                  defaultValue=""
-                  className={controlClass}
-                  disabled={pending}
-                >
-                  <option value="">Fark etmez</option>
-                  {TIME_SLOT_OPTIONS.map((slot) => (
-                    <option key={slot.value} value={slot.value}>
-                      {slot.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-          </div>
-        </Section>
+        {mode === "route" ? (
+          <Section title="3. Teslimat zamanı">
+            <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
+              <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+              <span>
+                Eve servis günlerimiz: <strong>{deliveryDaysLabel}</strong>.
+                Aşağıdaki günlerden birini seçin.
+              </span>
+            </p>
 
-        <Section title="Ödeme">
+            {noDeliveryDay ? (
+              <p
+                className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                role="alert"
+              >
+                Şu anda planlanabilir bir eve servis günü yok. Lütfen daha sonra
+                tekrar deneyin veya bizimle iletişime geçin.
+              </p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* A <select> of real delivery days, not a free date input: the
+                    van does not drive every day, and a date the route never
+                    visits is a promise we cannot keep. */}
+                <Field label="Teslimat günü" htmlFor="scheduled_for">
+                  <select
+                    id="scheduled_for"
+                    name="scheduled_for"
+                    defaultValue={deliveryDates[0]}
+                    className={controlClass}
+                    required
+                    disabled={pending}
+                  >
+                    {deliveryDates.map((date) => (
+                      <option key={date} value={date}>
+                        {formatDeliveryDateLabel(date)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Zaman aralığı" htmlFor="time_slot">
+                  <select
+                    id="time_slot"
+                    name="time_slot"
+                    defaultValue=""
+                    className={controlClass}
+                    disabled={pending}
+                  >
+                    <option value="">Fark etmez</option>
+                    {TIME_SLOT_OPTIONS.map((slot) => (
+                      <option key={slot.value} value={slot.value}>
+                        {slot.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            )}
+          </Section>
+        ) : (
+          /* Cargo: no preparation-day question at all (owner decision). There is
+             no van to schedule and no window to promise — the parcel goes out
+             as soon as it is ready. */
+          <Section title="3. Gönderim">
+            <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">
+              <PackageCheckIcon
+                className="mt-0.5 size-4 shrink-0 text-primary"
+                aria-hidden
+              />
+              <span>
+                Siparişiniz onaylandıktan sonra hazırlanıp kargoya verilir.{" "}
+                <strong className="font-medium text-foreground">
+                  {CARGO_FREE_SHIPPING_NOTICE}
+                </strong>
+              </span>
+            </p>
+            {cargoMinOrderMinor > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {orderMinimumNotice(cargoMinOrderMinor)}
+              </p>
+            ) : null}
+          </Section>
+        )}
+
+        <Section title="4. Ödeme">
           <div className="grid gap-2 sm:grid-cols-2">
-            {PAYMENT_METHOD_OPTIONS.filter(
-              (option) => option.value !== "credit_card" || paytrEnabled,
-            ).map((option, index) => (
+            {paymentOptions.map((option, index) => (
               <label
                 key={option.value}
                 className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input p-3 text-sm transition-colors has-checked:border-primary has-checked:bg-secondary/50"
@@ -276,6 +421,13 @@ export function CheckoutForm({
               </label>
             ))}
           </div>
+          {/* Say WHY the door-payment option is missing, rather than leaving a
+              customer hunting for it. */}
+          {mode === "cargo" ? (
+            <p className="text-xs text-muted-foreground">
+              Kapıda nakit ödeme yalnızca eve servis siparişlerinde geçerlidir.
+            </p>
+          ) : null}
           <Field label="Sipariş notu (opsiyonel)" htmlFor="delivery_notes">
             <textarea
               id="delivery_notes"
@@ -290,91 +442,129 @@ export function CheckoutForm({
         </Section>
       </div>
 
-      {/* Order summary */}
       <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="flex flex-col gap-4 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
-          <h2 className="font-display text-lg">Sipariş özeti</h2>
-          <ul className="flex flex-col gap-2.5">
-            {rows.map(({ product, quantity }) => (
-              <li key={product.key} className="flex items-center gap-2.5 text-sm">
-                <span className="text-xl" aria-hidden>
-                  {productEmoji(product.key)}
-                </span>
-                <span className="min-w-0 flex-1 truncate">
-                  {product.display_name}
-                  <span className="text-muted-foreground">
-                    {" "}
-                    ×{" "}
-                    {quantity.toLocaleString("tr-TR", {
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </span>
-                <span className="tabular-nums">
-                  {formatTRY(lineTotalMinor(product, quantity))}
-                </span>
-              </li>
-            ))}
-          </ul>
+        <div className="flex flex-col gap-4">
+          {summary}
 
-          <div className="border-t border-border/60 pt-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Ara toplam</span>
-              <span className="tabular-nums">{formatTRY(subtotal)}</span>
-            </div>
-            <div className="mt-1 flex justify-between">
-              <span className="text-muted-foreground">
-                {mode === "route" ? "Teslimat" : "Kargo"}
-              </span>
-              <span className="tabular-nums">
-                {feeMinor === 0 ? "Ücretsiz" : formatTRY(feeMinor)}
-              </span>
-            </div>
-            <div className="mt-2 flex justify-between border-t border-border/60 pt-2 text-base font-semibold">
-              <span>Toplam</span>
-              <span className="tabular-nums">{formatTRY(total)}</span>
-            </div>
+          <div className="flex flex-col gap-2 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
+            {!minimum.ok ? (
+              <p
+                className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
+                role="alert"
+              >
+                {orderMinimumMessage(cargoMinOrderMinor, minimum.shortfallMinor)}
+              </p>
+            ) : null}
+
+            {state.status === "validation_error" || state.status === "error" ? (
+              <p className="text-sm text-destructive" role="alert">
+                {state.message}
+              </p>
+            ) : null}
+
+            <input
+              type="hidden"
+              name="items_json"
+              value={JSON.stringify(
+                lines.map((l) => ({
+                  product_key: l.product_key,
+                  quantity: l.quantity,
+                })),
+              )}
+            />
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full rounded-full"
+              disabled={!canSubmit}
+            >
+              {pending ? "Gönderiliyor…" : "Siparişi ver"}
+            </Button>
+
+            {addressId === null ? (
+              <p className="text-center text-xs text-muted-foreground">
+                Devam etmek için bir teslimat adresi seçin.
+              </p>
+            ) : (
+              <p className="text-center text-xs text-muted-foreground">
+                {paytrEnabled
+                  ? "Kart seçilirse güvenli ödeme sayfasına (PayTR) yönlendirilirsiniz."
+                  : mode === "route"
+                    ? "Ödeme teslimatta veya havale ile alınır."
+                    : "Ödeme havale ile alınır."}
+              </p>
+            )}
           </div>
-
-          {mode === "route" ? (
-            <p className="rounded-lg bg-secondary/60 px-2.5 py-1.5 text-center text-xs text-muted-foreground">
-              {FULFILLMENT_NOTICE}
-            </p>
-          ) : null}
-
-          {state.status === "validation_error" || state.status === "error" ? (
-            <p className="text-sm text-destructive" role="alert">
-              {state.message}
-            </p>
-          ) : null}
-
-          <input type="hidden" name="items_json" value={itemsJson} />
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full rounded-full"
-            disabled={!canSubmit}
-          >
-            {pending ? "Gönderiliyor…" : "Siparişi ver"}
-          </Button>
-          {!identity ? (
-            <p className="text-center text-xs text-muted-foreground">
-              Hesabınız sipariş verirken oluşturulur — sepetiniz kaybolmaz.
-            </p>
-          ) : addressId === null ? (
-            <p className="text-center text-xs text-muted-foreground">
-              Devam etmek için bir teslimat adresi seçin.
-            </p>
-          ) : (
-            <p className="text-center text-xs text-muted-foreground">
-              {paytrEnabled
-                ? "Kart seçilirse güvenli ödeme sayfasına (PayTR) yönlendirilirsiniz."
-                : "Ödeme teslimatta veya havale ile alınır."}
-            </p>
-          )}
         </div>
       </aside>
     </form>
+  );
+}
+
+/** Basket recap + totals. Shared by both steps so the customer always sees what
+ *  they are paying for, including during account creation. */
+function OrderSummary({
+  rows,
+  mode,
+  subtotal,
+  feeMinor,
+  total,
+}: {
+  rows: ReadonlyArray<{ product: Product; quantity: number }>;
+  mode: "route" | "cargo";
+  subtotal: number;
+  feeMinor: number;
+  total: number;
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
+      <h2 className="font-display text-lg">Sipariş özeti</h2>
+      <ul className="flex flex-col gap-2.5">
+        {rows.map(({ product, quantity }) => (
+          <li key={product.key} className="flex items-center gap-2.5 text-sm">
+            <span className="text-xl" aria-hidden>
+              {productEmoji(product.key)}
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {product.display_name}
+              <span className="text-muted-foreground">
+                {" "}
+                ×{" "}
+                {quantity.toLocaleString("tr-TR", {
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </span>
+            <span className="tabular-nums">
+              {formatTRY(lineTotalMinor(product, quantity))}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="border-t border-border/60 pt-3 text-sm">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Ara toplam</span>
+          <span className="tabular-nums">{formatTRY(subtotal)}</span>
+        </div>
+        <div className="mt-1 flex justify-between">
+          <span className="text-muted-foreground">
+            {mode === "route" ? "Teslimat" : "Kargo"}
+          </span>
+          <span className="tabular-nums">
+            {feeMinor === 0 ? "Ücretsiz" : formatTRY(feeMinor)}
+          </span>
+        </div>
+        <div className="mt-2 flex justify-between border-t border-border/60 pt-2 text-base font-semibold">
+          <span>Toplam</span>
+          <span className="tabular-nums">{formatTRY(total)}</span>
+        </div>
+      </div>
+
+      <p className="rounded-lg bg-secondary/60 px-2.5 py-1.5 text-center text-xs text-muted-foreground">
+        {mode === "route" ? FULFILLMENT_NOTICE : CARGO_FREE_SHIPPING_NOTICE}
+      </p>
+    </div>
   );
 }
 
