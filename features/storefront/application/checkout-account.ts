@@ -35,6 +35,41 @@ export type ResolveSessionOutcome =
    *  session, so the order cannot be placed yet. The basket is untouched. */
   | { kind: "verify_email"; email: string };
 
+/**
+ * The account block's fields, read out of a checkout FormData.
+ *
+ * Shared by the account step (`createCheckoutAccountAction`) and the order
+ * submit (`placeOrderAction`) so the two can never disagree about a field name —
+ * a mismatch there is invisible in TypeScript and shows up as "the form does
+ * nothing", which is exactly the bug this flow already had once.
+ *
+ * Returns `unknown` on purpose: the caller runs `checkoutAccountSchema` over it
+ * (CLAUDE.md §4 — nothing from a form is trusted before Zod).
+ */
+export function readCheckoutAccountInput(formData: FormData): unknown {
+  const mode = String(formData.get("account_mode") ?? "existing");
+
+  if (mode === "signup") {
+    return {
+      mode: "signup",
+      email: formData.get("account_email"),
+      password: formData.get("account_password"),
+      first_name: formData.get("first_name"),
+      last_name: formData.get("last_name"),
+      phone: formData.get("phone"),
+      kvkk_accepted: formData.get("kvkk_accepted") === "on",
+    };
+  }
+  if (mode === "signin") {
+    return {
+      mode: "signin",
+      email: formData.get("account_email"),
+      password: formData.get("account_password"),
+    };
+  }
+  return { mode: "existing" };
+}
+
 export async function resolveCheckoutSession(
   account: CheckoutAccountParsed,
 ): Promise<Result<ResolveSessionOutcome, AppError>> {

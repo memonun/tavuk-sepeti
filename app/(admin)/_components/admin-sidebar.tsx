@@ -7,6 +7,7 @@ import {
   Map,
   Package,
   Repeat,
+  Store,
   Tags,
   Users,
 } from "lucide-react";
@@ -37,6 +38,7 @@ const navItems = [
   { href: "/products", label: "Ürünler", icon: Tags, exact: false },
   { href: "/map", label: "Harita", icon: Map, exact: false },
   { href: "/routes", label: "Rota", icon: CalendarRange, exact: false },
+  { href: "/magaza-ayarlari", label: "Mağaza ayarları", icon: Store, exact: false },
 ] as const;
 
 interface AdminSidebarProps {

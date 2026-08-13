@@ -58,10 +58,37 @@ export const TIME_SLOT_OPTIONS = [
   { value: "evening", label: "Akşam (17:00–20:00)" },
 ] as const;
 
-/** Payment options shown at checkout. Values mirror the DB `payment_method`
- *  enum. No online payment in Faz 2 (CLAUDE.md §13). */
+/**
+ * Payment options shown at checkout. Values mirror the DB `payment_method`
+ * enum.
+ *
+ * `channels` is the owner's rule, not a UI preference: cash on delivery means
+ * our own driver takes the money at the door, so it exists ONLY on a home
+ * delivery. A cargo parcel is handed to a courier who collects nothing on our
+ * behalf, and an unpaid box that ships across Türkiye is a loss we cannot
+ * recover — so an out-of-city order is prepaid (card or havale) or it is not
+ * placed. `paymentMethodsForChannel` in domain/payment-options.ts is the one
+ * place that reads this, and the Server Action re-checks it server-side.
+ */
 export const PAYMENT_METHOD_OPTIONS = [
-  { value: "credit_card", label: "Kredi / Banka Kartı (Güvenli Ödeme)" },
-  { value: "cash_on_delivery", label: "Kapıda nakit ödeme" },
-  { value: "bank_transfer", label: "Havale / EFT" },
+  {
+    value: "credit_card",
+    label: "Kredi / Banka Kartı (Güvenli Ödeme)",
+    channels: ["delivery", "shipping"],
+  },
+  {
+    value: "cash_on_delivery",
+    label: "Kapıda nakit ödeme",
+    channels: ["delivery"],
+  },
+  {
+    value: "bank_transfer",
+    label: "Havale / EFT",
+    channels: ["delivery", "shipping"],
+  },
 ] as const;
+
+/** Shown wherever a cargo basket is priced — the owner asked that free
+ *  shipping be stated, not merely implied by a ₺0,00 line. */
+export const CARGO_FREE_SHIPPING_NOTICE =
+  "Şehir dışı siparişlerde kargo ücretsizdir.";

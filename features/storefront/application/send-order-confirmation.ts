@@ -51,6 +51,7 @@ export async function sendOrderConfirmationEmail(
   const email = buildOrderConfirmationEmail({
     orderNumber: order.orderNumber,
     customerName: order.customerName || order.customerEmail,
+    channel: order.channel,
     scheduledFor: order.scheduledFor,
     timeSlotLabel:
       TIME_SLOT_OPTIONS.find((option) => option.value === order.timeSlot)?.label ??

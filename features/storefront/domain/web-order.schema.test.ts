@@ -107,6 +107,21 @@ describe("webOrderSchema", () => {
     ).toBe(false);
   });
 
+  // A cargo basket is never asked for a preparation day, so its form sends an
+  // empty field. The action stamps the earliest allowed day and, for a delivery
+  // basket, rejects the missing value — the schema only has to let it through.
+  it("accepts a missing delivery date (cargo sends none)", () => {
+    for (const value of ["", null, undefined]) {
+      const parsed = webOrderSchema.safeParse({
+        ...validOrder,
+        address_mode: "cargo",
+        scheduled_for: value,
+      });
+      expect(parsed.success).toBe(true);
+      if (parsed.success) expect(parsed.data.scheduled_for).toBeNull();
+    }
+  });
+
   it("accepts credit_card as a payment method", () => {
     const parsed = webOrderSchema.parse({
       ...validOrder,

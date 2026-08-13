@@ -6,19 +6,28 @@
  * contract rather than a parallel one:
  *
  *   1. Zod-parse the payload (CLAUDE.md §4) — first statement, nothing trusted.
- *   2. Resolve the session. An account is required, but it is created or signed
- *      into HERE, in the same submit, so browsing and filling the basket stay
- *      frictionless and no redirect ever strands a full basket.
+ *   2. Resolve the session. The account is normally established one step
+ *      earlier by `createCheckoutAccountAction` (an address cannot be saved
+ *      without it); the signup/signin branches stay reachable here so a stale
+ *      tab posting the old single-submit shape still works.
  *   3. Resolve the customer from the LOGIN. Never by phone — that lookup is what
  *      used to merge web orders onto legacy phone-ordered records.
- *   4. Server-authoritative delivery-date window check.
- *   5. Reload the catalog and re-price EVERY line with enrichOrderItems (the
+ *   4. Reload the catalog and re-price EVERY line with enrichOrderItems (the
  *      SAME function the admin path uses). The basket only ever contributes
  *      product_key + quantity; prices are never trusted from the browser.
- *   6. Re-derive the fulfillment channel from the re-priced items and compare it
+ *   5. Re-derive the fulfillment channel from the re-priced items and compare it
  *      with the client's hint, so a basket that went stale (an admin flipped a
  *      product to cargo mid-session) is rejected rather than silently switching
  *      channel.
+ *   6. Apply the CHANNEL-DEPENDENT rules, all server-authoritative and all
+ *      re-checked here even though the form already renders them:
+ *        - delivery → the day must be inside the window AND one of the owner's
+ *          "eve servis günleri" (storefront_settings);
+ *        - cargo → no preparation day is asked for at all; the earliest allowed
+ *          day is stamped on the order, and the basket must clear the cargo
+ *          order floor (1.000 ₺ by default);
+ *        - kapıda nakit ödeme only on a delivery — a courier collects nothing
+ *          on our behalf.
  *   7. Hand to the privileged writer, which re-checks address ownership, the
  *      route-address fields and the service area inside the transaction.
  *
@@ -33,14 +42,30 @@ import {
   isPaytrEnabled,
 } from "@/features/payments/application/paytr";
 import { listActiveProducts } from "@/features/products/application/list-products";
-import { resolveCheckoutSession } from "@/features/storefront/application/checkout-account";
+import {
+  readCheckoutAccountInput,
+  resolveCheckoutSession,
+} from "@/features/storefront/application/checkout-account";
+import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { resolveCheckoutCustomer } from "@/features/storefront/application/resolve-checkout-customer";
 import { addDaysIso, isWithinWindow } from "@/features/storefront/domain/delivery-date";
+import {
+  formatHomeDeliveryDays,
+  isHomeDeliveryDay,
+} from "@/features/storefront/domain/delivery-window";
 import {
   requiredAddressMode,
   resolveOrderChannel,
 } from "@/features/storefront/domain/fulfillment-channel";
+import {
+  checkOrderMinimum,
+  orderMinimumMessage,
+} from "@/features/storefront/domain/order-minimum";
 import { buildOrderConfirmationEmail } from "@/features/storefront/domain/order-email";
+import {
+  isPaymentMethodAllowed,
+  paymentMethodBlockedMessage,
+} from "@/features/storefront/domain/payment-options";
 import {
   CARGO_FEE_MINOR,
   DELIVERY_FEE_MINOR,
@@ -91,28 +116,8 @@ export async function placeOrderAction(
     return { status: "error", message: "Sepet okunamadı, sayfayı yenileyin." };
   }
 
-  const accountMode = String(formData.get("account_mode") ?? "existing");
-  const account =
-    accountMode === "signup"
-      ? {
-          mode: "signup",
-          email: formData.get("account_email"),
-          password: formData.get("account_password"),
-          first_name: formData.get("first_name"),
-          last_name: formData.get("last_name"),
-          phone: formData.get("phone"),
-          kvkk_accepted: formData.get("kvkk_accepted") === "on",
-        }
-      : accountMode === "signin"
-        ? {
-            mode: "signin",
-            email: formData.get("account_email"),
-            password: formData.get("account_password"),
-          }
-        : { mode: "existing" };
-
   const parsed = webOrderSchema.safeParse({
-    account,
+    account: readCheckoutAccountInput(formData),
     address_id: formData.get("address_id"),
     address_mode: formData.get("address_mode"),
     scheduled_for: formData.get("scheduled_for"),
@@ -130,7 +135,10 @@ export async function placeOrderAction(
     };
   }
 
-  // ---- Account (created/signed in inline, so the basket is never lost) ------
+  // ---- Account ---------------------------------------------------------------
+  // Normally "existing": the account step ran first, because an address cannot
+  // be saved without a session. The signup/signin branches remain reachable so a
+  // tab still holding the old single-submit form is not stranded.
   const session = await resolveCheckoutSession(parsed.data.account);
   if (!session.ok) {
     return { status: "validation_error", message: session.error.message };
@@ -147,18 +155,6 @@ export async function placeOrderAction(
     }
     logger.error({ code: customer.error.code }, "checkout_customer_resolve_failed");
     return { status: "error", message: "Hesabınız hazırlanamadı, tekrar deneyin." };
-  }
-
-  // ---- Delivery date must fall inside the allowed window -------------------
-  // Server-authoritative; the client's <input min/max> is only a convenience.
-  const today = todayInIstanbul();
-  const earliest = addDaysIso(today, MIN_DELIVERY_LEAD_DAYS);
-  const latest = addDaysIso(today, MAX_DELIVERY_HORIZON_DAYS);
-  if (!isWithinWindow(parsed.data.scheduled_for, earliest, latest)) {
-    return {
-      status: "validation_error",
-      message: `Teslimat günü ${earliest} ile ${latest} arasında olmalı.`,
-    };
   }
 
   // ---- Authoritative pricing ------------------------------------------------
@@ -185,6 +181,73 @@ export async function placeOrderAction(
     return {
       status: "validation_error",
       message: "Sepetiniz değişti, sayfayı yenileyip tekrar deneyin.",
+    };
+  }
+
+  // ---- Rules the owner controls (delivery days, cargo order floor) ----------
+  const settings = await getStorefrontSettings();
+  const subtotalMinor = enriched.value.reduce(
+    (sum, item) => sum + item.line_total_minor,
+    0,
+  );
+
+  // ---- Scheduling: server-authoritative, and channel-dependent --------------
+  // A delivery order books a van, so it needs a day the van actually drives.
+  // A cargo order books nothing: the owner asked that the "hazırlanma günü"
+  // question be dropped for out-of-city parcels, so the earliest allowed day is
+  // stamped on the order (the column is NOT NULL and the ops lists sort by it)
+  // and the parcel ships when it is ready.
+  const today = todayInIstanbul();
+  const earliest = addDaysIso(today, MIN_DELIVERY_LEAD_DAYS);
+  const latest = addDaysIso(today, MAX_DELIVERY_HORIZON_DAYS);
+  let scheduledFor = earliest;
+
+  if (channel === "delivery") {
+    const requested = parsed.data.scheduled_for;
+    if (requested === null) {
+      return { status: "validation_error", message: "Teslimat günü seçin." };
+    }
+    if (!isWithinWindow(requested, earliest, latest)) {
+      return {
+        status: "validation_error",
+        message: `Teslimat günü ${earliest} ile ${latest} arasında olmalı.`,
+      };
+    }
+    if (!isHomeDeliveryDay(requested, settings.homeDeliveryDays)) {
+      return {
+        status: "validation_error",
+        message: `Eve servis günlerimiz: ${formatHomeDeliveryDays(
+          settings.homeDeliveryDays,
+        )}. Lütfen bu günlerden birini seçin.`,
+      };
+    }
+    scheduledFor = requested;
+  }
+
+  // ---- Cargo order floor ----------------------------------------------------
+  // Checked against the RE-PRICED subtotal, never the browser's arithmetic.
+  const minimum = checkOrderMinimum(
+    channel,
+    subtotalMinor,
+    settings.cargoMinOrderMinor,
+  );
+  if (!minimum.ok) {
+    return {
+      status: "validation_error",
+      message: orderMinimumMessage(
+        settings.cargoMinOrderMinor,
+        minimum.shortfallMinor,
+      ),
+    };
+  }
+
+  // ---- Payment method must be legal for this channel ------------------------
+  // Kapıda nakit ödeme is home-delivery only: our driver can take cash at the
+  // door, a cargo courier collects nothing on our behalf.
+  if (!isPaymentMethodAllowed(parsed.data.payment_method, channel)) {
+    return {
+      status: "validation_error",
+      message: paymentMethodBlockedMessage(parsed.data.payment_method),
     };
   }
 
@@ -232,7 +295,7 @@ export async function placeOrderAction(
   const placed = await placeWebOrder({
     customerId: customer.value,
     addressId: address.id,
-    scheduled_for: parsed.data.scheduled_for,
+    scheduled_for: scheduledFor,
     // A cargo order has no delivery window — there is no van to schedule.
     time_slot: channel === "delivery" ? parsed.data.time_slot : null,
     payment_method: parsed.data.payment_method,
@@ -266,7 +329,7 @@ export async function placeOrderAction(
     entity_id: placed.value.order_id,
     after: {
       order_number: placed.value.order_number,
-      scheduled_for: parsed.data.scheduled_for,
+      scheduled_for: scheduledFor,
       items_count: enriched.value.length,
       payment_method: parsed.data.payment_method,
       fulfillment_channel: placed.value.fulfillment_channel,
@@ -276,10 +339,6 @@ export async function placeOrderAction(
   revalidatePath("/hesap");
   revalidatePath("/orders");
 
-  const subtotalMinor = enriched.value.reduce(
-    (sum, item) => sum + item.line_total_minor,
-    0,
-  );
   const totalMinor = subtotalMinor + deliveryFeeMinor;
   const addressText = composeFullAddress(address);
   const customerName = [identity.firstName, identity.lastName]
@@ -339,7 +398,8 @@ export async function placeOrderAction(
     const email = buildOrderConfirmationEmail({
       orderNumber: placed.value.order_number,
       customerName: customerName || emailTo,
-      scheduledFor: parsed.data.scheduled_for,
+      channel: placed.value.fulfillment_channel,
+      scheduledFor: scheduledFor,
       timeSlotLabel:
         TIME_SLOT_OPTIONS.find((o) => o.value === parsed.data.time_slot)?.label ??
         null,
