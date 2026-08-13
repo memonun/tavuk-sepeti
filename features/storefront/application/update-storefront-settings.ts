@@ -36,6 +36,7 @@ export async function updateStorefrontSettingsAction(
     // Checkbox group → every checked weekday arrives under the same name.
     home_delivery_days: formData.getAll("home_delivery_days"),
     cargo_min_order_minor: formData.get("cargo_min_order_minor"),
+    home_min_order_minor: formData.get("home_min_order_minor"),
   });
 
   if (!parsed.success) {
@@ -59,6 +60,7 @@ export async function updateStorefrontSettingsAction(
     after: {
       home_delivery_days: saved.value.homeDeliveryDays,
       cargo_min_order_minor: saved.value.cargoMinOrderMinor,
+      home_min_order_minor: saved.value.homeMinOrderMinor,
     },
   });
 

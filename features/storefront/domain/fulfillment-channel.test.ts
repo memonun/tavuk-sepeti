@@ -39,6 +39,27 @@ describe("resolveOrderChannel", () => {
   });
 });
 
+describe("resolveOrderChannel — address-aware upgrade", () => {
+  // Owner decision 2026-08-13: same "ride along in the van" treatment as a
+  // mixed basket, triggered by the address instead of an actual fresh line.
+  it("upgrades an all-cargo basket to delivery when the address is route-capable", () => {
+    expect(resolveOrderChannel([apricot, mulberry], true)).toBe("delivery");
+  });
+
+  it("stays shipping for an all-cargo basket when the address is not route-capable", () => {
+    expect(resolveOrderChannel([apricot, mulberry], false)).toBe("shipping");
+  });
+
+  it("a delivery-forcing basket is delivery regardless of address capability", () => {
+    expect(resolveOrderChannel([eggs], false)).toBe("delivery");
+    expect(resolveOrderChannel([eggs], true)).toBe("delivery");
+  });
+
+  it("defaults to cart-only behavior when address capability is omitted", () => {
+    expect(resolveOrderChannel([apricot, mulberry])).toBe("shipping");
+  });
+});
+
 describe("hasDeliveryItem", () => {
   it("detects a single fresh line among cargo lines", () => {
     expect(hasDeliveryItem([apricot, mulberry, milk])).toBe(true);

@@ -5,36 +5,45 @@ import {
   orderMinimumMessage,
   orderMinimumNotice,
 } from "@/features/storefront/domain/order-minimum";
-import { DEFAULT_CARGO_MIN_ORDER_MINOR } from "@/features/storefront/domain/storefront-settings";
+import {
+  DEFAULT_CARGO_MIN_ORDER_MINOR,
+  DEFAULT_HOME_MIN_ORDER_MINOR,
+} from "@/features/storefront/domain/storefront-settings";
 
-const MIN = DEFAULT_CARGO_MIN_ORDER_MINOR; // 1.000 ₺
+const CARGO_MIN = DEFAULT_CARGO_MIN_ORDER_MINOR; // 1.000 ₺
+const HOME_MIN = DEFAULT_HOME_MIN_ORDER_MINOR; // 250 ₺
 
 describe("checkOrderMinimum", () => {
-  it("holds a cargo basket to the floor", () => {
-    expect(checkOrderMinimum("shipping", 75_000, MIN)).toEqual({
+  it("holds a basket below the floor", () => {
+    expect(checkOrderMinimum(75_000, CARGO_MIN)).toEqual({
       ok: false,
       shortfallMinor: 25_000,
     });
   });
 
-  it("passes a cargo basket exactly on the floor", () => {
-    expect(checkOrderMinimum("shipping", MIN, MIN)).toEqual({
+  it("passes a basket exactly on the floor", () => {
+    expect(checkOrderMinimum(CARGO_MIN, CARGO_MIN)).toEqual({
       ok: true,
       shortfallMinor: 0,
     });
   });
 
-  // A basket with any fresh line is one delivery order — the cargo-able goods
-  // ride along in the van, so no shipping cost and no floor.
-  it("never holds a home-delivery basket to the cargo floor", () => {
-    expect(checkOrderMinimum("delivery", 1_000, MIN)).toEqual({
+  it("holds a delivery-channel basket to the (lower) eve-servis floor", () => {
+    expect(checkOrderMinimum(1_000, HOME_MIN)).toEqual({
+      ok: false,
+      shortfallMinor: 24_000,
+    });
+  });
+
+  it("passes a delivery-channel basket that clears the eve-servis floor", () => {
+    expect(checkOrderMinimum(HOME_MIN, HOME_MIN)).toEqual({
       ok: true,
       shortfallMinor: 0,
     });
   });
 
   it("treats a zero limit as no floor at all", () => {
-    expect(checkOrderMinimum("shipping", 1, 0)).toEqual({
+    expect(checkOrderMinimum(1, 0)).toEqual({
       ok: true,
       shortfallMinor: 0,
     });
@@ -42,13 +51,20 @@ describe("checkOrderMinimum", () => {
 });
 
 describe("messages", () => {
-  it("states both the limit and the gap", () => {
-    const message = orderMinimumMessage(MIN, 25_000);
-    expect(message).toContain("1.000,00");
-    expect(message).toContain("250,00");
+  it("states both the limit and the gap, labeled for the channel", () => {
+    const cargo = orderMinimumMessage("shipping", CARGO_MIN, 25_000);
+    expect(cargo).toContain("Şehir dışı (kargo)");
+    expect(cargo).toContain("1.000,00");
+    expect(cargo).toContain("250,00");
+
+    const home = orderMinimumMessage("delivery", HOME_MIN, 5_000);
+    expect(home).toContain("Eve servis");
+    expect(home).toContain("250,00");
+    expect(home).toContain("50,00");
   });
 
   it("states the limit on its own for the pre-emptive notice", () => {
-    expect(orderMinimumNotice(MIN)).toContain("1.000,00");
+    expect(orderMinimumNotice("shipping", CARGO_MIN)).toContain("1.000,00");
+    expect(orderMinimumNotice("delivery", HOME_MIN)).toContain("250,00");
   });
 });

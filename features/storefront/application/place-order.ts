@@ -15,17 +15,25 @@
  *   4. Reload the catalog and re-price EVERY line with enrichOrderItems (the
  *      SAME function the admin path uses). The basket only ever contributes
  *      product_key + quantity; prices are never trusted from the browser.
- *   5. Re-derive the fulfillment channel from the re-priced items and compare it
+ *   5. Re-derive the ADDRESS FORM mode from the re-priced items and compare it
  *      with the client's hint, so a basket that went stale (an admin flipped a
- *      product to cargo mid-session) is rejected rather than silently switching
- *      channel.
+ *      product to cargo mid-session) is rejected rather than silently
+ *      switching form shape. Then load the customer's own address (needed for
+ *      step 6) and re-derive the fulfillment CHANNEL — address-aware since
+ *      2026-08-13: a flexible-only basket still becomes `delivery` when the
+ *      address is route-capable (isRouteUpgradeEligible), same "ride along in
+ *      the van" treatment a mixed basket already gets. Mirrors
+ *      resolve_channel_for_items() in the RPC (migration 20260813130000) —
+ *      the two must land on the same channel or the checks below would
+ *      validate against one the write then disagrees with.
  *   6. Apply the CHANNEL-DEPENDENT rules, all server-authoritative and all
  *      re-checked here even though the form already renders them:
  *        - delivery → the day must be inside the window AND one of the owner's
- *          "eve servis günleri" (storefront_settings);
- *        - cargo → no preparation day is asked for at all; the earliest allowed
- *          day is stamped on the order, and the basket must clear the cargo
- *          order floor (1.000 ₺ by default);
+ *          "eve servis günleri" (storefront_settings), and the basket must
+ *          clear the eve-servis order floor (250 ₺ by default);
+ *        - shipping → no preparation day is asked for at all; the earliest
+ *          allowed day is stamped on the order, and the basket must clear the
+ *          cargo order floor (1.000 ₺ by default);
  *        - kapıda nakit ödeme only on a delivery — a courier collects nothing
  *          on our behalf.
  *   7. Hand to the privileged writer, which re-checks address ownership, the
@@ -73,6 +81,7 @@ import {
   paymentMethodBlockedMessage,
   type PaymentMethod,
 } from "@/features/storefront/domain/payment-options";
+import { isRouteUpgradeEligible } from "@/features/storefront/domain/route-capability";
 import {
   CARGO_FEE_MINOR,
   DELIVERY_FEE_MINOR,
@@ -183,20 +192,49 @@ export async function placeOrderAction(
     return { status: "validation_error", message: enriched.error.message };
   }
 
-  // ---- Channel: re-derived, never taken from the client ---------------------
-  const channel = resolveOrderChannel(enriched.value);
+  // ---- Address mode: cart-only, unchanged by the address-aware channel below.
+  // A basket that went stale (an admin flipped a product to cargo mid-session)
+  // is rejected rather than silently switching form shape.
   const requiredMode = requiredAddressMode(enriched.value);
   if (requiredMode !== parsed.data.address_mode) {
-    // The basket's nature changed under the customer's feet (e.g. an admin
-    // switched a product to cargo while this tab was open). Refuse rather than
-    // quietly place an order in the other channel with the wrong address form.
     return {
       status: "validation_error",
       message: "Sepetiniz değişti, sayfayı yenileyip tekrar deneyin.",
     };
   }
 
-  // ---- Rules the owner controls (delivery days, cargo order floor) ----------
+  // ---- Address must be one of the account's own ----------------------------
+  // Fetched here (moved ahead of the channel-dependent rules below) because
+  // the channel itself now needs it — see the address-aware resolveOrderChannel
+  // call next. The RPC enforces ownership too (P0004); checking here buys a
+  // precise message and gives us the fields for the confirmation e-mail.
+  const addresses = await listMyAddresses();
+  if (!addresses.ok) {
+    logger.error({ code: addresses.error.code }, "checkout_address_load_failed");
+    return { status: "error", message: "Adresleriniz yüklenemedi, tekrar deneyin." };
+  }
+  const address = addresses.value.find((a) => a.id === parsed.data.address_id);
+  if (!address) {
+    return {
+      status: "validation_error",
+      message: "Teslimat adresi bulunamadı. Adres seçin veya yeni bir adres ekleyin.",
+    };
+  }
+
+  // ---- Channel: re-derived, never taken from the client ----------------------
+  // Owner decision 2026-08-13: a flexible-only basket (no delivery-only line)
+  // still becomes a delivery order when the address is genuinely route-capable
+  // — same "ride along in the van" treatment a mixed basket already gets. This
+  // must land on exactly the same channel resolve_channel_for_items() decides
+  // in the RPC (migration 20260813130000), or the checks below (payment
+  // method, order floor) would validate against a channel the write then
+  // disagrees with.
+  const channel = resolveOrderChannel(
+    enriched.value,
+    isRouteUpgradeEligible(address),
+  );
+
+  // ---- Rules the owner controls (delivery days, order floor) ----------------
   const settings = await getStorefrontSettings();
   const subtotalMinor = enriched.value.reduce(
     (sum, item) => sum + item.line_total_minor,
@@ -236,20 +274,15 @@ export async function placeOrderAction(
     scheduledFor = requested;
   }
 
-  // ---- Cargo order floor ----------------------------------------------------
+  // ---- Order floor, whichever one applies to this channel -------------------
   // Checked against the RE-PRICED subtotal, never the browser's arithmetic.
-  const minimum = checkOrderMinimum(
-    channel,
-    subtotalMinor,
-    settings.cargoMinOrderMinor,
-  );
+  const minOrderMinor =
+    channel === "delivery" ? settings.homeMinOrderMinor : settings.cargoMinOrderMinor;
+  const minimum = checkOrderMinimum(subtotalMinor, minOrderMinor);
   if (!minimum.ok) {
     return {
       status: "validation_error",
-      message: orderMinimumMessage(
-        settings.cargoMinOrderMinor,
-        minimum.shortfallMinor,
-      ),
+      message: orderMinimumMessage(channel, minOrderMinor, minimum.shortfallMinor),
     };
   }
 
@@ -263,21 +296,6 @@ export async function placeOrderAction(
     };
   }
 
-  // ---- Address must be one of the account's own ----------------------------
-  // The RPC enforces this too (P0004); checking here buys a precise message and
-  // gives us the fields for the confirmation e-mail.
-  const addresses = await listMyAddresses();
-  if (!addresses.ok) {
-    logger.error({ code: addresses.error.code }, "checkout_address_load_failed");
-    return { status: "error", message: "Adresleriniz yüklenemedi, tekrar deneyin." };
-  }
-  const address = addresses.value.find((a) => a.id === parsed.data.address_id);
-  if (!address) {
-    return {
-      status: "validation_error",
-      message: "Teslimat adresi bulunamadı. Adres seçin veya yeni bir adres ekleyin.",
-    };
-  }
   if (channel === "delivery" && (address.lat === 0 || address.lng === 0)) {
     return {
       status: "validation_error",

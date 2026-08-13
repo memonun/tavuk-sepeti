@@ -21,6 +21,7 @@ export default async function StorefrontSettingsPage() {
       <StorefrontSettingsForm
         homeDeliveryDays={settings.homeDeliveryDays}
         cargoMinOrderMinor={settings.cargoMinOrderMinor}
+        homeMinOrderMinor={settings.homeMinOrderMinor}
       />
     </div>
   );

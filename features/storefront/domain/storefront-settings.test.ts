@@ -11,6 +11,7 @@ describe("storefrontSettingsSchema", () => {
     const parsed = storefrontSettingsSchema.parse({
       home_delivery_days: [6, 3, 3, 0],
       cargo_min_order_minor: 100_000,
+      home_min_order_minor: 25_000,
     });
 
     expect(parsed.home_delivery_days).toEqual([3, 6, 0]);
@@ -22,6 +23,7 @@ describe("storefrontSettingsSchema", () => {
     const result = storefrontSettingsSchema.safeParse({
       home_delivery_days: [],
       cargo_min_order_minor: 0,
+      home_min_order_minor: 0,
     });
 
     expect(result.success).toBe(false);
@@ -32,21 +34,31 @@ describe("storefrontSettingsSchema", () => {
       storefrontSettingsSchema.safeParse({
         home_delivery_days: [7],
         cargo_min_order_minor: 0,
+        home_min_order_minor: 0,
       }).success,
     ).toBe(false);
   });
 
-  it("refuses a negative or non-integer minimum", () => {
+  it("refuses a negative or non-integer minimum, for either floor", () => {
     expect(
       storefrontSettingsSchema.safeParse({
         home_delivery_days: [3],
         cargo_min_order_minor: -1,
+        home_min_order_minor: 0,
       }).success,
     ).toBe(false);
     expect(
       storefrontSettingsSchema.safeParse({
         home_delivery_days: [3],
         cargo_min_order_minor: 10.5,
+        home_min_order_minor: 0,
+      }).success,
+    ).toBe(false);
+    expect(
+      storefrontSettingsSchema.safeParse({
+        home_delivery_days: [3],
+        cargo_min_order_minor: 0,
+        home_min_order_minor: -1,
       }).success,
     ).toBe(false);
   });
@@ -57,10 +69,12 @@ describe("storefrontSettingsSchema", () => {
     const parsed = storefrontSettingsSchema.parse({
       home_delivery_days: ["3", "6"],
       cargo_min_order_minor: "100000",
+      home_min_order_minor: "25000",
     });
 
     expect(parsed.home_delivery_days).toEqual([3, 6]);
     expect(parsed.cargo_min_order_minor).toBe(100_000);
+    expect(parsed.home_min_order_minor).toBe(25_000);
   });
 });
 
@@ -70,6 +84,7 @@ describe("toStorefrontSettings", () => {
       storefrontSettingsSchema.parse({
         home_delivery_days: [3, 6],
         cargo_min_order_minor: 100_000,
+        home_min_order_minor: 25_000,
       }),
     );
 
