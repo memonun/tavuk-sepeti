@@ -7,6 +7,7 @@
  * (features/orders/application/payments.ts). Bu dosya o akışın müşteri
  * tarafındaki tek statik parçası — I/O yok, saf sabitler + bir link builder.
  */
+import { buildWhatsAppLink, SUPPORT_WHATSAPP_E164 } from "@/features/storefront/domain/support-contact";
 import { formatTRY } from "@/shared/utils/money";
 
 export const BANK_TRANSFER_IBAN = "TR57 0011 1000 0000 0120 3560 15";
@@ -14,8 +15,6 @@ export const BANK_TRANSFER_IBAN = "TR57 0011 1000 0000 0120 3560 15";
 export const BANK_TRANSFER_IBAN_RAW = BANK_TRANSFER_IBAN.replace(/\s/g, "");
 export const BANK_TRANSFER_ACCOUNT_HOLDER = "Hamit Apuhan";
 export const BANK_TRANSFER_BANK_NAME = "QNB Finansbank";
-
-const BANK_TRANSFER_WHATSAPP_E164 = "+905332556444";
 
 /**
  * wa.me deep link with the order number (and total, once known) pre-filled
@@ -29,6 +28,5 @@ export function buildBankTransferWhatsAppLink(
   const amountLine =
     totalMinor === undefined ? "" : ` Tutar: ${formatTRY(totalMinor)}.`;
   const text = `Merhaba, ${orderNumber} numaralı siparişim için havale dekontunu iletiyorum.${amountLine}`;
-  const phoneDigits = BANK_TRANSFER_WHATSAPP_E164.replace(/\D/g, "");
-  return `https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`;
+  return buildWhatsAppLink(SUPPORT_WHATSAPP_E164, text);
 }

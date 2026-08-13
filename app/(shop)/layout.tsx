@@ -5,6 +5,7 @@ import { getStorefrontCatalog } from "@/features/storefront/application/get-cata
 import { CartProvider } from "@/features/storefront/ui/cart-provider";
 import { ShopFooter } from "@/features/storefront/ui/shop-footer";
 import { ShopHeader } from "@/features/storefront/ui/shop-header";
+import { WhatsAppSupportButton } from "@/features/storefront/ui/whatsapp-support-button";
 
 import "./theme.css";
 
@@ -49,6 +50,7 @@ export default async function ShopLayout({
         <div className="flex-1">{children}</div>
         <ShopFooter />
       </CartProvider>
+      <WhatsAppSupportButton />
     </div>
   );
 }
