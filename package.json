@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
-    "db:types": "dotenv -e .env -e .env.vercel-paste -- sh -c 'supabase gen types typescript --db-url \"$SUPABASE_DIRECT_URL\" --schema public > shared/supabase/types.ts.tmp && mv shared/supabase/types.ts.tmp shared/supabase/types.ts || (rm -f shared/supabase/types.ts.tmp; echo \"db:types failed — types.ts left unchanged. Is the URL reachable?\"; exit 1)'",
+    "db:types": "sh -c 'supabase gen types typescript --linked --schema public > shared/supabase/types.ts.tmp && mv shared/supabase/types.ts.tmp shared/supabase/types.ts || (rm -f shared/supabase/types.ts.tmp; echo \"db:types failed — types.ts left unchanged. Run: supabase login && supabase link --project-ref <ref>\"; exit 1)'",
+    "db:types:docker": "dotenv -e .env -e .env.vercel-paste -- sh -c 'supabase gen types typescript --db-url \"$SUPABASE_DIRECT_URL\" --schema public > shared/supabase/types.ts.tmp && mv shared/supabase/types.ts.tmp shared/supabase/types.ts || (rm -f shared/supabase/types.ts.tmp; echo \"db:types failed — types.ts left unchanged. Is the URL reachable? (Docker Desktop gerekir)\"; exit 1)'",
     "db:push": "dotenv -e .env -e .env.vercel-paste -- sh -c 'supabase db push --db-url \"$SUPABASE_DIRECT_URL\"'"
   },
   "dependencies": {
