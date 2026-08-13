@@ -61,10 +61,17 @@ import {
   checkOrderMinimum,
   orderMinimumMessage,
 } from "@/features/storefront/domain/order-minimum";
+import {
+  BANK_TRANSFER_ACCOUNT_HOLDER,
+  BANK_TRANSFER_BANK_NAME,
+  BANK_TRANSFER_IBAN,
+  buildBankTransferWhatsAppLink,
+} from "@/features/storefront/domain/bank-transfer";
 import { buildOrderConfirmationEmail } from "@/features/storefront/domain/order-email";
 import {
   isPaymentMethodAllowed,
   paymentMethodBlockedMessage,
+  type PaymentMethod,
 } from "@/features/storefront/domain/payment-options";
 import {
   CARGO_FEE_MINOR,
@@ -85,7 +92,12 @@ import { composeFullAddress } from "@/shared/utils/address";
 
 export type PlaceOrderState =
   | { status: "idle" }
-  | { status: "success"; orderNumber: string }
+  | {
+      status: "success";
+      orderNumber: string;
+      paymentMethod: PaymentMethod;
+      totalMinor: number;
+    }
   | { status: "redirect"; url: string }
   /** Signup needs e-mail confirmation before a session exists. Basket kept. */
   | { status: "verify_email"; email: string }
@@ -415,6 +427,18 @@ export async function placeOrderAction(
       subtotalMinor,
       deliveryFeeMinor,
       totalMinor,
+      bankTransfer:
+        parsed.data.payment_method === "bank_transfer"
+          ? {
+              iban: BANK_TRANSFER_IBAN,
+              accountHolder: BANK_TRANSFER_ACCOUNT_HOLDER,
+              bankName: BANK_TRANSFER_BANK_NAME,
+              whatsappUrl: buildBankTransferWhatsAppLink(
+                placed.value.order_number,
+                totalMinor,
+              ),
+            }
+          : null,
     });
     const sent = await sendEmail({
       to: emailTo,
@@ -427,5 +451,10 @@ export async function placeOrderAction(
     }
   }
 
-  return { status: "success", orderNumber: placed.value.order_number };
+  return {
+    status: "success",
+    orderNumber: placed.value.order_number,
+    paymentMethod: parsed.data.payment_method,
+    totalMinor,
+  };
 }

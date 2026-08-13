@@ -17,6 +17,7 @@ const base = {
   subtotalMinor: 29000,
   deliveryFeeMinor: 0,
   totalMinor: 29000,
+  bankTransfer: null,
 } as const;
 
 describe("buildOrderConfirmationEmail", () => {
@@ -66,5 +67,29 @@ describe("buildOrderConfirmationEmail", () => {
     });
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("omits the bank transfer block when not paying by havale", () => {
+    const { html, text } = buildOrderConfirmationEmail(base);
+    expect(html).not.toContain("IBAN");
+    expect(text).not.toContain("IBAN");
+  });
+
+  it("includes IBAN + WhatsApp link when paying by havale", () => {
+    const { html, text } = buildOrderConfirmationEmail({
+      ...base,
+      paymentMethodLabel: "Havale / EFT",
+      bankTransfer: {
+        iban: "TR57 0011 1000 0000 0120 3560 15",
+        accountHolder: "Hamit Apuhan",
+        bankName: "QNB Finansbank",
+        whatsappUrl: "https://wa.me/905332556444?text=merhaba",
+      },
+    });
+    expect(text).toContain("TR57 0011 1000 0000 0120 3560 15");
+    expect(text).toContain("ORD-2026-00042");
+    expect(text).toContain("https://wa.me/905332556444?text=merhaba");
+    expect(html).toContain("TR57 0011 1000 0000 0120 3560 15");
+    expect(html).toContain("https://wa.me/905332556444?text=merhaba");
   });
 });

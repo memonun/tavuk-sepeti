@@ -13,6 +13,13 @@ export interface OrderEmailLine {
   readonly lineTotalMinor: number;
 }
 
+export interface OrderEmailBankTransfer {
+  readonly iban: string;
+  readonly accountHolder: string;
+  readonly bankName: string;
+  readonly whatsappUrl: string;
+}
+
 export interface OrderEmailInput {
   readonly orderNumber: string;
   readonly customerName: string;
@@ -32,6 +39,10 @@ export interface OrderEmailInput {
   readonly subtotalMinor: number;
   readonly deliveryFeeMinor: number;
   readonly totalMinor: number;
+  /** Present only when payment_method is "bank_transfer" — no gateway in
+   *  Faz 1 (SPEC.md §1.3), so the IBAN + a pre-filled WhatsApp link is the
+   *  entire payment instruction the customer gets. */
+  readonly bankTransfer: OrderEmailBankTransfer | null;
 }
 
 export interface BuiltEmail {
@@ -71,6 +82,19 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
     )
     .join("\n");
 
+  const bt = input.bankTransfer;
+  const bankTransferText = bt
+    ? [
+        "",
+        "Havale/EFT bilgileri:",
+        `  IBAN: ${bt.iban}`,
+        `  Hesap sahibi: ${bt.accountHolder}`,
+        `  Banka: ${bt.bankName}`,
+        `  Açıklamaya sipariş numaranızı yazın: ${input.orderNumber}`,
+        `  Dekontu WhatsApp'tan gönderin: ${bt.whatsappUrl}`,
+      ]
+    : [];
+
   const text = [
     greeting,
     "",
@@ -86,6 +110,7 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
     `${scheduleLabel}: ${scheduleValue}`,
     `Adres: ${input.addressText}`,
     `Ödeme: ${input.paymentMethodLabel}`,
+    ...bankTransferText,
     "",
     "Teşekkürler,",
     "Apuhan Çiftliği",
@@ -100,6 +125,22 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
         </tr>`,
     )
     .join("");
+
+  const bankTransferHtml = bt
+    ? `
+    <div style="margin:16px 0;padding:12px 14px;border:1px solid #eee;border-radius:8px;background:#faf7f2;">
+      <p style="margin:0 0 6px;font-weight:700;font-size:14px;">Havale/EFT bilgileri</p>
+      <p style="margin:0;font-size:14px;line-height:1.6;">
+        IBAN: <strong>${escapeHtml(bt.iban)}</strong><br/>
+        Hesap sahibi: ${escapeHtml(bt.accountHolder)}<br/>
+        Banka: ${escapeHtml(bt.bankName)}<br/>
+        Açıklamaya sipariş numaranızı yazın: <strong>${escapeHtml(input.orderNumber)}</strong>
+      </p>
+      <p style="margin:10px 0 0;">
+        <a href="${escapeHtml(bt.whatsappUrl)}" style="color:#1a7a4c;font-weight:600;">Dekontu WhatsApp'tan gönderin →</a>
+      </p>
+    </div>`
+    : "";
 
   const html = `
   <div style="font-family:ui-sans-serif,system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#3a2f26;">
@@ -122,6 +163,7 @@ export function buildOrderConfirmationEmail(input: OrderEmailInput): BuiltEmail 
       <strong>Adres:</strong> ${escapeHtml(input.addressText)}<br/>
       <strong>Ödeme:</strong> ${escapeHtml(input.paymentMethodLabel)}
     </p>
+    ${bankTransferHtml}
     <p style="color:#8a7c6f;font-size:13px;">Teşekkürler,<br/>Apuhan Çiftliği</p>
   </div>`;
 

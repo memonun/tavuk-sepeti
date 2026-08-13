@@ -39,6 +39,7 @@ import {
   CheckCircle2Icon,
   MailCheckIcon,
   MapPinIcon,
+  MessageCircleIcon,
   PackageCheckIcon,
   ShoppingBasketIcon,
   TruckIcon,
@@ -52,6 +53,13 @@ import {
   placeOrderAction,
   type PlaceOrderState,
 } from "@/features/storefront/application/place-order";
+import {
+  BANK_TRANSFER_ACCOUNT_HOLDER,
+  BANK_TRANSFER_BANK_NAME,
+  BANK_TRANSFER_IBAN,
+  BANK_TRANSFER_IBAN_RAW,
+  buildBankTransferWhatsAppLink,
+} from "@/features/storefront/domain/bank-transfer";
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
 import { formatDeliveryDateLabel } from "@/features/storefront/domain/delivery-window";
 import {
@@ -63,7 +71,10 @@ import {
   orderMinimumMessage,
   orderMinimumNotice,
 } from "@/features/storefront/domain/order-minimum";
-import { paymentMethodsForChannel } from "@/features/storefront/domain/payment-options";
+import {
+  paymentMethodsForChannel,
+  type PaymentMethod,
+} from "@/features/storefront/domain/payment-options";
 import {
   CARGO_FEE_MINOR,
   CARGO_FREE_SHIPPING_NOTICE,
@@ -73,6 +84,7 @@ import {
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -139,6 +151,12 @@ export function CheckoutForm({
   const [addressId, setAddressId] = useState<string | null>(
     addresses.find((a) => a.is_primary)?.id ?? addresses[0]?.id ?? null,
   );
+  // Tracked so the havale/EFT IBAN box can appear the moment that option is
+  // picked, without waiting for a submit. Empty until the customer (or the
+  // radio's own defaultChecked) picks one — see `selectedPaymentMethod` below,
+  // which falls back to the first offered option so the box still matches
+  // what's actually pre-selected on first render.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
 
   // Empty the basket on inline success; for the card path, hand off to PayTR
   // (the basket is cleared on the success return page after payment).
@@ -177,7 +195,13 @@ export function CheckoutForm({
   }, [rows]);
 
   if (state.status === "success") {
-    return <OrderConfirmation orderNumber={state.orderNumber} />;
+    return (
+      <OrderConfirmation
+        orderNumber={state.orderNumber}
+        paymentMethod={state.paymentMethod}
+        totalMinor={state.totalMinor}
+      />
+    );
   }
 
   if (state.status === "verify_email") {
@@ -274,6 +298,9 @@ export function CheckoutForm({
   const paymentOptions = paymentMethodsForChannel(channel).filter(
     (option) => option.value !== "credit_card" || paytrEnabled,
   );
+  // The radios default to the first offered option (matching the old
+  // `defaultChecked={index === 0}`) until the customer actually picks one.
+  const selectedPaymentMethod = paymentMethod || paymentOptions[0]?.value;
   const canSubmit =
     !pending && addressId !== null && minimum.ok && !noDeliveryDay;
 
@@ -403,7 +430,7 @@ export function CheckoutForm({
 
         <Section title="4. Ödeme">
           <div className="grid gap-2 sm:grid-cols-2">
-            {paymentOptions.map((option, index) => (
+            {paymentOptions.map((option) => (
               <label
                 key={option.value}
                 className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input p-3 text-sm transition-colors has-checked:border-primary has-checked:bg-secondary/50"
@@ -412,7 +439,8 @@ export function CheckoutForm({
                   type="radio"
                   name="payment_method"
                   value={option.value}
-                  defaultChecked={index === 0}
+                  checked={selectedPaymentMethod === option.value}
+                  onChange={() => setPaymentMethod(option.value)}
                   className="size-4 accent-primary"
                   disabled={pending}
                   required
@@ -427,6 +455,9 @@ export function CheckoutForm({
             <p className="text-xs text-muted-foreground">
               Kapıda nakit ödeme yalnızca eve servis siparişlerinde geçerlidir.
             </p>
+          ) : null}
+          {selectedPaymentMethod === "bank_transfer" ? (
+            <BankTransferDetails />
           ) : null}
           <Field label="Sipariş notu (opsiyonel)" htmlFor="delivery_notes">
             <textarea
@@ -761,7 +792,15 @@ function VerifyEmail({ email }: { email: string }) {
   );
 }
 
-function OrderConfirmation({ orderNumber }: { orderNumber: string }) {
+function OrderConfirmation({
+  orderNumber,
+  paymentMethod,
+  totalMinor,
+}: {
+  orderNumber: string;
+  paymentMethod: PaymentMethod;
+  totalMinor: number;
+}) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
       <CheckCircle2Icon className="size-12 text-primary" />
@@ -776,6 +815,15 @@ function OrderConfirmation({ orderNumber }: { orderNumber: string }) {
         Siparişinizi hazırlamaya başlıyoruz. Durumunu istediğiniz zaman
         hesabınızdan takip edebilirsiniz.
       </p>
+
+      {paymentMethod === "bank_transfer" ? (
+        <BankTransferDetails
+          orderNumber={orderNumber}
+          totalMinor={totalMinor}
+          className="w-full text-left"
+        />
+      ) : null}
+
       <div className="flex flex-wrap justify-center gap-2">
         <Link href="/" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
           Alışverişe devam et
@@ -787,6 +835,74 @@ function OrderConfirmation({ orderNumber }: { orderNumber: string }) {
           Siparişlerim
         </Link>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The IBAN block. Two callers, two shapes:
+ *
+ *   - during checkout (no `orderNumber` yet) — informational, so the customer
+ *     knows what havale involves before committing to it.
+ *   - on the confirmation screen (`orderNumber` present) — actionable: adds
+ *     the pre-filled WhatsApp link, since that's the entire "send us the
+ *     receipt" flow Faz 1 has (SPEC.md §1.3 — no payment gateway for havale).
+ */
+function BankTransferDetails({
+  orderNumber,
+  totalMinor,
+  className,
+}: {
+  orderNumber?: string;
+  totalMinor?: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-2 rounded-xl border border-input bg-secondary/40 p-3 text-sm",
+        className,
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">IBAN</span>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs">{BANK_TRANSFER_IBAN}</span>
+          <CopyButton value={BANK_TRANSFER_IBAN_RAW} label="Kopyala" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">Hesap sahibi</span>
+        <span>{BANK_TRANSFER_ACCOUNT_HOLDER}</span>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">Banka</span>
+        <span>{BANK_TRANSFER_BANK_NAME}</span>
+      </div>
+      {orderNumber ? (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Açıklamaya sipariş numaranızı yazın:{" "}
+            <span className="font-mono font-medium text-foreground">{orderNumber}</span>
+          </p>
+          <a
+            href={buildBankTransferWhatsAppLink(orderNumber, totalMinor)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "mt-1 w-fit gap-1.5 rounded-full",
+            )}
+          >
+            <MessageCircleIcon className="size-4" />
+            Dekontu WhatsApp&apos;tan gönderin
+          </a>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Siparişi tamamladıktan sonra dekontu WhatsApp&apos;tan gönderebilirsiniz.
+        </p>
+      )}
     </div>
   );
 }

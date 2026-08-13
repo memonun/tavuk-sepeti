@@ -23,7 +23,7 @@
  * point is how the fields get filled without typing. There the pin is optional:
  * it is saved if placed, and nothing blocks the save if it is not.
  */
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MapPinIcon } from "lucide-react";
 
 import { AddressAutocomplete } from "@/components/address/address-autocomplete";
@@ -32,6 +32,7 @@ import { AddressPinCorrector } from "@/components/address/address-pin-corrector"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { geocodeAddressAction } from "@/features/geocoding/application/geocode-address-action";
 import { reverseGeocodeAction } from "@/features/geocoding/application/reverse-geocode-action";
 import { saveAddressAction } from "@/features/storefront/application/save-address";
 import { DETACHED_HOUSE_APARTMENT_NO } from "@/features/storefront/domain/customer-address.schema";
@@ -39,6 +40,7 @@ import {
   DELIVERY_PROVINCE,
   DELIVERY_PROVINCE_CENTER,
 } from "@/features/storefront/domain/storefront.config";
+import { composeGeocoderQuery, hasGeocodableShape } from "@/shared/utils/address";
 
 import type { ParsedAddress } from "@/components/address/address-autocomplete";
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
@@ -122,8 +124,10 @@ export function AddressForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
-  // Guards against a slow reverse lookup landing after a newer one and
-  // overwriting the fields with the previous point's address.
+  // Guards against a slow lookup landing after a newer one and overwriting
+  // state with a stale result. Shared by both directions of the map/fields
+  // sync (pin → fields reverse geocode, and fields → pin forward geocode)
+  // since either can race the other and both write to the same state.
   const lookupSeq = useRef(0);
 
   const set = (patch: Partial<FormFields>) =>
@@ -134,11 +138,17 @@ export function AddressForm({
   const canSubmit = !saving && (!needsPin || (hasPin && confirmed));
 
   function applySuggestion(place: ParsedAddress) {
+    // Same blank-keeps-old-value rule as fillFromPin: a search result that
+    // only resolves to province/district level must not wipe out a
+    // neighborhood/street the map (or a previous search) already filled in.
+    // This is what lets "Malatya Akçadağ Bahri" + a map pick, or the other
+    // order, both land on the same address instead of one overwriting the
+    // other's fields with blanks.
     set({
       city: place.city || fields.city,
-      district: place.district,
-      neighborhood: place.neighborhood,
-      street: place.street,
+      district: place.district || fields.district,
+      neighborhood: place.neighborhood || fields.neighborhood,
+      street: place.street || fields.street,
       building_no: place.building_no,
       postal_code: place.postal_code,
     });
@@ -214,6 +224,60 @@ export function AddressForm({
     },
     [fillFromPin],
   );
+
+  /**
+   * Typed fields → moved pin, the other half of the map/fields sync.
+   *
+   * A customer typing "Malatya, Akçadağ, Bahri..." by hand (no search, no map
+   * tap yet) previously left the map sitting on the province-wide default
+   * center — there was no path from typing to a pin at all. Once il + ilçe +
+   * (mahalle or cadde) are present, this debounces a forward geocode and
+   * drops the pin there, same as the admin customer form already does.
+   *
+   * Stops the moment the customer takes over the pin themselves — by tapping
+   * the map, dragging it, or picking a search suggestion (`source` becomes
+   * `"user_pin"` / `"geocoded_manual"`). From then on typing only edits text;
+   * it never yanks a deliberately placed pin out from under them. `building_no`
+   * is included because it sharpens the geocode; `apartment_no`/`postal_code`/
+   * `label`/`description` are excluded so those keystrokes don't burn a Google
+   * call for no positional gain (CLAUDE.md §8 quota discipline).
+   */
+  useEffect(() => {
+    const parts = {
+      city: fields.city,
+      district: fields.district,
+      neighborhood: fields.neighborhood,
+      street: fields.street,
+      building_no: fields.building_no,
+    };
+    if (!hasGeocodableShape(parts)) return;
+    if (hasPin && pin.source !== "geocoded_auto") return;
+
+    const timer = setTimeout(async () => {
+      const seq = ++lookupSeq.current;
+      const result = await geocodeAddressAction(composeGeocoderQuery(parts));
+      if (seq !== lookupSeq.current) return; // a newer edit/pin already won
+      if (!result.ok) return; // soft-fail — the customer can still tap the map by hand
+
+      setPin({
+        lat: result.lat,
+        lng: result.lng,
+        accuracy: result.accuracy,
+        source: "geocoded_auto",
+      });
+      setConfirmed(false);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [
+    fields.city,
+    fields.district,
+    fields.neighborhood,
+    fields.street,
+    fields.building_no,
+    hasPin,
+    pin.source,
+  ]);
 
   async function submit() {
     setError(null);

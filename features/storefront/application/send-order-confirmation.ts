@@ -15,6 +15,12 @@ import "server-only";
  * reported, never thrown. A missed receipt must not cost us the "OK" that stops
  * PayTR from retrying a payment we already booked.
  */
+import {
+  BANK_TRANSFER_ACCOUNT_HOLDER,
+  BANK_TRANSFER_BANK_NAME,
+  BANK_TRANSFER_IBAN,
+  buildBankTransferWhatsAppLink,
+} from "@/features/storefront/domain/bank-transfer";
 import { buildOrderConfirmationEmail } from "@/features/storefront/domain/order-email";
 import {
   PAYMENT_METHOD_OPTIONS,
@@ -64,6 +70,19 @@ export async function sendOrderConfirmationEmail(
     subtotalMinor: order.subtotalMinor,
     deliveryFeeMinor: order.deliveryFeeMinor,
     totalMinor: order.totalMinor,
+    // This path is currently only reached from the PayTR webhook (card
+    // payments), but deriving from the order's actual payment_method — rather
+    // than assuming "card, so never bank_transfer" — is what keeps this
+    // correct if a bank_transfer order is ever routed through here too.
+    bankTransfer:
+      order.paymentMethod === "bank_transfer"
+        ? {
+            iban: BANK_TRANSFER_IBAN,
+            accountHolder: BANK_TRANSFER_ACCOUNT_HOLDER,
+            bankName: BANK_TRANSFER_BANK_NAME,
+            whatsappUrl: buildBankTransferWhatsAppLink(order.orderNumber, order.totalMinor),
+          }
+        : null,
   });
 
   const sent = await sendEmail({
