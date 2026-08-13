@@ -3,8 +3,10 @@
 /**
  * Admin product cover-image control: shows the current image (or an empty
  * drop target) and accepts a file via drag-and-drop or click-to-select. The
- * picked image is compressed in the browser, then handed to the upload server
- * action (which re-validates and stores it). "Kaldır" clears it.
+ * picked file opens the pan/zoom cropper (`ImageCropperDialog`) so the admin
+ * frames the shot before it's set — the crop already downsizes + re-encodes
+ * to WEBP, so the result goes straight to the upload server action (which
+ * re-validates and stores it). "Kaldır" clears it.
  */
 import { ImagePlusIcon, Loader2Icon, Trash2Icon } from "lucide-react";
 import Image from "next/image";
@@ -18,7 +20,7 @@ import {
   isAllowedProductImageType,
   productImagePublicUrl,
 } from "@/features/products/domain/product-image";
-import { compressImage } from "@/features/products/ui/compress-image";
+import { ImageCropperDialog } from "@/features/products/ui/image-cropper-dialog";
 import { env } from "@/shared/env";
 
 export function ProductImageDropzone({
@@ -36,6 +38,7 @@ export function ProductImageDropzone({
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [busy, startBusy] = useTransition();
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const imageUrl = productImagePublicUrl(
     imagePath,
@@ -47,8 +50,12 @@ export function ProductImageDropzone({
       toast.error("Yalnızca JPEG, PNG veya WEBP yükleyin.");
       return;
     }
+    setPendingFile(file);
+  };
+
+  const handleCropped = (blob: Blob) => {
+    setPendingFile(null);
     startBusy(async () => {
-      const blob = await compressImage(file);
       const form = new FormData();
       form.append("product_key", productKey);
       form.append("file", blob, "cover.webp");
@@ -147,6 +154,12 @@ export function ProductImageDropzone({
           if (file) handleFile(file);
           e.target.value = "";
         }}
+      />
+
+      <ImageCropperDialog
+        file={pendingFile}
+        onCancel={() => setPendingFile(null)}
+        onConfirm={handleCropped}
       />
     </div>
   );
