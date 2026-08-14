@@ -80,6 +80,9 @@ const FILTERABLE_COLUMNS: ReadonlyArray<FilterableColumn> = [
     options: [
       { value: "admin_manual", label: "Panel" },
       { value: "customer_web", label: "Web" },
+      // Guest checkouts write one row per order, so this filter is also how you
+      // spot the same person appearing more than once.
+      { value: "customer_guest", label: "Web (üyesiz)" },
     ],
   },
   { id: "created_at", label: "Eklenme", kind: "date" },
