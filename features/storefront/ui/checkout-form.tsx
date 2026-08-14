@@ -562,13 +562,19 @@ export function CheckoutForm({
               </p>
             ) : null}
 
+            {/* Submit exactly what the customer was shown. This used to
+                serialize the raw `lines`, which include products the catalog no
+                longer sells — invisible in the summary and in the totals, but
+                still POSTed, so the order died on "Ürün bulunamadı: <key>" for a
+                row that could not be seen or deleted. `rows` is the same
+                catalog-resolved list the summary and the price are built from. */}
             <input
               type="hidden"
               name="items_json"
               value={JSON.stringify(
-                lines.map((l) => ({
-                  product_key: l.product_key,
-                  quantity: l.quantity,
+                rows.map((r) => ({
+                  product_key: r.product.key,
+                  quantity: r.quantity,
                 })),
               )}
             />

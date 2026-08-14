@@ -126,6 +126,28 @@ function clearCart(): void {
   write(EMPTY);
 }
 
+/**
+ * Drop lines whose product is no longer sellable, keeping the persisted cart in
+ * step with the catalog.
+ *
+ * Without this a product that gets archived, unpublished or de-priced leaves a
+ * line stranded in localStorage forever: the cart sheet and the order summary
+ * both resolve lines against the live catalog and simply skip it, so it is
+ * invisible and unremovable — while `lineCount` still counts it, so the header
+ * badge says 3 when the sheet lists 2. Worse, checkout still POSTed it and
+ * `enrichOrderItems` answered "Ürün bulunamadı: <key>", naming an internal key
+ * for a row the customer cannot see or delete. Every future checkout in that
+ * browser failed the same way, with DevTools the only escape.
+ *
+ * Callers MUST pass a catalog they know loaded — pruning against the empty array
+ * a failed fetch produces would delete the whole basket.
+ */
+function retainLines(sellableKeys: ReadonlySet<string>): void {
+  const kept = lines.filter((l) => sellableKeys.has(l.product_key));
+  // Reference-equal when nothing was stale, so subscribers don't re-render.
+  if (kept.length !== lines.length) write(kept);
+}
+
 // ---- Hooks ------------------------------------------------------------------
 
 const alwaysTrue = () => true;
@@ -141,6 +163,9 @@ export interface CartApi {
   setQuantity: (productKey: string, quantity: number) => void;
   removeItem: (productKey: string) => void;
   clear: () => void;
+  /** Prune lines missing from the live catalog. Pass a NON-EMPTY key set — see
+   *  retainLines; pruning against a failed catalog load empties the basket. */
+  retainOnly: (sellableKeys: ReadonlySet<string>) => void;
 }
 
 export function useCart(): CartApi {
@@ -168,6 +193,7 @@ export function useCart(): CartApi {
     setQuantity: setLineQuantity,
     removeItem: removeLine,
     clear: clearCart,
+    retainOnly: retainLines,
   };
 }
 
