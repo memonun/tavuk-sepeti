@@ -40,18 +40,26 @@ export function checkOrderMinimum(
     : { ok: true, shortfallMinor: 0 };
 }
 
-/** Customer-facing message. Says the limit AND what is missing — a bare
- *  "minimum 1.000 ₺" leaves the customer doing the arithmetic. */
+/**
+ * Customer-facing message. Says the limit AND what is missing — a bare
+ * "minimum 1.000 ₺" leaves the customer doing the arithmetic.
+ *
+ * "Kargolu", not "Şehir dışı". The floor follows the CHANNEL, and
+ * `resolveOrderChannel` decides that purely from whether the basket holds a
+ * fresh line — geography never enters into it. A Malatya customer buying only
+ * pekmez gets a cargo basket, and telling them the limit applies to
+ * "şehir dışı" orders reads as "not you" while the button stays disabled.
+ */
 export function orderMinimumMessage(
   minOrderMinor: number,
   shortfallMinor: number,
 ): string {
-  return `Şehir dışı (kargo) siparişlerinde alt limit ${formatTRY(
+  return `Kargolu siparişlerde alt limit ${formatTRY(
     minOrderMinor,
   )}. Sepetinize ${formatTRY(shortfallMinor)} daha eklemeniz gerekiyor.`;
 }
 
 /** Short notice shown before the basket falls short — the rule, not the gap. */
 export function orderMinimumNotice(minOrderMinor: number): string {
-  return `Şehir dışı (kargo) siparişlerinde alt limit ${formatTRY(minOrderMinor)}.`;
+  return `Kargolu siparişlerde alt limit ${formatTRY(minOrderMinor)}.`;
 }

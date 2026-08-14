@@ -5,9 +5,15 @@
  * Conversion to display happens at the very edge (UI / receipt PDFs).
  */
 
-const TRY_FORMATTER = new Intl.NumberFormat("tr-TR", {
-  style: "currency",
-  currency: "TRY",
+/**
+ * Deliberately NOT `style: "currency"`. ICU's tr-TR currency format puts the
+ * symbol in FRONT — `₺42,50`, `₺1.000,00` — which is not how prices are written
+ * in Turkish commerce, and the mismatch showed up in customer-facing sentences
+ * like "alt limit ₺1.000,00. Sepetinize ₺340,00 daha eklemeniz gerekiyor."
+ * Grouping and the decimal comma still come from the locale; only the symbol's
+ * position is ours.
+ */
+const TRY_AMOUNT_FORMATTER = new Intl.NumberFormat("tr-TR", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -15,7 +21,8 @@ const TRY_FORMATTER = new Intl.NumberFormat("tr-TR", {
 /** `4250` (kuruş) → `42,50 ₺` */
 export function formatTRY(minor: number | bigint): string {
   const major = Number(minor) / 100;
-  return TRY_FORMATTER.format(major);
+  // U+00A0 so the amount never wraps away from its symbol.
+  return `${TRY_AMOUNT_FORMATTER.format(major)}\u00a0₺`;
 }
 
 /** Parse a user-typed string like `"42,50"` or `"42.50"` into kuruş.
