@@ -41,7 +41,10 @@ export const COMPANY: Company = {
   taxNo: "", // TC/VKN repo'da saklanmaz, sitede gösterilmez
   mersisNo: "",
   kepAddress: "",
-  siteUrl: "https://xn--apuhaniftlii-pdb30f.com",
+  // Apex (www YOK) ve punycode değil: PayTR'nin panelde kilitli "SİTE ADRESİNİZ"
+  // alanı tam olarak bu — NEXT_PUBLIC_APP_URL ile birebir aynı kalmalı, yoksa
+  // ödeme sayfası "API bilgileri sadece ... için tanımlıdır" diye reddediyor.
+  siteUrl: "https://apuhanciftligi.com",
   etbisUrl: "https://etbis.ticaret.gov.tr/",
 };
 
