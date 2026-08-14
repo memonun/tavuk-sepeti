@@ -114,3 +114,101 @@ export async function placeWebOrder(
       row.fulfillment_channel === "shipping" ? "shipping" : "delivery",
   });
 }
+
+/** The address a guest typed into the checkout, already validated. */
+export interface GuestAddressPayload {
+  label: string | null;
+  raw_text: string;
+  description: string | null;
+  city: string;
+  district: string;
+  neighborhood: string;
+  street: string;
+  building_no: string;
+  apartment_no: string;
+  postal_code: string;
+  lat: number;
+  lng: number;
+  source: string;
+  accuracy: string;
+  geo_verified: boolean;
+}
+
+export interface GuestOrderRepoInput
+  extends Omit<WebOrderRepoInput, "customerId" | "addressId"> {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+  address: GuestAddressPayload;
+}
+
+/**
+ * Place an order for a visitor with no account.
+ *
+ * `place_guest_order` mints the `customers` and `addresses` rows and then calls
+ * `place_web_order` itself, so this is still ONE order-writing path — and the
+ * whole thing is one transaction, meaning a rejected order (bad address, outside
+ * the area) leaves no orphan customer behind.
+ *
+ * It never looks anything up: a repeat guest gets a NEW customers row rather
+ * than being matched onto an existing one. That is the owner's standing rule for
+ * web-originated records, and matching by phone is precisely what the previous
+ * guest writer did wrong — it attached web orders to legacy phone customers.
+ */
+export async function placeGuestOrder(
+  input: GuestOrderRepoInput,
+): Promise<Result<WebOrderResult, AppError>> {
+  const supabase = getSupabaseAdminClient();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("place_guest_order", {
+    p_first_name: input.first_name,
+    p_last_name: input.last_name,
+    p_phone: input.phone,
+    p_email: input.email,
+    p_address: input.address,
+    p_scheduled_for: input.scheduled_for,
+    p_time_slot: input.time_slot,
+    p_payment_method: input.payment_method,
+    p_delivery_notes: input.delivery_notes,
+    p_delivery_fee_minor: input.delivery_fee_minor,
+    p_items: input.items,
+  });
+
+  if (error) {
+    // P0008 is this writer's own guard; the rest bubble up from place_web_order.
+    const guard =
+      typeof error.code === "string"
+        ? error.code === "P0008"
+          ? "Telefon numarası gerekli."
+          : GUARD_MESSAGES[error.code]
+        : undefined;
+    if (guard) {
+      logger.warn({ code: error.code }, "place_guest_order_rejected");
+      return err(new ValidationError({ message: guard }));
+    }
+    logger.error(
+      { code: error.code, message: error.message },
+      "place_guest_order_rpc_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { order_id?: string; order_number?: string; fulfillment_channel?: string }
+    | null
+    | undefined;
+
+  if (!row?.order_id || !row?.order_number) {
+    logger.error({}, "place_guest_order_rpc_no_row");
+    return err(new ExternalApiError({ message: "Sipariş kimliği alınamadı." }));
+  }
+
+  return ok({
+    order_id: String(row.order_id),
+    order_number: String(row.order_number),
+    fulfillment_channel:
+      row.fulfillment_channel === "shipping" ? "shipping" : "delivery",
+  });
+}

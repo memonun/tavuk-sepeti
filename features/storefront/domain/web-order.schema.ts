@@ -55,6 +55,25 @@ const phoneTR = z
  */
 export const checkoutAccountSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("existing") }),
+  /**
+   * No account at all. Identity travels WITH the order because there is no
+   * session to read it from and no `customers` row until the writer mints one.
+   *
+   * E-mail is required, unlike on a phone order taken by the office: it is the
+   * guest's only durable record of the order (the confirmation mail carries the
+   * order number they need to look it up again), and PayTR refuses a card
+   * payment without one.
+   */
+  z.object({
+    mode: z.literal("guest"),
+    email: z.string().email("Geçerli bir e-posta girin.").toLowerCase(),
+    first_name: z.string().trim().min(1, "Ad gerekli.").max(100),
+    last_name: z.string().trim().min(1, "Soyad gerekli.").max(100),
+    phone: phoneTR,
+    kvkk_accepted: z.literal(true, {
+      errorMap: () => ({ message: "Devam etmek için sözleşmeleri onaylayın." }),
+    }),
+  }),
   z.object({
     mode: z.literal("signup"),
     email: z.string().email("Geçerli bir e-posta girin.").toLowerCase(),
@@ -84,8 +103,24 @@ export const webOrderItemSchema = z.object({
 
 export const webOrderSchema = z.object({
   account: checkoutAccountSchema,
-  /** Must belong to the resolved customer — the RPC re-checks (P0004). */
-  address_id: z.string().uuid("Teslimat adresi seçin."),
+  /**
+   * The saved address this order ships to — must belong to the resolved
+   * customer, which the RPC re-checks (P0004).
+   *
+   * Null ONLY for a guest: with no account there is no address book to pick
+   * from, so the address is typed into this same form and travels beside the
+   * order (parsed separately, per `address_mode`, by the same validator the
+   * account path uses). `refineCheckoutAddress` below makes the two mutually
+   * exclusive so neither can be silently missing.
+   */
+  // The hidden input submits "" when nothing is selected (and always, for a
+  // guest), so blank has to mean "absent" before the UUID check runs — otherwise
+  // an empty field fails as a malformed id rather than a missing one, and the
+  // guest/account rule below never gets to speak.
+  address_id: z.preprocess(
+    blankToNull,
+    z.string().uuid("Teslimat adresi seçin.").nullable(),
+  ),
   /**
    * A client hint about what the basket is, so the form can render the right
    * address UI. The action RE-DERIVES it from the re-priced items and rejects a
@@ -122,6 +157,26 @@ export const webOrderSchema = z.object({
   }),
   delivery_notes: z.preprocess(blankToNull, z.string().max(2000).nullable()),
   items: z.array(webOrderItemSchema).min(1, "Sepetiniz boş."),
+}).superRefine((value, ctx) => {
+  // Exactly one address source, decided by whether there is an account. Without
+  // this a guest submit with a stray `address_id`, or an account submit with
+  // none, would reach the writer and fail there with a database error code
+  // instead of a sentence the customer can act on.
+  const isGuest = value.account.mode === "guest";
+  if (!isGuest && value.address_id === null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["address_id"],
+      message: "Teslimat adresi seçin.",
+    });
+  }
+  if (isGuest && value.address_id !== null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["address_id"],
+      message: "Misafir siparişi kayıtlı adres kullanamaz.",
+    });
+  }
 });
 
 export type WebOrderItemInput = z.input<typeof webOrderItemSchema>;

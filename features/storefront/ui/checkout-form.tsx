@@ -1,22 +1,24 @@
 "use client";
 
 /**
- * Checkout — two steps, and only because the first one is unavoidable.
+ * Checkout. One submit for most people, two only when an account is involved.
  *
- * The owner's rule is still "hesap zorunlu olsun ama sipariş anına kadar
- * friction koyma": a visitor browses and fills the basket anonymously, and only
- * meets the account here. What changed is that the account now has its OWN
- * submit button.
+ * An account is no longer required to order — the owner's rule became "hesap
+ * açmadan sipariş verme de çalışmalı". So there are three shapes here:
  *
- * Why it has to: a delivery address can only be saved by an authenticated
- * customer (RLS keys the address rows off auth.uid()), and an order binds to a
- * saved `address_id`. With account creation buried inside the single "Siparişi
- * ver" submit — which stayed disabled until an address was selected — an
- * anonymous visitor could fill every field and nothing would happen. That is
- * exactly the reported bug ("hesap oluştur gibi bir buton yok, ilerlemiyor" /
- * "üye girişi yapmadan adres seçimi çalışmıyor"). So: step 1 establishes the
- * session, the page re-renders, step 2 is the ordinary one-submit checkout. The
- * basket lives in localStorage, so nothing is lost in between.
+ *   guest    — the default. Contact details and the address are typed into THIS
+ *              form and go with the order; `place_guest_order` writes the
+ *              customer, the address and the order in one transaction. No
+ *              session, no second submit.
+ *   account  — signed in. Identity comes from the session and the address is
+ *              picked from the saved book, so only the order fields are asked.
+ *   signup /
+ *   signin   — the only case that still needs its own submit FIRST, because a
+ *              saved address can only be written by an authenticated customer
+ *              (RLS keys address rows off auth.uid()) and the book is read
+ *              server-side. Establish the session, re-render, then order.
+ *
+ * The basket lives in localStorage, so nothing is lost across any of it.
  *
  * The basket also decides what the rest of the form asks for:
  *
@@ -92,6 +94,7 @@ import { cn } from "@/lib/utils";
 import { formatTRY } from "@/shared/utils/money";
 
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
@@ -101,6 +104,18 @@ import type { Product } from "@/features/products/application/list-products";
 
 const initialState: PlaceOrderState = { status: "idle" };
 const initialAccountState: CheckoutAccountState = { status: "idle" };
+
+/**
+ * What an anonymous visitor is doing at checkout.
+ *
+ *   guest  — order without an account (the default; no friction until the order)
+ *   signup — create one first, then come back to the order form
+ *   signin — already has one
+ *
+ * Only the last two need a submit of their own, because the order form reads the
+ * address book server-side and therefore needs the session to already exist.
+ */
+type CheckoutMode = "guest" | "signup" | "signin";
 
 const controlClass =
   "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -155,14 +170,21 @@ export function CheckoutForm({
   // first-ever account). Each new answer clears the previous pick so the
   // override actually lands. Adjusting state during render is React's documented
   // pattern here; an effect would cascade an extra render.
-  const [pickedMode, setPickedMode] = useState<"signup" | "signin" | null>(null);
+  const [pickedMode, setPickedMode] = useState<CheckoutMode | null>(null);
   const [seenAccountState, setSeenAccountState] = useState(accountState);
   if (seenAccountState !== accountState) {
     setSeenAccountState(accountState);
     setPickedMode(null);
   }
-  const accountMode: "signup" | "signin" =
-    pickedMode ?? (accountState.status === "email_taken" ? "signin" : "signup");
+  // Guest is the default: the owner's rule is "no friction until the order", and
+  // forcing a decision about accounts at the top of checkout is what the flow
+  // used to do. An `email_taken` answer still overrides, since at that point the
+  // customer demonstrably has an account.
+  const accountMode: CheckoutMode =
+    pickedMode ?? (accountState.status === "email_taken" ? "signin" : "guest");
+  /** Guest address: collected in-form, submitted WITH the order (there is no
+   *  address book to save it to before one exists). */
+  const [guestAddress, setGuestAddress] = useState<CollectedAddress | null>(null);
   const [pickedAddressId, setPickedAddressId] = useState<string | null>(null);
   // Tracked so the havale/EFT IBAN box can appear the moment that option is
   // picked, without waiting for a submit. Empty until the customer (or the
@@ -242,6 +264,7 @@ export function CheckoutForm({
         orderNumber={state.orderNumber}
         paymentMethod={state.paymentMethod}
         totalMinor={state.totalMinor}
+        hasAccount={identity !== null}
       />
     );
   }
@@ -279,10 +302,11 @@ export function CheckoutForm({
     />
   );
 
-  // ---- Step 1: the account ---------------------------------------------------
-  // Its own <form> and its own submit — see the file header for why this cannot
-  // ride along on the order submit.
-  if (!identity) {
+  // ---- Creating an account / signing in --------------------------------------
+  // Only these two need a submit of their own: a session must EXIST before the
+  // order form can bind to it (the address book is read server-side). A guest
+  // needs no session, so the guest flow stays on the single order submit below.
+  if (!identity && accountMode !== "guest") {
     return (
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
         <form action={accountAction} className="flex flex-col gap-8">
@@ -363,21 +387,59 @@ export function CheckoutForm({
   // The radios default to the first offered option (matching the old
   // `defaultChecked={index === 0}`) until the customer actually picks one.
   const selectedPaymentMethod = paymentMethod || paymentOptions[0]?.value;
-  const canSubmit =
-    !pending && addressId !== null && minimum.ok && !noDeliveryDay;
+  // An account picks a saved address; a guest has to have finished the inline
+  // address form. Either way the order cannot go without one.
+  const hasAddress = identity ? addressId !== null : guestAddress !== null;
+  const canSubmit = !pending && hasAddress && minimum.ok && !noDeliveryDay;
 
   return (
     <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-8">
-        <Section title="1. Hesap">
-          <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm">
-            Merhaba{" "}
-            <strong className="font-medium">
-              {identity.first_name || identity.email}
-            </strong>{" "}
-            — siparişiniz bu hesaba kaydedilecek.
-          </p>
-          <input type="hidden" name="account_mode" value="existing" />
+        <Section title="1. İletişim">
+          {identity ? (
+            <>
+              <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm">
+                Merhaba{" "}
+                <strong className="font-medium">
+                  {identity.first_name || identity.email}
+                </strong>{" "}
+                — siparişiniz bu hesaba kaydedilecek.
+              </p>
+              <input type="hidden" name="account_mode" value="existing" />
+            </>
+          ) : (
+            <>
+              <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
+                Üye olmadan sipariş verebilirsiniz. Siparişinizi daha sonra
+                numarası ve telefonunuzla{" "}
+                <Link
+                  href="/siparis-sorgula"
+                  className="underline underline-offset-2"
+                  target="_blank"
+                >
+                  sorgulayabilirsiniz
+                </Link>
+                .{" "}
+                <button
+                  type="button"
+                  onClick={() => setPickedMode("signin")}
+                  className="underline underline-offset-2"
+                >
+                  Hesabınız var mı?
+                </button>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  onClick={() => setPickedMode("signup")}
+                  className="underline underline-offset-2"
+                >
+                  Hesap oluşturun
+                </button>
+              </p>
+              <GuestBlock disabled={pending} />
+              <input type="hidden" name="account_mode" value="guest" />
+            </>
+          )}
         </Section>
 
         <Section title="2. Teslimat adresi">
@@ -394,16 +456,34 @@ export function CheckoutForm({
             </span>
           </p>
 
-          <AddressPicker
-            addresses={addresses}
-            mode={mode}
-            mapsKey={mapsKey}
-            selectedId={addressId}
-            onSelect={setPickedAddressId}
-            onChanged={() => router.refresh()}
-            disabled={pending}
-          />
-          <input type="hidden" name="address_id" value={addressId ?? ""} />
+          {identity ? (
+            <>
+              <AddressPicker
+                addresses={addresses}
+                mode={mode}
+                mapsKey={mapsKey}
+                selectedId={addressId}
+                onSelect={setPickedAddressId}
+                onChanged={() => router.refresh()}
+                disabled={pending}
+              />
+              <input type="hidden" name="address_id" value={addressId ?? ""} />
+            </>
+          ) : guestAddress ? (
+            // Collected, not saved: a guest has no address book, so the fields
+            // ride along with the order submit as hidden inputs.
+            <GuestAddressSummary
+              address={guestAddress}
+              onEdit={() => setGuestAddress(null)}
+            />
+          ) : (
+            <AddressForm
+              mode={mode}
+              mapsKey={mapsKey}
+              onSaved={() => undefined}
+              onCollect={setGuestAddress}
+            />
+          )}
           <input type="hidden" name="address_mode" value={mode} />
         </Section>
 
@@ -708,7 +788,7 @@ function AccountBlock({
   values,
 }: {
   mode: "signup" | "signin";
-  onModeChange: (mode: "signup" | "signin") => void;
+  onModeChange: (mode: CheckoutMode) => void;
   disabled: boolean;
   /**
    * What to put back after a failed submit. React 19 resets an uncontrolled form
@@ -749,6 +829,16 @@ function AccountBlock({
           disabled={disabled}
         >
           Zaten hesabım var
+        </button>
+        {/* The way back out. Without it, a customer who tapped "hesap oluştur"
+            to see what it involved was stuck in the account flow. */}
+        <button
+          type="button"
+          onClick={() => onModeChange("guest")}
+          className="rounded-full bg-secondary px-3 py-1.5 transition-colors"
+          disabled={disabled}
+        >
+          Üye olmadan devam et
         </button>
       </div>
 
@@ -837,6 +927,128 @@ function AccountBlock({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Contact details for an order with no account behind it.
+ *
+ * Same field names as the signup block minus the password, so switching between
+ * "üye olmadan devam et" and "hesap oluştur" does not throw away what the
+ * customer already typed. E-mail is required here even though no account is
+ * created: it carries the order number they will need to find the order again,
+ * and PayTR will not take a card payment without one.
+ */
+function GuestBlock({ disabled }: { disabled: boolean }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="Ad" htmlFor="first_name">
+        <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} />
+      </Field>
+      <Field label="Soyad" htmlFor="last_name">
+        <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} />
+      </Field>
+      <Field label="Telefon" htmlFor="phone">
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          placeholder="0532 123 45 67"
+          autoComplete="tel"
+          required
+          disabled={disabled}
+        />
+      </Field>
+      <Field label="E-posta" htmlFor="account_email">
+        <Input
+          id="account_email"
+          name="account_email"
+          type="email"
+          autoComplete="email"
+          required
+          disabled={disabled}
+        />
+      </Field>
+      <p className="text-xs text-muted-foreground sm:col-span-2">
+        Sipariş onayınızı ve takip bilgisini bu adrese göndereceğiz.
+      </p>
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50 sm:col-span-2">
+        <input
+          type="checkbox"
+          name="kvkk_accepted"
+          className="mt-0.5 size-4 accent-primary"
+          required
+          disabled={disabled}
+        />
+        <span>
+          <Link href="/kvkk" className="underline underline-offset-2" target="_blank">
+            KVKK Aydınlatma Metni
+          </Link>{" "}
+          ve{" "}
+          <Link
+            href="/mesafeli-satis-sozlesmesi"
+            className="underline underline-offset-2"
+            target="_blank"
+          >
+            Mesafeli Satış Sözleşmesi
+          </Link>
+          &apos;ni okudum, onaylıyorum.
+        </span>
+      </label>
+    </div>
+  );
+}
+
+/**
+ * The guest's collected address, plus the hidden inputs that carry it into the
+ * order submit. The `addr_` prefix matches `readGuestAddressInput` on the server
+ * and keeps these from colliding with the contact block's own field names.
+ */
+function GuestAddressSummary({
+  address,
+  onEdit,
+}: {
+  address: CollectedAddress;
+  onEdit: () => void;
+}) {
+  const hidden: ReadonlyArray<readonly [string, string]> = [
+    ["label", address.label],
+    ["city", address.city],
+    ["district", address.district],
+    ["neighborhood", address.neighborhood],
+    ["street", address.street],
+    ["building_no", address.building_no],
+    ["apartment_no", address.apartment_no],
+    ["postal_code", address.postal_code],
+    ["description", address.description],
+    ["lat", String(address.lat)],
+    ["lng", String(address.lng)],
+    ["source", address.source],
+    ["accuracy", address.accuracy],
+  ];
+
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-primary bg-secondary/50 p-3 text-sm">
+      <MapPinIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">
+          {[address.neighborhood, address.street, address.building_no]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {[address.district, address.city].filter(Boolean).join(" / ")}
+          {address.apartment_no ? ` · Daire ${address.apartment_no}` : ""}
+        </p>
+      </div>
+      <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
+        Değiştir
+      </Button>
+      {hidden.map(([name, value]) => (
+        <input key={name} type="hidden" name={`addr_${name}`} value={value} />
+      ))}
     </div>
   );
 }
@@ -939,10 +1151,14 @@ function OrderConfirmation({
   orderNumber,
   paymentMethod,
   totalMinor,
+  /** False for a guest: there is no /hesap to send them to, so the order number
+   *  they are looking at right now is their only handle on this order. */
+  hasAccount,
 }: {
   orderNumber: string;
   paymentMethod: PaymentMethod;
   totalMinor: number;
+  hasAccount: boolean;
 }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
@@ -955,8 +1171,10 @@ function OrderConfirmation({
         </p>
       </div>
       <p className="text-sm text-muted-foreground">
-        Siparişinizi hazırlamaya başlıyoruz. Durumunu istediğiniz zaman
-        hesabınızdan takip edebilirsiniz.
+        Siparişinizi hazırlamaya başlıyoruz. Durumunu istediğiniz zaman{" "}
+        {hasAccount
+          ? "hesabınızdan takip edebilirsiniz."
+          : "sipariş numaranız ve telefonunuzla sorgulayabilirsiniz — numarayı onay e-postanıza da gönderdik."}
       </p>
 
       {paymentMethod === "bank_transfer" ? (
@@ -972,10 +1190,10 @@ function OrderConfirmation({
           Alışverişe devam et
         </Link>
         <Link
-          href="/hesap"
+          href={hasAccount ? "/hesap" : "/siparis-sorgula"}
           className={cn(buttonVariants({ size: "lg", variant: "outline" }), "rounded-full")}
         >
-          Siparişlerim
+          {hasAccount ? "Siparişlerim" : "Siparişimi sorgula"}
         </Link>
       </div>
     </div>
