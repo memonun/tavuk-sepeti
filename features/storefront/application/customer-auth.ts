@@ -18,11 +18,31 @@ import { linkCustomerAccount } from "@/features/storefront/infrastructure/custom
 import { env } from "@/shared/env";
 import { logger } from "@/shared/logger";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
+import { safeNextPath } from "@/shared/utils/next-path";
+
+import type { AuthError, User } from "@supabase/supabase-js";
 
 export type CustomerAuthState =
   | { status: "idle" }
   | { status: "error"; message: string }
-  | { status: "verify_email"; email: string };
+  | { status: "verify_email"; email: string }
+  /** The address already has an account — the form offers a sign-in link that
+   *  keeps the customer's original destination. */
+  | { status: "email_taken"; email: string };
+
+/**
+ * With "Confirm email" ON, `signUp` for an address that already has a confirmed
+ * account returns 200 with a fake user (random id, `identities: []`) and sends
+ * no mail — see the long note in `checkout-account.ts`. Detecting it here keeps
+ * the standalone /kayit page from writing that random id into `customers`.
+ */
+function isObfuscatedUser(user: User): boolean {
+  return Array.isArray(user.identities) && user.identities.length === 0;
+}
+
+function isEmailRateLimited(error: AuthError): boolean {
+  return error.code === "over_email_send_rate_limit" || error.status === 429;
+}
 
 export async function customerSignInAction(
   _previous: CustomerAuthState,
@@ -43,10 +63,29 @@ export async function customerSignInAction(
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
     logger.warn({ supabaseStatus: error.status }, "customer_sign_in_failed");
+    // An unconfirmed account is not a wrong password. Saying it is sent people
+    // to "şifremi unuttum", which burns another mail out of the same quota.
+    if (error.code === "email_not_confirmed") {
+      return {
+        status: "error",
+        message:
+          "E-posta adresiniz henüz doğrulanmamış. Size gönderdiğimiz doğrulama bağlantısına tıklayın.",
+      };
+    }
+    if (isEmailRateLimited(error)) {
+      return {
+        status: "error",
+        message:
+          "Şu anda çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.",
+      };
+    }
     return { status: "error", message: "E-posta veya şifre hatalı." };
   }
 
-  redirect("/hesap");
+  // Back to wherever the customer was headed — a full basket at /odeme, most
+  // importantly. Unconditionally landing on /hesap is what made "log in to
+  // finish your order" a dead end.
+  redirect(safeNextPath(formData.get("next")?.toString()));
 }
 
 export async function customerSignUpAction(
@@ -67,12 +106,14 @@ export async function customerSignUpAction(
     };
   }
 
+  const next = safeNextPath(formData.get("next")?.toString());
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/confirm`,
+      // Final destination; the template carries it as `next={{ .RedirectTo }}`.
+      emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}${next}`,
       data: {
         first_name: parsed.data.first_name,
         last_name: parsed.data.last_name,
@@ -83,14 +124,29 @@ export async function customerSignUpAction(
   });
 
   if (error) {
-    logger.warn({ supabaseStatus: error.status }, "customer_sign_up_failed");
-    const alreadyRegistered = /already|registered|exists/i.test(error.message);
-    return {
-      status: "error",
-      message: alreadyRegistered
-        ? "Bu e-posta ile zaten bir hesap var. Giriş yapın."
-        : "Kayıt oluşturulamadı, tekrar deneyin.",
-    };
+    logger.warn({ supabaseStatus: error.status, code: error.code }, "customer_sign_up_failed");
+    if (isEmailRateLimited(error)) {
+      return {
+        status: "error",
+        message:
+          "Şu anda çok fazla kayıt denemesi var. Lütfen birkaç dakika sonra tekrar deneyin.",
+      };
+    }
+    // Only reachable with "Confirm email" OFF; with it ON see the check below.
+    if (
+      error.code === "user_already_exists" ||
+      /already|registered|exists/i.test(error.message)
+    ) {
+      return { status: "email_taken", email: parsed.data.email };
+    }
+    return { status: "error", message: "Kayıt oluşturulamadı, tekrar deneyin." };
+  }
+
+  // MUST precede linkCustomerAccount: the obfuscated user's id belongs to
+  // nobody, and writing it collides on customers_email_unique_web (P0005).
+  if (data.user && isObfuscatedUser(data.user)) {
+    logger.info({}, "customer_sign_up_email_taken");
+    return { status: "email_taken", email: parsed.data.email };
   }
 
   // Create the CRM customer for this new login so it appears in the admin
@@ -121,7 +177,7 @@ export async function customerSignUpAction(
     return { status: "verify_email", email: parsed.data.email };
   }
 
-  redirect("/hesap");
+  redirect(next);
 }
 
 export async function customerSignOutAction(): Promise<never> {
@@ -158,9 +214,7 @@ export async function requestPasswordResetAction(
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(
     parsed.data.email,
-    {
-      redirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=/sifre-yenile`,
-    },
+    { redirectTo: `${env.NEXT_PUBLIC_APP_URL}/sifre-yenile` },
   );
   if (error) {
     logger.warn({ supabaseStatus: error.status }, "password_reset_request_failed");

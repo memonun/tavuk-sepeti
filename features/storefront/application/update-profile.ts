@@ -12,6 +12,8 @@ import { getCurrentUser } from "@/features/auth/application/get-session";
 import { customerProfileSchema } from "@/features/storefront/domain/customer-auth.schema";
 import { updateCustomerProfile } from "@/features/storefront/infrastructure/customer-account.repository";
 import { ValidationError } from "@/shared/errors/app-error";
+import { logger } from "@/shared/logger";
+import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 export type UpdateProfileState =
   | { status: "idle" }
@@ -55,6 +57,28 @@ export async function updateProfileAction(
     };
   }
 
+  // Keep auth metadata in step with the `customers` row. The checkout builds its
+  // identity from `user_metadata` (checkout-account.ts), so writing only the CRM
+  // row left two answers to "what is this customer's phone?" — and the stale one
+  // is the copy handed to PayTR (`place-order.ts`, `userPhone`). Best-effort: the
+  // authoritative record is already saved, so a failure here must not report the
+  // edit as failed. It is logged rather than swallowed (CLAUDE.md §5).
+  const supabase = await createSupabaseServerClient();
+  const { error: metadataError } = await supabase.auth.updateUser({
+    data: {
+      first_name: parsed.data.first_name,
+      last_name: parsed.data.last_name,
+      phone: parsed.data.phone,
+    },
+  });
+  if (metadataError) {
+    logger.warn(
+      { supabaseStatus: metadataError.status, code: metadataError.code },
+      "customer_profile_metadata_sync_failed",
+    );
+  }
+
   revalidatePath("/hesap");
+  revalidatePath("/odeme");
   return { status: "success" };
 }

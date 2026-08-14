@@ -151,12 +151,23 @@ export async function placeOrderAction(
   // Normally "existing": the account step ran first, because an address cannot
   // be saved without a session. The signup/signin branches remain reachable so a
   // tab still holding the old single-submit form is not stranded.
-  const session = await resolveCheckoutSession(parsed.data.account);
+  const session = await resolveCheckoutSession(parsed.data.account, {
+    nextPath: "/odeme",
+  });
   if (!session.ok) {
     return { status: "validation_error", message: session.error.message };
   }
   if (session.value.kind === "verify_email") {
     return { status: "verify_email", email: session.value.email };
+  }
+  if (session.value.kind === "email_taken") {
+    // Only reachable from a stale tab still holding the old single-submit form;
+    // the account step handles this inline. Name the control either way.
+    return {
+      status: "validation_error",
+      message:
+        'Bu e-posta ile bir hesap var. "Zaten hesabım var" ile giriş yapın.',
+    };
   }
   const { session: identity } = session.value;
 

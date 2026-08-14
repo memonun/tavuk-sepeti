@@ -13,9 +13,10 @@
  * saved and again inside the order transaction; this is only the honest UI hint.
  */
 import { useState } from "react";
-import { CheckIcon, MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
+import { CheckIcon, MapPinIcon, PencilIcon, PlusIcon, TruckIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { AddressForm } from "@/features/storefront/ui/address-form";
 import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
 import {
@@ -24,6 +25,9 @@ import {
 } from "@/features/storefront/domain/route-capability";
 
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
+
+/** Which address the inline form is working on, if any. */
+type EditingAddress = { kind: "new" } | { kind: "existing"; address: SavedAddress };
 
 interface AddressPickerProps {
   addresses: readonly SavedAddress[];
@@ -50,19 +54,26 @@ export function AddressPicker({
   onChanged,
   disabled,
 }: AddressPickerProps) {
-  const [adding, setAdding] = useState(addresses.length === 0);
+  const [editing, setEditing] = useState<EditingAddress | null>(null);
 
-  if (adding) {
+  // With nothing saved there is nothing to pick, so open the form directly
+  // rather than showing an empty list. Derived rather than seeded into state, so
+  // it still holds once the first address arrives from a refresh.
+  const active: EditingAddress | null =
+    editing ?? (addresses.length === 0 ? { kind: "new" } : null);
+
+  if (active) {
     return (
       <AddressForm
         mode={mode}
         mapsKey={mapsKey}
+        {...(active.kind === "existing" ? { initial: active.address } : {})}
         onSaved={(id) => {
-          setAdding(false);
+          setEditing(null);
           onSelect(id);
           onChanged();
         }}
-        {...(addresses.length > 0 ? { onCancel: () => setAdding(false) } : {})}
+        {...(addresses.length > 0 ? { onCancel: () => setEditing(null) } : {})}
       />
     );
   }
@@ -74,48 +85,69 @@ export function AddressPicker({
         const usable = blockReason === null;
         const selected = address.id === selectedId;
         return (
-          <button
+          <div
             key={address.id}
-            type="button"
-            onClick={() => usable && onSelect(address.id)}
-            disabled={disabled || !usable}
-            aria-pressed={selected}
-            className={[
-              "flex w-full items-start gap-3 rounded-xl border p-3 text-left text-sm transition-colors",
+            className={cn(
+              "flex items-start gap-2 rounded-xl border p-3 text-sm transition-colors",
               selected ? "border-primary bg-secondary/50" : "border-input",
-              usable ? "cursor-pointer hover:bg-secondary/30" : "cursor-not-allowed opacity-60",
-            ].join(" ")}
+            )}
           >
-            <span className="mt-0.5 shrink-0 text-primary" aria-hidden>
-              {selected ? (
-                <CheckIcon className="size-4" />
-              ) : mode === "cargo" ? (
-                <TruckIcon className="size-4" />
-              ) : (
-                <MapPinIcon className="size-4" />
+            <button
+              type="button"
+              onClick={() => usable && onSelect(address.id)}
+              disabled={disabled || !usable}
+              aria-pressed={selected}
+              className={cn(
+                "flex min-w-0 flex-1 items-start gap-3 text-left",
+                usable ? "cursor-pointer" : "cursor-not-allowed opacity-60",
               )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">
-                {address.label?.trim() || address.raw_text || "Adres"}
-                {address.is_primary ? (
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    varsayılan
+            >
+              <span className="mt-0.5 shrink-0 text-primary" aria-hidden>
+                {selected ? (
+                  <CheckIcon className="size-4" />
+                ) : mode === "cargo" ? (
+                  <TruckIcon className="size-4" />
+                ) : (
+                  <MapPinIcon className="size-4" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">
+                  {address.label?.trim() || address.raw_text || "Adres"}
+                  {address.is_primary ? (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      varsayılan
+                    </span>
+                  ) : null}
+                </span>
+                {address.label ? (
+                  <span className="block text-xs text-muted-foreground">
+                    {address.raw_text}
+                  </span>
+                ) : null}
+                {blockReason ? (
+                  <span className="mt-1 block text-xs text-destructive">
+                    {BLOCK_MESSAGE[blockReason]}
                   </span>
                 ) : null}
               </span>
-              {address.label ? (
-                <span className="block text-xs text-muted-foreground">
-                  {address.raw_text}
-                </span>
-              ) : null}
-              {blockReason ? (
-                <span className="mt-1 block text-xs text-destructive">
-                  {BLOCK_MESSAGE[blockReason]}
-                </span>
-              ) : null}
-            </span>
-          </button>
+            </button>
+            {/* Without this the only way to fix a blocked address was to leave
+                checkout for /hesap — so customers added a duplicate instead.
+                A cargo-saved address has no pin by design, which makes it
+                permanently unusable for fresh products until it is edited. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+              onClick={() => setEditing({ kind: "existing", address })}
+              disabled={disabled}
+            >
+              <PencilIcon className="size-3.5" />
+              Düzenle
+            </Button>
+          </div>
         );
       })}
 
@@ -123,7 +155,7 @@ export function AddressPicker({
         type="button"
         variant="outline"
         className="w-full justify-center rounded-xl"
-        onClick={() => setAdding(true)}
+        onClick={() => setEditing({ kind: "new" })}
         disabled={disabled}
       >
         <PlusIcon className="size-4" />

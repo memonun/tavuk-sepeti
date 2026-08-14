@@ -11,6 +11,7 @@ import "server-only";
  * per order.
  */
 import { listMyAddresses, type SavedAddress } from "@/features/storefront/application/list-addresses";
+import { logger } from "@/shared/logger";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 export interface AccountProfile {
@@ -49,24 +50,41 @@ export async function getMyAccount(): Promise<CustomerAccount | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: cust } = await supabase
+  // Scoped explicitly rather than left to RLS. The customer policies do restrict
+  // to `auth_user_id = auth.uid()`, but `orders_admin_all` has no row filter — so
+  // an ADMIN who opened /hesap was served the last 50 orders of every customer
+  // under the heading "Siparişlerim", and the unfiltered `.maybeSingle()` on
+  // `customers` errored on multiple rows and dropped the result on the floor.
+  // RLS stays the enforcement; this makes the query mean what the page says.
+  const { data: cust, error: custError } = await supabase
     .from("customers")
-    .select("first_name,last_name,phone,email")
+    .select("id,first_name,last_name,phone,email")
+    .eq("auth_user_id", user.id)
     .maybeSingle();
+  if (custError) {
+    logger.warn({ code: custError.code }, "account_customer_load_failed");
+  }
 
   const addressesResult = await listMyAddresses();
   const addresses = addressesResult.ok ? addressesResult.value : [];
 
   // `fulfillment_channel` isn't in the generated Database type yet (migration
   // 20260805090300) — the repo's un-generated-column cast.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: orders } = await (supabase as any)
-    .from("orders")
-    .select(
-      "order_number,scheduled_for,status,payment_status,total_minor,created_at,fulfillment_channel",
-    )
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const ordersQuery = cust
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from("orders")
+        .select(
+          "order_number,scheduled_for,status,payment_status,total_minor,created_at,fulfillment_channel",
+        )
+        .eq("customer_id", cust.id)
+        .order("created_at", { ascending: false })
+        .limit(50)
+    : { data: [], error: null };
+  const orders = ordersQuery.data;
+  if (ordersQuery.error) {
+    logger.warn({ code: ordersQuery.error.code }, "account_orders_load_failed");
+  }
 
   // Name falls back to the auth user's signup metadata when the customers row
   // is missing or incomplete (registered but hasn't ordered yet).

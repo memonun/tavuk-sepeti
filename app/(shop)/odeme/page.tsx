@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { isPaytrEnabled } from "@/features/payments/application/paytr";
+import { ensureCustomerProfile } from "@/features/storefront/application/ensure-customer-profile";
 import { getMyAccount } from "@/features/storefront/application/get-account";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
@@ -33,6 +34,13 @@ export default async function CheckoutPage() {
   // Deliberately NOT redirecting an anonymous visitor: an account is required to
   // place an order, but it is created inside the checkout form itself so a full
   // basket is never bounced to a login page.
+  // Self-heal a login whose `customers` row is missing before reading the
+  // account. /hesap has always done this; /odeme did not — so such a customer
+  // saw an empty address book here, and saving an address failed with P0002
+  // ("Profiliniz bulunamadı") no matter how often they refreshed. It is a no-op
+  // write once the row exists.
+  await ensureCustomerProfile();
+
   const [catalog, account, settings] = await Promise.all([
     getStorefrontCatalog(),
     getMyAccount(),
