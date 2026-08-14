@@ -236,6 +236,20 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Branded auth emails. NOTE: `content_path` only applies to LOCAL development
+# (and self-hosted) — Supabase's docs are explicit that hosted projects read
+# their templates from the Dashboard (Authentication → Emails → Templates) or
+# the Management API (`mailer_templates_*_content`). The HTML lives here so the
+# local Inbucket mail matches production and stays version-controlled; the same
+# files are pasted into the Dashboard when they change.
+[auth.email.template.confirmation]
+subject = "Apuhan Çiftliği — e-posta adresini doğrula"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Apuhan Çiftliği — şifre sıfırlama"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

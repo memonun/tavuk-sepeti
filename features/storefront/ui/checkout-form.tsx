@@ -75,6 +75,7 @@ import {
   paymentMethodsForChannel,
   type PaymentMethod,
 } from "@/features/storefront/domain/payment-options";
+import { routeBlockReason } from "@/features/storefront/domain/route-capability";
 import {
   CARGO_FEE_MINOR,
   CARGO_FREE_SHIPPING_NOTICE,
@@ -147,10 +148,22 @@ export function CheckoutForm({
     createCheckoutAccountAction,
     initialAccountState,
   );
-  const [accountMode, setAccountMode] = useState<"signup" | "signin">("signup");
-  const [addressId, setAddressId] = useState<string | null>(
-    addresses.find((a) => a.is_primary)?.id ?? addresses[0]?.id ?? null,
-  );
+  // Which account tab is showing is normally the customer's pick, but a server
+  // answer of `email_taken` overrides it — expecting them to spot the "Zaten
+  // hesabım var" pill themselves is what produced the repeated-signup loop (and,
+  // before the server-side fix, a "başka bir hesapta kayıtlı" error on a
+  // first-ever account). Each new answer clears the previous pick so the
+  // override actually lands. Adjusting state during render is React's documented
+  // pattern here; an effect would cascade an extra render.
+  const [pickedMode, setPickedMode] = useState<"signup" | "signin" | null>(null);
+  const [seenAccountState, setSeenAccountState] = useState(accountState);
+  if (seenAccountState !== accountState) {
+    setSeenAccountState(accountState);
+    setPickedMode(null);
+  }
+  const accountMode: "signup" | "signin" =
+    pickedMode ?? (accountState.status === "email_taken" ? "signin" : "signup");
+  const [pickedAddressId, setPickedAddressId] = useState<string | null>(null);
   // Tracked so the havale/EFT IBAN box can appear the moment that option is
   // picked, without waiting for a submit. Empty until the customer (or the
   // radio's own defaultChecked) picks one — see `selectedPaymentMethod` below,
@@ -193,6 +206,35 @@ export function CheckoutForm({
       channel: resolveOrderChannel(items),
     };
   }, [rows]);
+
+  /**
+   * The address we preselect on the customer's behalf.
+   *
+   * Two bugs used to live here. It was seeded once at mount, so a customer who
+   * signed in INSIDE checkout kept `null` even after `router.refresh()` brought
+   * their address book in — the picker showed their addresses with none selected
+   * and the submit button stayed locked. And it only looked at `is_primary`,
+   * while the picker disables on `routeBlockReason` — so a primary address with
+   * no pin came up "selected", enabled the submit button, and the order was then
+   * refused by the server. Deriving it from props fixes the first; filtering on
+   * the same predicate the picker uses fixes the second.
+   */
+  const preferredAddressId = useMemo(() => {
+    const usable = addresses.filter(
+      (address) => mode === "cargo" || routeBlockReason(address) === null,
+    );
+    return usable.find((a) => a.is_primary)?.id ?? usable[0]?.id ?? null;
+  }, [addresses, mode]);
+
+  // An explicit pick wins until the underlying list changes (a new address was
+  // saved, or the basket flipped channel), at which point the derived choice
+  // takes over again. Same render-phase adjustment as the account tab above.
+  const [seenPreferredId, setSeenPreferredId] = useState(preferredAddressId);
+  if (seenPreferredId !== preferredAddressId) {
+    setSeenPreferredId(preferredAddressId);
+    setPickedAddressId(null);
+  }
+  const addressId = pickedAddressId ?? preferredAddressId;
 
   if (state.status === "success") {
     return (
@@ -252,10 +294,30 @@ export function CheckoutForm({
             </p>
             <AccountBlock
               mode={accountMode}
-              onModeChange={setAccountMode}
+              onModeChange={setPickedMode}
               disabled={accountPending}
+              values={
+                accountState.status === "error"
+                  ? accountState.values
+                  : accountState.status === "email_taken"
+                    ? { email: accountState.email }
+                    : undefined
+              }
             />
             <input type="hidden" name="account_mode" value={accountMode} />
+
+            {accountState.status === "email_taken" ? (
+              <p className="text-sm" role="alert">
+                Bu e-posta ile bir hesabınız zaten var — şifrenizi girip devam
+                edin.{" "}
+                <Link
+                  href="/sifremi-unuttum"
+                  className="underline underline-offset-2"
+                >
+                  Şifrenizi mi unuttunuz?
+                </Link>
+              </p>
+            ) : null}
 
             {accountState.status === "error" ? (
               <p className="text-sm text-destructive" role="alert">
@@ -337,7 +399,7 @@ export function CheckoutForm({
             mode={mode}
             mapsKey={mapsKey}
             selectedId={addressId}
-            onSelect={setAddressId}
+            onSelect={setPickedAddressId}
             onChanged={() => router.refresh()}
             disabled={pending}
           />
@@ -482,8 +544,9 @@ export function CheckoutForm({
                 just entered) — the cargo floor is a property of THAT
                 address's channel, not of the basket in isolation, and
                 nagging about it before checkout even asks for one reads as
-                premature. A returning customer with a saved address sees it
-                immediately, since `addressId` is already set on mount. */}
+                premature. A returning customer with a usable saved address
+                still sees it on first render, since `addressId` is derived
+                from the address list rather than waiting for a click. */}
             {addressId !== null && !minimum.ok ? (
               <p
                 className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
@@ -499,13 +562,19 @@ export function CheckoutForm({
               </p>
             ) : null}
 
+            {/* Submit exactly what the customer was shown. This used to
+                serialize the raw `lines`, which include products the catalog no
+                longer sells — invisible in the summary and in the totals, but
+                still POSTed, so the order died on "Ürün bulunamadı: <key>" for a
+                row that could not be seen or deleted. `rows` is the same
+                catalog-resolved list the summary and the price are built from. */}
             <input
               type="hidden"
               name="items_json"
               value={JSON.stringify(
-                lines.map((l) => ({
-                  product_key: l.product_key,
-                  quantity: l.quantity,
+                rows.map((r) => ({
+                  product_key: r.product.key,
+                  quantity: r.quantity,
                 })),
               )}
             />
@@ -614,10 +683,25 @@ function AccountBlock({
   mode,
   onModeChange,
   disabled,
+  values,
 }: {
   mode: "signup" | "signin";
   onModeChange: (mode: "signup" | "signin") => void;
   disabled: boolean;
+  /**
+   * What to put back after a failed submit. React 19 resets an uncontrolled form
+   * once its action resolves, restoring each input to its `defaultValue` — so
+   * feeding the echoed values back in through `defaultValue` is what stops every
+   * error from wiping six fields. The password is never echoed.
+   */
+  values?:
+    | {
+        email?: string | undefined;
+        first_name?: string | undefined;
+        last_name?: string | undefined;
+        phone?: string | undefined;
+      }
+    | undefined;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -649,10 +733,10 @@ function AccountBlock({
       {mode === "signup" ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Ad" htmlFor="first_name">
-            <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} />
+            <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} defaultValue={values?.first_name} />
           </Field>
           <Field label="Soyad" htmlFor="last_name">
-            <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} />
+            <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} defaultValue={values?.last_name} />
           </Field>
           {/* Required, not optional: a stop the driver can't phone is a delivery
               that fails at the door, and it's the field the CRM keys on. */}
@@ -666,10 +750,11 @@ function AccountBlock({
               autoComplete="tel"
               required
               disabled={disabled}
+              defaultValue={values?.phone}
             />
           </Field>
           <Field label="E-posta" htmlFor="account_email">
-            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} />
+            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} defaultValue={values?.email} />
           </Field>
           <Field label="Şifre (en az 8 karakter)" htmlFor="account_password">
             <Input
@@ -709,7 +794,7 @@ function AccountBlock({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="E-posta" htmlFor="account_email">
-            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} />
+            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} defaultValue={values?.email} />
           </Field>
           <Field label="Şifre" htmlFor="account_password">
             <Input
@@ -780,20 +865,50 @@ function EmptyCart() {
 /** Supabase is configured to require e-mail confirmation, so the account exists
  *  but has no session yet and the order cannot be written. The basket is
  *  deliberately NOT cleared — the customer confirms and comes straight back. */
+/**
+ * Post-signup holding screen.
+ *
+ * The recovery button is the important part. Customers routinely open the
+ * confirmation mail on their PHONE while checking out on a laptop, so this tab
+ * never receives the session cookie and stays here. Before, their only move was
+ * to submit the signup form again — and a second signup for a now-confirmed
+ * address is exactly what Supabase answers with an obfuscated user, which used
+ * to surface as "bu e-posta başka bir hesapta kayıtlı" on a first-time account.
+ *
+ * A refresh re-runs the server component, which reads the (possibly now
+ * present) session and renders the address step instead.
+ */
 function VerifyEmail({ email }: { email: string }) {
+  const router = useRouter();
+  const [checking, setChecking] = useState(false);
+
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
       <MailCheckIcon className="size-12 text-primary" />
       <h2 className="font-display text-2xl">E-postanızı doğrulayın</h2>
       <p className="text-sm text-muted-foreground">
         <strong className="font-medium text-foreground">{email}</strong> adresine
-        bir doğrulama bağlantısı gönderdik. Bağlantıya tıkladıktan sonra bu
-        sayfaya dönün — sepetiniz duruyor, siparişinizi tek tıkla
-        tamamlayabilirsiniz.
+        bir doğrulama bağlantısı gönderdik. Sepetiniz duruyor — bağlantıya
+        tıkladıktan sonra buradan devam edebilirsiniz.
       </p>
-      <Link href="/odeme" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
-        Siparişe dön
-      </Link>
+      <Button
+        type="button"
+        size="lg"
+        className="rounded-full"
+        disabled={checking}
+        onClick={() => {
+          setChecking(true);
+          router.refresh();
+          // The refresh is a server round-trip; re-enable so a customer who
+          // clicked too early can try again instead of staring at a dead button.
+          window.setTimeout(() => setChecking(false), 2000);
+        }}
+      >
+        {checking ? "Kontrol ediliyor…" : "E-postamı doğruladım — devam et"}
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        Bağlantı gelmediyse spam klasörünü kontrol edin.
+      </p>
     </div>
   );
 }

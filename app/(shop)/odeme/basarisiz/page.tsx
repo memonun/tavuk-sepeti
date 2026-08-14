@@ -21,14 +21,25 @@ export default async function PaymentFailedPage({
           </p>
         ) : null}
         <p className="text-sm text-muted-foreground">
-          Ödemeniz alınamadı. Sepetiniz duruyor; tekrar deneyebilir veya farklı
-          bir ödeme yöntemi seçebilirsiniz.
+          Ödemeniz alınamadı ve tutar hesabınızdan çekilmedi. Siparişiniz
+          kaydedildi — ödemesini hesabınızdan tamamlayabilir veya bize yazıp
+          havale ile ödeyebilirsiniz.
         </p>
+        {/* Deliberately NOT /odeme. That re-runs the whole checkout action and
+            writes a SECOND order: the production data shows one customer
+            placing four card orders in four minutes this way, and two others
+            re-placing the identical basket as havale after the card failed. */}
         <Link
-          href="/odeme"
+          href="/hesap"
           className={cn(buttonVariants({ size: "lg" }), "rounded-full")}
         >
-          Tekrar dene
+          Siparişlerime git
+        </Link>
+        <Link
+          href="/"
+          className="text-sm text-muted-foreground underline underline-offset-4"
+        >
+          Alışverişe dön
         </Link>
       </div>
     </main>

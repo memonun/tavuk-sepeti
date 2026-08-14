@@ -11,19 +11,14 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 
 import { logger } from "@/shared/logger";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
-
-/** Only allow same-origin relative redirects — never an attacker-supplied URL. */
-function safeNext(raw: string | null): string {
-  if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
-  return "/hesap";
-}
+import { safeNextPath } from "@/shared/utils/next-path";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const code = searchParams.get("code");
-  const next = safeNext(searchParams.get("next"));
+  const next = safeNextPath(searchParams.get("next"));
 
   const supabase = await createSupabaseServerClient();
 

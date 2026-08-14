@@ -285,7 +285,14 @@ export function AddressForm({
     const result = await saveAddressAction({
       addressId: initial?.id ?? null,
       mode,
-      makePrimary: !initial || initial.is_primary,
+      // Editing keeps whatever the address already was. A NEW one does not
+      // claim the default: `upsert_customer_address` already promotes the very
+      // first address on its own, so forcing it here only meant that adding a
+      // one-off address (a gift, a work drop) silently moved the default —
+      // and the next checkout then preselected the address least likely to be
+      // wanted. Choosing it for THIS order is the picker's job, not a flag on
+      // the row.
+      makePrimary: initial ? initial.is_primary : false,
       address: {
         ...fields,
         apartment_no: detached
