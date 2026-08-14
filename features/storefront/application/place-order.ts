@@ -101,6 +101,11 @@ export type PlaceOrderState =
   | { status: "redirect"; url: string }
   /** Signup needs e-mail confirmation before a session exists. Basket kept. */
   | { status: "verify_email"; email: string }
+  /** The session died between rendering the form and submitting it. Distinct
+   *  from a validation error because the recovery is "sign in again", and the
+   *  form has to offer it — a red line alone left the customer clicking a still
+   *  enabled button under a greeting with their own name on it. */
+  | { status: "session_expired"; message: string }
   | { status: "validation_error"; message: string }
   | { status: "error"; message: string };
 
@@ -155,6 +160,9 @@ export async function placeOrderAction(
     nextPath: "/odeme",
   });
   if (!session.ok) {
+    if (session.error.code === "UNAUTHORIZED") {
+      return { status: "session_expired", message: session.error.message };
+    }
     return { status: "validation_error", message: session.error.message };
   }
   if (session.value.kind === "verify_email") {

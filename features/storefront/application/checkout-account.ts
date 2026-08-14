@@ -13,7 +13,7 @@ import "server-only";
  * always writes a fresh `customers` row with origin='customer_web'.
  */
 import { linkCustomerAccount } from "@/features/storefront/infrastructure/customer-account.repository";
-import { AppError, ValidationError } from "@/shared/errors/app-error";
+import { AppError, UnauthorizedError, ValidationError } from "@/shared/errors/app-error";
 import { env } from "@/shared/env";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
@@ -229,9 +229,14 @@ export async function resolveCheckoutSession(
   } = await supabase.auth.getUser();
 
   if (!user) {
+    // Unauthorized, NOT a validation error. The caller needs to tell these
+    // apart: a form-level red line is the right answer to a bad field, but for
+    // a session that died mid-checkout it stranded the customer — the page was
+    // still greeting them by name, the submit button stayed enabled, and every
+    // click repeated the same sentence with no way to sign back in.
     return err(
-      new ValidationError({
-        message: "Sipariş vermek için giriş yapın veya hesap oluşturun.",
+      new UnauthorizedError({
+        message: "Oturumunuz sonlanmış. Siparişi tamamlamak için tekrar giriş yapın.",
       }),
     );
   }

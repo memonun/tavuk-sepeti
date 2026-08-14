@@ -556,6 +556,28 @@ export function CheckoutForm({
               </p>
             ) : null}
 
+            {/* A dead session is not a form error. Without a way back the
+                customer was left clicking an enabled button under a greeting
+                bearing their own name, getting the same sentence every time.
+                `next` returns them here with the basket still in localStorage. */}
+            {state.status === "session_expired" ? (
+              <div
+                className="flex flex-col gap-2 rounded-xl bg-destructive/5 px-3 py-2.5"
+                role="alert"
+              >
+                <p className="text-sm text-destructive">{state.message}</p>
+                <Link
+                  href="/giris?next=%2Fodeme"
+                  className={cn(
+                    buttonVariants({ size: "sm" }),
+                    "self-start rounded-full",
+                  )}
+                >
+                  Giriş yap ve siparişe dön
+                </Link>
+              </div>
+            ) : null}
+
             {state.status === "validation_error" || state.status === "error" ? (
               <p className="text-sm text-destructive" role="alert">
                 {state.message}
