@@ -171,6 +171,42 @@ describe("resolveCheckoutSession — signup", () => {
   });
 });
 
+describe("resolveCheckoutSession — existing session", () => {
+  it("reports a dead session as UNAUTHORIZED, not a validation error", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+
+    const result = await resolveCheckoutSession({ mode: "existing" });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    // The checkout renders a "sign in and come back" affordance off this code.
+    // As a VALIDATION_ERROR it was just a red line under an enabled button,
+    // beside a greeting still showing the customer's own name.
+    expect(result.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("passes a live session straight through", async () => {
+    getUser.mockResolvedValue({
+      data: {
+        user: {
+          id: "user-9",
+          email: "ayse@example.com",
+          user_metadata: { first_name: "Ayşe", phone: "+905321234567" },
+        },
+      },
+    });
+
+    const result = await resolveCheckoutSession({ mode: "existing" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toMatchObject({
+      kind: "session",
+      session: { authUserId: "user-9", firstName: "Ayşe" },
+    });
+  });
+});
+
 describe("resolveCheckoutSession — signin", () => {
   const SIGNIN = {
     mode: "signin",
