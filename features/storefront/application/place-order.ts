@@ -48,6 +48,10 @@ import {
 } from "@/features/storefront/application/checkout-account";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { resolveCheckoutCustomer } from "@/features/storefront/application/resolve-checkout-customer";
+import {
+  validateCheckoutAddress,
+  type CheckoutAddress,
+} from "@/features/storefront/application/validate-checkout-address";
 import { addDaysIso, isWithinWindow } from "@/features/storefront/domain/delivery-date";
 import {
   formatHomeDeliveryDays,
@@ -84,7 +88,11 @@ import {
 } from "@/features/storefront/domain/storefront.config";
 import { webOrderSchema } from "@/features/storefront/domain/web-order.schema";
 import { listMyAddresses } from "@/features/storefront/application/list-addresses";
-import { placeWebOrder } from "@/features/storefront/infrastructure/web-order.repository";
+import {
+  placeGuestOrder,
+  placeWebOrder,
+  type GuestAddressPayload,
+} from "@/features/storefront/infrastructure/web-order.repository";
 import { logAudit } from "@/shared/audit/log-audit";
 import { sendEmail } from "@/shared/email/send-email";
 import { logger } from "@/shared/logger";
@@ -108,6 +116,35 @@ export type PlaceOrderState =
   | { status: "session_expired"; message: string }
   | { status: "validation_error"; message: string }
   | { status: "error"; message: string };
+
+/**
+ * The address a guest typed, straight off the FormData.
+ *
+ * Returns `unknown` on purpose — `validateCheckoutAddress` runs the real schema
+ * over it (CLAUDE.md §4: nothing from a form is trusted before Zod). The `addr_`
+ * prefix keeps these from colliding with the account block's own field names.
+ */
+function readGuestAddressInput(formData: FormData): unknown {
+  const str = (key: string): string => {
+    const value = formData.get(`addr_${key}`);
+    return typeof value === "string" ? value : "";
+  };
+  return {
+    label: str("label"),
+    city: str("city"),
+    district: str("district"),
+    neighborhood: str("neighborhood"),
+    street: str("street"),
+    building_no: str("building_no"),
+    apartment_no: str("apartment_no"),
+    postal_code: str("postal_code"),
+    description: str("description"),
+    lat: str("lat"),
+    lng: str("lng"),
+    source: str("source") || "user_pin",
+    accuracy: str("accuracy") || "unknown",
+  };
+}
 
 /** "Today" as a YYYY-MM-DD calendar day in Europe/Istanbul (CLAUDE.md §7). */
 function todayInIstanbul(): string {
@@ -152,40 +189,69 @@ export async function placeOrderAction(
     };
   }
 
-  // ---- Account ---------------------------------------------------------------
-  // Normally "existing": the account step ran first, because an address cannot
-  // be saved without a session. The signup/signin branches remain reachable so a
-  // tab still holding the old single-submit form is not stranded.
-  const session = await resolveCheckoutSession(parsed.data.account, {
-    nextPath: "/odeme",
-  });
-  if (!session.ok) {
-    if (session.error.code === "UNAUTHORIZED") {
-      return { status: "session_expired", message: session.error.message };
-    }
-    return { status: "validation_error", message: session.error.message };
-  }
-  if (session.value.kind === "verify_email") {
-    return { status: "verify_email", email: session.value.email };
-  }
-  if (session.value.kind === "email_taken") {
-    // Only reachable from a stale tab still holding the old single-submit form;
-    // the account step handles this inline. Name the control either way.
-    return {
-      status: "validation_error",
-      message:
-        'Bu e-posta ile bir hesap var. "Zaten hesabım var" ile giriş yapın.',
-    };
-  }
-  const { session: identity } = session.value;
+  // ---- Who is ordering -------------------------------------------------------
+  // Two shapes, normalised into one `actor` so everything downstream — pricing,
+  // PayTR, the confirmation e-mail — stays single-path.
+  //
+  //   account — identity comes from the session, and the address was saved
+  //             beforehand (it needs a session), so the order references it by id.
+  //   guest   — identity AND address travel with this submit: there is no session
+  //             to read and no address book to pick from. `place_guest_order`
+  //             mints both rows in the same transaction as the order.
+  const guestAccount =
+    parsed.data.account.mode === "guest" ? parsed.data.account : null;
 
-  const customer = await resolveCheckoutCustomer(identity);
-  if (!customer.ok) {
-    if (customer.error.code === "VALIDATION_ERROR") {
-      return { status: "validation_error", message: customer.error.message };
+  let actor: {
+    authUserId: string | null;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+  };
+  /** Resolved up front for an account; minted by the RPC for a guest. */
+  let customerId: string | null = null;
+
+  if (guestAccount) {
+    actor = {
+      authUserId: null,
+      email: guestAccount.email,
+      firstName: guestAccount.first_name,
+      lastName: guestAccount.last_name,
+      phone: guestAccount.phone,
+    };
+  } else {
+    const session = await resolveCheckoutSession(parsed.data.account, {
+      nextPath: "/odeme",
+    });
+    if (!session.ok) {
+      if (session.error.code === "UNAUTHORIZED") {
+        return { status: "session_expired", message: session.error.message };
+      }
+      return { status: "validation_error", message: session.error.message };
     }
-    logger.error({ code: customer.error.code }, "checkout_customer_resolve_failed");
-    return { status: "error", message: "Hesabınız hazırlanamadı, tekrar deneyin." };
+    if (session.value.kind === "verify_email") {
+      return { status: "verify_email", email: session.value.email };
+    }
+    if (session.value.kind === "email_taken") {
+      // Only reachable from a stale tab still holding the old single-submit form;
+      // the account step handles this inline. Name the control either way.
+      return {
+        status: "validation_error",
+        message:
+          'Bu e-posta ile bir hesap var. "Zaten hesabım var" ile giriş yapın.',
+      };
+    }
+
+    const customer = await resolveCheckoutCustomer(session.value.session);
+    if (!customer.ok) {
+      if (customer.error.code === "VALIDATION_ERROR") {
+        return { status: "validation_error", message: customer.error.message };
+      }
+      logger.error({ code: customer.error.code }, "checkout_customer_resolve_failed");
+      return { status: "error", message: "Hesabınız hazırlanamadı, tekrar deneyin." };
+    }
+    actor = session.value.session;
+    customerId = customer.value;
   }
 
   // ---- Authoritative pricing ------------------------------------------------
@@ -282,32 +348,57 @@ export async function placeOrderAction(
     };
   }
 
-  // ---- Address must be one of the account's own ----------------------------
-  // The RPC enforces this too (P0004); checking here buys a precise message and
-  // gives us the fields for the confirmation e-mail.
-  const addresses = await listMyAddresses();
-  if (!addresses.ok) {
-    logger.error({ code: addresses.error.code }, "checkout_address_load_failed");
-    return { status: "error", message: "Adresleriniz yüklenemedi, tekrar deneyin." };
-  }
-  const address = addresses.value.find((a) => a.id === parsed.data.address_id);
-  if (!address) {
-    return {
-      status: "validation_error",
-      message: "Teslimat adresi bulunamadı. Adres seçin veya yeni bir adres ekleyin.",
+  // ---- Where it goes ---------------------------------------------------------
+  // Validated against the RE-DERIVED channel, not the client's `address_mode`
+  // hint — a route order must carry a confirmed pin inside the service area,
+  // a cargo parcel may go anywhere in Türkiye.
+  let address: CheckoutAddress;
+  let guestAddress: GuestAddressPayload | null = null;
+  let accountAddressId: string | null = null;
+
+  if (guestAccount) {
+    const validated = await validateCheckoutAddress(
+      channel === "delivery" ? "route" : "cargo",
+      readGuestAddressInput(formData),
+    );
+    if (!validated.ok) {
+      return { status: "validation_error", message: validated.error.message };
+    }
+    address = validated.value.address;
+    guestAddress = {
+      ...validated.value.address,
+      raw_text: composeFullAddress(validated.value.address),
+      geo_verified: validated.value.geoVerified,
     };
-  }
-  if (channel === "delivery" && (address.lat === 0 || address.lng === 0)) {
-    return {
-      status: "validation_error",
-      message: `Taze ürünler için haritadan konum onaylı bir ${DELIVERY_PROVINCE} adresi gerekli.`,
-    };
+  } else {
+    // The RPC enforces ownership too (P0004); checking here buys a precise
+    // message and gives us the fields for the confirmation e-mail.
+    const addresses = await listMyAddresses();
+    if (!addresses.ok) {
+      logger.error({ code: addresses.error.code }, "checkout_address_load_failed");
+      return { status: "error", message: "Adresleriniz yüklenemedi, tekrar deneyin." };
+    }
+    const saved = addresses.value.find((a) => a.id === parsed.data.address_id);
+    if (!saved) {
+      return {
+        status: "validation_error",
+        message: "Teslimat adresi bulunamadı. Adres seçin veya yeni bir adres ekleyin.",
+      };
+    }
+    if (channel === "delivery" && (saved.lat === 0 || saved.lng === 0)) {
+      return {
+        status: "validation_error",
+        message: `Taze ürünler için haritadan konum onaylı bir ${DELIVERY_PROVINCE} adresi gerekli.`,
+      };
+    }
+    address = saved;
+    accountAddressId = saved.id;
   }
 
   const deliveryFeeMinor =
     channel === "delivery" ? DELIVERY_FEE_MINOR : CARGO_FEE_MINOR;
   const isCard = parsed.data.payment_method === "credit_card";
-  const emailTo = identity.email;
+  const emailTo = actor.email;
 
   // Card payments go through PayTR — guard BEFORE creating the order so a
   // misconfigured card path never strands a pending order.
@@ -323,9 +414,7 @@ export async function placeOrderAction(
     }
   }
 
-  const placed = await placeWebOrder({
-    customerId: customer.value,
-    addressId: address.id,
+  const common = {
     scheduled_for: scheduledFor,
     // A cargo order has no delivery window — there is no van to schedule.
     time_slot: channel === "delivery" ? parsed.data.time_slot : null,
@@ -333,7 +422,25 @@ export async function placeOrderAction(
     delivery_notes: parsed.data.delivery_notes,
     delivery_fee_minor: deliveryFeeMinor,
     items: enriched.value,
-  });
+  };
+
+  // Both writers end in `place_web_order`; the guest one just mints the customer
+  // and address rows first, inside the same transaction.
+  const placed =
+    guestAccount && guestAddress
+      ? await placeGuestOrder({
+          ...common,
+          first_name: guestAccount.first_name,
+          last_name: guestAccount.last_name,
+          phone: guestAccount.phone,
+          email: guestAccount.email,
+          address: guestAddress,
+        })
+      : await placeWebOrder({
+          ...common,
+          customerId: customerId ?? "",
+          addressId: accountAddressId ?? "",
+        });
 
   if (!placed.ok) {
     if (placed.error.code === "VALIDATION_ERROR") {
@@ -354,7 +461,7 @@ export async function placeOrderAction(
 
   // The admin path audits every order; the web path used to audit none.
   await logAudit({
-    actor_id: identity.authUserId,
+    actor_id: actor.authUserId,
     action: "order.web_placed",
     entity_type: "order",
     entity_id: placed.value.order_id,
@@ -372,7 +479,7 @@ export async function placeOrderAction(
 
   const totalMinor = subtotalMinor + deliveryFeeMinor;
   const addressText = composeFullAddress(address);
-  const customerName = [identity.firstName, identity.lastName]
+  const customerName = [actor.firstName, actor.lastName]
     .filter(Boolean)
     .join(" ")
     .trim();
@@ -408,7 +515,7 @@ export async function placeOrderAction(
       email: emailTo,
       userName: customerName || emailTo,
       userAddress: addressText,
-      userPhone: identity.phone ?? "",
+      userPhone: actor.phone ?? "",
       userIp,
       basket,
       nowMs: Date.now(),

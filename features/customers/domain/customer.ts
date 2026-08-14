@@ -46,19 +46,27 @@ export type CustomerOrderType =
 /**
  * Which channel created this customer record.
  *
- *   admin_manual — entered in the CRM/panel. These are the legacy phone-ordering
- *                  customers; a storefront signup NEVER merges into one.
- *   customer_web — created by a storefront signup, always from scratch.
+ *   admin_manual   — entered in the CRM/panel. These are the legacy
+ *                    phone-ordering customers; a storefront signup NEVER merges
+ *                    into one.
+ *   customer_web   — created by a storefront signup, always from scratch.
+ *   customer_guest — created by a checkout with no account. One row PER ORDER:
+ *                    the guest writer looks nothing up, so the same person
+ *                    ordering twice appears twice. That is deliberate — matching
+ *                    by phone is what used to attach web orders to the wrong
+ *                    customer — and it is why this origin carries no phone/email
+ *                    unique index while the other two do.
  *
  * Immutable: the partial unique indexes on phone/email are partitioned by it,
  * so one legacy row and one web row may hold the same phone number.
  */
-export type CustomerOrigin = "admin_manual" | "customer_web";
+export type CustomerOrigin = "admin_manual" | "customer_web" | "customer_guest";
 
 /** Turkish labels for the "Kaynak" column / filter. */
 export const CUSTOMER_ORIGIN_LABELS: Readonly<Record<CustomerOrigin, string>> = {
   admin_manual: "Panel",
   customer_web: "Web",
+  customer_guest: "Web (üyesiz)",
 };
 
 export interface Customer {

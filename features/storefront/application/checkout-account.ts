@@ -103,6 +103,19 @@ export function readCheckoutAccountInput(formData: FormData): unknown {
       password: formData.get("account_password"),
     };
   }
+  if (mode === "guest") {
+    // Same field names as signup minus the password, so the two blocks can share
+    // inputs in the form and a customer who ticks "hesap da oluştur" mid-way
+    // keeps everything they already typed.
+    return {
+      mode: "guest",
+      email: formData.get("account_email"),
+      first_name: formData.get("first_name"),
+      last_name: formData.get("last_name"),
+      phone: formData.get("phone"),
+      kvkk_accepted: formData.get("kvkk_accepted") === "on",
+    };
+  }
   return { mode: "existing" };
 }
 

@@ -23,9 +23,11 @@
 import { headers } from "next/headers";
 
 import { createPaytrPaymentSession, isPaytrEnabled } from "@/features/payments/application/paytr";
+import { lookupGuestOrder } from "@/features/storefront/application/lookup-guest-order";
 import { getOrderConfirmationSnapshot } from "@/features/storefront/infrastructure/order-confirmation.repository";
 import { logger } from "@/shared/logger";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
+import { normalizeTRPhone } from "@/shared/utils/phone";
 
 export type ResumePaymentState =
   | { status: "idle" }
@@ -48,61 +50,95 @@ export async function resumeCardPaymentAction(
     };
   }
 
+  // Two ways to prove this order is yours, because guests have no session:
+  //
+  //   signed in — match the order against the caller's own customer row;
+  //   guest     — match the order number against the phone recorded ON it.
+  //
+  // Neither trusts the order number alone: numbers are sequential, and the admin
+  // RLS policy has no row filter, so an unscoped lookup would resolve somebody
+  // else's order.
+  const guestPhone = formData.get("phone");
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: "error", message: "Oturumunuz sonlanmış. Tekrar giriş yapın." };
+
+  let orderId: string;
+  let orderTotalMinor: number;
+  let ownerPhone: string | null = null;
+
+  if (user) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("id,phone")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    if (!customer) {
+      return { status: "error", message: "Profiliniz bulunamadı." };
+    }
+
+    const { data: order, error } = await supabase
+      .from("orders")
+      .select("id,status,payment_status,total_minor")
+      .eq("order_number", orderNumber)
+      .eq("customer_id", customer.id)
+      .maybeSingle();
+    if (error) {
+      logger.error({ code: error.code }, "resume_payment_order_lookup_failed");
+      return { status: "error", message: "Sipariş okunamadı, tekrar deneyin." };
+    }
+    if (!order) return { status: "error", message: "Sipariş bulunamadı." };
+    if (order.payment_status === "paid") {
+      return { status: "error", message: "Bu sipariş zaten ödenmiş." };
+    }
+    if (order.status === "cancelled") {
+      return { status: "error", message: "Bu sipariş iptal edilmiş." };
+    }
+    // The callback rejects a payment whose amount doesn't match the order, so a
+    // null total is not something to coerce past — the row is unusable.
+    if (order.total_minor === null) {
+      logger.error({ orderNumber }, "resume_payment_order_has_no_total");
+      return { status: "error", message: "Sipariş tutarı okunamadı, bize yazın." };
+    }
+    orderId = order.id;
+    orderTotalMinor = order.total_minor;
+    ownerPhone = customer.phone;
+  } else {
+    if (typeof guestPhone !== "string" || guestPhone.trim() === "") {
+      return {
+        status: "error",
+        message: "Oturumunuz sonlanmış. Tekrar giriş yapın veya siparişinizi telefonla sorgulayın.",
+      };
+    }
+    const found = await lookupGuestOrder(orderNumber, guestPhone);
+    if (!found.ok) {
+      logger.error({ code: found.error.code }, "resume_payment_guest_lookup_failed");
+      return { status: "error", message: "Sipariş okunamadı, tekrar deneyin." };
+    }
+    if (!found.value) return { status: "error", message: "Sipariş bulunamadı." };
+    if (found.value.paymentStatus === "paid") {
+      return { status: "error", message: "Bu sipariş zaten ödenmiş." };
+    }
+    if (found.value.status === "cancelled") {
+      return { status: "error", message: "Bu sipariş iptal edilmiş." };
+    }
+    orderId = found.value.orderId;
+    orderTotalMinor = found.value.totalMinor;
+    ownerPhone = normalizeTRPhone(guestPhone);
   }
 
-  // Scoped to the caller's own customer row — the admin RLS policy has no row
-  // filter, so a lookup by order number alone would resolve someone else's order.
-  const { data: customer } = await supabase
-    .from("customers")
-    .select("id,phone")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  if (!customer) {
-    return { status: "error", message: "Profiliniz bulunamadı." };
-  }
-
-  const { data: order, error } = await supabase
-    .from("orders")
-    .select("id,status,payment_status,total_minor")
-    .eq("order_number", orderNumber)
-    .eq("customer_id", customer.id)
-    .maybeSingle();
-  if (error) {
-    logger.error({ code: error.code }, "resume_payment_order_lookup_failed");
-    return { status: "error", message: "Sipariş okunamadı, tekrar deneyin." };
-  }
-  if (!order) return { status: "error", message: "Sipariş bulunamadı." };
-
-  if (order.payment_status === "paid") {
-    return { status: "error", message: "Bu sipariş zaten ödenmiş." };
-  }
-  if (order.status === "cancelled") {
-    return { status: "error", message: "Bu sipariş iptal edilmiş." };
-  }
-  // The callback rejects a payment whose amount doesn't match the order, so a
-  // null total is not something to coerce past — it means the row is unusable.
-  if (order.total_minor === null) {
-    logger.error({ orderNumber }, "resume_payment_order_has_no_total");
-    return { status: "error", message: "Sipariş tutarı okunamadı, bize yazın." };
-  }
-
-  // Reads through the service-role client, so ownership MUST already be
-  // established — it is, by the customer-scoped lookup above. Reusing the
+  // Reads through the service-role client, so authorization MUST already be
+  // established — it is, by one of the two branches above. Reusing the
   // confirmation snapshot keeps the PayTR basket identical to the one the
   // receipt e-mail describes.
-  const snapshot = await getOrderConfirmationSnapshot(order.id);
+  const snapshot = await getOrderConfirmationSnapshot(orderId);
   if (!snapshot.ok) {
     logger.error({ code: snapshot.error.code }, "resume_payment_snapshot_failed");
     return { status: "error", message: "Sipariş okunamadı, tekrar deneyin." };
   }
 
-  const email = snapshot.value.customerEmail ?? user.email;
+  const email = snapshot.value.customerEmail ?? user?.email ?? null;
   if (!email) {
     return {
       status: "error",
@@ -129,13 +165,13 @@ export async function resumeCardPaymentAction(
     hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || "0.0.0.0";
 
   const session = await createPaytrPaymentSession({
-    orderId: order.id,
+    orderId,
     orderNumber,
-    amountMinor: order.total_minor,
+    amountMinor: orderTotalMinor,
     email,
     userName: snapshot.value.customerName || email,
     userAddress: snapshot.value.addressText,
-    userPhone: customer.phone ?? "",
+    userPhone: ownerPhone ?? "",
     userIp,
     basket,
     nowMs: Date.now(),
