@@ -4,23 +4,39 @@ import { redirect } from "next/navigation";
 import { customerSignOutAction } from "@/features/storefront/application/customer-auth";
 import { ensureCustomerProfile } from "@/features/storefront/application/ensure-customer-profile";
 import { getMyAccount } from "@/features/storefront/application/get-account";
+import { formatDeliveryDateLabel } from "@/features/storefront/domain/delivery-window";
 import { AccountAddresses } from "@/features/storefront/ui/account-addresses";
 import { AccountProfileForm } from "@/features/storefront/ui/account-profile-form";
+import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
+
+/**
+ * Is this order actually waiting on money from the customer?
+ *
+ * `payment_status` alone is not the answer: a cash-on-delivery order is
+ * legitimately unpaid right up to the doorstep, so badging it "Ödeme bekliyor"
+ * and offering a pay button would be wrong on both counts.
+ */
+function awaitingPayment(order: {
+  payment_status: string;
+  payment_method: string;
+  status: string;
+}): boolean {
+  return (
+    order.payment_status !== "paid" &&
+    order.status !== "cancelled" &&
+    order.payment_method !== "cash_on_delivery"
+  );
+}
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",
   confirmed: "Onaylandı",
   delivered: "Teslim edildi",
   cancelled: "İptal edildi",
-};
-
-const CHANNEL_LABELS: Record<string, string> = {
-  delivery: "Elden teslim",
-  shipping: "Kargo",
 };
 
 export default async function AccountPage() {
@@ -76,13 +92,27 @@ export default async function AccountPage() {
               >
                 <div>
                   <p className="font-mono font-medium">{order.order_number}</p>
+                  {/* A cargo order never picked a delivery day — `scheduled_for`
+                      is the internal preparation date, so printing it as
+                      "Teslimat" invented a promise the confirmation e-mail
+                      deliberately avoids making. */}
                   <p className="text-muted-foreground">
-                    Teslimat: {order.scheduled_for} ·{" "}
-                    {CHANNEL_LABELS[order.fulfillment_channel] ??
-                      order.fulfillment_channel}
+                    {order.fulfillment_channel === "shipping"
+                      ? "Kargo ile gönderilecek"
+                      : `Teslimat: ${formatDeliveryDateLabel(order.scheduled_for)}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {/* Payment state was fetched and then never rendered, so an
+                      abandoned card order — unpaid, and excluded from the van's
+                      route — read simply "Onaylandı" to the customer.
+                      Cash-on-delivery is excluded: it is unpaid by design until
+                      the driver arrives, so flagging it would be noise. */}
+                  {awaitingPayment(order) ? (
+                    <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                      Ödeme bekliyor
+                    </span>
+                  ) : null}
                   <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
                     {STATUS_LABELS[order.status] ?? order.status}
                   </span>
@@ -90,6 +120,20 @@ export default async function AccountPage() {
                     {formatTRY(order.total_minor)}
                   </span>
                 </div>
+                {awaitingPayment(order) ? (
+                  <div className="w-full sm:w-auto">
+                    <ResumePaymentButton
+                      orderNumber={order.order_number}
+                      // A havale order can still be settled by card; say so
+                      // rather than implying it resumes the bank transfer.
+                      label={
+                        order.payment_method === "credit_card"
+                          ? "Ödemeyi tamamla"
+                          : "Kartla öde"
+                      }
+                    />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

@@ -28,6 +28,9 @@ export interface AccountOrder {
   scheduled_for: string;
   status: string;
   payment_status: string;
+  /** Decides whether an unpaid order is actually awaiting money: a
+   *  cash-on-delivery order is unpaid by design until the driver arrives. */
+  payment_method: string;
   total_minor: number;
   created_at: string;
   /** Rota / Kargo — so "Siparişlerim" can say how it will arrive. */
@@ -75,7 +78,7 @@ export async function getMyAccount(): Promise<CustomerAccount | null> {
       await (supabase as any)
         .from("orders")
         .select(
-          "order_number,scheduled_for,status,payment_status,total_minor,created_at,fulfillment_channel",
+          "order_number,scheduled_for,status,payment_status,payment_method,total_minor,created_at,fulfillment_channel",
         )
         .eq("customer_id", cust.id)
         .order("created_at", { ascending: false })
@@ -110,6 +113,7 @@ export async function getMyAccount(): Promise<CustomerAccount | null> {
       scheduled_for: String(o.scheduled_for),
       status: String(o.status),
       payment_status: String(o.payment_status),
+      payment_method: String(o.payment_method),
       total_minor: Number(o.total_minor ?? 0),
       created_at: String(o.created_at),
       fulfillment_channel:
