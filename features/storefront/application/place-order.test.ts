@@ -67,8 +67,15 @@ vi.mock("@/features/storefront/application/list-addresses", () => ({
 }));
 
 const placeWebOrder = vi.fn();
+const placeGuestOrder = vi.fn();
 vi.mock("@/features/storefront/infrastructure/web-order.repository", () => ({
   placeWebOrder: (...a: unknown[]) => placeWebOrder(...a),
+  placeGuestOrder: (...a: unknown[]) => placeGuestOrder(...a),
+}));
+
+const validateCheckoutAddress = vi.fn();
+vi.mock("@/features/storefront/application/validate-checkout-address", () => ({
+  validateCheckoutAddress: (...a: unknown[]) => validateCheckoutAddress(...a),
 }));
 
 const isPaytrEnabled = vi.fn();
@@ -169,38 +176,60 @@ function buildForm(overrides: Record<string, string> = {}): FormData {
   return fd;
 }
 
-/** The next configured "eve servis" day (Wed/Sat) at least a day out — the
- *  same date the checkout's day picker would offer. */
-function futureDate(): string {
-  const cursor = new Date();
-  cursor.setUTCDate(cursor.getUTCDate() + 1);
-  while (![3, 6].includes(cursor.getUTCDay())) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return cursor.toISOString().slice(0, 10);
-}
-
-/** A day the van does NOT drive, inside the scheduling window. */
-function nonDeliveryDate(): string {
-  const cursor = new Date();
-  cursor.setUTCDate(cursor.getUTCDate() + 1);
-  while ([3, 6].includes(cursor.getUTCDay())) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return cursor.toISOString().slice(0, 10);
-}
-
-/** Tomorrow — what the action stamps on a cargo order, which is never asked
- *  for a preparation day. */
-function tomorrow(): string {
+/**
+ * "Today" in Europe/Istanbul — must agree with the action's own
+ * `todayInIstanbul()`, or these helpers compute a calendar day that disagrees
+ * with the server's scheduling window. A raw `new Date()` + `setUTCDate()>
+ * cursor (the previous shape of these helpers) drifts from Istanbul's
+ * calendar for the ~3 hours a day (21:00–00:00 UTC) after Istanbul has
+ * already crossed midnight but UTC has not — which is exactly what made this
+ * suite flake once a day instead of failing consistently.
+ */
+function todayIso(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Istanbul",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  })
-    .format(new Date(Date.now() + 24 * 60 * 60 * 1000))
-    .slice(0, 10);
+  }).format(new Date());
+}
+
+/** Pure calendar-day arithmetic on an ISO string — mirrors `addDaysIso`. */
+function addDays(dateIso: string, days: number): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+function weekday(dateIso: string): number {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)).getUTCDay();
+}
+
+/** The next configured "eve servis" day (Wed/Sat) at least a day out — the
+ *  same date the checkout's day picker would offer. */
+function futureDate(): string {
+  let cursor = addDays(todayIso(), 1);
+  while (![3, 6].includes(weekday(cursor))) {
+    cursor = addDays(cursor, 1);
+  }
+  return cursor;
+}
+
+/** A day the van does NOT drive, inside the scheduling window. */
+function nonDeliveryDate(): string {
+  let cursor = addDays(todayIso(), 1);
+  while ([3, 6].includes(weekday(cursor))) {
+    cursor = addDays(cursor, 1);
+  }
+  return cursor;
+}
+
+/** Tomorrow — what the action stamps on a cargo order, which is never asked
+ *  for a preparation day. */
+function tomorrow(): string {
+  return addDays(todayIso(), 1);
 }
 
 /** An all-cargo basket that clears the 1.000 ₺ floor (10 × 125 ₺). */
@@ -635,11 +664,12 @@ describe("placeOrderAction — cargo order floor", () => {
   });
 
   // A basket with a fresh line rides the van; there is no shipping cost to
-  // recover, so the floor must not apply to it.
-  it("never applies the floor to a home-delivery basket", async () => {
+  // recover, so the 1.000 ₺ CARGO floor must not apply to it — it still owes
+  // the lower 250 ₺ eve-servis floor, so the quantity here clears that one.
+  it("never applies the cargo floor to a home-delivery basket", async () => {
     const state = await placeOrderAction(
       idle,
-      buildForm({ items_json: JSON.stringify([{ product_key: "eggs", quantity: 1 }]) }),
+      buildForm({ items_json: JSON.stringify([{ product_key: "eggs", quantity: 3 }]) }),
     );
 
     expect(state.status).toBe("success");
@@ -738,5 +768,134 @@ describe("placeOrderAction — bookkeeping", () => {
 
     expect(state.status).toBe("validation_error");
     expect(placeWebOrder).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Guest checkout.
+ *
+ * The load-bearing assertion is the same one `resolve-checkout-customer.test.ts`
+ * makes for accounts: NOTHING is looked up. The previous guest writer upserted
+ * `customers` ON CONFLICT (phone), which silently attached every guest order to
+ * whichever legacy phone-ordered record shared the number — the regression the
+ * owner outlawed. Re-introducing guests must not re-introduce it.
+ */
+describe("placeOrderAction — guest", () => {
+  function guestForm(overrides: Record<string, string> = {}): FormData {
+    return buildForm({
+      account_mode: "guest",
+      address_id: "",
+      first_name: "Veli",
+      last_name: "Demir",
+      phone: "0532 111 22 33",
+      account_email: "veli@example.com",
+      kvkk_accepted: "on",
+      addr_city: "Malatya",
+      addr_district: "Battalgazi",
+      addr_neighborhood: "Çamurlu",
+      addr_street: "Atatürk Cd.",
+      addr_building_no: "12",
+      addr_apartment_no: "3",
+      addr_lat: "38.35",
+      addr_lng: "38.31",
+      addr_source: "user_pin",
+      addr_accuracy: "rooftop",
+      ...overrides,
+    });
+  }
+
+  beforeEach(() => {
+    validateCheckoutAddress.mockResolvedValue({
+      ok: true,
+      value: {
+        address: {
+          label: null,
+          city: "Malatya",
+          district: "Battalgazi",
+          neighborhood: "Çamurlu",
+          street: "Atatürk Cd.",
+          building_no: "12",
+          apartment_no: "3",
+          postal_code: "",
+          description: null,
+          lat: 38.35,
+          lng: 38.31,
+          source: "user_pin",
+          accuracy: "rooftop",
+        },
+        geoVerified: true,
+      },
+    });
+    placeGuestOrder.mockResolvedValue({
+      ok: true,
+      value: {
+        order_id: "order-g1",
+        order_number: "ORD-2026-00999",
+        fulfillment_channel: "delivery",
+      },
+    });
+  });
+
+  it("places the order without touching the session or the account writer", async () => {
+    const state = await placeOrderAction({ status: "idle" }, guestForm());
+
+    expect(state).toMatchObject({
+      status: "success",
+      orderNumber: "ORD-2026-00999",
+    });
+    // No session to resolve, and no customer to look up: the RPC mints both.
+    expect(resolveCheckoutSession).not.toHaveBeenCalled();
+    expect(resolveCheckoutCustomer).not.toHaveBeenCalled();
+    expect(placeWebOrder).not.toHaveBeenCalled();
+    expect(placeGuestOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the typed identity through to the writer", async () => {
+    await placeOrderAction({ status: "idle" }, guestForm());
+
+    expect(placeGuestOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        first_name: "Veli",
+        last_name: "Demir",
+        email: "veli@example.com",
+        // Normalised to E.164 by the schema, exactly as an account signup is.
+        phone: "+905321112233",
+      }),
+    );
+  });
+
+  it("refuses a guest order that also claims a saved address", async () => {
+    const state = await placeOrderAction(
+      { status: "idle" },
+      guestForm({ address_id: "11111111-1111-4111-8111-111111111111" }),
+    );
+
+    expect(state.status).toBe("validation_error");
+    expect(placeGuestOrder).not.toHaveBeenCalled();
+  });
+
+  it("refuses a guest order with no KVKK consent", async () => {
+    const state = await placeOrderAction(
+      { status: "idle" },
+      guestForm({ kvkk_accepted: "" }),
+    );
+
+    expect(state.status).toBe("validation_error");
+    expect(placeGuestOrder).not.toHaveBeenCalled();
+  });
+
+  it("stops on an address the service-area check rejects", async () => {
+    validateCheckoutAddress.mockResolvedValue({
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: "Bu adres teslimat bölgemizin dışında." },
+    });
+
+    const state = await placeOrderAction({ status: "idle" }, guestForm());
+
+    expect(state).toMatchObject({
+      status: "validation_error",
+      message: "Bu adres teslimat bölgemizin dışında.",
+    });
+    expect(placeGuestOrder).not.toHaveBeenCalled();
   });
 });

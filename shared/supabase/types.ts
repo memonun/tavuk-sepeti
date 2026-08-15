@@ -1267,7 +1267,41 @@ export type Database = {
         Returns: string
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      lookup_guest_order: {
+        Args: { p_order_number: string; p_phone: string }
+        Returns: {
+          created_at: string
+          fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
+          order_id: string
+          order_number: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          scheduled_for: string
+          status: Database["public"]["Enums"]["order_status"]
+          total_minor: number
+        }[]
+      }
       next_order_number: { Args: never; Returns: string }
+      place_guest_order: {
+        Args: {
+          p_address: Json
+          p_delivery_fee_minor: number
+          p_delivery_notes: string
+          p_email: string
+          p_first_name: string
+          p_items: Json
+          p_last_name: string
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+          p_phone: string
+          p_scheduled_for: string
+          p_time_slot: Database["public"]["Enums"]["time_slot"]
+        }
+        Returns: {
+          fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
+          order_id: string
+          order_number: string
+        }[]
+      }
       place_web_order: {
         Args: {
           p_address_id: string
@@ -1985,7 +2019,7 @@ export type Database = {
         | "user_pin"
         | "admin_corrected"
       customer_order_type: "delivery" | "retail" | "wholesale" | "bazaar"
-      customer_origin: "admin_manual" | "customer_web"
+      customer_origin: "admin_manual" | "customer_web" | "customer_guest"
       customer_status: "active" | "inactive" | "blocked"
       fulfillment_channel: "delivery" | "shipping"
       order_source: "admin_manual" | "customer_web" | "recurring_generated"
@@ -2146,7 +2180,7 @@ export const Constants = {
         "admin_corrected",
       ],
       customer_order_type: ["delivery", "retail", "wholesale", "bazaar"],
-      customer_origin: ["admin_manual", "customer_web"],
+      customer_origin: ["admin_manual", "customer_web", "customer_guest"],
       customer_status: ["active", "inactive", "blocked"],
       fulfillment_channel: ["delivery", "shipping"],
       order_source: ["admin_manual", "customer_web", "recurring_generated"],

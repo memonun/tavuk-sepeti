@@ -1,22 +1,24 @@
 "use client";
 
 /**
- * Checkout — two steps, and only because the first one is unavoidable.
+ * Checkout. One submit for most people, two only when an account is involved.
  *
- * The owner's rule is still "hesap zorunlu olsun ama sipariş anına kadar
- * friction koyma": a visitor browses and fills the basket anonymously, and only
- * meets the account here. What changed is that the account now has its OWN
- * submit button.
+ * An account is no longer required to order — the owner's rule became "hesap
+ * açmadan sipariş verme de çalışmalı". So there are three shapes here:
  *
- * Why it has to: a delivery address can only be saved by an authenticated
- * customer (RLS keys the address rows off auth.uid()), and an order binds to a
- * saved `address_id`. With account creation buried inside the single "Siparişi
- * ver" submit — which stayed disabled until an address was selected — an
- * anonymous visitor could fill every field and nothing would happen. That is
- * exactly the reported bug ("hesap oluştur gibi bir buton yok, ilerlemiyor" /
- * "üye girişi yapmadan adres seçimi çalışmıyor"). So: step 1 establishes the
- * session, the page re-renders, step 2 is the ordinary one-submit checkout. The
- * basket lives in localStorage, so nothing is lost in between.
+ *   guest    — the default. Contact details and the address are typed into THIS
+ *              form and go with the order; `place_guest_order` writes the
+ *              customer, the address and the order in one transaction. No
+ *              session, no second submit.
+ *   account  — signed in. Identity comes from the session and the address is
+ *              picked from the saved book, so only the order fields are asked.
+ *   signup /
+ *   signin   — the only case that still needs its own submit FIRST, because a
+ *              saved address can only be written by an authenticated customer
+ *              (RLS keys address rows off auth.uid()) and the book is read
+ *              server-side. Establish the session, re-render, then order.
+ *
+ * The basket lives in localStorage, so nothing is lost across any of it.
  *
  * The basket also decides what the rest of the form asks for:
  *
@@ -75,7 +77,10 @@ import {
   paymentMethodsForChannel,
   type PaymentMethod,
 } from "@/features/storefront/domain/payment-options";
-import { isRouteUpgradeEligible } from "@/features/storefront/domain/route-capability";
+import {
+  isRouteUpgradeEligible,
+  routeBlockReason,
+} from "@/features/storefront/domain/route-capability";
 import {
   CARGO_FEE_MINOR,
   CARGO_FREE_SHIPPING_NOTICE,
@@ -92,6 +97,7 @@ import { cn } from "@/lib/utils";
 import { formatTRY } from "@/shared/utils/money";
 
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
@@ -101,6 +107,18 @@ import type { Product } from "@/features/products/application/list-products";
 
 const initialState: PlaceOrderState = { status: "idle" };
 const initialAccountState: CheckoutAccountState = { status: "idle" };
+
+/**
+ * What an anonymous visitor is doing at checkout.
+ *
+ *   guest  — order without an account (the default; no friction until the order)
+ *   signup — create one first, then come back to the order form
+ *   signin — already has one
+ *
+ * Only the last two need a submit of their own, because the order form reads the
+ * address book server-side and therefore needs the session to already exist.
+ */
+type CheckoutMode = "guest" | "signup" | "signin";
 
 const controlClass =
   "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -151,10 +169,29 @@ export function CheckoutForm({
     createCheckoutAccountAction,
     initialAccountState,
   );
-  const [accountMode, setAccountMode] = useState<"signup" | "signin">("signup");
-  const [addressId, setAddressId] = useState<string | null>(
-    addresses.find((a) => a.is_primary)?.id ?? addresses[0]?.id ?? null,
-  );
+  // Which account tab is showing is normally the customer's pick, but a server
+  // answer of `email_taken` overrides it — expecting them to spot the "Zaten
+  // hesabım var" pill themselves is what produced the repeated-signup loop (and,
+  // before the server-side fix, a "başka bir hesapta kayıtlı" error on a
+  // first-ever account). Each new answer clears the previous pick so the
+  // override actually lands. Adjusting state during render is React's documented
+  // pattern here; an effect would cascade an extra render.
+  const [pickedMode, setPickedMode] = useState<CheckoutMode | null>(null);
+  const [seenAccountState, setSeenAccountState] = useState(accountState);
+  if (seenAccountState !== accountState) {
+    setSeenAccountState(accountState);
+    setPickedMode(null);
+  }
+  // Guest is the default: the owner's rule is "no friction until the order", and
+  // forcing a decision about accounts at the top of checkout is what the flow
+  // used to do. An `email_taken` answer still overrides, since at that point the
+  // customer demonstrably has an account.
+  const accountMode: CheckoutMode =
+    pickedMode ?? (accountState.status === "email_taken" ? "signin" : "guest");
+  /** Guest address: collected in-form, submitted WITH the order (there is no
+   *  address book to save it to before one exists). */
+  const [guestAddress, setGuestAddress] = useState<CollectedAddress | null>(null);
+  const [pickedAddressId, setPickedAddressId] = useState<string | null>(null);
   // Tracked so the havale/EFT IBAN box can appear the moment that option is
   // picked, without waiting for a submit. Empty until the customer (or the
   // radio's own defaultChecked) picks one — see `selectedPaymentMethod` below,
@@ -208,12 +245,42 @@ export function CheckoutForm({
     : false;
   const channel = resolveOrderChannel(items, addressRouteCapable);
 
+  /**
+   * The address we preselect on the customer's behalf.
+   *
+   * Two bugs used to live here. It was seeded once at mount, so a customer who
+   * signed in INSIDE checkout kept `null` even after `router.refresh()` brought
+   * their address book in — the picker showed their addresses with none selected
+   * and the submit button stayed locked. And it only looked at `is_primary`,
+   * while the picker disables on `routeBlockReason` — so a primary address with
+   * no pin came up "selected", enabled the submit button, and the order was then
+   * refused by the server. Deriving it from props fixes the first; filtering on
+   * the same predicate the picker uses fixes the second.
+   */
+  const preferredAddressId = useMemo(() => {
+    const usable = addresses.filter(
+      (address) => mode === "cargo" || routeBlockReason(address) === null,
+    );
+    return usable.find((a) => a.is_primary)?.id ?? usable[0]?.id ?? null;
+  }, [addresses, mode]);
+
+  // An explicit pick wins until the underlying list changes (a new address was
+  // saved, or the basket flipped channel), at which point the derived choice
+  // takes over again. Same render-phase adjustment as the account tab above.
+  const [seenPreferredId, setSeenPreferredId] = useState(preferredAddressId);
+  if (seenPreferredId !== preferredAddressId) {
+    setSeenPreferredId(preferredAddressId);
+    setPickedAddressId(null);
+  }
+  const addressId = pickedAddressId ?? preferredAddressId;
+
   if (state.status === "success") {
     return (
       <OrderConfirmation
         orderNumber={state.orderNumber}
         paymentMethod={state.paymentMethod}
         totalMinor={state.totalMinor}
+        hasAccount={identity !== null}
       />
     );
   }
@@ -254,10 +321,11 @@ export function CheckoutForm({
     />
   );
 
-  // ---- Step 1: the account ---------------------------------------------------
-  // Its own <form> and its own submit — see the file header for why this cannot
-  // ride along on the order submit.
-  if (!identity) {
+  // ---- Creating an account / signing in --------------------------------------
+  // Only these two need a submit of their own: a session must EXIST before the
+  // order form can bind to it (the address book is read server-side). A guest
+  // needs no session, so the guest flow stays on the single order submit below.
+  if (!identity && accountMode !== "guest") {
     return (
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
         <form action={accountAction} className="flex flex-col gap-8">
@@ -269,10 +337,30 @@ export function CheckoutForm({
             </p>
             <AccountBlock
               mode={accountMode}
-              onModeChange={setAccountMode}
+              onModeChange={setPickedMode}
               disabled={accountPending}
+              values={
+                accountState.status === "error"
+                  ? accountState.values
+                  : accountState.status === "email_taken"
+                    ? { email: accountState.email }
+                    : undefined
+              }
             />
             <input type="hidden" name="account_mode" value={accountMode} />
+
+            {accountState.status === "email_taken" ? (
+              <p className="text-sm" role="alert">
+                Bu e-posta ile bir hesabınız zaten var — şifrenizi girip devam
+                edin.{" "}
+                <Link
+                  href="/sifremi-unuttum"
+                  className="underline underline-offset-2"
+                >
+                  Şifrenizi mi unuttunuz?
+                </Link>
+              </p>
+            ) : null}
 
             {accountState.status === "error" ? (
               <p className="text-sm text-destructive" role="alert">
@@ -318,21 +406,59 @@ export function CheckoutForm({
   // The radios default to the first offered option (matching the old
   // `defaultChecked={index === 0}`) until the customer actually picks one.
   const selectedPaymentMethod = paymentMethod || paymentOptions[0]?.value;
-  const canSubmit =
-    !pending && addressId !== null && minimum.ok && !noDeliveryDay;
+  // An account picks a saved address; a guest has to have finished the inline
+  // address form. Either way the order cannot go without one.
+  const hasAddress = identity ? addressId !== null : guestAddress !== null;
+  const canSubmit = !pending && hasAddress && minimum.ok && !noDeliveryDay;
 
   return (
     <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-8">
-        <Section title="1. Hesap">
-          <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm">
-            Merhaba{" "}
-            <strong className="font-medium">
-              {identity.first_name || identity.email}
-            </strong>{" "}
-            — siparişiniz bu hesaba kaydedilecek.
-          </p>
-          <input type="hidden" name="account_mode" value="existing" />
+        <Section title="1. İletişim">
+          {identity ? (
+            <>
+              <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm">
+                Merhaba{" "}
+                <strong className="font-medium">
+                  {identity.first_name || identity.email}
+                </strong>{" "}
+                — siparişiniz bu hesaba kaydedilecek.
+              </p>
+              <input type="hidden" name="account_mode" value="existing" />
+            </>
+          ) : (
+            <>
+              <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
+                Üye olmadan sipariş verebilirsiniz. Siparişinizi daha sonra
+                numarası ve telefonunuzla{" "}
+                <Link
+                  href="/siparis-sorgula"
+                  className="underline underline-offset-2"
+                  target="_blank"
+                >
+                  sorgulayabilirsiniz
+                </Link>
+                .{" "}
+                <button
+                  type="button"
+                  onClick={() => setPickedMode("signin")}
+                  className="underline underline-offset-2"
+                >
+                  Hesabınız var mı?
+                </button>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  onClick={() => setPickedMode("signup")}
+                  className="underline underline-offset-2"
+                >
+                  Hesap oluşturun
+                </button>
+              </p>
+              <GuestBlock disabled={pending} />
+              <input type="hidden" name="account_mode" value="guest" />
+            </>
+          )}
         </Section>
 
         <Section title="2. Teslimat adresi">
@@ -353,16 +479,34 @@ export function CheckoutForm({
             </span>
           </p>
 
-          <AddressPicker
-            addresses={addresses}
-            mode={mode}
-            mapsKey={mapsKey}
-            selectedId={addressId}
-            onSelect={setAddressId}
-            onChanged={() => router.refresh()}
-            disabled={pending}
-          />
-          <input type="hidden" name="address_id" value={addressId ?? ""} />
+          {identity ? (
+            <>
+              <AddressPicker
+                addresses={addresses}
+                mode={mode}
+                mapsKey={mapsKey}
+                selectedId={addressId}
+                onSelect={setPickedAddressId}
+                onChanged={() => router.refresh()}
+                disabled={pending}
+              />
+              <input type="hidden" name="address_id" value={addressId ?? ""} />
+            </>
+          ) : guestAddress ? (
+            // Collected, not saved: a guest has no address book, so the fields
+            // ride along with the order submit as hidden inputs.
+            <GuestAddressSummary
+              address={guestAddress}
+              onEdit={() => setGuestAddress(null)}
+            />
+          ) : (
+            <AddressForm
+              mode={mode}
+              mapsKey={mapsKey}
+              onSaved={() => undefined}
+              onCollect={setGuestAddress}
+            />
+          )}
           <input type="hidden" name="address_mode" value={mode} />
         </Section>
 
@@ -515,8 +659,9 @@ export function CheckoutForm({
                 just entered) — the cargo floor is a property of THAT
                 address's channel, not of the basket in isolation, and
                 nagging about it before checkout even asks for one reads as
-                premature. A returning customer with a saved address sees it
-                immediately, since `addressId` is already set on mount. */}
+                premature. A returning customer with a usable saved address
+                still sees it on first render, since `addressId` is derived
+                from the address list rather than waiting for a click. */}
             {addressId !== null && !minimum.ok ? (
               <p
                 className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
@@ -526,19 +671,47 @@ export function CheckoutForm({
               </p>
             ) : null}
 
+            {/* A dead session is not a form error. Without a way back the
+                customer was left clicking an enabled button under a greeting
+                bearing their own name, getting the same sentence every time.
+                `next` returns them here with the basket still in localStorage. */}
+            {state.status === "session_expired" ? (
+              <div
+                className="flex flex-col gap-2 rounded-xl bg-destructive/5 px-3 py-2.5"
+                role="alert"
+              >
+                <p className="text-sm text-destructive">{state.message}</p>
+                <Link
+                  href="/giris?next=%2Fodeme"
+                  className={cn(
+                    buttonVariants({ size: "sm" }),
+                    "self-start rounded-full",
+                  )}
+                >
+                  Giriş yap ve siparişe dön
+                </Link>
+              </div>
+            ) : null}
+
             {state.status === "validation_error" || state.status === "error" ? (
               <p className="text-sm text-destructive" role="alert">
                 {state.message}
               </p>
             ) : null}
 
+            {/* Submit exactly what the customer was shown. This used to
+                serialize the raw `lines`, which include products the catalog no
+                longer sells — invisible in the summary and in the totals, but
+                still POSTed, so the order died on "Ürün bulunamadı: <key>" for a
+                row that could not be seen or deleted. `rows` is the same
+                catalog-resolved list the summary and the price are built from. */}
             <input
               type="hidden"
               name="items_json"
               value={JSON.stringify(
-                lines.map((l) => ({
-                  product_key: l.product_key,
-                  quantity: l.quantity,
+                rows.map((r) => ({
+                  product_key: r.product.key,
+                  quantity: r.quantity,
                 })),
               )}
             />
@@ -647,10 +820,25 @@ function AccountBlock({
   mode,
   onModeChange,
   disabled,
+  values,
 }: {
   mode: "signup" | "signin";
-  onModeChange: (mode: "signup" | "signin") => void;
+  onModeChange: (mode: CheckoutMode) => void;
   disabled: boolean;
+  /**
+   * What to put back after a failed submit. React 19 resets an uncontrolled form
+   * once its action resolves, restoring each input to its `defaultValue` — so
+   * feeding the echoed values back in through `defaultValue` is what stops every
+   * error from wiping six fields. The password is never echoed.
+   */
+  values?:
+    | {
+        email?: string | undefined;
+        first_name?: string | undefined;
+        last_name?: string | undefined;
+        phone?: string | undefined;
+      }
+    | undefined;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -677,15 +865,25 @@ function AccountBlock({
         >
           Zaten hesabım var
         </button>
+        {/* The way back out. Without it, a customer who tapped "hesap oluştur"
+            to see what it involved was stuck in the account flow. */}
+        <button
+          type="button"
+          onClick={() => onModeChange("guest")}
+          className="rounded-full bg-secondary px-3 py-1.5 transition-colors"
+          disabled={disabled}
+        >
+          Üye olmadan devam et
+        </button>
       </div>
 
       {mode === "signup" ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Ad" htmlFor="first_name">
-            <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} />
+            <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} defaultValue={values?.first_name} />
           </Field>
           <Field label="Soyad" htmlFor="last_name">
-            <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} />
+            <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} defaultValue={values?.last_name} />
           </Field>
           {/* Required, not optional: a stop the driver can't phone is a delivery
               that fails at the door, and it's the field the CRM keys on. */}
@@ -699,10 +897,11 @@ function AccountBlock({
               autoComplete="tel"
               required
               disabled={disabled}
+              defaultValue={values?.phone}
             />
           </Field>
           <Field label="E-posta" htmlFor="account_email">
-            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} />
+            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} defaultValue={values?.email} />
           </Field>
           <Field label="Şifre (en az 8 karakter)" htmlFor="account_password">
             <Input
@@ -742,7 +941,7 @@ function AccountBlock({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="E-posta" htmlFor="account_email">
-            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} />
+            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} defaultValue={values?.email} />
           </Field>
           <Field label="Şifre" htmlFor="account_password">
             <Input
@@ -763,6 +962,128 @@ function AccountBlock({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Contact details for an order with no account behind it.
+ *
+ * Same field names as the signup block minus the password, so switching between
+ * "üye olmadan devam et" and "hesap oluştur" does not throw away what the
+ * customer already typed. E-mail is required here even though no account is
+ * created: it carries the order number they will need to find the order again,
+ * and PayTR will not take a card payment without one.
+ */
+function GuestBlock({ disabled }: { disabled: boolean }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="Ad" htmlFor="first_name">
+        <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} />
+      </Field>
+      <Field label="Soyad" htmlFor="last_name">
+        <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} />
+      </Field>
+      <Field label="Telefon" htmlFor="phone">
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          placeholder="0532 123 45 67"
+          autoComplete="tel"
+          required
+          disabled={disabled}
+        />
+      </Field>
+      <Field label="E-posta" htmlFor="account_email">
+        <Input
+          id="account_email"
+          name="account_email"
+          type="email"
+          autoComplete="email"
+          required
+          disabled={disabled}
+        />
+      </Field>
+      <p className="text-xs text-muted-foreground sm:col-span-2">
+        Sipariş onayınızı ve takip bilgisini bu adrese göndereceğiz.
+      </p>
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50 sm:col-span-2">
+        <input
+          type="checkbox"
+          name="kvkk_accepted"
+          className="mt-0.5 size-4 accent-primary"
+          required
+          disabled={disabled}
+        />
+        <span>
+          <Link href="/kvkk" className="underline underline-offset-2" target="_blank">
+            KVKK Aydınlatma Metni
+          </Link>{" "}
+          ve{" "}
+          <Link
+            href="/mesafeli-satis-sozlesmesi"
+            className="underline underline-offset-2"
+            target="_blank"
+          >
+            Mesafeli Satış Sözleşmesi
+          </Link>
+          &apos;ni okudum, onaylıyorum.
+        </span>
+      </label>
+    </div>
+  );
+}
+
+/**
+ * The guest's collected address, plus the hidden inputs that carry it into the
+ * order submit. The `addr_` prefix matches `readGuestAddressInput` on the server
+ * and keeps these from colliding with the contact block's own field names.
+ */
+function GuestAddressSummary({
+  address,
+  onEdit,
+}: {
+  address: CollectedAddress;
+  onEdit: () => void;
+}) {
+  const hidden: ReadonlyArray<readonly [string, string]> = [
+    ["label", address.label],
+    ["city", address.city],
+    ["district", address.district],
+    ["neighborhood", address.neighborhood],
+    ["street", address.street],
+    ["building_no", address.building_no],
+    ["apartment_no", address.apartment_no],
+    ["postal_code", address.postal_code],
+    ["description", address.description],
+    ["lat", String(address.lat)],
+    ["lng", String(address.lng)],
+    ["source", address.source],
+    ["accuracy", address.accuracy],
+  ];
+
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-primary bg-secondary/50 p-3 text-sm">
+      <MapPinIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">
+          {[address.neighborhood, address.street, address.building_no]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {[address.district, address.city].filter(Boolean).join(" / ")}
+          {address.apartment_no ? ` · Daire ${address.apartment_no}` : ""}
+        </p>
+      </div>
+      <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
+        Değiştir
+      </Button>
+      {hidden.map(([name, value]) => (
+        <input key={name} type="hidden" name={`addr_${name}`} value={value} />
+      ))}
     </div>
   );
 }
@@ -813,20 +1134,50 @@ function EmptyCart() {
 /** Supabase is configured to require e-mail confirmation, so the account exists
  *  but has no session yet and the order cannot be written. The basket is
  *  deliberately NOT cleared — the customer confirms and comes straight back. */
+/**
+ * Post-signup holding screen.
+ *
+ * The recovery button is the important part. Customers routinely open the
+ * confirmation mail on their PHONE while checking out on a laptop, so this tab
+ * never receives the session cookie and stays here. Before, their only move was
+ * to submit the signup form again — and a second signup for a now-confirmed
+ * address is exactly what Supabase answers with an obfuscated user, which used
+ * to surface as "bu e-posta başka bir hesapta kayıtlı" on a first-time account.
+ *
+ * A refresh re-runs the server component, which reads the (possibly now
+ * present) session and renders the address step instead.
+ */
 function VerifyEmail({ email }: { email: string }) {
+  const router = useRouter();
+  const [checking, setChecking] = useState(false);
+
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
       <MailCheckIcon className="size-12 text-primary" />
       <h2 className="font-display text-2xl">E-postanızı doğrulayın</h2>
       <p className="text-sm text-muted-foreground">
         <strong className="font-medium text-foreground">{email}</strong> adresine
-        bir doğrulama bağlantısı gönderdik. Bağlantıya tıkladıktan sonra bu
-        sayfaya dönün — sepetiniz duruyor, siparişinizi tek tıkla
-        tamamlayabilirsiniz.
+        bir doğrulama bağlantısı gönderdik. Sepetiniz duruyor — bağlantıya
+        tıkladıktan sonra buradan devam edebilirsiniz.
       </p>
-      <Link href="/odeme" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
-        Siparişe dön
-      </Link>
+      <Button
+        type="button"
+        size="lg"
+        className="rounded-full"
+        disabled={checking}
+        onClick={() => {
+          setChecking(true);
+          router.refresh();
+          // The refresh is a server round-trip; re-enable so a customer who
+          // clicked too early can try again instead of staring at a dead button.
+          window.setTimeout(() => setChecking(false), 2000);
+        }}
+      >
+        {checking ? "Kontrol ediliyor…" : "E-postamı doğruladım — devam et"}
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        Bağlantı gelmediyse spam klasörünü kontrol edin.
+      </p>
     </div>
   );
 }
@@ -835,10 +1186,14 @@ function OrderConfirmation({
   orderNumber,
   paymentMethod,
   totalMinor,
+  /** False for a guest: there is no /hesap to send them to, so the order number
+   *  they are looking at right now is their only handle on this order. */
+  hasAccount,
 }: {
   orderNumber: string;
   paymentMethod: PaymentMethod;
   totalMinor: number;
+  hasAccount: boolean;
 }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
@@ -851,8 +1206,10 @@ function OrderConfirmation({
         </p>
       </div>
       <p className="text-sm text-muted-foreground">
-        Siparişinizi hazırlamaya başlıyoruz. Durumunu istediğiniz zaman
-        hesabınızdan takip edebilirsiniz.
+        Siparişinizi hazırlamaya başlıyoruz. Durumunu istediğiniz zaman{" "}
+        {hasAccount
+          ? "hesabınızdan takip edebilirsiniz."
+          : "sipariş numaranız ve telefonunuzla sorgulayabilirsiniz — numarayı onay e-postanıza da gönderdik."}
       </p>
 
       {paymentMethod === "bank_transfer" ? (
@@ -868,10 +1225,10 @@ function OrderConfirmation({
           Alışverişe devam et
         </Link>
         <Link
-          href="/hesap"
+          href={hasAccount ? "/hesap" : "/siparis-sorgula"}
           className={cn(buttonVariants({ size: "lg", variant: "outline" }), "rounded-full")}
         >
-          Siparişlerim
+          {hasAccount ? "Siparişlerim" : "Siparişimi sorgula"}
         </Link>
       </div>
     </div>

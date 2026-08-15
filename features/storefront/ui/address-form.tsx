@@ -46,6 +46,23 @@ import type { ParsedAddress } from "@/components/address/address-autocomplete";
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
 import type { CoordinateAccuracy, CoordinateSource } from "@/shared/geo/coordinate";
 
+/** The fields this form collects, before anything is persisted. */
+export interface CollectedAddress {
+  label: string;
+  city: string;
+  district: string;
+  neighborhood: string;
+  street: string;
+  building_no: string;
+  apartment_no: string;
+  postal_code: string;
+  description: string;
+  lat: number;
+  lng: number;
+  source: CoordinateSource;
+  accuracy: CoordinateAccuracy;
+}
+
 export interface AddressFormProps {
   mode: "route" | "cargo";
   mapsKey: string | undefined;
@@ -53,6 +70,16 @@ export interface AddressFormProps {
   initial?: SavedAddress;
   onSaved: (addressId: string) => void;
   onCancel?: () => void;
+  /**
+   * Guest checkout: hand the collected fields UP instead of saving them.
+   *
+   * A guest has no `customers` row yet — `upsert_customer_address` resolves the
+   * customer from `auth_user_id` and would raise P0002 — so their address cannot
+   * exist before the order does. It travels with the order submit instead, and
+   * `place_guest_order` writes customer, address and order in one transaction.
+   * When set, `onSaved` is never called and nothing is persisted here.
+   */
+  onCollect?: (address: CollectedAddress) => void;
 }
 
 interface FormFields {
@@ -85,6 +112,7 @@ export function AddressForm({
   initial,
   onSaved,
   onCancel,
+  onCollect,
 }: AddressFormProps) {
   const [fields, setFields] = useState<FormFields>(
     initial
@@ -281,11 +309,35 @@ export function AddressForm({
 
   async function submit() {
     setError(null);
+
+    const collected = {
+      ...fields,
+      apartment_no: detached ? DETACHED_HOUSE_APARTMENT_NO : fields.apartment_no,
+      lat: hasPin ? pin.lat : 0,
+      lng: hasPin ? pin.lng : 0,
+      accuracy: pin.accuracy,
+      source: pin.source,
+    };
+
+    // Guest checkout: nothing is persisted here — the address rides along with
+    // the order submit, which is the only moment a guest gets a customer row.
+    if (onCollect) {
+      onCollect(collected);
+      return;
+    }
+
     setSaving(true);
     const result = await saveAddressAction({
       addressId: initial?.id ?? null,
       mode,
-      makePrimary: !initial || initial.is_primary,
+      // Editing keeps whatever the address already was. A NEW one does not
+      // claim the default: `upsert_customer_address` already promotes the very
+      // first address on its own, so forcing it here only meant that adding a
+      // one-off address (a gift, a work drop) silently moved the default —
+      // and the next checkout then preselected the address least likely to be
+      // wanted. Choosing it for THIS order is the picker's job, not a flag on
+      // the row.
+      makePrimary: initial ? initial.is_primary : false,
       address: {
         ...fields,
         apartment_no: detached
@@ -523,7 +575,13 @@ export function AddressForm({
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={submit} disabled={!canSubmit}>
-          {saving ? "Kaydediliyor…" : "Adresi kaydet"}
+          {/* Nothing is stored in collect mode — a guest has no address book,
+              so promising "kaydet" would be a lie. */}
+          {onCollect
+            ? "Bu adresi kullan"
+            : saving
+              ? "Kaydediliyor…"
+              : "Adresi kaydet"}
         </Button>
         {onCancel ? (
           <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>

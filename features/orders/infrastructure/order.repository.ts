@@ -254,6 +254,37 @@ export async function listOrders(
     builder = builder.lte("scheduled_for", query.scheduled_to);
   }
 
+  // Free-text search: order_number OR the customer's name/phone. The customer
+  // side runs as its own lookup (not a joined .or(), which PostgREST cannot
+  // reliably mix top-level and embedded-resource conditions in) — same
+  // escaping the customer grid's own search uses.
+  if (query.q) {
+    const escaped = query.q.replace(/[\\%_]/g, (m) => `\\${m}`);
+    const pattern = `%${escaped}%`;
+    const matchingCustomers = await supabase
+      .from("customers")
+      .select("id")
+      .or(`first_name.ilike.${pattern},last_name.ilike.${pattern},phone.ilike.${pattern}`);
+    if (matchingCustomers.error) {
+      logger.error(
+        { code: matchingCustomers.error.code, message: matchingCustomers.error.message },
+        "list_orders_customer_search_failed",
+      );
+      return err(
+        new ExternalApiError({
+          message: matchingCustomers.error.message,
+          cause: matchingCustomers.error,
+        }),
+      );
+    }
+    const customerIds = (matchingCustomers.data ?? []).map((c) => c.id);
+    const orConditions = [`order_number.ilike.${pattern}`];
+    if (customerIds.length > 0) {
+      orConditions.push(`customer_id.in.(${customerIds.join(",")})`);
+    }
+    builder = builder.or(orConditions.join(","));
+  }
+
   // Advanced filter builder (multi-condition AND). The query schema caps the
   // array at 20 rules and the column whitelist above caps what SQL can touch.
   for (const rule of query.filters) {

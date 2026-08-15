@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { parseCoordinatePair } from "@/shared/geo/parse-coordinate-pair";
 import { composeGeocoderQuery, hasGeocodableShape } from "@/shared/utils/address";
 
 import type { ParsedAddress } from "@/components/address/address-autocomplete";
@@ -63,6 +64,9 @@ export function CustomerForm({ mapsBrowserKey, mode }: CustomerFormProps) {
     | { kind: "error"; message: string }
     | { kind: "ready" }
   >({ kind: "idle" });
+  // Scratch buffer for the "paste from Google Maps" coordinate box — not part
+  // of form state, since its only job is to split into address.lat/lng below.
+  const [coordPaste, setCoordPaste] = useState("");
 
   const isEdit = mode.kind === "edit";
 
@@ -358,6 +362,29 @@ const addressAccuracy = watch("address.accuracy");
               <p className="text-sm text-destructive">{geocodingState.message}</p>
             ) : null}
 
+            <Field label="Koordinat yapıştır (Google Maps)">
+              <Input
+                value={coordPaste}
+                placeholder="ör. 38.3581, 38.3286"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setCoordPaste(raw);
+                  const parsed = parseCoordinatePair(raw);
+                  if (!parsed) return;
+                  setValue("address.lat", parsed.lat, { shouldValidate: true });
+                  setValue("address.lng", parsed.lng, { shouldValidate: true });
+                  setValue("address.source", "admin_corrected", { shouldValidate: true });
+                  setValue("address.accuracy", "rooftop", { shouldValidate: true });
+                  // Job done — the parsed pair now shows in Enlem/Boylam below.
+                  setCoordPaste("");
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Google Maps&apos;te bir noktaya sağ tıklayıp kopyaladığınız
+                &quot;enlem, boylam&quot; metnini buraya yapıştırın — aşağıdaki
+                iki alana otomatik ayrılır.
+              </p>
+            </Field>
             <Field label="Enlem (lat)">
               <Input
                 inputMode="decimal"

@@ -2,10 +2,19 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { CustomerAuthForm } from "@/features/storefront/ui/customer-auth-form";
+import { safeNextPath } from "@/shared/utils/next-path";
 
-export default async function CustomerLoginPage() {
+export default async function CustomerLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  // A customer sent here from a full basket must land back on it, not on /hesap.
+  const destination = safeNextPath(next);
+
   const user = await getCurrentUser();
-  if (user) redirect("/hesap");
+  if (user) redirect(destination);
 
   return (
     <main className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-16">
@@ -15,7 +24,7 @@ export default async function CustomerLoginPage() {
           Bilgileriniz hazır gelsin, siparişlerinizi takip edin.
         </p>
       </div>
-      <CustomerAuthForm mode="signin" />
+      <CustomerAuthForm mode="signin" next={destination} />
     </main>
   );
 }

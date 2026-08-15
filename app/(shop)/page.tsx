@@ -67,7 +67,7 @@ export default async function ShopHomePage() {
         <h2 id="catalog-heading" className="sr-only">
           Ürünler
         </h2>
-        <CatalogGrid products={products} />
+        <CatalogGrid products={products} unavailable={!catalog.ok} />
       </section>
     </main>
   );

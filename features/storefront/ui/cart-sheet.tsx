@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MapPinIcon, ShoppingBasketIcon, TruckIcon } from "lucide-react";
 
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
@@ -47,13 +47,27 @@ export function CartSheet({
    *  too-small basket all the way to checkout only to be refused. */
   cargoMinOrderMinor: number;
 }) {
-  const { lines, lineCount, hydrated } = useCart();
+  const { lines, lineCount, hydrated, clear, retainOnly } = useCart();
   const [open, setOpen] = useState(false);
 
   const rows = lines.flatMap((line) => {
     const product = products.find((p) => p.key === line.product_key);
     return product ? [{ product, quantity: line.quantity }] : [];
   });
+
+  // This component is mounted by the shop layout on every page, so it is the one
+  // place guaranteed to see both the persisted cart and the live catalog. Drop
+  // lines the catalog no longer sells, otherwise they stay invisible-but-counted
+  // forever: the badge disagrees with the sheet, and checkout dies on a product
+  // key the customer cannot see.
+  //
+  // Guarded on a NON-EMPTY catalog on purpose. `getStorefrontCatalog` failures
+  // are currently flattened to `[]` by the layout, and pruning against that
+  // would silently empty a real basket on a transient database blip.
+  useEffect(() => {
+    if (products.length === 0) return;
+    retainOnly(new Set(products.map((p) => p.key)));
+  }, [products, retainOnly]);
 
   const subtotal = cartSubtotalMinor(
     rows.map((r) => lineTotalMinor(r.product, r.quantity)),
@@ -127,6 +141,22 @@ export function CartSheet({
                 </li>
               ))}
             </ul>
+
+            {/* The only way out of a basket the customer wants to abandon.
+                Without it, emptying a cart meant tapping "−" once per unit on
+                every row — 18 taps for a 10 kg line — and there was no exit at
+                all from a line the catalog had stopped selling. */}
+            <div className="mt-3 text-right">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => clear()}
+              >
+                Sepeti boşalt
+              </Button>
+            </div>
           </div>
         )}
 

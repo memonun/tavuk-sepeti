@@ -45,8 +45,15 @@ const CHANNEL_LABEL: Record<FulfillmentChannel, string> = {
   shipping: "Şehir dışı (kargo)",
 };
 
-/** Customer-facing message. Says the limit AND what is missing — a bare
- *  "minimum 1.000 ₺" leaves the customer doing the arithmetic. */
+/**
+ * Customer-facing message. Says the limit AND what is missing — a bare
+ * "minimum 1.000 ₺" leaves the customer doing the arithmetic.
+ *
+ * Channel-labelled on purpose, now that there are two distinct floors: a
+ * delivery order (including one the address-aware channel resolution upgraded
+ * from shipping) is held to the LOWER eve-servis floor, so telling that
+ * customer their order is "Kargolu" would show them the wrong limit's name.
+ */
 export function orderMinimumMessage(
   channel: FulfillmentChannel,
   minOrderMinor: number,

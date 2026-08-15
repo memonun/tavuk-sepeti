@@ -6,26 +6,33 @@
  * contract rather than a parallel one:
  *
  *   1. Zod-parse the payload (CLAUDE.md §4) — first statement, nothing trusted.
- *   2. Resolve the session. The account is normally established one step
- *      earlier by `createCheckoutAccountAction` (an address cannot be saved
- *      without it); the signup/signin branches stay reachable here so a stale
- *      tab posting the old single-submit shape still works.
- *   3. Resolve the customer from the LOGIN. Never by phone — that lookup is what
- *      used to merge web orders onto legacy phone-ordered records.
- *   4. Reload the catalog and re-price EVERY line with enrichOrderItems (the
+ *   2. Resolve WHO is ordering. Two shapes, normalised into one `actor`:
+ *        - account — identity comes from the session (normally established one
+ *          step earlier by `createCheckoutAccountAction`, since an address
+ *          cannot be saved without one); the signup/signin branches stay
+ *          reachable here so a stale tab posting the old single-submit shape
+ *          still works.
+ *        - guest — identity AND address travel with this submit: there is no
+ *          session to read and no address book to pick from. `place_guest_order`
+ *          mints both rows in the same transaction as the order.
+ *      Never resolved by phone — that lookup is what used to merge web orders
+ *      onto legacy phone-ordered records.
+ *   3. Reload the catalog and re-price EVERY line with enrichOrderItems (the
  *      SAME function the admin path uses). The basket only ever contributes
  *      product_key + quantity; prices are never trusted from the browser.
- *   5. Re-derive the ADDRESS FORM mode from the re-priced items and compare it
+ *   4. Re-derive the ADDRESS FORM mode from the re-priced items and compare it
  *      with the client's hint, so a basket that went stale (an admin flipped a
  *      product to cargo mid-session) is rejected rather than silently
- *      switching form shape. Then load the customer's own address (needed for
- *      step 6) and re-derive the fulfillment CHANNEL — address-aware since
- *      2026-08-13: a flexible-only basket still becomes `delivery` when the
- *      address is route-capable (isRouteUpgradeEligible), same "ride along in
- *      the van" treatment a mixed basket already gets. Mirrors
- *      resolve_channel_for_items() in the RPC (migration 20260813130000) —
- *      the two must land on the same channel or the checks below would
- *      validate against one the write then disagrees with.
+ *      switching form shape.
+ *   5. Re-derive the fulfillment CHANNEL — address-aware since 2026-08-13 for a
+ *      SIGNED-IN customer: a flexible-only basket still becomes `delivery` when
+ *      their saved address is route-capable (isRouteUpgradeEligible), same
+ *      "ride along in the van" treatment a mixed basket already gets. Mirrors
+ *      resolve_channel_for_items() in the RPC (migration 20260813130000) — the
+ *      two must land on the same channel or the checks below would validate
+ *      against one the write then disagrees with. A GUEST has no saved address
+ *      to check yet (theirs arrives typed, further down, WITH this submit), so
+ *      their channel stays cart-only — the same behaviour as before this date.
  *   6. Apply the CHANNEL-DEPENDENT rules, all server-authoritative and all
  *      re-checked here even though the form already renders them:
  *        - delivery → the day must be inside the window AND one of the owner's
@@ -36,7 +43,10 @@
  *          cargo order floor (1.000 ₺ by default);
  *        - kapıda nakit ödeme only on a delivery — a courier collects nothing
  *          on our behalf.
- *   7. Hand to the privileged writer, which re-checks address ownership, the
+ *   7. Resolve WHERE it goes. An account's address was already fetched in step
+ *      5; a guest's is validated now, against the channel just derived (route
+ *      schema demands a confirmed pin, cargo does not).
+ *   8. Hand to the privileged writer, which re-checks address ownership, the
  *      route-address fields and the service area inside the transaction.
  *
  * Returns a serializable state for useActionState.
@@ -56,6 +66,10 @@ import {
 } from "@/features/storefront/application/checkout-account";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { resolveCheckoutCustomer } from "@/features/storefront/application/resolve-checkout-customer";
+import {
+  validateCheckoutAddress,
+  type CheckoutAddress,
+} from "@/features/storefront/application/validate-checkout-address";
 import { addDaysIso, isWithinWindow } from "@/features/storefront/domain/delivery-date";
 import {
   formatHomeDeliveryDays,
@@ -92,8 +106,15 @@ import {
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { webOrderSchema } from "@/features/storefront/domain/web-order.schema";
-import { listMyAddresses } from "@/features/storefront/application/list-addresses";
-import { placeWebOrder } from "@/features/storefront/infrastructure/web-order.repository";
+import {
+  listMyAddresses,
+  type SavedAddress,
+} from "@/features/storefront/application/list-addresses";
+import {
+  placeGuestOrder,
+  placeWebOrder,
+  type GuestAddressPayload,
+} from "@/features/storefront/infrastructure/web-order.repository";
 import { logAudit } from "@/shared/audit/log-audit";
 import { sendEmail } from "@/shared/email/send-email";
 import { logger } from "@/shared/logger";
@@ -110,8 +131,42 @@ export type PlaceOrderState =
   | { status: "redirect"; url: string }
   /** Signup needs e-mail confirmation before a session exists. Basket kept. */
   | { status: "verify_email"; email: string }
+  /** The session died between rendering the form and submitting it. Distinct
+   *  from a validation error because the recovery is "sign in again", and the
+   *  form has to offer it — a red line alone left the customer clicking a still
+   *  enabled button under a greeting with their own name on it. */
+  | { status: "session_expired"; message: string }
   | { status: "validation_error"; message: string }
   | { status: "error"; message: string };
+
+/**
+ * The address a guest typed, straight off the FormData.
+ *
+ * Returns `unknown` on purpose — `validateCheckoutAddress` runs the real schema
+ * over it (CLAUDE.md §4: nothing from a form is trusted before Zod). The `addr_`
+ * prefix keeps these from colliding with the account block's own field names.
+ */
+function readGuestAddressInput(formData: FormData): unknown {
+  const str = (key: string): string => {
+    const value = formData.get(`addr_${key}`);
+    return typeof value === "string" ? value : "";
+  };
+  return {
+    label: str("label"),
+    city: str("city"),
+    district: str("district"),
+    neighborhood: str("neighborhood"),
+    street: str("street"),
+    building_no: str("building_no"),
+    apartment_no: str("apartment_no"),
+    postal_code: str("postal_code"),
+    description: str("description"),
+    lat: str("lat"),
+    lng: str("lng"),
+    source: str("source") || "user_pin",
+    accuracy: str("accuracy") || "unknown",
+  };
+}
 
 /** "Today" as a YYYY-MM-DD calendar day in Europe/Istanbul (CLAUDE.md §7). */
 function todayInIstanbul(): string {
@@ -156,26 +211,69 @@ export async function placeOrderAction(
     };
   }
 
-  // ---- Account ---------------------------------------------------------------
-  // Normally "existing": the account step ran first, because an address cannot
-  // be saved without a session. The signup/signin branches remain reachable so a
-  // tab still holding the old single-submit form is not stranded.
-  const session = await resolveCheckoutSession(parsed.data.account);
-  if (!session.ok) {
-    return { status: "validation_error", message: session.error.message };
-  }
-  if (session.value.kind === "verify_email") {
-    return { status: "verify_email", email: session.value.email };
-  }
-  const { session: identity } = session.value;
+  // ---- Who is ordering -------------------------------------------------------
+  // Two shapes, normalised into one `actor` so everything downstream — pricing,
+  // PayTR, the confirmation e-mail — stays single-path.
+  //
+  //   account — identity comes from the session, and the address was saved
+  //             beforehand (it needs a session), so the order references it by id.
+  //   guest   — identity AND address travel with this submit: there is no session
+  //             to read and no address book to pick from. `place_guest_order`
+  //             mints both rows in the same transaction as the order.
+  const guestAccount =
+    parsed.data.account.mode === "guest" ? parsed.data.account : null;
 
-  const customer = await resolveCheckoutCustomer(identity);
-  if (!customer.ok) {
-    if (customer.error.code === "VALIDATION_ERROR") {
-      return { status: "validation_error", message: customer.error.message };
+  let actor: {
+    authUserId: string | null;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+  };
+  /** Resolved up front for an account; minted by the RPC for a guest. */
+  let customerId: string | null = null;
+
+  if (guestAccount) {
+    actor = {
+      authUserId: null,
+      email: guestAccount.email,
+      firstName: guestAccount.first_name,
+      lastName: guestAccount.last_name,
+      phone: guestAccount.phone,
+    };
+  } else {
+    const session = await resolveCheckoutSession(parsed.data.account, {
+      nextPath: "/odeme",
+    });
+    if (!session.ok) {
+      if (session.error.code === "UNAUTHORIZED") {
+        return { status: "session_expired", message: session.error.message };
+      }
+      return { status: "validation_error", message: session.error.message };
     }
-    logger.error({ code: customer.error.code }, "checkout_customer_resolve_failed");
-    return { status: "error", message: "Hesabınız hazırlanamadı, tekrar deneyin." };
+    if (session.value.kind === "verify_email") {
+      return { status: "verify_email", email: session.value.email };
+    }
+    if (session.value.kind === "email_taken") {
+      // Only reachable from a stale tab still holding the old single-submit form;
+      // the account step handles this inline. Name the control either way.
+      return {
+        status: "validation_error",
+        message:
+          'Bu e-posta ile bir hesap var. "Zaten hesabım var" ile giriş yapın.',
+      };
+    }
+
+    const customer = await resolveCheckoutCustomer(session.value.session);
+    if (!customer.ok) {
+      if (customer.error.code === "VALIDATION_ERROR") {
+        return { status: "validation_error", message: customer.error.message };
+      }
+      logger.error({ code: customer.error.code }, "checkout_customer_resolve_failed");
+      return { status: "error", message: "Hesabınız hazırlanamadı, tekrar deneyin." };
+    }
+    actor = session.value.session;
+    customerId = customer.value;
   }
 
   // ---- Authoritative pricing ------------------------------------------------
@@ -203,35 +301,42 @@ export async function placeOrderAction(
     };
   }
 
-  // ---- Address must be one of the account's own ----------------------------
-  // Fetched here (moved ahead of the channel-dependent rules below) because
-  // the channel itself now needs it — see the address-aware resolveOrderChannel
-  // call next. The RPC enforces ownership too (P0004); checking here buys a
-  // precise message and gives us the fields for the confirmation e-mail.
-  const addresses = await listMyAddresses();
-  if (!addresses.ok) {
-    logger.error({ code: addresses.error.code }, "checkout_address_load_failed");
-    return { status: "error", message: "Adresleriniz yüklenemedi, tekrar deneyin." };
-  }
-  const address = addresses.value.find((a) => a.id === parsed.data.address_id);
-  if (!address) {
-    return {
-      status: "validation_error",
-      message: "Teslimat adresi bulunamadı. Adres seçin veya yeni bir adres ekleyin.",
-    };
+  // ---- An account's saved address, fetched early ----------------------------
+  // Needed here (ahead of the channel-dependent rules below) because the
+  // channel itself now needs it for the address-aware upgrade — see
+  // resolveOrderChannel next. The RPC enforces ownership too (P0004); checking
+  // here buys a precise message and gives us the fields for the confirmation
+  // e-mail. A guest has no book yet: theirs is typed WITH this submit and is
+  // validated further down, once the channel it needs to match is known.
+  let accountAddress: SavedAddress | null = null;
+  if (!guestAccount) {
+    const addresses = await listMyAddresses();
+    if (!addresses.ok) {
+      logger.error({ code: addresses.error.code }, "checkout_address_load_failed");
+      return { status: "error", message: "Adresleriniz yüklenemedi, tekrar deneyin." };
+    }
+    const saved = addresses.value.find((a) => a.id === parsed.data.address_id);
+    if (!saved) {
+      return {
+        status: "validation_error",
+        message: "Teslimat adresi bulunamadı. Adres seçin veya yeni bir adres ekleyin.",
+      };
+    }
+    accountAddress = saved;
   }
 
   // ---- Channel: re-derived, never taken from the client ----------------------
   // Owner decision 2026-08-13: a flexible-only basket (no delivery-only line)
-  // still becomes a delivery order when the address is genuinely route-capable
-  // — same "ride along in the van" treatment a mixed basket already gets. This
-  // must land on exactly the same channel resolve_channel_for_items() decides
-  // in the RPC (migration 20260813130000), or the checks below (payment
-  // method, order floor) would validate against a channel the write then
-  // disagrees with.
+  // still becomes a delivery order when a SIGNED-IN customer's address is
+  // genuinely route-capable — same "ride along in the van" treatment a mixed
+  // basket already gets. This must land on exactly the same channel
+  // resolve_channel_for_items() decides in the RPC (migration 20260813130000),
+  // or the checks below (payment method, order floor) would validate against a
+  // channel the write then disagrees with. A guest's basket stays cart-only —
+  // their address is not on file yet to check.
   const channel = resolveOrderChannel(
     enriched.value,
-    isRouteUpgradeEligible(address),
+    accountAddress ? isRouteUpgradeEligible(accountAddress) : false,
   );
 
   // ---- Rules the owner controls (delivery days, order floor) ----------------
@@ -296,17 +401,46 @@ export async function placeOrderAction(
     };
   }
 
-  if (channel === "delivery" && (address.lat === 0 || address.lng === 0)) {
-    return {
-      status: "validation_error",
-      message: `Taze ürünler için haritadan konum onaylı bir ${DELIVERY_PROVINCE} adresi gerekli.`,
+  // ---- Where it goes ---------------------------------------------------------
+  // An account's address was already fetched above; a guest's arrives WITH this
+  // submit and is validated now, against the channel just derived — a route
+  // order must carry a confirmed pin inside the service area, a cargo parcel
+  // may go anywhere in Türkiye.
+  let address: CheckoutAddress;
+  let guestAddress: GuestAddressPayload | null = null;
+  let accountAddressId: string | null = null;
+
+  if (guestAccount) {
+    const validated = await validateCheckoutAddress(
+      channel === "delivery" ? "route" : "cargo",
+      readGuestAddressInput(formData),
+    );
+    if (!validated.ok) {
+      return { status: "validation_error", message: validated.error.message };
+    }
+    address = validated.value.address;
+    guestAddress = {
+      ...validated.value.address,
+      raw_text: composeFullAddress(validated.value.address),
+      geo_verified: validated.value.geoVerified,
     };
+  } else {
+    // Non-null: populated above whenever `guestAccount` is null.
+    const saved = accountAddress as SavedAddress;
+    if (channel === "delivery" && (saved.lat === 0 || saved.lng === 0)) {
+      return {
+        status: "validation_error",
+        message: `Taze ürünler için haritadan konum onaylı bir ${DELIVERY_PROVINCE} adresi gerekli.`,
+      };
+    }
+    address = saved;
+    accountAddressId = saved.id;
   }
 
   const deliveryFeeMinor =
     channel === "delivery" ? DELIVERY_FEE_MINOR : CARGO_FEE_MINOR;
   const isCard = parsed.data.payment_method === "credit_card";
-  const emailTo = identity.email;
+  const emailTo = actor.email;
 
   // Card payments go through PayTR — guard BEFORE creating the order so a
   // misconfigured card path never strands a pending order.
@@ -322,9 +456,7 @@ export async function placeOrderAction(
     }
   }
 
-  const placed = await placeWebOrder({
-    customerId: customer.value,
-    addressId: address.id,
+  const common = {
     scheduled_for: scheduledFor,
     // A cargo order has no delivery window — there is no van to schedule.
     time_slot: channel === "delivery" ? parsed.data.time_slot : null,
@@ -332,7 +464,25 @@ export async function placeOrderAction(
     delivery_notes: parsed.data.delivery_notes,
     delivery_fee_minor: deliveryFeeMinor,
     items: enriched.value,
-  });
+  };
+
+  // Both writers end in `place_web_order`; the guest one just mints the customer
+  // and address rows first, inside the same transaction.
+  const placed =
+    guestAccount && guestAddress
+      ? await placeGuestOrder({
+          ...common,
+          first_name: guestAccount.first_name,
+          last_name: guestAccount.last_name,
+          phone: guestAccount.phone,
+          email: guestAccount.email,
+          address: guestAddress,
+        })
+      : await placeWebOrder({
+          ...common,
+          customerId: customerId ?? "",
+          addressId: accountAddressId ?? "",
+        });
 
   if (!placed.ok) {
     if (placed.error.code === "VALIDATION_ERROR") {
@@ -353,7 +503,7 @@ export async function placeOrderAction(
 
   // The admin path audits every order; the web path used to audit none.
   await logAudit({
-    actor_id: identity.authUserId,
+    actor_id: actor.authUserId,
     action: "order.web_placed",
     entity_type: "order",
     entity_id: placed.value.order_id,
@@ -371,7 +521,7 @@ export async function placeOrderAction(
 
   const totalMinor = subtotalMinor + deliveryFeeMinor;
   const addressText = composeFullAddress(address);
-  const customerName = [identity.firstName, identity.lastName]
+  const customerName = [actor.firstName, actor.lastName]
     .filter(Boolean)
     .join(" ")
     .trim();
@@ -407,7 +557,7 @@ export async function placeOrderAction(
       email: emailTo,
       userName: customerName || emailTo,
       userAddress: addressText,
-      userPhone: identity.phone ?? "",
+      userPhone: actor.phone ?? "",
       userIp,
       basket,
       nowMs: Date.now(),

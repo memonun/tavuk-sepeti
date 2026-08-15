@@ -22,15 +22,9 @@
 import { revalidatePath } from "next/cache";
 
 import { getCurrentUser } from "@/features/auth/application/get-session";
-import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
-import {
-  cargoAddressSchema,
-  routeAddressSchema,
-} from "@/features/storefront/domain/customer-address.schema";
+import { validateCheckoutAddress } from "@/features/storefront/application/validate-checkout-address";
 import { upsertCustomerAddress } from "@/features/storefront/infrastructure/customer-account.repository";
-import { checkServiceArea } from "@/features/storefront/infrastructure/service-area.repository";
 import { logAudit } from "@/shared/audit/log-audit";
-import { isSameProvince } from "@/shared/geo/tr-province";
 import { logger } from "@/shared/logger";
 import { composeFullAddress } from "@/shared/utils/address";
 
@@ -55,105 +49,13 @@ export async function saveAddressAction(
     return { status: "error", message: "Oturum bulunamadı, tekrar giriş yapın." };
   }
 
-  // Parse per mode and normalise into one flat shape. Only a route address
-  // carries a pin, so the two schemas produce genuinely different outputs — the
-  // branch here keeps that distinction instead of casting it away.
-  //
-  // A cargo address has no pin. The RPC requires coordinates, so it is stored on
-  // the null island — which is exactly how delivery-readiness reports "no pin",
-  // and it can never reach the route because a cargo order's frozen channel
-  // keeps it off it.
-  let address: {
-    label: string | null;
-    city: string;
-    district: string;
-    neighborhood: string;
-    street: string;
-    building_no: string;
-    apartment_no: string;
-    postal_code: string;
-    description: string | null;
-    lat: number;
-    lng: number;
-    source: string;
-    accuracy: string;
-  };
-
-  if (args.mode === "route") {
-    const parsed = routeAddressSchema.safeParse(args.address);
-    if (!parsed.success) {
-      return {
-        status: "validation_error",
-        message: parsed.error.issues[0]?.message ?? "Adres bilgileri eksik.",
-      };
-    }
-    address = { ...parsed.data };
-  } else {
-    const parsed = cargoAddressSchema.safeParse(args.address);
-    if (!parsed.success) {
-      return {
-        status: "validation_error",
-        message: parsed.error.issues[0]?.message ?? "Adres bilgileri eksik.",
-      };
-    }
-    address = { ...parsed.data };
+  // The parse + service-area rule is shared with the guest checkout, which has
+  // no address book and submits its address with the order.
+  const validated = await validateCheckoutAddress(args.mode, args.address);
+  if (!validated.ok) {
+    return { status: "validation_error", message: validated.error.message };
   }
-
-  let geoVerified = false;
-
-  if (args.mode === "cargo" && (address.lat !== 0 || address.lng !== 0)) {
-    // Non-blocking on purpose. A cargo address is valid anywhere in Türkiye, so
-    // being outside the van's area is NOT a reason to reject it — the check runs
-    // only to decide whether this address may ALSO serve a future route order.
-    // Failures degrade to "not verified", never to a refused save.
-    const area = await checkServiceArea(address.lat, address.lng);
-    if (!area.ok) {
-      logger.warn(
-        { code: area.error.code },
-        "cargo_pin_service_area_check_unavailable",
-      );
-    } else if (area.value === "inside") {
-      geoVerified = true;
-    }
-  }
-
-  if (args.mode === "route") {
-    const area = await checkServiceArea(address.lat, address.lng);
-
-    if (!area.ok) {
-      // The check itself failed (DB/network). Don't strand the customer on an
-      // infrastructure problem — fall back to the province name and record it.
-      logger.warn({ code: area.error.code }, "service_area_check_unavailable");
-      if (!isSameProvince(address.city, DELIVERY_PROVINCE)) {
-        return {
-          status: "validation_error",
-          message: `Taze ürünlerimiz yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir.`,
-        };
-      }
-    } else if (area.value === "outside") {
-      // District + neighbourhood only — never the full address (CLAUDE.md §6
-      // keeps PII out of logs). Enough to spot a polygon cutting off a real
-      // neighbourhood.
-      logger.warn(
-        { district: address.district, neighborhood: address.neighborhood },
-        "address_rejected_outside_service_area",
-      );
-      return {
-        status: "validation_error",
-        message: `Bu adres teslimat bölgemizin dışında. Taze ürünler yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir.`,
-      };
-    } else if (area.value === "unconfigured") {
-      logger.warn({}, "service_area_unconfigured_string_fallback");
-      if (!isSameProvince(address.city, DELIVERY_PROVINCE)) {
-        return {
-          status: "validation_error",
-          message: `Taze ürünlerimiz yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir.`,
-        };
-      }
-    } else {
-      geoVerified = true;
-    }
-  }
+  const { address, geoVerified } = validated.value;
 
   const saved = await upsertCustomerAddress({
     authUserId: user.id,

@@ -25,6 +25,27 @@ function isAdminPath(pathname: string): boolean {
 }
 
 /**
+ * Carry any session cookies `refreshSupabaseSession` just rotated onto a
+ * response we are returning INSTEAD of its own.
+ *
+ * Supabase rotates the refresh token on every refresh: the moment the new one
+ * is issued, the old one is dead. Returning a bare redirect here dropped the
+ * new pair on the floor, so the browser kept presenting the dead token and the
+ * next request failed with `refresh_token_not_found` — the customer is silently
+ * signed out and has to log in again. Refreshing is only safe if the result
+ * reaches the browser on the SAME response.
+ */
+function withRefreshedCookies(
+  target: NextResponse,
+  source: NextResponse,
+): NextResponse {
+  for (const cookie of source.cookies.getAll()) {
+    target.cookies.set(cookie);
+  }
+  return target;
+}
+
+/**
  * Next 16 proxy (formerly `middleware`).
  *
  * The public storefront owns the root; the admin dashboard lives under /admin
@@ -45,13 +66,13 @@ export async function proxy(request: NextRequest) {
   if (!userId && isAdminPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = LOGIN_PATH;
-    return NextResponse.redirect(url);
+    return withRefreshedCookies(NextResponse.redirect(url), response);
   }
 
   if (userId && pathname === LOGIN_PATH) {
     const url = request.nextUrl.clone();
     url.pathname = ADMIN_HOME;
-    return NextResponse.redirect(url);
+    return withRefreshedCookies(NextResponse.redirect(url), response);
   }
 
   return response;

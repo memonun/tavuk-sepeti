@@ -91,4 +91,4 @@ export const PAYMENT_METHOD_OPTIONS = [
 /** Shown wherever a cargo basket is priced — the owner asked that free
  *  shipping be stated, not merely implied by a ₺0,00 line. */
 export const CARGO_FREE_SHIPPING_NOTICE =
-  "Şehir dışı siparişlerde kargo ücretsizdir.";
+  "Kargolu siparişlerde kargo ücretsizdir.";

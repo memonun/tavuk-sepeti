@@ -40,12 +40,41 @@ export type CheckoutAccountState =
   | { status: "success" }
   /** Supabase requires e-mail confirmation; no session yet. Basket untouched. */
   | { status: "verify_email"; email: string }
-  | { status: "error"; message: string };
+  /** The address already has an account. The form switches itself to sign-in
+   *  with this e-mail filled in, rather than making the customer work it out. */
+  | { status: "email_taken"; email: string }
+  /** Recoverable, message is safe to render. `values` echoes what the customer
+   *  typed: the account block is an uncontrolled form and React resets it once
+   *  the action resolves, so without this every failure wipes six fields. */
+  | { status: "error"; message: string; values?: CheckoutAccountValues };
+
+/** Everything the signup form should repopulate. The password is deliberately
+ *  NOT echoed — it would have to round-trip through the server response. */
+export interface CheckoutAccountValues {
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+}
+
+function readValues(formData: FormData): CheckoutAccountValues {
+  const str = (key: string): string => {
+    const value = formData.get(key);
+    return typeof value === "string" ? value : "";
+  };
+  return {
+    email: str("account_email"),
+    first_name: str("first_name"),
+    last_name: str("last_name"),
+    phone: str("phone"),
+  };
+}
 
 export async function createCheckoutAccountAction(
   _previous: CheckoutAccountState,
   formData: FormData,
 ): Promise<CheckoutAccountState> {
+  const values = readValues(formData);
   const parsed = checkoutAccountSchema.safeParse(
     readCheckoutAccountInput(formData),
   );
@@ -53,6 +82,7 @@ export async function createCheckoutAccountAction(
     return {
       status: "error",
       message: parsed.error.issues[0]?.message ?? "Formda eksik alanlar var.",
+      values,
     };
   }
 
@@ -61,13 +91,31 @@ export async function createCheckoutAccountAction(
     return { status: "success" };
   }
 
-  const session = await resolveCheckoutSession(parsed.data);
+  // Confirmed signups come back to the basket they started from, not /hesap.
+  const session = await resolveCheckoutSession(parsed.data, {
+    nextPath: "/odeme",
+  });
   if (!session.ok) {
-    return { status: "error", message: session.error.message };
+    // Only ValidationError carries a message written for a customer. Anything
+    // else is infrastructure (and `ExternalApiError` forwards the raw Postgres
+    // string), so it gets a generic line and a log instead.
+    if (session.error.code === "VALIDATION_ERROR") {
+      return { status: "error", message: session.error.message, values };
+    }
+    logger.error({ code: session.error.code }, "checkout_account_failed");
+    return {
+      status: "error",
+      message: "Hesabınız oluşturulamadı, lütfen tekrar deneyin.",
+      values,
+    };
   }
 
   if (session.value.kind === "verify_email") {
     return { status: "verify_email", email: session.value.email };
+  }
+
+  if (session.value.kind === "email_taken") {
+    return { status: "email_taken", email: session.value.email };
   }
 
   logger.info({ mode: parsed.data.mode }, "checkout_account_resolved");

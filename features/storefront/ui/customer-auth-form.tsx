@@ -15,10 +15,43 @@ import { Label } from "@/components/ui/label";
 const initialState: CustomerAuthState = { status: "idle" };
 
 /** Shared sign-in / sign-up form (email + password). */
-export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
+export function CustomerAuthForm({
+  mode,
+  /** Where to land after success. Carried through signup's confirmation mail
+   *  too, so "log in to finish your order" returns to the basket. */
+  next,
+}: {
+  mode: "signin" | "signup";
+  next?: string | undefined;
+}) {
   const action =
     mode === "signin" ? customerSignInAction : customerSignUpAction;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const withNext = (path: string): string =>
+    next ? `${path}?next=${encodeURIComponent(next)}` : path;
+
+  if (state.status === "email_taken") {
+    return (
+      <div className="rounded-3xl border border-border/70 bg-card p-6 text-center shadow-sm">
+        <h2 className="font-display text-xl">Bu e-posta zaten kayıtlı</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          <strong>{state.email}</strong> için bir hesabınız var. Şifrenizle giriş
+          yapabilirsiniz.
+        </p>
+        <Link
+          href={withNext("/giris")}
+          className="mt-4 inline-block text-primary hover:underline"
+        >
+          Giriş yap
+        </Link>
+        <p className="mt-2 text-xs text-muted-foreground">
+          <Link href="/sifremi-unuttum" className="hover:underline">
+            Şifrenizi mi unuttunuz?
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   if (state.status === "verify_email") {
     return (
@@ -35,6 +68,7 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       {mode === "signup" ? (
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
@@ -141,14 +175,14 @@ export function CustomerAuthForm({ mode }: { mode: "signin" | "signup" }) {
         {mode === "signin" ? (
           <>
             Hesabınız yok mu?{" "}
-            <Link href="/kayit" className="text-primary hover:underline">
+            <Link href={withNext("/kayit")} className="text-primary hover:underline">
               Kayıt olun
             </Link>
           </>
         ) : (
           <>
             Zaten hesabınız var mı?{" "}
-            <Link href="/giris" className="text-primary hover:underline">
+            <Link href={withNext("/giris")} className="text-primary hover:underline">
               Giriş yapın
             </Link>
           </>
