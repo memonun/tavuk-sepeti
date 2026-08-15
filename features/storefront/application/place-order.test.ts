@@ -146,6 +146,19 @@ const ISTANBUL_ADDRESS = {
   geo_verified: false,
 };
 
+/** Malatya, geo-verified, but saved via the cargo form with no door detail —
+ *  route-capable per province+pin, but NOT upgrade-eligible (isRouteUpgradeEligible
+ *  also requires street + apartment_no). */
+const MALATYA_ADDRESS_NO_DOOR_DETAIL = {
+  ...MALATYA_ADDRESS,
+  id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+  label: "Malatya (kargo formu)",
+  street: "",
+  building_no: "",
+  apartment_no: "",
+  is_primary: false,
+};
+
 function buildForm(overrides: Record<string, string> = {}): FormData {
   const fd = new FormData();
   const fields: Record<string, string> = {
@@ -163,38 +176,60 @@ function buildForm(overrides: Record<string, string> = {}): FormData {
   return fd;
 }
 
-/** The next configured "eve servis" day (Wed/Sat) at least a day out — the
- *  same date the checkout's day picker would offer. */
-function futureDate(): string {
-  const cursor = new Date();
-  cursor.setUTCDate(cursor.getUTCDate() + 1);
-  while (![3, 6].includes(cursor.getUTCDay())) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return cursor.toISOString().slice(0, 10);
-}
-
-/** A day the van does NOT drive, inside the scheduling window. */
-function nonDeliveryDate(): string {
-  const cursor = new Date();
-  cursor.setUTCDate(cursor.getUTCDate() + 1);
-  while ([3, 6].includes(cursor.getUTCDay())) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return cursor.toISOString().slice(0, 10);
-}
-
-/** Tomorrow — what the action stamps on a cargo order, which is never asked
- *  for a preparation day. */
-function tomorrow(): string {
+/**
+ * "Today" in Europe/Istanbul — must agree with the action's own
+ * `todayInIstanbul()`, or these helpers compute a calendar day that disagrees
+ * with the server's scheduling window. A raw `new Date()` + `setUTCDate()>
+ * cursor (the previous shape of these helpers) drifts from Istanbul's
+ * calendar for the ~3 hours a day (21:00–00:00 UTC) after Istanbul has
+ * already crossed midnight but UTC has not — which is exactly what made this
+ * suite flake once a day instead of failing consistently.
+ */
+function todayIso(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Istanbul",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  })
-    .format(new Date(Date.now() + 24 * 60 * 60 * 1000))
-    .slice(0, 10);
+  }).format(new Date());
+}
+
+/** Pure calendar-day arithmetic on an ISO string — mirrors `addDaysIso`. */
+function addDays(dateIso: string, days: number): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+function weekday(dateIso: string): number {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1)).getUTCDay();
+}
+
+/** The next configured "eve servis" day (Wed/Sat) at least a day out — the
+ *  same date the checkout's day picker would offer. */
+function futureDate(): string {
+  let cursor = addDays(todayIso(), 1);
+  while (![3, 6].includes(weekday(cursor))) {
+    cursor = addDays(cursor, 1);
+  }
+  return cursor;
+}
+
+/** A day the van does NOT drive, inside the scheduling window. */
+function nonDeliveryDate(): string {
+  let cursor = addDays(todayIso(), 1);
+  while ([3, 6].includes(weekday(cursor))) {
+    cursor = addDays(cursor, 1);
+  }
+  return cursor;
+}
+
+/** Tomorrow — what the action stamps on a cargo order, which is never asked
+ *  for a preparation day. */
+function tomorrow(): string {
+  return addDays(todayIso(), 1);
 }
 
 /** An all-cargo basket that clears the 1.000 ₺ floor (10 × 125 ₺). */
@@ -208,6 +243,7 @@ beforeEach(() => {
   getStorefrontSettings.mockResolvedValue({
     homeDeliveryDays: [3, 6], // Çarşamba + Cumartesi
     cargoMinOrderMinor: 100_000, // 1.000 ₺
+    homeMinOrderMinor: 25_000, // 250 ₺
   });
   resolveCheckoutSession.mockResolvedValue({
     ok: true,
@@ -225,7 +261,7 @@ beforeEach(() => {
   resolveCheckoutCustomer.mockResolvedValue({ ok: true, value: "customer-1" });
   listMyAddresses.mockResolvedValue({
     ok: true,
-    value: [MALATYA_ADDRESS, ISTANBUL_ADDRESS],
+    value: [MALATYA_ADDRESS, ISTANBUL_ADDRESS, MALATYA_ADDRESS_NO_DOOR_DETAIL],
   });
   placeWebOrder.mockResolvedValue({
     ok: true,
@@ -377,6 +413,86 @@ describe("placeOrderAction — fulfillment channel", () => {
   });
 });
 
+describe("placeOrderAction — address-aware channel upgrade", () => {
+  // Owner decision 2026-08-13: a flexible-only basket (no delivery-only line)
+  // still becomes a delivery order when the address is genuinely route-capable
+  // — same "ride along in the van" treatment a mixed basket already gets.
+  it("upgrades a flexible-only basket to delivery, unlocking kapıda ödeme", async () => {
+    placeWebOrder.mockResolvedValue({
+      ok: true,
+      value: {
+        order_id: "order-6",
+        order_number: "ORD-2026-00006",
+        fulfillment_channel: "delivery",
+      },
+    });
+
+    const state = await placeOrderAction(
+      idle,
+      buildForm({
+        address_mode: "cargo",
+        payment_method: "cash_on_delivery",
+        items_json: JSON.stringify([{ product_key: "kayisi", quantity: 3 }]),
+      }),
+    );
+
+    expect(state.status).toBe("success");
+    expect(placeWebOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_method: "cash_on_delivery" }),
+    );
+  });
+
+  // The upgraded order is checked against the (lower) eve-servis floor, not
+  // the cargo one — 125 ₺ clears no cargo minimum question here at all, the
+  // rejection must name the eve-servis floor and its own 250 ₺ number.
+  it("applies the eve-servis floor, not the cargo floor, to an upgraded order", async () => {
+    const state = await placeOrderAction(
+      idle,
+      buildForm({
+        address_mode: "cargo",
+        payment_method: "bank_transfer",
+        items_json: JSON.stringify([{ product_key: "kayisi", quantity: 1 }]), // 125 ₺
+      }),
+    );
+
+    expect(state.status).toBe("validation_error");
+    if (state.status !== "validation_error") return;
+    expect(state.message).toMatch(/Eve servis/);
+    expect(state.message).toMatch(/250,00/);
+    expect(state.message).not.toMatch(/1\.000,00/);
+    expect(placeWebOrder).not.toHaveBeenCalled();
+  });
+
+  // Same province and a confirmed pin is NOT enough on its own — a route stop
+  // still needs a door. isRouteUpgradeEligible also requires street +
+  // apartment_no, so this basket stays on the cargo floor / no kapıda ödeme.
+  it("does not upgrade a route-capable-but-door-detail-missing address", async () => {
+    placeWebOrder.mockResolvedValue({
+      ok: true,
+      value: {
+        order_id: "order-7",
+        order_number: "ORD-2026-00007",
+        fulfillment_channel: "shipping",
+      },
+    });
+
+    const state = await placeOrderAction(
+      idle,
+      buildForm({
+        address_mode: "cargo",
+        address_id: MALATYA_ADDRESS_NO_DOOR_DETAIL.id,
+        payment_method: "bank_transfer",
+        items_json: CARGO_ITEMS, // clears the 1.000 ₺ cargo floor
+      }),
+    );
+
+    expect(state.status).toBe("success");
+    expect(placeWebOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ time_slot: null }),
+    );
+  });
+});
+
 describe("placeOrderAction — pricing and payment", () => {
   // Prices are recomputed from the catalog; the browser only ever contributes
   // product_key + quantity.
@@ -462,6 +578,7 @@ describe("placeOrderAction — eve servis günleri", () => {
     getStorefrontSettings.mockResolvedValue({
       homeDeliveryDays: [1], // Pazartesi only
       cargoMinOrderMinor: 100_000,
+      homeMinOrderMinor: 25_000,
     });
 
     const state = await placeOrderAction(idle, buildForm());
@@ -547,11 +664,12 @@ describe("placeOrderAction — cargo order floor", () => {
   });
 
   // A basket with a fresh line rides the van; there is no shipping cost to
-  // recover, so the floor must not apply to it.
-  it("never applies the floor to a home-delivery basket", async () => {
+  // recover, so the 1.000 ₺ CARGO floor must not apply to it — it still owes
+  // the lower 250 ₺ eve-servis floor, so the quantity here clears that one.
+  it("never applies the cargo floor to a home-delivery basket", async () => {
     const state = await placeOrderAction(
       idle,
-      buildForm({ items_json: JSON.stringify([{ product_key: "eggs", quantity: 1 }]) }),
+      buildForm({ items_json: JSON.stringify([{ product_key: "eggs", quantity: 3 }]) }),
     );
 
     expect(state.status).toBe("success");

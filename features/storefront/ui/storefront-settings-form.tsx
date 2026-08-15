@@ -33,28 +33,35 @@ const initialState: UpdateStorefrontSettingsState = { status: "idle" };
 export interface StorefrontSettingsFormProps {
   homeDeliveryDays: readonly Weekday[];
   cargoMinOrderMinor: number;
+  homeMinOrderMinor: number;
+}
+
+/** Lira-string ↔ kuruş-number for one of the two floor fields. Both money
+ *  inputs need the exact same parse/validate shape, so it's factored out
+ *  rather than duplicated per field. */
+function useMoneyField(initialMinor: number) {
+  const [major, setMajor] = useState((initialMinor / 100).toString());
+  const parsedMajor = Number(major.replace(",", "."));
+  const minor = Number.isFinite(parsedMajor) ? Math.round(parsedMajor * 100) : Number.NaN;
+  const valid = Number.isFinite(minor) && minor >= 0;
+  return { major, setMajor, minor, valid };
 }
 
 export function StorefrontSettingsForm({
   homeDeliveryDays,
   cargoMinOrderMinor,
+  homeMinOrderMinor,
 }: StorefrontSettingsFormProps) {
   const [state, formAction, pending] = useActionState(
     updateStorefrontSettingsAction,
     initialState,
   );
   // Controlled so the form can refuse to submit an empty day list before the
-  // round-trip, and so the ₺ preview tracks what is typed.
+  // round-trip, and so the ₺ previews track what is typed.
   const [days, setDays] = useState<readonly Weekday[]>(homeDeliveryDays);
-  const [minMajor, setMinMajor] = useState(
-    (cargoMinOrderMinor / 100).toString(),
-  );
-
-  const parsedMajor = Number(minMajor.replace(",", "."));
-  const minMinor = Number.isFinite(parsedMajor)
-    ? Math.round(parsedMajor * 100)
-    : Number.NaN;
-  const minValid = Number.isFinite(minMinor) && minMinor >= 0;
+  const cargoMin = useMoneyField(cargoMinOrderMinor);
+  const homeMin = useMoneyField(homeMinOrderMinor);
+  const allValid = cargoMin.valid && homeMin.valid;
 
   function toggleDay(day: Weekday) {
     setDays((previous) =>
@@ -103,24 +110,46 @@ export function StorefrontSettingsForm({
       </fieldset>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="cargo-min">Şehir dışı (kargo) sipariş alt limiti (₺)</Label>
+        <Label htmlFor="home-min">Eve servis sipariş alt limiti (₺)</Label>
         <Input
-          id="cargo-min"
-          value={minMajor}
-          onChange={(event) => setMinMajor(event.target.value)}
+          id="home-min"
+          value={homeMin.major}
+          onChange={(event) => homeMin.setMajor(event.target.value)}
           inputMode="decimal"
           disabled={pending}
         />
         <p className="text-xs text-muted-foreground">
-          {minValid
-            ? `Kargo siparişlerinde en az ${formatTRY(minMinor)} tutarında sepet gerekir. 0 yazarsanız limit kalkar.`
+          {homeMin.valid
+            ? `Eve servis siparişlerinde en az ${formatTRY(homeMin.minor)} tutarında sepet gerekir. Adresi Malatya içinde ve rota-uygun olan müşteriler için esnek ürünlerden oluşan sepetler de bu limide tabidir. 0 yazarsanız limit kalkar.`
+            : "Geçerli bir tutar girin (ör. 250)."}
+        </p>
+        {/* The action parses kuruş; the visible field is lira. */}
+        <input
+          type="hidden"
+          name="home_min_order_minor"
+          value={homeMin.valid ? homeMin.minor : ""}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="cargo-min">Şehir dışı (kargo) sipariş alt limiti (₺)</Label>
+        <Input
+          id="cargo-min"
+          value={cargoMin.major}
+          onChange={(event) => cargoMin.setMajor(event.target.value)}
+          inputMode="decimal"
+          disabled={pending}
+        />
+        <p className="text-xs text-muted-foreground">
+          {cargoMin.valid
+            ? `Kargo siparişlerinde en az ${formatTRY(cargoMin.minor)} tutarında sepet gerekir. 0 yazarsanız limit kalkar.`
             : "Geçerli bir tutar girin (ör. 1000)."}
         </p>
         {/* The action parses kuruş; the visible field is lira. */}
         <input
           type="hidden"
           name="cargo_min_order_minor"
-          value={minValid ? minMinor : ""}
+          value={cargoMin.valid ? cargoMin.minor : ""}
         />
       </div>
 
@@ -136,7 +165,7 @@ export function StorefrontSettingsForm({
       ) : null}
 
       <div>
-        <Button type="submit" disabled={pending || days.length === 0 || !minValid}>
+        <Button type="submit" disabled={pending || days.length === 0 || !allValid}>
           {pending ? "Kaydediliyor…" : "Kaydet"}
         </Button>
       </div>

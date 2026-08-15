@@ -14,6 +14,16 @@
  * driver's load list is correct because those goods really are in the van.
  * This is character-for-character the predicate `find_orders_for_route` used to
  * evaluate at query time before the channel was frozen onto the row.
+ *
+ * Owner decision 2026-08-13: the same "ride along in the van" logic now also
+ * applies when the basket has NO delivery-only line but the target address is
+ * route-capable (`isRouteUpgradeEligible` in route-capability.ts) — a
+ * flexible-only basket (kayısı, kuru dut…) becomes a delivery order too,
+ * instead of always shipping regardless of where the customer actually is.
+ * This is what `resolve_channel_for_items()` (migration 20260813130000) does
+ * server-side; `addressRouteCapable` is the client/app-layer mirror of that
+ * same address check, passed in by the caller because this module must stay
+ * pure (no I/O, no Supabase).
  */
 
 export type FulfillmentChannel = "delivery" | "shipping";
@@ -30,12 +40,20 @@ export function hasDeliveryItem(items: readonly ChannelItem[]): boolean {
   return items.some((item) => item.fulfillment_type === "delivery");
 }
 
-/** The channel this basket becomes. Empty basket → "shipping" (nothing to
- *  deliver); the caller rejects empty baskets before this matters. */
+/**
+ * The channel this basket becomes. Empty basket → "shipping" (nothing to
+ * deliver); the caller rejects empty baskets before this matters.
+ *
+ * `addressRouteCapable` defaults to false so every existing call site keeps
+ * its old (cart-only) behavior unless it deliberately opts in by passing the
+ * target address's upgrade eligibility.
+ */
 export function resolveOrderChannel(
   items: readonly ChannelItem[],
+  addressRouteCapable = false,
 ): FulfillmentChannel {
-  return hasDeliveryItem(items) ? "delivery" : "shipping";
+  if (hasDeliveryItem(items)) return "delivery";
+  return addressRouteCapable ? "delivery" : "shipping";
 }
 
 /**

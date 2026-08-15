@@ -77,7 +77,10 @@ import {
   paymentMethodsForChannel,
   type PaymentMethod,
 } from "@/features/storefront/domain/payment-options";
-import { routeBlockReason } from "@/features/storefront/domain/route-capability";
+import {
+  isRouteUpgradeEligible,
+  routeBlockReason,
+} from "@/features/storefront/domain/route-capability";
 import {
   CARGO_FEE_MINOR,
   CARGO_FREE_SHIPPING_NOTICE,
@@ -139,6 +142,8 @@ interface CheckoutFormProps {
   deliveryDaysLabel: string;
   /** Cargo order floor in kuruş (0 = none). */
   cargoMinOrderMinor: number;
+  /** Eve servis (delivery-channel) order floor in kuruş (0 = none). */
+  homeMinOrderMinor: number;
   paytrEnabled: boolean;
   mapsKey: string | undefined;
 }
@@ -150,6 +155,7 @@ export function CheckoutForm({
   deliveryDates,
   deliveryDaysLabel,
   cargoMinOrderMinor,
+  homeMinOrderMinor,
   paytrEnabled,
   mapsKey,
 }: CheckoutFormProps) {
@@ -216,18 +222,28 @@ export function CheckoutForm({
     [lines, products],
   );
 
-  // What the basket is. `mode` picks the address form, `channel` is the same
-  // decision in the server's vocabulary — both mirror the action's re-derivation.
-  const { mode, channel } = useMemo(() => {
-    const items = rows.map((r) => ({
-      product_key: r.product.key,
-      fulfillment_type: r.product.fulfillment_type,
-    }));
-    return {
-      mode: requiredAddressMode(items),
-      channel: resolveOrderChannel(items),
-    };
-  }, [rows]);
+  const items = useMemo(
+    () =>
+      rows.map((r) => ({
+        product_key: r.product.key,
+        fulfillment_type: r.product.fulfillment_type,
+      })),
+    [rows],
+  );
+
+  // `mode` picks the address FORM and stays cart-only — a flexible-only
+  // basket (kayısı, kuru dut…) still opens the looser cargo-shaped form,
+  // same as always. `channel` is address-aware: once an address is selected,
+  // a route-capable one (Malatya, confirmed pin, door detail — see
+  // isRouteUpgradeEligible) upgrades a flexible-only basket to delivery, the
+  // same "ride along in the van" treatment a mixed basket already gets.
+  // `placeOrderAction` re-derives both the same way on the RE-PRICED items.
+  const mode = requiredAddressMode(items);
+  const selectedAddress = addresses.find((a) => a.id === addressId) ?? null;
+  const addressRouteCapable = selectedAddress
+    ? isRouteUpgradeEligible(selectedAddress)
+    : false;
+  const channel = resolveOrderChannel(items, addressRouteCapable);
 
   /**
    * The address we preselect on the customer's behalf.
@@ -284,13 +300,16 @@ export function CheckoutForm({
     return <EmptyCart />;
   }
 
-  const feeMinor = mode === "route" ? DELIVERY_FEE_MINOR : CARGO_FEE_MINOR;
+  // Keyed on `channel`, not `mode`: an address-upgraded flexible-only basket
+  // is a real delivery order even though it opened the cargo-shaped form.
+  const feeMinor = channel === "delivery" ? DELIVERY_FEE_MINOR : CARGO_FEE_MINOR;
   const subtotal = cartSubtotalMinor(
     rows.map((r) => lineTotalMinor(r.product, r.quantity)),
   );
   const total = subtotal + feeMinor;
-  const minimum = checkOrderMinimum(channel, subtotal, cargoMinOrderMinor);
-  const noDeliveryDay = mode === "route" && deliveryDates.length === 0;
+  const minOrderMinor = channel === "delivery" ? homeMinOrderMinor : cargoMinOrderMinor;
+  const minimum = checkOrderMinimum(subtotal, minOrderMinor);
+  const noDeliveryDay = channel === "delivery" && deliveryDates.length === 0;
 
   const summary = (
     <OrderSummary
@@ -452,7 +471,11 @@ export function CheckoutForm({
             <span>
               {mode === "route"
                 ? `Sepetinizde taze ürün var — bu sipariş ${DELIVERY_PROVINCE} içinde kendi ekibimizle elden teslim edilir. Haritada konumunuzu onaylamanız gerekiyor.`
-                : `Sepetinizdeki ürünlerin tamamı kargoyla gönderilir — Türkiye'nin her yerine teslimat yapılır. ${CARGO_FREE_SHIPPING_NOTICE}`}
+                : // Genuinely undecided until an address exists: this basket
+                  // ships nationwide by default, but a route-capable Malatya
+                  // address (below) upgrades it to hand-delivery instead —
+                  // stated as a possibility here, not a settled fact.
+                  `Sepetinizdeki ürünler kargoyla gönderilebilir — Türkiye'nin her yerine teslimat yapılır. Adresiniz ${DELIVERY_PROVINCE} içindeyse ekibimiz elden de teslim edebilir. ${CARGO_FREE_SHIPPING_NOTICE}`}
             </span>
           </p>
 
@@ -487,7 +510,12 @@ export function CheckoutForm({
           <input type="hidden" name="address_mode" value={mode} />
         </Section>
 
-        {mode === "route" ? (
+        {/* channel, not mode: a flexible-only basket that an address upgrade
+            turned into a delivery order genuinely needs a van day too, even
+            though it went through the cargo-shaped address form. Gating this
+            on `mode` would let the customer submit with no scheduled_for at
+            all, which placeOrderAction then rejects. */}
+        {channel === "delivery" ? (
           <Section title="3. Teslimat zamanı">
             <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
               <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
@@ -562,9 +590,13 @@ export function CheckoutForm({
                 </strong>
               </span>
             </p>
-            {cargoMinOrderMinor > 0 ? (
+            {/* channel, not a hardcoded cargo assumption: once an address
+                makes this basket route-capable, the applicable floor (and
+                its wording) is the eve-servis one, not the cargo one, even
+                though this section still opened the cargo-shaped form. */}
+            {minOrderMinor > 0 ? (
               <p className="text-xs text-muted-foreground">
-                {orderMinimumNotice(cargoMinOrderMinor)}
+                {orderMinimumNotice(channel, minOrderMinor)}
               </p>
             ) : null}
           </Section>
@@ -592,8 +624,11 @@ export function CheckoutForm({
             ))}
           </div>
           {/* Say WHY the door-payment option is missing, rather than leaving a
-              customer hunting for it. */}
-          {mode === "cargo" ? (
+              customer hunting for it. Keyed on `channel`, not `mode`: once an
+              address upgrades a flexible-only basket to delivery, kapıda
+              ödeme is genuinely offered above, and this note would otherwise
+              contradict it. */}
+          {channel === "shipping" ? (
             <p className="text-xs text-muted-foreground">
               Kapıda nakit ödeme yalnızca eve servis siparişlerinde geçerlidir.
             </p>
@@ -632,7 +667,7 @@ export function CheckoutForm({
                 className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
                 role="alert"
               >
-                {orderMinimumMessage(cargoMinOrderMinor, minimum.shortfallMinor)}
+                {orderMinimumMessage(channel, minOrderMinor, minimum.shortfallMinor)}
               </p>
             ) : null}
 

@@ -55,3 +55,31 @@ export function routeBlockReason(
   if (!isSameProvince(address.city, DELIVERY_PROVINCE)) return "other_province";
   return null;
 }
+
+/**
+ * Stricter than `isRouteCapable` — this is the "can flexible/cargo-capable
+ * goods ride the van to THIS address anyway" upgrade check (owner decision
+ * 2026-08-13), not the "may this address be offered for a route order" UI
+ * hint. Requires:
+ *
+ *   1. `geo_verified` — a real PostGIS "inside the service area" hit at save
+ *      time (`save-address.ts`), not a same-province guess. An unconfigured
+ *      or outside-area address never upgrades; unsure means still shipping
+ *      (CLAUDE.md §1).
+ *   2. street + apartment_no filled in — an upgraded order still puts a
+ *      driver at an actual door.
+ *
+ * Mirrors `is_route_capable_address()` in migration 20260813130000 — the two
+ * must never disagree, same reasoning as the rest of this file.
+ */
+export function isRouteUpgradeEligible(address: {
+  readonly geo_verified: boolean;
+  readonly street: string;
+  readonly apartment_no: string;
+}): boolean {
+  return (
+    address.geo_verified &&
+    address.street.trim().length > 0 &&
+    address.apartment_no.trim().length > 0
+  );
+}

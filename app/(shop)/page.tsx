@@ -57,7 +57,7 @@ export default async function ShopHomePage() {
           <span>
             {CARGO_FREE_SHIPPING_NOTICE}{" "}
             {settings.cargoMinOrderMinor > 0
-              ? orderMinimumNotice(settings.cargoMinOrderMinor)
+              ? orderMinimumNotice("shipping", settings.cargoMinOrderMinor)
               : null}
           </span>
         </p>

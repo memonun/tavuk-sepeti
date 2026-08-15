@@ -6,29 +6,47 @@
  * contract rather than a parallel one:
  *
  *   1. Zod-parse the payload (CLAUDE.md §4) — first statement, nothing trusted.
- *   2. Resolve the session. The account is normally established one step
- *      earlier by `createCheckoutAccountAction` (an address cannot be saved
- *      without it); the signup/signin branches stay reachable here so a stale
- *      tab posting the old single-submit shape still works.
- *   3. Resolve the customer from the LOGIN. Never by phone — that lookup is what
- *      used to merge web orders onto legacy phone-ordered records.
- *   4. Reload the catalog and re-price EVERY line with enrichOrderItems (the
+ *   2. Resolve WHO is ordering. Two shapes, normalised into one `actor`:
+ *        - account — identity comes from the session (normally established one
+ *          step earlier by `createCheckoutAccountAction`, since an address
+ *          cannot be saved without one); the signup/signin branches stay
+ *          reachable here so a stale tab posting the old single-submit shape
+ *          still works.
+ *        - guest — identity AND address travel with this submit: there is no
+ *          session to read and no address book to pick from. `place_guest_order`
+ *          mints both rows in the same transaction as the order.
+ *      Never resolved by phone — that lookup is what used to merge web orders
+ *      onto legacy phone-ordered records.
+ *   3. Reload the catalog and re-price EVERY line with enrichOrderItems (the
  *      SAME function the admin path uses). The basket only ever contributes
  *      product_key + quantity; prices are never trusted from the browser.
- *   5. Re-derive the fulfillment channel from the re-priced items and compare it
+ *   4. Re-derive the ADDRESS FORM mode from the re-priced items and compare it
  *      with the client's hint, so a basket that went stale (an admin flipped a
- *      product to cargo mid-session) is rejected rather than silently switching
- *      channel.
+ *      product to cargo mid-session) is rejected rather than silently
+ *      switching form shape.
+ *   5. Re-derive the fulfillment CHANNEL — address-aware since 2026-08-13 for a
+ *      SIGNED-IN customer: a flexible-only basket still becomes `delivery` when
+ *      their saved address is route-capable (isRouteUpgradeEligible), same
+ *      "ride along in the van" treatment a mixed basket already gets. Mirrors
+ *      resolve_channel_for_items() in the RPC (migration 20260813130000) — the
+ *      two must land on the same channel or the checks below would validate
+ *      against one the write then disagrees with. A GUEST has no saved address
+ *      to check yet (theirs arrives typed, further down, WITH this submit), so
+ *      their channel stays cart-only — the same behaviour as before this date.
  *   6. Apply the CHANNEL-DEPENDENT rules, all server-authoritative and all
  *      re-checked here even though the form already renders them:
  *        - delivery → the day must be inside the window AND one of the owner's
- *          "eve servis günleri" (storefront_settings);
- *        - cargo → no preparation day is asked for at all; the earliest allowed
- *          day is stamped on the order, and the basket must clear the cargo
- *          order floor (1.000 ₺ by default);
+ *          "eve servis günleri" (storefront_settings), and the basket must
+ *          clear the eve-servis order floor (250 ₺ by default);
+ *        - shipping → no preparation day is asked for at all; the earliest
+ *          allowed day is stamped on the order, and the basket must clear the
+ *          cargo order floor (1.000 ₺ by default);
  *        - kapıda nakit ödeme only on a delivery — a courier collects nothing
  *          on our behalf.
- *   7. Hand to the privileged writer, which re-checks address ownership, the
+ *   7. Resolve WHERE it goes. An account's address was already fetched in step
+ *      5; a guest's is validated now, against the channel just derived (route
+ *      schema demands a confirmed pin, cargo does not).
+ *   8. Hand to the privileged writer, which re-checks address ownership, the
  *      route-address fields and the service area inside the transaction.
  *
  * Returns a serializable state for useActionState.
@@ -77,6 +95,7 @@ import {
   paymentMethodBlockedMessage,
   type PaymentMethod,
 } from "@/features/storefront/domain/payment-options";
+import { isRouteUpgradeEligible } from "@/features/storefront/domain/route-capability";
 import {
   CARGO_FEE_MINOR,
   DELIVERY_FEE_MINOR,
@@ -87,7 +106,10 @@ import {
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { webOrderSchema } from "@/features/storefront/domain/web-order.schema";
-import { listMyAddresses } from "@/features/storefront/application/list-addresses";
+import {
+  listMyAddresses,
+  type SavedAddress,
+} from "@/features/storefront/application/list-addresses";
 import {
   placeGuestOrder,
   placeWebOrder,
@@ -268,20 +290,56 @@ export async function placeOrderAction(
     return { status: "validation_error", message: enriched.error.message };
   }
 
-  // ---- Channel: re-derived, never taken from the client ---------------------
-  const channel = resolveOrderChannel(enriched.value);
+  // ---- Address mode: cart-only, unchanged by the address-aware channel below.
+  // A basket that went stale (an admin flipped a product to cargo mid-session)
+  // is rejected rather than silently switching form shape.
   const requiredMode = requiredAddressMode(enriched.value);
   if (requiredMode !== parsed.data.address_mode) {
-    // The basket's nature changed under the customer's feet (e.g. an admin
-    // switched a product to cargo while this tab was open). Refuse rather than
-    // quietly place an order in the other channel with the wrong address form.
     return {
       status: "validation_error",
       message: "Sepetiniz değişti, sayfayı yenileyip tekrar deneyin.",
     };
   }
 
-  // ---- Rules the owner controls (delivery days, cargo order floor) ----------
+  // ---- An account's saved address, fetched early ----------------------------
+  // Needed here (ahead of the channel-dependent rules below) because the
+  // channel itself now needs it for the address-aware upgrade — see
+  // resolveOrderChannel next. The RPC enforces ownership too (P0004); checking
+  // here buys a precise message and gives us the fields for the confirmation
+  // e-mail. A guest has no book yet: theirs is typed WITH this submit and is
+  // validated further down, once the channel it needs to match is known.
+  let accountAddress: SavedAddress | null = null;
+  if (!guestAccount) {
+    const addresses = await listMyAddresses();
+    if (!addresses.ok) {
+      logger.error({ code: addresses.error.code }, "checkout_address_load_failed");
+      return { status: "error", message: "Adresleriniz yüklenemedi, tekrar deneyin." };
+    }
+    const saved = addresses.value.find((a) => a.id === parsed.data.address_id);
+    if (!saved) {
+      return {
+        status: "validation_error",
+        message: "Teslimat adresi bulunamadı. Adres seçin veya yeni bir adres ekleyin.",
+      };
+    }
+    accountAddress = saved;
+  }
+
+  // ---- Channel: re-derived, never taken from the client ----------------------
+  // Owner decision 2026-08-13: a flexible-only basket (no delivery-only line)
+  // still becomes a delivery order when a SIGNED-IN customer's address is
+  // genuinely route-capable — same "ride along in the van" treatment a mixed
+  // basket already gets. This must land on exactly the same channel
+  // resolve_channel_for_items() decides in the RPC (migration 20260813130000),
+  // or the checks below (payment method, order floor) would validate against a
+  // channel the write then disagrees with. A guest's basket stays cart-only —
+  // their address is not on file yet to check.
+  const channel = resolveOrderChannel(
+    enriched.value,
+    accountAddress ? isRouteUpgradeEligible(accountAddress) : false,
+  );
+
+  // ---- Rules the owner controls (delivery days, order floor) ----------------
   const settings = await getStorefrontSettings();
   const subtotalMinor = enriched.value.reduce(
     (sum, item) => sum + item.line_total_minor,
@@ -321,20 +379,15 @@ export async function placeOrderAction(
     scheduledFor = requested;
   }
 
-  // ---- Cargo order floor ----------------------------------------------------
+  // ---- Order floor, whichever one applies to this channel -------------------
   // Checked against the RE-PRICED subtotal, never the browser's arithmetic.
-  const minimum = checkOrderMinimum(
-    channel,
-    subtotalMinor,
-    settings.cargoMinOrderMinor,
-  );
+  const minOrderMinor =
+    channel === "delivery" ? settings.homeMinOrderMinor : settings.cargoMinOrderMinor;
+  const minimum = checkOrderMinimum(subtotalMinor, minOrderMinor);
   if (!minimum.ok) {
     return {
       status: "validation_error",
-      message: orderMinimumMessage(
-        settings.cargoMinOrderMinor,
-        minimum.shortfallMinor,
-      ),
+      message: orderMinimumMessage(channel, minOrderMinor, minimum.shortfallMinor),
     };
   }
 
@@ -349,9 +402,10 @@ export async function placeOrderAction(
   }
 
   // ---- Where it goes ---------------------------------------------------------
-  // Validated against the RE-DERIVED channel, not the client's `address_mode`
-  // hint — a route order must carry a confirmed pin inside the service area,
-  // a cargo parcel may go anywhere in Türkiye.
+  // An account's address was already fetched above; a guest's arrives WITH this
+  // submit and is validated now, against the channel just derived — a route
+  // order must carry a confirmed pin inside the service area, a cargo parcel
+  // may go anywhere in Türkiye.
   let address: CheckoutAddress;
   let guestAddress: GuestAddressPayload | null = null;
   let accountAddressId: string | null = null;
@@ -371,20 +425,8 @@ export async function placeOrderAction(
       geo_verified: validated.value.geoVerified,
     };
   } else {
-    // The RPC enforces ownership too (P0004); checking here buys a precise
-    // message and gives us the fields for the confirmation e-mail.
-    const addresses = await listMyAddresses();
-    if (!addresses.ok) {
-      logger.error({ code: addresses.error.code }, "checkout_address_load_failed");
-      return { status: "error", message: "Adresleriniz yüklenemedi, tekrar deneyin." };
-    }
-    const saved = addresses.value.find((a) => a.id === parsed.data.address_id);
-    if (!saved) {
-      return {
-        status: "validation_error",
-        message: "Teslimat adresi bulunamadı. Adres seçin veya yeni bir adres ekleyin.",
-      };
-    }
+    // Non-null: populated above whenever `guestAccount` is null.
+    const saved = accountAddress as SavedAddress;
     if (channel === "delivery" && (saved.lat === 0 || saved.lng === 0)) {
       return {
         status: "validation_error",

@@ -74,17 +74,21 @@ export function CartSheet({
   );
 
   // Same rule the checkout and the server use: any fresh line makes the whole
-  // basket a route order.
+  // basket a route order. This header preview has no address context (the
+  // customer hasn't reached checkout yet), so it can only ever see the
+  // cart-only channel — an address-upgraded flexible-only basket still shows
+  // the cargo floor here and gets the (lower) eve-servis one once an address
+  // makes that call at actual checkout.
   const channelItems = rows.map((r) => ({
     product_key: r.product.key,
     fulfillment_type: r.product.fulfillment_type,
   }));
   const mode = requiredAddressMode(channelItems);
-  const minimum = checkOrderMinimum(
-    resolveOrderChannel(channelItems),
-    subtotal,
-    cargoMinOrderMinor,
-  );
+  const cartChannel = resolveOrderChannel(channelItems);
+  const minimum =
+    cartChannel === "shipping"
+      ? checkOrderMinimum(subtotal, cargoMinOrderMinor)
+      : { ok: true, shortfallMinor: 0 };
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -194,7 +198,7 @@ export function CartSheet({
                   className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
                   role="status"
                 >
-                  {orderMinimumMessage(cargoMinOrderMinor, minimum.shortfallMinor)}
+                  {orderMinimumMessage("shipping", cargoMinOrderMinor, minimum.shortfallMinor)}
                 </p>
                 <Button
                   type="button"

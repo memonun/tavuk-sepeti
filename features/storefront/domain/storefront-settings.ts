@@ -1,12 +1,15 @@
 /**
  * Owner-editable storefront rules.
  *
- * Two things the owner asked to be able to change without a deploy:
+ * Three things the owner asked to be able to change without a deploy:
  *
  *   - `homeDeliveryDays` — the days the van goes out ("eve servis günleri").
  *     Wednesday + Saturday today, and explicitly "değiştirebileyim" tomorrow.
  *   - `cargoMinOrderMinor` — the floor for an out-of-city (cargo) order.
  *     1.000 ₺ at launch; a shipping cost that moves would move this too.
+ *   - `homeMinOrderMinor` — the floor for a delivery-channel (eve servis)
+ *     order, including a basket the address-aware channel resolution upgrades
+ *     from shipping (migration 20260813130000). 250 ₺ at launch.
  *
  * They live in a single `storefront_settings` row rather than in this file
  * because a constant is only "changeable" by a developer. The DEFAULTS below
@@ -29,18 +32,24 @@ export interface StorefrontSettings {
   readonly homeDeliveryDays: readonly Weekday[];
   /** Minimum subtotal (kuruş) for a cargo order. 0 disables the floor. */
   readonly cargoMinOrderMinor: number;
+  /** Minimum subtotal (kuruş) for a delivery/eve-servis order. 0 disables the floor. */
+  readonly homeMinOrderMinor: number;
 }
 
 /** 1.000 ₺ — the out-of-city order floor the owner set (2026-08-13). */
 export const DEFAULT_CARGO_MIN_ORDER_MINOR = 100_000;
+/** 250 ₺ — the eve-servis order floor the owner set (2026-08-13). */
+export const DEFAULT_HOME_MIN_ORDER_MINOR = 25_000;
 
 export const DEFAULT_STOREFRONT_SETTINGS: StorefrontSettings = {
   homeDeliveryDays: DEFAULT_HOME_DELIVERY_DAYS,
   cargoMinOrderMinor: DEFAULT_CARGO_MIN_ORDER_MINOR,
+  homeMinOrderMinor: DEFAULT_HOME_MIN_ORDER_MINOR,
 };
 
 /** Guard rail on the admin form: 100.000 ₺ is far past any real basket. */
 const MAX_CARGO_MIN_ORDER_MINOR = 10_000_000;
+const MAX_HOME_MIN_ORDER_MINOR = 10_000_000;
 
 const weekdaySchema = z
   .coerce.number()
@@ -70,6 +79,11 @@ export const storefrontSettingsSchema = z.object({
     .int("Alt limit kuruş cinsinden tam sayı olmalı.")
     .min(0, "Alt limit negatif olamaz.")
     .max(MAX_CARGO_MIN_ORDER_MINOR, "Alt limit çok yüksek."),
+  home_min_order_minor: z.coerce
+    .number()
+    .int("Alt limit kuruş cinsinden tam sayı olmalı.")
+    .min(0, "Alt limit negatif olamaz.")
+    .max(MAX_HOME_MIN_ORDER_MINOR, "Alt limit çok yüksek."),
 });
 
 export type StorefrontSettingsInput = z.input<typeof storefrontSettingsSchema>;
@@ -82,5 +96,6 @@ export function toStorefrontSettings(
   return {
     homeDeliveryDays: parsed.home_delivery_days,
     cargoMinOrderMinor: parsed.cargo_min_order_minor,
+    homeMinOrderMinor: parsed.home_min_order_minor,
   };
 }

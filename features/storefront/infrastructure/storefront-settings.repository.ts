@@ -53,7 +53,7 @@ export async function fetchStorefrontSettings(): Promise<StorefrontSettingsRead>
 
   const { data, error } = await supabase
     .from(TABLE)
-    .select("home_delivery_days, cargo_min_order_minor")
+    .select("home_delivery_days, cargo_min_order_minor, home_min_order_minor")
     .eq("id", SINGLETON_ID)
     .maybeSingle();
 
@@ -93,10 +93,11 @@ export async function saveStorefrontSettings(
     .update({
       home_delivery_days: values.home_delivery_days,
       cargo_min_order_minor: values.cargo_min_order_minor,
+      home_min_order_minor: values.home_min_order_minor,
       updated_by: actorId,
     })
     .eq("id", SINGLETON_ID)
-    .select("home_delivery_days, cargo_min_order_minor")
+    .select("home_delivery_days, cargo_min_order_minor, home_min_order_minor")
     .maybeSingle();
 
   if (error) {

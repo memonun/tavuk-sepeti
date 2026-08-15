@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasPin,
   isRouteCapable,
+  isRouteUpgradeEligible,
   routeBlockReason,
 } from "@/features/storefront/domain/route-capability";
 import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
@@ -75,5 +76,26 @@ describe("routeBlockReason", () => {
     for (const c of cases) {
       expect(routeBlockReason(c) === null).toBe(isRouteCapable(c));
     }
+  });
+});
+
+describe("isRouteUpgradeEligible", () => {
+  const ready = { geo_verified: true, street: "Atatürk Cd.", apartment_no: "3" };
+
+  it("accepts a geo-verified address with door detail", () => {
+    expect(isRouteUpgradeEligible(ready)).toBe(true);
+  });
+
+  // Stricter than isRouteCapable on purpose: a same-province guess is not
+  // enough to upgrade a flexible-only basket, only a real PostGIS "inside"
+  // hit (geo_verified) is.
+  it("rejects an address that was never geo-verified, even with door detail", () => {
+    expect(isRouteUpgradeEligible({ ...ready, geo_verified: false })).toBe(false);
+  });
+
+  it("rejects a geo-verified address missing street or apartment_no", () => {
+    expect(isRouteUpgradeEligible({ ...ready, street: "" })).toBe(false);
+    expect(isRouteUpgradeEligible({ ...ready, apartment_no: "" })).toBe(false);
+    expect(isRouteUpgradeEligible({ ...ready, street: "   " })).toBe(false);
   });
 });
