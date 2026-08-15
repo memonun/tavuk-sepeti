@@ -9,14 +9,15 @@
  * The page shell passes its date-range presets through `toolbarExtra`, which
  * sits to the left of the filter builder in the toolbar row.
  */
-import { Maximize2 } from "lucide-react";
+import { Maximize2, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { DataGrid } from "@/components/data-grid/data-grid";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -138,6 +139,25 @@ export function OrderGrid({
   // Row click → open the shared editable detail panel in a right-side Sheet.
   const [openRow, setOpenRow] = useState<OrderListItem | null>(null);
 
+  // Debounced full-text search (sipariş no / müşteri adı / telefon) — mirrors
+  // the `q` URL param the customers grid already uses.
+  const [searchText, setSearchText] = useState(() => params.get("q") ?? "");
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = new URLSearchParams(params.toString());
+      if (searchText) next.set("q", searchText);
+      else next.delete("q");
+      next.delete("page");
+      const search = next.toString();
+      startTransition(() =>
+        router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false }),
+      );
+    }, 300);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText]);
+
   const onFiltersChange = useCallback(
     (next: ReadonlyArray<FilterRule>) => {
       const search = new URLSearchParams(params.toString());
@@ -221,6 +241,27 @@ export function OrderGrid({
         columnLabels={ORDER_COLUMN_LABELS}
         toolbar={
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
+            <div className="relative w-52">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Sipariş no, müşteri…"
+                className="h-7 pl-7 text-xs"
+              />
+              {searchText ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 px-0"
+                  onClick={() => setSearchText("")}
+                  aria-label="Aramayı temizle"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              ) : null}
+            </div>
             {toolbarExtra}
             <FilterBuilder
               columns={FILTERABLE_COLUMNS}

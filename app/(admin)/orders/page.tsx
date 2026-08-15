@@ -38,6 +38,7 @@ interface OrdersPageProps {
     pageSize?: string;
     view?: string;
     filter?: string;
+    q?: string;
   }>;
 }
 
@@ -74,6 +75,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       page: "1",
       pageSize: params.pageSize ?? String(GRID_PAGE_SIZE),
       filters: currentFilters,
+      q: params.q,
     }),
     listViewsAction(ORDERS_TABLE_ID),
     listActiveProducts(),

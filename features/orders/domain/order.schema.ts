@@ -130,6 +130,8 @@ export const orderListQuerySchema = z.object({
   scheduled_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   scheduled_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   customer_id: z.string().uuid().optional(),
+  /** Free-text search — sipariş no or customer name/phone. See listOrders(). */
+  q: z.string().trim().max(100).optional(),
   sort: orderSortFieldSchema.default("scheduled_for"),
   order: z.enum(["asc", "desc"]).default("desc"),
   page: z.coerce.number().int().positive().default(1),
