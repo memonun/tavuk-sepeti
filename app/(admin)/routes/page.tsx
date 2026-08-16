@@ -159,19 +159,33 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
       : null;
   const optimized = routeResult?.ok ? routeResult.value : null;
   // DirectionsApiError's message is a fixed customer-safe string ("Rota
-  // servisine ulaşılamadı") on purpose — the real cause (Google's status code:
-  // PERMISSION_DENIED when the Routes API isn't enabled on the key,
-  // OVER_QUERY_LIMIT, INVALID_ARGUMENT, ...) only ever reached the server log.
-  // This is an admin-only page, so appending it here turns "it doesn't work"
-  // into something fixable without pulling logs every time.
+  // servisine ulaşılamadı") on purpose — the real cause (Google's status code
+  // PLUS its own explanatory errorMessage — e.g. PERMISSION_DENIED often
+  // carries "This API method requires billing to be enabled..." with a direct
+  // link) only ever reached the server log. This is an admin-only page, so
+  // surfacing both here turns "it doesn't work" into something fixable
+  // without pulling logs every time.
+  const directionsFailureDetails =
+    routeResult &&
+    !routeResult.ok &&
+    routeResult.error.code === ErrorCode.DIRECTIONS_FAILED &&
+    routeResult.error.details &&
+    typeof routeResult.error.details === "object"
+      ? (routeResult.error.details as {
+          googleStatus?: unknown;
+          errorMessage?: unknown;
+        })
+      : null;
   const optimizeError =
-    routeResult && !routeResult.ok
-      ? routeResult.error.code === ErrorCode.DIRECTIONS_FAILED &&
-        routeResult.error.details &&
-        typeof routeResult.error.details === "object" &&
-        "googleStatus" in routeResult.error.details
-        ? `${routeResult.error.message} (${String((routeResult.error.details as { googleStatus: unknown }).googleStatus)})`
-        : routeResult.error.message
+    routeResult && !routeResult.ok ? routeResult.error.message : null;
+  const optimizeErrorGoogleStatus =
+    directionsFailureDetails && "googleStatus" in directionsFailureDetails
+      ? String(directionsFailureDetails.googleStatus)
+      : null;
+  const optimizeErrorDetail =
+    directionsFailureDetails &&
+    typeof directionsFailureDetails.errorMessage === "string"
+      ? directionsFailureDetails.errorMessage
       : null;
 
   // Build the /routes/drive URL so the CTA carries the same date + start +
@@ -256,7 +270,15 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
 
       {optimizeError ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Optimizasyon başarısız: {optimizeError}
+          <p>
+            Optimizasyon başarısız: {optimizeError}
+            {optimizeErrorGoogleStatus ? ` (${optimizeErrorGoogleStatus})` : ""}
+          </p>
+          {optimizeErrorDetail ? (
+            <p className="mt-1 text-xs break-words text-destructive/80">
+              {optimizeErrorDetail}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
