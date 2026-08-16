@@ -52,3 +52,44 @@
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+
+/*
+ * Vitrine (home page shop window).
+ *
+ * The scroll track is the transport for the showcase, so its scrollbar is
+ * furniture the composition does not need — the peeking next slide already says
+ * "there is more". Snap + overflow stay intact, so touch, trackpad and the rail
+ * buttons all keep working.
+ */
+.shop-vitrine-track {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.shop-vitrine-track::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Entrance: the window is assembled once, on load — stage first, its caption
+ * just behind it, then the shelf frames in order. Nothing loops, nothing moves
+ * again afterwards.
+ */
+@keyframes shop-vitrine-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.shop-theme [data-enter] {
+  animation: shop-vitrine-enter 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .shop-theme [data-enter] {
+    animation: none;
+  }
+}

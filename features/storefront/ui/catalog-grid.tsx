@@ -36,8 +36,10 @@ export function CatalogGrid({
     );
   }
 
+  // Column gaps stay wider than row gaps: the photographs need air between
+  // them horizontally, while name/price/action already separate the rows.
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8">
       {products.map((product) => (
         <ProductCard key={product.key} product={product} />
       ))}

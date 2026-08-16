@@ -7,7 +7,7 @@ import { COMPANY, LEGAL_LINKS } from "@/features/storefront/domain/legal";
 export function ShopFooter() {
   return (
     <footer className="border-t border-border/60">
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="grid gap-8 sm:grid-cols-[1.5fr_1fr_1fr]">
           <div>
             <p className="font-display text-base text-foreground">
