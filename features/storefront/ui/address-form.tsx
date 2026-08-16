@@ -163,6 +163,8 @@ export function AddressForm({
 
   const hasPin = pin.lat !== 0 || pin.lng !== 0;
   const needsPin = mode === "route";
+  // Guest checkout (onCollect set) requires all address fields, not just route mode.
+  const requiresAllFields = !!onCollect;
   const canSubmit = !saving && (!needsPin || (hasPin && confirmed));
 
   function applySuggestion(place: ParsedAddress) {
@@ -500,7 +502,7 @@ export function AddressForm({
           />
         </Field>
         <Field
-          label={needsPin ? "Cadde / Sokak" : "Cadde / Sokak (opsiyonel)"}
+          label={needsPin || requiresAllFields ? "Cadde / Sokak" : "Cadde / Sokak (opsiyonel)"}
           htmlFor="af-street"
         >
           <Input
@@ -508,26 +510,26 @@ export function AddressForm({
             value={fields.street}
             onChange={(e) => set({ street: e.target.value })}
             autoComplete="address-line1"
-            required={needsPin}
+            required={needsPin || requiresAllFields}
             disabled={saving}
           />
         </Field>
-        <Field label={needsPin ? "Bina no" : "Bina no (opsiyonel)"} htmlFor="af-building">
+        <Field label={needsPin || requiresAllFields ? "Bina no" : "Bina no (opsiyonel)"} htmlFor="af-building">
           <Input
             id="af-building"
             value={fields.building_no}
             onChange={(e) => set({ building_no: e.target.value })}
-            required={needsPin}
+            required={needsPin || requiresAllFields}
             disabled={saving}
           />
         </Field>
-        <Field label={needsPin ? "Daire no" : "Daire no (opsiyonel)"} htmlFor="af-apartment">
+        <Field label={needsPin || requiresAllFields ? "Daire no" : "Daire no (opsiyonel)"} htmlFor="af-apartment">
           <div className="flex flex-col gap-1.5">
             <Input
               id="af-apartment"
               value={detached ? "" : fields.apartment_no}
               onChange={(e) => set({ apartment_no: e.target.value })}
-              required={needsPin && !detached}
+              required={(needsPin || requiresAllFields) && !detached}
               disabled={saving || detached}
               placeholder={detached ? DETACHED_HOUSE_APARTMENT_NO : ""}
             />
