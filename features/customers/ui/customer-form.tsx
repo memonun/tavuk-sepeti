@@ -127,6 +127,15 @@ const addressAccuracy = watch("address.accuracy");
     typeof addressLng === "number" &&
     !(addressLat === 0 && addressLng === 0);
 
+  // The paste box shows whatever the admin is actively typing/pasting; once
+  // that's cleared (nothing typed, or a paste just got applied) it falls back
+  // to the saved coordinate itself, rounded to 4 decimals (~11m precision —
+  // plenty for a delivery pin) — so the field a driver's eye actually lands
+  // on to sanity-check a pin never just sits empty next to a filled-in
+  // Enlem/Boylam.
+  const coordDisplayValue =
+    coordPaste || (hasCoordinate ? `${addressLat.toFixed(4)}, ${addressLng.toFixed(4)}` : "");
+
   // Debounced geocoding when the structured shape becomes geocodable.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -368,7 +377,7 @@ const addressAccuracy = watch("address.accuracy");
 
             <Field label="Koordinat yapıştır (Google Maps)">
               <Input
-                value={coordPaste}
+                value={coordDisplayValue}
                 placeholder="ör. 38.3581, 38.3286"
                 onChange={(e) => {
                   const raw = e.target.value;
