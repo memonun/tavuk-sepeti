@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteAddressAction } from "@/features/storefront/application/delete-address";
+import { saveAddressAction } from "@/features/storefront/application/save-address";
 import { AddressForm } from "@/features/storefront/ui/address-form";
 import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
 import { isRouteCapable } from "@/features/storefront/domain/route-capability";
@@ -42,6 +43,42 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
       const result = await deleteAddressAction({ address_id: addressId });
       if (result.status === "success") {
         toast.success("Adres silindi.");
+        router.refresh();
+      } else if (result.status !== "idle") {
+        toast.error(result.message);
+      }
+    });
+  }
+
+  // Resaves the address exactly as it already is, just with `makePrimary`
+  // flipped on — `upsert_customer_address` clears the previous default in the
+  // same transaction (addresses_one_primary_per_customer allows only one row).
+  // No new endpoint: this is the same action + RPC every edit already goes
+  // through, just triggered without opening the edit form.
+  function makeDefault(address: SavedAddress, routeCapable: boolean) {
+    startTransition(async () => {
+      const result = await saveAddressAction({
+        addressId: address.id,
+        mode: routeCapable ? "route" : "cargo",
+        makePrimary: true,
+        address: {
+          label: address.label,
+          city: address.city,
+          district: address.district,
+          neighborhood: address.neighborhood,
+          postal_code: address.postal_code,
+          description: address.description,
+          street: address.street,
+          building_no: address.building_no,
+          apartment_no: address.apartment_no,
+          lat: address.lat,
+          lng: address.lng,
+          accuracy: address.accuracy,
+          source: address.source,
+        },
+      });
+      if (result.status === "success") {
+        toast.success("Varsayılan adres güncellendi.");
         router.refresh();
       } else if (result.status !== "idle") {
         toast.error(result.message);
@@ -147,6 +184,18 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
                     ) : null}
                   </div>
                   <div className="flex gap-2">
+                    {!address.is_primary ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => makeDefault(address, routeCapable)}
+                        disabled={pending}
+                      >
+                        Varsayılan yap
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
