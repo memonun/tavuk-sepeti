@@ -191,16 +191,23 @@ export function RouteControls({
 
   return (
     <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:flex-wrap sm:items-end">
-      <div className="flex w-full flex-col gap-1.5 sm:w-auto">
+      <div className="flex w-32 max-w-full flex-col gap-1.5 sm:w-auto">
         <Label htmlFor="route-start-time" className="text-xs">
           Başlangıç saati
         </Label>
+        {/* Fixed width, not w-full: iOS Safari's native time widget doesn't
+            reliably respect a percentage width — stretched to fill the
+            mobile-stacked row it renders past the container edge with no
+            visible right border. A compact field also never needed the
+            width; the other two selects are the ones that benefit from
+            stretching to match their (longer) picked-location text. */}
         <Input
           id="route-start-time"
           type="time"
           value={startHHmm}
           onChange={(e) => setStart(e.target.value)}
           disabled={busy}
+          className="w-full max-w-full"
         />
       </div>
 

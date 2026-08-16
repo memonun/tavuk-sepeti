@@ -23,7 +23,10 @@ function WhatsAppGlyph({ className }: { className?: string }) {
 export function WhatsAppSupportButton() {
   return (
     <a
-      href={buildWhatsAppLink(SUPPORT_WHATSAPP_E164, "Merhaba, bir sorum var.")}
+      href={buildWhatsAppLink(
+        SUPPORT_WHATSAPP_E164,
+        "Merhabalar, Apuhan Çiftliği hakkında iletişime geçiyorum.",
+      )}
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-[#25D366] p-3 text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366] sm:py-3 sm:pr-4 sm:pl-3"
