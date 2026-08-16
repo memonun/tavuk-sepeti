@@ -94,7 +94,7 @@ export function ProductShowcase({ products }: { products: readonly Product[] }) 
           // offsetParent, so `offsetLeft` below is the offset *within* the
           // track — the number scrollTo wants. Without it the value carries the
           // track's own page position and only snapping hides the error.
-          className="shop-vitrine-track relative flex flex-1 snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth lg:gap-0"
+          className="shop-vitrine-track relative flex flex-1 items-start snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth lg:gap-0"
         >
           {items.map((product, index) => (
             <ShowcaseSlide
