@@ -26,12 +26,13 @@ export function WhatsAppSupportButton() {
       href={buildWhatsAppLink(SUPPORT_WHATSAPP_E164, "Merhaba, bir sorum var.")}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-[#25D366] py-3 pr-4 pl-3 text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366]"
+      className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-[#25D366] p-3 text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366] sm:py-3 sm:pr-4 sm:pl-3"
     >
       <WhatsAppGlyph className="size-6 shrink-0" />
-      {/* Always shown, mobile included — an unlabeled green circle didn't
-          read as "contact us" at a glance; the label is what fixes that. */}
-      <span className="text-sm font-medium whitespace-nowrap">
+      {/* Label hidden on mobile — the button is a plain icon-only circle
+          there so it doesn't dominate the screen; the pill with label
+          returns from `sm:` up where there's room for it. */}
+      <span className="hidden text-sm font-medium whitespace-nowrap sm:inline">
         WhatsApp&apos;tan yazın
       </span>
     </a>
