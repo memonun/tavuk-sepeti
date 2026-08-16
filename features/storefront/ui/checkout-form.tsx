@@ -239,11 +239,6 @@ export function CheckoutForm({
   // same "ride along in the van" treatment a mixed basket already gets.
   // `placeOrderAction` re-derives both the same way on the RE-PRICED items.
   const mode = requiredAddressMode(items);
-  const selectedAddress = addresses.find((a) => a.id === addressId) ?? null;
-  const addressRouteCapable = selectedAddress
-    ? isRouteUpgradeEligible(selectedAddress)
-    : false;
-  const channel = resolveOrderChannel(items, addressRouteCapable);
 
   /**
    * The address we preselect on the customer's behalf.
@@ -273,6 +268,12 @@ export function CheckoutForm({
     setPickedAddressId(null);
   }
   const addressId = pickedAddressId ?? preferredAddressId;
+
+  const selectedAddress = addresses.find((a) => a.id === addressId) ?? null;
+  const addressRouteCapable = selectedAddress
+    ? isRouteUpgradeEligible(selectedAddress)
+    : false;
+  const channel = resolveOrderChannel(items, addressRouteCapable);
 
   if (state.status === "success") {
     return (
