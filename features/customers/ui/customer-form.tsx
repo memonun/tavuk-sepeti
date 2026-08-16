@@ -127,6 +127,15 @@ const addressAccuracy = watch("address.accuracy");
     typeof addressLng === "number" &&
     !(addressLat === 0 && addressLng === 0);
 
+  // The paste box shows whatever the admin is actively typing/pasting; once
+  // that's cleared (nothing typed, or a paste just got applied) it falls back
+  // to the saved coordinate itself, rounded to 4 decimals (~11m precision —
+  // plenty for a delivery pin) — so the field a driver's eye actually lands
+  // on to sanity-check a pin never just sits empty next to a filled-in
+  // Enlem/Boylam.
+  const coordDisplayValue =
+    coordPaste || (hasCoordinate ? `${addressLat.toFixed(4)}, ${addressLng.toFixed(4)}` : "");
+
   // Debounced geocoding when the structured shape becomes geocodable.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -142,22 +151,26 @@ const addressAccuracy = watch("address.accuracy");
     if (!hasGeocodableShape(parts)) {
       return;
     }
+    // Don't overwrite — or even re-verify — a coordinate the admin set
+    // deliberately: pin drag ("admin_corrected" / "user_pin"), the lat/lng
+    // inputs ("admin_corrected"), or an autocomplete pick ("geocoded_manual").
+    // Burning a Google call just to discard its result also meant a transient
+    // failure (zero results, rate limit) surfaced a scary "Geocoding
+    // servisine ulaşılamadı" error under an address whose coordinate was
+    // fine all along — same early-exit the storefront address form already
+    // does before calling geocodeAddressAction.
+    if (
+      addressSource === "admin_corrected" ||
+      addressSource === "geocoded_manual" ||
+      addressSource === "user_pin"
+    ) {
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setGeocodingState({ kind: "loading" });
       const result = await geocodeAddressAction(composeGeocoderQuery(parts));
       if (result.ok) {
-        // Don't overwrite a coordinate the admin set deliberately — pin drag
-        // ("admin_corrected" / "user_pin"), the lat/lng inputs ("admin_corrected"),
-        // or an autocomplete pick ("geocoded_manual").
-        if (
-          addressSource === "admin_corrected" ||
-          addressSource === "geocoded_manual" ||
-          addressSource === "user_pin"
-        ) {
-          setGeocodingState({ kind: "ready" });
-          return;
-        }
         setValue("address.lat", result.lat, { shouldValidate: true });
         setValue("address.lng", result.lng, { shouldValidate: true });
         setValue("address.source", result.source, { shouldValidate: true });
@@ -364,7 +377,7 @@ const addressAccuracy = watch("address.accuracy");
 
             <Field label="Koordinat yapıştır (Google Maps)">
               <Input
-                value={coordPaste}
+                value={coordDisplayValue}
                 placeholder="ör. 38.3581, 38.3286"
                 onChange={(e) => {
                   const raw = e.target.value;
