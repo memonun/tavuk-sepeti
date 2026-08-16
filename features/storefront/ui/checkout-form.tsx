@@ -662,8 +662,11 @@ export function CheckoutForm({
                 nagging about it before checkout even asks for one reads as
                 premature. A returning customer with a usable saved address
                 still sees it on first render, since `addressId` is derived
-                from the address list rather than waiting for a click. */}
-            {addressId !== null && !minimum.ok ? (
+                from the address list rather than waiting for a click. A
+                guest has no `addressId` at all (there is no book to pick
+                from) — `hasAddress` is the one flag both shapes set once an
+                address is actually known, so it's what has to gate this. */}
+            {hasAddress && !minimum.ok ? (
               <p
                 className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
                 role="alert"
@@ -725,7 +728,7 @@ export function CheckoutForm({
               {pending ? "Gönderiliyor…" : "Siparişi ver"}
             </Button>
 
-            {addressId === null ? (
+            {!hasAddress ? (
               <p className="text-center text-xs text-muted-foreground">
                 Devam etmek için bir teslimat adresi seçin.
               </p>
