@@ -11,6 +11,7 @@ import { RouteManifestPanel } from "@/features/routing/ui/route-manifest-panel";
 import { RouteWorkspace } from "@/features/routing/ui/route-workspace";
 import { StartRouteButton } from "@/features/routing/ui/start-route-button";
 import { env } from "@/shared/env";
+import { ErrorCode } from "@/shared/errors/error-codes";
 import {
   formatHHmm,
   toIstanbulDateString,
@@ -157,8 +158,21 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
         })
       : null;
   const optimized = routeResult?.ok ? routeResult.value : null;
+  // DirectionsApiError's message is a fixed customer-safe string ("Rota
+  // servisine ulaşılamadı") on purpose — the real cause (Google's status code:
+  // PERMISSION_DENIED when the Routes API isn't enabled on the key,
+  // OVER_QUERY_LIMIT, INVALID_ARGUMENT, ...) only ever reached the server log.
+  // This is an admin-only page, so appending it here turns "it doesn't work"
+  // into something fixable without pulling logs every time.
   const optimizeError =
-    routeResult && !routeResult.ok ? routeResult.error.message : null;
+    routeResult && !routeResult.ok
+      ? routeResult.error.code === ErrorCode.DIRECTIONS_FAILED &&
+        routeResult.error.details &&
+        typeof routeResult.error.details === "object" &&
+        "googleStatus" in routeResult.error.details
+        ? `${routeResult.error.message} (${String((routeResult.error.details as { googleStatus: unknown }).googleStatus)})`
+        : routeResult.error.message
+      : null;
 
   // Build the /routes/drive URL so the CTA carries the same date + start +
   // origin (so the drive view re-optimizes from the same start point).
