@@ -183,7 +183,20 @@ function ShowcaseSlide({
   );
 }
 
-/** Name, price and the buy control on one baseline — an exhibit label. */
+/**
+ * Name, price and the buy control — a deterministic top-down stack, not a
+ * bottom-aligned flex row.
+ *
+ * That used to be `flex items-end`, which bottom-aligns the name/price block
+ * against the button. A longer unit label ("Kavanoz (930gr)" vs "kg") wraps
+ * the price to a second line, growing the block — and with the bottom edges
+ * pinned together, the TITLE'S top edge is what moves to absorb the
+ * difference. Every product's caption then sits at a slightly different
+ * height depending on how its own unit label happens to wrap, which is
+ * exactly the "some titles higher, some lower" misalignment. Stacking
+ * top-down removes the mechanism entirely: the title is always the first
+ * thing after the photo, regardless of what the price line does below it.
+ */
 function ShowcaseCaption({ product }: { product: Product }) {
   const { getQuantity, addItem } = useCart();
   const qty = getQuantity(product.key);
@@ -192,29 +205,27 @@ function ShowcaseCaption({ product }: { product: Product }) {
     <div
       data-enter
       style={{ "--enter-delay": "190ms" } as React.CSSProperties}
-      className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 lg:mt-0 lg:block lg:pb-1"
+      className="mt-5 lg:mt-0 lg:pb-1"
     >
-      <div className="min-w-0">
-        <h2 className="font-display text-[clamp(1.5rem,2.6vw,2.1rem)] leading-[1.1] tracking-[-0.02em] text-balance text-foreground">
-          {product.display_name}
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {hasVolumeDiscount(product) ? "başlangıç " : ""}
-          <span className="text-base text-foreground tabular-nums">
-            {formatTRY(fromPriceMinor(product))}
-          </span>{" "}
-          / {product.unit_label}
-        </p>
-      </div>
+      <h2 className="font-display text-[clamp(1.5rem,2.6vw,2.1rem)] leading-[1.1] tracking-[-0.02em] text-balance text-foreground">
+        {product.display_name}
+      </h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {hasVolumeDiscount(product) ? "başlangıç " : ""}
+        <span className="text-base text-foreground tabular-nums">
+          {formatTRY(fromPriceMinor(product))}
+        </span>{" "}
+        / {product.unit_label}
+      </p>
 
-      <div className="lg:mt-6">
+      <div className="mt-4 lg:mt-6">
         {qty > 0 ? (
           <QuantityStepper product={product} />
         ) : (
           <Button
             type="button"
             size="lg"
-            className="h-11 rounded-full px-6"
+            className="h-11 w-full rounded-full sm:w-auto sm:px-6"
             onClick={() => addItem(product.key, product.min_qty)}
           >
             <PlusIcon /> Sepete ekle
