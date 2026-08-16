@@ -470,13 +470,17 @@ export function CheckoutForm({
               <TruckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
             )}
             <span>
-              {mode === "route"
-                ? `Sepetinizde taze ürün var — bu sipariş ${DELIVERY_PROVINCE} içinde kendi ekibimizle elden teslim edilir. Haritada konumunuzu onaylamanız gerekiyor.`
-                : // Genuinely undecided until an address exists: this basket
-                  // ships nationwide by default, but a route-capable Malatya
-                  // address (below) upgrades it to hand-delivery instead —
-                  // stated as a possibility here, not a settled fact.
-                  `Sepetinizdeki ürünler kargoyla gönderilebilir — Türkiye'nin her yerine teslimat yapılır. Adresiniz ${DELIVERY_PROVINCE} içindeyse ekibimiz elden de teslim edebilir. ${CARGO_FREE_SHIPPING_NOTICE}`}
+              {mode === "route" ? (
+                <strong className="font-bold text-foreground">
+                  {`Sepetinizde taze ürün var — bu sipariş ${DELIVERY_PROVINCE} içinde kendi ekibimizle elden teslim edilir. Haritada konumunuzu onaylamanız gerekiyor.`}
+                </strong>
+              ) : (
+                // Genuinely undecided until an address exists: this basket
+                // ships nationwide by default, but a route-capable Malatya
+                // address (below) upgrades it to hand-delivery instead —
+                // stated as a possibility here, not a settled fact.
+                `Sepetinizdeki ürünler kargoyla gönderilebilir — Türkiye'nin her yerine teslimat yapılır. Adresiniz ${DELIVERY_PROVINCE} içindeyse ekibimiz elden de teslim edebilir. ${CARGO_FREE_SHIPPING_NOTICE}`
+              )}
             </span>
           </p>
 
@@ -809,7 +813,11 @@ function OrderSummary({
       </div>
 
       <p className="rounded-lg bg-secondary/60 px-2.5 py-1.5 text-center text-xs text-muted-foreground">
-        {mode === "route" ? FULFILLMENT_NOTICE : CARGO_FREE_SHIPPING_NOTICE}
+        {mode === "route" ? (
+          <strong className="font-bold text-foreground">{FULFILLMENT_NOTICE}</strong>
+        ) : (
+          CARGO_FREE_SHIPPING_NOTICE
+        )}
       </p>
     </div>
   );
