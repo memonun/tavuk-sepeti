@@ -13,6 +13,8 @@
  */
 import { z } from "zod";
 
+import { CANONICAL_ORIGIN, isCanonicalOrigin } from "@/shared/canonical-origin";
+
 const isServer = typeof window === "undefined";
 
 // ---- Schemas ----------------------------------------------------------------
@@ -170,6 +172,36 @@ if (isServer) {
     );
   }
   serverParsed = serverResult.data;
+}
+
+// Production sanity check: PayTR's live merchant credentials are domain-
+// locked to exactly https://apuhanciftligi.com (no www, no http) — see
+// shared/canonical-origin.ts. Booting in production with PayTR enabled and
+// a wrong NEXT_PUBLIC_APP_URL would silently send customers into a broken
+// checkout instead of failing loudly, so it's enforced here alongside every
+// other required env invariant.
+if (isServer && serverParsed) {
+  const isProduction =
+    (serverParsed.VERCEL_ENV ?? serverParsed.NODE_ENV) === "production";
+  // Mirrors features/payments/application/paytr.ts's paytrCreds() presence
+  // check, duplicated rather than imported: shared/ must not depend on
+  // features/ (see eslint.config.mjs boundaries config).
+  const paytrEnabled = Boolean(
+    serverParsed.PAYTR_MERCHANT_ID &&
+      serverParsed.PAYTR_MERCHANT_KEY &&
+      serverParsed.PAYTR_MERCHANT_SALT,
+  );
+  if (
+    isProduction &&
+    paytrEnabled &&
+    !isCanonicalOrigin(clientResult.data.NEXT_PUBLIC_APP_URL)
+  ) {
+    throw new Error(
+      `❌ NEXT_PUBLIC_APP_URL must be "${CANONICAL_ORIGIN}" in production while PayTR is enabled ` +
+        `— PayTR's live merchant credentials are domain-locked to that exact origin. ` +
+        `Got "${clientResult.data.NEXT_PUBLIC_APP_URL}".`,
+    );
+  }
 }
 
 // ---- Public API -------------------------------------------------------------
