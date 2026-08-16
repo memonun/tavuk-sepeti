@@ -60,6 +60,7 @@ const FILTERABLE_COLUMNS: ReadonlyArray<FilterableColumn> = [
     options: [
       { value: "pending", label: "Beklemede" },
       { value: "confirmed", label: "Onaylandı" },
+      { value: "shipped", label: "Kargolandı" },
       { value: "delivered", label: "Teslim Edildi" },
       { value: "cancelled", label: "İptal" },
     ],

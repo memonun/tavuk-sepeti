@@ -32,6 +32,9 @@ export interface GuestOrderView {
   scheduledFor: string;
   channel: "delivery" | "shipping";
   createdAt: string;
+  cargoCarrier: string | null;
+  cargoTrackingNumber: string | null;
+  cargoTrackingUrl: string | null;
 }
 
 /** Null = no order matches that number/phone pair. Deliberately indistinguishable
@@ -71,5 +74,10 @@ export async function lookupGuestOrder(
     scheduledFor: String(row.scheduled_for),
     channel: row.fulfillment_channel === "shipping" ? "shipping" : "delivery",
     createdAt: String(row.created_at),
+    cargoCarrier: typeof row.cargo_carrier === "string" ? row.cargo_carrier : null,
+    cargoTrackingNumber:
+      typeof row.cargo_tracking_number === "string" ? row.cargo_tracking_number : null,
+    cargoTrackingUrl:
+      typeof row.cargo_tracking_url === "string" ? row.cargo_tracking_url : null,
   });
 }

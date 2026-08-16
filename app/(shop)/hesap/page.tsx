@@ -35,6 +35,7 @@ function awaitingPayment(order: {
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",
   confirmed: "Onaylandı",
+  shipped: "Kargolandı",
   delivered: "Teslim edildi",
   cancelled: "İptal edildi",
 };
@@ -120,6 +121,29 @@ export default async function AccountPage() {
                     {formatTRY(order.total_minor)}
                   </span>
                 </div>
+                {order.fulfillment_channel === "shipping" &&
+                (order.cargo_carrier ||
+                  order.cargo_tracking_number ||
+                  order.cargo_tracking_url) ? (
+                  <div className="w-full text-xs text-muted-foreground">
+                    {[order.cargo_carrier, order.cargo_tracking_number]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    {order.cargo_tracking_url ? (
+                      <>
+                        {" "}
+                        <a
+                          href={order.cargo_tracking_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline underline-offset-2"
+                        >
+                          Kargo takip
+                        </a>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
                 {awaitingPayment(order) ? (
                   <div className="w-full sm:w-auto">
                     <ResumePaymentButton

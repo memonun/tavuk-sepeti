@@ -2023,7 +2023,7 @@ export type Database = {
       customer_status: "active" | "inactive" | "blocked"
       fulfillment_channel: "delivery" | "shipping"
       order_source: "admin_manual" | "customer_web" | "recurring_generated"
-      order_status: "pending" | "confirmed" | "delivered" | "cancelled"
+      order_status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled"
       payment_channel: "cash" | "bank_transfer" | "card"
       payment_method: "cash_on_delivery" | "bank_transfer" | "credit_card"
       payment_status: "pending" | "paid" | "failed" | "refunded" | "partial"
@@ -2184,7 +2184,7 @@ export const Constants = {
       customer_status: ["active", "inactive", "blocked"],
       fulfillment_channel: ["delivery", "shipping"],
       order_source: ["admin_manual", "customer_web", "recurring_generated"],
-      order_status: ["pending", "confirmed", "delivered", "cancelled"],
+      order_status: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
       payment_channel: ["cash", "bank_transfer", "card"],
       payment_method: ["cash_on_delivery", "bank_transfer", "credit_card"],
       payment_status: ["pending", "paid", "failed", "refunded", "partial"],

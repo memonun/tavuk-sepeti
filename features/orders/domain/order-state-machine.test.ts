@@ -33,6 +33,9 @@ const baseOrder: Order = {
     postal_code: null,
   },
   delivery_notes: null,
+  cargo_carrier: null,
+  cargo_tracking_number: null,
+  cargo_tracking_url: null,
   items: [],
   subtotal_minor: 0,
   delivery_fee_minor: 0,
@@ -56,19 +59,30 @@ describe("canTransition", () => {
   const allowed: Array<[OrderStatus, OrderStatus]> = [
     ["pending", "confirmed"],
     ["pending", "cancelled"],
+    // "shipped" is an OPTIONAL step for cargo orders — confirmed can still go
+    // straight to delivered (elden teslim orders always do; kargo orders may).
     ["confirmed", "delivered"],
+    ["confirmed", "shipped"],
     ["confirmed", "cancelled"],
+    ["shipped", "delivered"],
+    ["shipped", "cancelled"],
   ];
   const forbidden: Array<[OrderStatus, OrderStatus]> = [
     ["pending", "delivered"],
+    ["pending", "shipped"],
     ["pending", "pending"],
     ["confirmed", "pending"],
     ["confirmed", "confirmed"],
+    ["shipped", "pending"],
+    ["shipped", "confirmed"],
+    ["shipped", "shipped"],
     ["delivered", "pending"],
     ["delivered", "confirmed"],
+    ["delivered", "shipped"],
     ["delivered", "cancelled"],
     ["cancelled", "pending"],
     ["cancelled", "confirmed"],
+    ["cancelled", "shipped"],
     ["cancelled", "delivered"],
   ];
 
@@ -90,6 +104,7 @@ describe("isTerminal", () => {
     expect(isTerminal("cancelled")).toBe(true);
     expect(isTerminal("pending")).toBe(false);
     expect(isTerminal("confirmed")).toBe(false);
+    expect(isTerminal("shipped")).toBe(false);
   });
 });
 
@@ -137,6 +152,17 @@ describe("transitionOrder", () => {
   it("does not require a reason for non-cancel transitions", () => {
     const result = transitionOrder(make("confirmed"), "delivered", { actor });
     expect(result.ok).toBe(true);
+  });
+
+  it("allows confirmed -> shipped -> delivered (optional cargo step)", () => {
+    const shipped = transitionOrder(make("confirmed"), "shipped", { actor });
+    expect(shipped.ok).toBe(true);
+    if (!shipped.ok) return;
+    expect(shipped.value.status).toBe("shipped");
+
+    const delivered = transitionOrder(shipped.value, "delivered", { actor });
+    expect(delivered.ok).toBe(true);
+    if (delivered.ok) expect(delivered.value.status).toBe("delivered");
   });
 
   it("bumps updated_at on success", () => {

@@ -34,6 +34,7 @@ import {
   type OrderItemDraft,
 } from "@/features/orders/ui/product-picker";
 import { OrderStatusActions } from "@/features/orders/ui/order-status-actions";
+import { OrderCargoInfoForm } from "@/features/orders/ui/order-cargo-info-form";
 import { OrderPayments } from "@/features/orders/ui/order-payments";
 import { priceOrderLine } from "@/features/products/application/pricing";
 import { formatDate, formatDateTime } from "@/shared/utils/date";
@@ -70,6 +71,7 @@ interface OrderDetailPanelProps {
 const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "Beklemede",
   confirmed: "Onaylı",
+  shipped: "Kargolandı",
   delivered: "Teslim edildi",
   cancelled: "İptal",
 };
@@ -80,6 +82,7 @@ const STATUS_VARIANT: Record<
 > = {
   pending: "secondary",
   confirmed: "default",
+  shipped: "outline",
   delivered: "outline",
   cancelled: "destructive",
 };
@@ -180,7 +183,11 @@ export function OrderDetailPanel({
 
       <section className="rounded-lg border bg-card p-4">
         <h3 className="mb-3 text-sm font-semibold">Eylemler</h3>
-        <OrderStatusActions orderId={order.id} currentStatus={order.status} />
+        <OrderStatusActions
+          orderId={order.id}
+          currentStatus={order.status}
+          fulfillmentChannel={order.fulfillment_channel}
+        />
       </section>
 
       {editable ? (
@@ -200,6 +207,15 @@ export function OrderDetailPanel({
       {/* The editable form shows its own live totals; the stored block would
           be stale against unsaved changes, so only show it for closed orders. */}
       {editable ? null : <TotalsBlock order={order} />}
+
+      {order.fulfillment_channel === "shipping" ? (
+        <OrderCargoInfoForm
+          orderId={initialOrder.id}
+          cargoCarrier={order.cargo_carrier}
+          cargoTrackingNumber={order.cargo_tracking_number}
+          cargoTrackingUrl={order.cargo_tracking_url}
+        />
+      ) : null}
 
       <OrderPayments
         orderId={initialOrder.id}

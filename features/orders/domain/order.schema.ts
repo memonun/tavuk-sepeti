@@ -83,7 +83,7 @@ export const orderSortFieldSchema = z.enum([
 export type OrderSortField = z.output<typeof orderSortFieldSchema>;
 
 const statusPatchValue = z.object({
-  to: z.enum(["pending", "confirmed", "delivered", "cancelled"]),
+  to: z.enum(["pending", "confirmed", "shipped", "delivered", "cancelled"]),
   reason: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? null : v),
     z.string().max(1000).nullable().default(null),
@@ -118,6 +118,26 @@ export const orderCellPatchSchema = z.discriminatedUnion("field", [
 export type OrderCellPatch = z.output<typeof orderCellPatchSchema>;
 
 /**
+ * Cargo tracking info — carrier, tracking number, tracking URL. All three
+ * are optional and independent of `status` (see order-state-machine.ts):
+ * an admin can fill any subset of these in at any time, not just when
+ * marking an order "shipped".
+ */
+export const orderCargoInfoSchema = z.object({
+  order_id: z.string().uuid(),
+  cargo_carrier: z.preprocess(blankToNull, z.string().trim().max(200).nullable()),
+  cargo_tracking_number: z.preprocess(
+    blankToNull,
+    z.string().trim().max(200).nullable(),
+  ),
+  cargo_tracking_url: z.preprocess(
+    blankToNull,
+    z.string().trim().max(2000).nullable(),
+  ),
+});
+export type OrderCargoInfoInput = z.output<typeof orderCargoInfoSchema>;
+
+/**
  * Bounded full-load cap for the admin "Excel view" grid — owner-approved §9
  * override (loads the whole table once, up to this cap, then virtualizes).
  * Mirrors customers' GRID_PAGE_SIZE.
@@ -125,7 +145,9 @@ export type OrderCellPatch = z.output<typeof orderCellPatchSchema>;
 export const GRID_PAGE_SIZE = 2000;
 
 export const orderListQuerySchema = z.object({
-  status: z.enum(["pending", "confirmed", "delivered", "cancelled"]).optional(),
+  status: z
+    .enum(["pending", "confirmed", "shipped", "delivered", "cancelled"])
+    .optional(),
   fulfillment_channel: z.enum(["delivery", "shipping"]).optional(),
   scheduled_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   scheduled_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

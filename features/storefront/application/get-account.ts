@@ -35,6 +35,11 @@ export interface AccountOrder {
   created_at: string;
   /** Rota / Kargo — so "Siparişlerim" can say how it will arrive. */
   fulfillment_channel: "delivery" | "shipping";
+  /** Manually entered by an admin; null until set. Only meaningful when
+   *  fulfillment_channel === "shipping". */
+  cargo_carrier: string | null;
+  cargo_tracking_number: string | null;
+  cargo_tracking_url: string | null;
 }
 
 export interface CustomerAccount {
@@ -78,7 +83,7 @@ export async function getMyAccount(): Promise<CustomerAccount | null> {
       await (supabase as any)
         .from("orders")
         .select(
-          "order_number,scheduled_for,status,payment_status,payment_method,total_minor,created_at,fulfillment_channel",
+          "order_number,scheduled_for,status,payment_status,payment_method,total_minor,created_at,fulfillment_channel,cargo_carrier,cargo_tracking_number,cargo_tracking_url",
         )
         .eq("customer_id", cust.id)
         .order("created_at", { ascending: false })
@@ -120,6 +125,11 @@ export async function getMyAccount(): Promise<CustomerAccount | null> {
         o.fulfillment_channel === "shipping"
           ? ("shipping" as const)
           : ("delivery" as const),
+      cargo_carrier: typeof o.cargo_carrier === "string" ? o.cargo_carrier : null,
+      cargo_tracking_number:
+        typeof o.cargo_tracking_number === "string" ? o.cargo_tracking_number : null,
+      cargo_tracking_url:
+        typeof o.cargo_tracking_url === "string" ? o.cargo_tracking_url : null,
     })),
   };
 }

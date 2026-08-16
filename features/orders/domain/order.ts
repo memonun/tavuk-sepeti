@@ -7,7 +7,12 @@
  */
 import type { Coordinate } from "@/shared/geo/coordinate";
 
-export type OrderStatus = "pending" | "confirmed" | "delivered" | "cancelled";
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
 export type TimeSlot = "morning" | "afternoon" | "evening";
 /** Mirrors the DB `payment_method` enum. `credit_card` arrives from the
  *  storefront's PayTR flow — it was in the DB enum since 20260728120000 but
@@ -105,6 +110,12 @@ export interface Order {
   readonly delivery_address_snapshot: DeliveryAddressSnapshot;
   readonly delivery_notes: string | null;
 
+  // Cargo (shipping-channel orders only; manually entered, independent of
+  // `status` — filling these in does not itself move status to "shipped").
+  readonly cargo_carrier: string | null;
+  readonly cargo_tracking_number: string | null;
+  readonly cargo_tracking_url: string | null;
+
   // Items + pricing (kuruş)
   readonly items: readonly OrderItem[];
   readonly subtotal_minor: number;
@@ -150,6 +161,9 @@ export interface OrderListItem {
   readonly created_at: Date;
   readonly source: OrderSource;
   readonly fulfillment_channel: FulfillmentChannel;
+  readonly cargo_carrier: string | null;
+  readonly cargo_tracking_number: string | null;
+  readonly cargo_tracking_url: string | null;
   readonly recurring_template_id: string | null;
 }
 

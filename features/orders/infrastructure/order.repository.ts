@@ -47,7 +47,7 @@ type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
  * from silently drifting apart.
  */
 const ORDER_LIST_SELECT =
-  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_method, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, fulfillment_channel, recurring_template_id, customers!inner(first_name, last_name)" as const;
+  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_method, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, fulfillment_channel, cargo_carrier, cargo_tracking_number, cargo_tracking_url, recurring_template_id, customers!inner(first_name, last_name)" as const;
 
 export interface CreateOrderInput {
   customer_id: string;
@@ -328,6 +328,9 @@ export async function listOrders(
         created_at: row.created_at,
         source: row.source ?? "admin_manual",
         fulfillment_channel: row.fulfillment_channel ?? null,
+        cargo_carrier: row.cargo_carrier ?? null,
+        cargo_tracking_number: row.cargo_tracking_number ?? null,
+        cargo_tracking_url: row.cargo_tracking_url ?? null,
         recurring_template_id: row.recurring_template_id ?? null,
         customers: row.customers,
       }),
@@ -446,6 +449,41 @@ export async function patchOrderCell(
     return err(new ExternalApiError({ message: error.message, cause: error }));
   }
   return findOrderListItemById(orderId);
+}
+
+// ---- cargo info (carrier / tracking number / tracking url) ------------------
+
+export interface CargoInfoInput {
+  order_id: string;
+  cargo_carrier: string | null;
+  cargo_tracking_number: string | null;
+  cargo_tracking_url: string | null;
+}
+
+/**
+ * Sets the three manual cargo fields. Independent of `status` — does not
+ * touch order_status_events; see update-order-cargo-info.ts for why this
+ * isn't routed through persistTransition.
+ */
+export async function updateOrderCargoInfo(
+  input: CargoInfoInput,
+): Promise<Result<OrderListItem, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const update: any = {
+    cargo_carrier: input.cargo_carrier,
+    cargo_tracking_number: input.cargo_tracking_number,
+    cargo_tracking_url: input.cargo_tracking_url,
+  };
+  const { error } = await supabase.from("orders").update(update).eq("id", input.order_id);
+  if (error) {
+    logger.error(
+      { orderId: input.order_id, code: error.code },
+      "update_order_cargo_info_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return findOrderListItemById(input.order_id);
 }
 
 // ---- update (full order + items) --------------------------------------------

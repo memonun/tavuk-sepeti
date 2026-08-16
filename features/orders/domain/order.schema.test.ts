@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { orderCellPatchSchema, orderEditSchema, orderListQuerySchema } from "@/features/orders/domain/order.schema";
+import {
+  orderCargoInfoSchema,
+  orderCellPatchSchema,
+  orderEditSchema,
+  orderListQuerySchema,
+} from "@/features/orders/domain/order.schema";
 
 describe("orderCellPatchSchema", () => {
   it("accepts a scheduled_for date patch", () => {
@@ -13,6 +18,10 @@ describe("orderCellPatchSchema", () => {
   });
   it("accepts a status patch with optional reason", () => {
     const r = orderCellPatchSchema.safeParse({ field: "status", value: { to: "cancelled", reason: "stokta yok" } });
+    expect(r.success).toBe(true);
+  });
+  it("accepts a status patch targeting the optional shipped step", () => {
+    const r = orderCellPatchSchema.safeParse({ field: "status", value: { to: "shipped", reason: null } });
     expect(r.success).toBe(true);
   });
   it("accepts delivery_fee as a non-negative integer (kuruş)", () => {
@@ -102,5 +111,59 @@ describe("orderListQuerySchema (extended)", () => {
       expect(r.data.sort).toBe("scheduled_for");
       expect(r.data.order).toBe("desc");
     }
+  });
+
+  it("accepts shipped as a status filter", () => {
+    const r = orderListQuerySchema.safeParse({ status: "shipped" });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe("orderCargoInfoSchema", () => {
+  const orderId = "11111111-1111-1111-1111-111111111111";
+
+  it("accepts all three fields set", () => {
+    const r = orderCargoInfoSchema.safeParse({
+      order_id: orderId,
+      cargo_carrier: "PTT Kargo",
+      cargo_tracking_number: "1234567890",
+      cargo_tracking_url: "https://gonderitakip.ptt.gov.tr/Track/Verify?q=1234567890",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts all three fields empty — nothing is mandatory", () => {
+    const r = orderCargoInfoSchema.safeParse({
+      order_id: orderId,
+      cargo_carrier: null,
+      cargo_tracking_number: null,
+      cargo_tracking_url: null,
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("normalizes blank strings to null", () => {
+    const r = orderCargoInfoSchema.safeParse({
+      order_id: orderId,
+      cargo_carrier: "   ",
+      cargo_tracking_number: "",
+      cargo_tracking_url: "  ",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.cargo_carrier).toBeNull();
+      expect(r.data.cargo_tracking_number).toBeNull();
+      expect(r.data.cargo_tracking_url).toBeNull();
+    }
+  });
+
+  it("rejects a missing/invalid order_id", () => {
+    const r = orderCargoInfoSchema.safeParse({
+      order_id: "not-a-uuid",
+      cargo_carrier: null,
+      cargo_tracking_number: null,
+      cargo_tracking_url: null,
+    });
+    expect(r.success).toBe(false);
   });
 });

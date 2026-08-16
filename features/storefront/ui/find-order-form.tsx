@@ -30,6 +30,7 @@ const initialState: FindOrderState = { status: "idle" };
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",
   confirmed: "Onaylandı",
+  shipped: "Kargolandı",
   delivered: "Teslim edildi",
   cancelled: "İptal edildi",
 };
@@ -143,6 +144,30 @@ function OrderCard({ order, phone }: { order: GuestOrderView; phone: string }) {
             {formatTRY(order.totalMinor)}
           </dd>
         </div>
+        {order.channel === "shipping" &&
+        (order.cargoCarrier || order.cargoTrackingNumber || order.cargoTrackingUrl) ? (
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Kargo</dt>
+            <dd className="text-right">
+              {[order.cargoCarrier, order.cargoTrackingNumber]
+                .filter(Boolean)
+                .join(" · ")}
+              {order.cargoTrackingUrl ? (
+                <>
+                  {" "}
+                  <a
+                    href={order.cargoTrackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    Takip et
+                  </a>
+                </>
+              ) : null}
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       {awaitingPayment ? (
