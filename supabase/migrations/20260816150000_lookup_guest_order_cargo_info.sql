@@ -4,8 +4,14 @@
 -- info logged-in customers see on /hesap. Re-create lookup_guest_order
 -- (20260814120100) with the three cargo columns added to its return set —
 -- still status-only, no address/items/name disclosed.
+--
+-- CREATE OR REPLACE cannot change a function's OUT-parameter row type
+-- (Postgres 42P13) — adding the three cargo columns to RETURNS TABLE
+-- requires dropping the old signature first.
 
-create or replace function lookup_guest_order(
+drop function if exists lookup_guest_order(text, text);
+
+create function lookup_guest_order(
   p_order_number text,
   p_phone        text
 ) returns table (
