@@ -12,6 +12,8 @@ import { DELIVERY_ONLY_BADGE } from "@/features/storefront/domain/storefront.con
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import {
   fromPriceMinor,
+  halfUnitPriceMinor,
+  hasHalfUnitOption,
   hasVolumeDiscount,
   lineTotalMinor,
 } from "@/features/storefront/ui/line-pricing";
@@ -70,6 +72,14 @@ export function ProductCard({ product }: { product: Product }) {
         </span>{" "}
         / {product.unit_label}
       </p>
+      {hasHalfUnitOption(product) ? (
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          yarım kilo{" "}
+          <span className="text-foreground tabular-nums">
+            {formatTRY(halfUnitPriceMinor(product))}
+          </span>
+        </p>
+      ) : null}
       {product.web_description ? (
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground/90">
           {product.web_description}

@@ -9,11 +9,20 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { hasHalfUnitOption } from "@/features/storefront/ui/line-pricing";
 
 import type { Product } from "@/features/products/application/list-products";
 
-function formatQty(quantity: number): string {
-  return quantity.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+/**
+ * "0,5" alone doesn't say what's being weighed out. For half-unit products
+ * (see hasHalfUnitOption) that suffix is "kg" — this codebase's half-unit
+ * increment is always half a kilogram, never half a jar or half a package.
+ */
+function formatQty(product: Product, quantity: number): string {
+  const formatted = quantity.toLocaleString("tr-TR", {
+    maximumFractionDigits: 2,
+  });
+  return hasHalfUnitOption(product) ? `${formatted}kg` : formatted;
 }
 
 /** +/- stepper bound to a cart line. Stepping below the product minimum
@@ -47,8 +56,8 @@ export function QuantityStepper({ product }: { product: Product }) {
       >
         {atMin ? <Trash2Icon /> : <MinusIcon />}
       </Button>
-      <span className="min-w-10 text-center text-sm font-medium tabular-nums">
-        {formatQty(qty)}
+      <span className="min-w-13 text-center text-sm font-medium tabular-nums">
+        {formatQty(product, qty)}
       </span>
       <Button
         type="button"

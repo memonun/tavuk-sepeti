@@ -33,3 +33,20 @@ export function fromPriceMinor(product: Product): number {
 export function hasVolumeDiscount(product: Product): boolean {
   return product.price_tiers.length > 1;
 }
+
+/**
+ * True for products sold in half-unit (0.5 kg) increments — cross-referenced
+ * against `step` rather than `unit`/`unit_label`, since those are free admin
+ * text and inconsistent (several kilogram products have `unit_label: "1"`).
+ * `step === 0.5` is the one field that's actually authoritative about
+ * whether a half-kilo purchase is possible.
+ */
+export function hasHalfUnitOption(product: Product): boolean {
+  return product.step === 0.5;
+}
+
+/** The price (kuruş) for buying exactly half a unit — only meaningful when
+ *  {@link hasHalfUnitOption} is true. */
+export function halfUnitPriceMinor(product: Product): number {
+  return lineTotalMinor(product, 0.5);
+}
