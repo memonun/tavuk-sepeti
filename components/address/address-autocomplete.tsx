@@ -77,7 +77,16 @@ export function AddressAutocomplete({
   const regionKey = regionCodes.join(",");
 
   useEffect(() => {
-    if (places && !tokenRef.current) tokenRef.current = new places.AutocompleteSessionToken();
+    if (!places) return;
+
+    try {
+      // Create or recreate session token. Creating fresh on mount ensures
+      // no stale tokens carry over between form instances.
+      tokenRef.current = new places.AutocompleteSessionToken();
+    } catch {
+      // Token creation failure usually means Places API not enabled on key
+      tokenRef.current = null;
+    }
   }, [places]);
 
   useEffect(() => {
@@ -105,12 +114,26 @@ export function AddressAutocomplete({
         setSuggestions(res.suggestions ?? []);
         setOpen(true);
         setSearchError(false);
-      } catch {
-        // Places API not enabled on the key, or a transient error. Not logged
-        // via shared/logger — that module reads server-only env vars and
-        // throws immediately if imported into a browser bundle. Surfacing it
-        // in the UI instead is what keeps this from looking like "search does
-        // nothing" with zero trace of why.
+      } catch (error) {
+        // Places API not enabled on the key, session token invalid, or a transient error.
+        // If it's a session error, create a fresh token and try once more.
+        if (tokenRef.current && error instanceof Error && error.message?.includes("session")) {
+          try {
+            tokenRef.current = new places.AutocompleteSessionToken();
+            const retryRes = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+              input,
+              sessionToken: tokenRef.current,
+              includedRegionCodes: regionKey.split(","),
+              language: "tr",
+            });
+            setSuggestions(retryRes.suggestions ?? []);
+            setOpen(true);
+            setSearchError(false);
+            return;
+          } catch {
+            // Retry failed, fall through to error handling
+          }
+        }
         setSuggestions([]);
         setOpen(false);
         setSearchError(true);
@@ -173,10 +196,10 @@ export function AddressAutocomplete({
         </ul>
       ) : null}
       {searchError ? (
-        <p className="mt-1 text-xs text-muted-foreground" role="status">
-          Adres araması şu an kullanılamıyor — haritadan seçebilir veya
-          alanları elle doldurabilirsiniz.
-        </p>
+        <div className="mt-1 text-xs text-muted-foreground" role="status">
+          <p>Adres araması şu an kullanılamıyor.</p>
+          <p className="mt-1">Haritadan konumunuzu seçebilir veya alanları elle doldurabilirsiniz.</p>
+        </div>
       ) : null}
     </div>
   );
