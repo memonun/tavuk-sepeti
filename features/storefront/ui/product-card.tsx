@@ -20,8 +20,14 @@ import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
 
 import type { Product } from "@/features/products/application/list-products";
 
-/** A single catalog card: soft rounded tile, price-per-unit, and either an
- *  "add" button or a quantity stepper once the item is in the basket. */
+/**
+ * A single catalog item: photograph, then name, price and the buy control.
+ *
+ * Deliberately not a tile — no border, no shadow, no card background. These are
+ * the same photographs the vitrine above shows on stage, so the collection is
+ * the same shop window at shelf scale, and the products stay the only strong
+ * colour on a cream page.
+ */
 export function ProductCard({ product }: { product: Product }) {
   const { getQuantity, addItem } = useCart();
   const qty = getQuantity(product.key);
@@ -32,51 +38,64 @@ export function ProductCard({ product }: { product: Product }) {
   );
 
   return (
-    <div className="flex flex-col rounded-3xl border border-border/70 bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative mb-4 flex aspect-[5/4] items-center justify-center overflow-hidden rounded-2xl bg-secondary/60 text-6xl">
+    <article className="group flex h-full flex-col">
+      {/* Radius tracks the frame's size — the stage above can carry the theme's
+          2xl, a 350px shelf photo reads bubbly at it. */}
+      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-secondary/50">
         {imageUrl ? (
           <Image
             src={imageUrl}
             alt={product.image_alt ?? product.display_name}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className="object-cover"
+            sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 360px"
+            className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03]"
           />
         ) : (
-          <span aria-hidden>{productEmoji(product.key)}</span>
-        )}
-        {product.is_featured ? (
-          <span className="absolute left-2 top-2 rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground shadow-sm">
-            Öne çıkan
+          <span
+            className="flex h-full items-center justify-center text-6xl"
+            aria-hidden
+          >
+            {productEmoji(product.key)}
           </span>
-        ) : null}
+        )}
       </div>
 
-      <h3 className="font-display text-lg leading-tight text-foreground">
+      <h3 className="mt-4 font-display text-xl leading-tight tracking-[-0.01em] text-foreground">
         {product.display_name}
       </h3>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1.5 text-sm text-muted-foreground">
         {hasVolumeDiscount(product) ? "başlangıç " : ""}
-        {formatTRY(fromPriceMinor(product))}{" "}
-        <span className="text-muted-foreground/80">/ {product.unit_label}</span>
+        <span className="text-foreground tabular-nums">
+          {formatTRY(fromPriceMinor(product))}
+        </span>{" "}
+        / {product.unit_label}
       </p>
       {product.web_description ? (
-        <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground/90">
+        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground/90">
           {product.web_description}
         </p>
       ) : null}
 
+      {/* Fulfilment rule, demoted from a filled pill to a quiet line — except
+          the delivery restriction, which the owner wants read as a warning. */}
       {product.fulfillment_type === "shipping" ? (
-        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
-          <TruckIcon className="size-3.5" /> Kargo ile gönderilir
-        </span>
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <TruckIcon className="size-3.5 shrink-0" aria-hidden /> Kargo ile
+          gönderilir
+        </p>
       ) : (
-        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-bold text-secondary-foreground">
-          <MapPinIcon className="size-3.5" /> {DELIVERY_ONLY_BADGE}
-        </span>
+        <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-foreground">
+          <MapPinIcon className="size-3.5 shrink-0 text-primary" aria-hidden />{" "}
+          {DELIVERY_ONLY_BADGE}
+        </p>
       )}
+      {product.is_featured ? (
+        <p className="mt-1.5 text-xs tracking-[0.14em] text-primary uppercase">
+          Öne çıkan
+        </p>
+      ) : null}
 
-      <div className="mt-5 flex items-center justify-between gap-3">
+      <div className="mt-auto flex items-center justify-between gap-3 pt-5">
         {inCart ? (
           <>
             <QuantityStepper product={product} />
@@ -88,13 +107,13 @@ export function ProductCard({ product }: { product: Product }) {
           <Button
             type="button"
             size="lg"
-            className="w-full rounded-full"
+            className="h-10 w-full rounded-full sm:w-auto sm:px-5"
             onClick={() => addItem(product.key, product.min_qty)}
           >
             <PlusIcon /> Sepete ekle
           </Button>
         )}
       </div>
-    </div>
+    </article>
   );
 }
