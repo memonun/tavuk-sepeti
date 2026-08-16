@@ -126,7 +126,7 @@ export function AddressPicker({
                   </span>
                 ) : null}
                 {blockReason ? (
-                  <span className="mt-1 block text-xs text-destructive">
+                  <span className="mt-1 block text-xs font-bold text-destructive">
                     {BLOCK_MESSAGE[blockReason]}
                   </span>
                 ) : null}

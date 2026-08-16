@@ -71,7 +71,7 @@ export function ProductCard({ product }: { product: Product }) {
           <TruckIcon className="size-3.5" /> Kargo ile gönderilir
         </span>
       ) : (
-        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-bold text-secondary-foreground">
           <MapPinIcon className="size-3.5" /> {DELIVERY_ONLY_BADGE}
         </span>
       )}

@@ -45,7 +45,10 @@ export default async function ShopHomePage() {
         <p className="flex items-start gap-2.5">
           <MapPinIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
           <span>
-            {FULFILLMENT_NOTICE} Eve servis günlerimiz:{" "}
+            <strong className="font-bold text-foreground">
+              {FULFILLMENT_NOTICE}
+            </strong>{" "}
+            Eve servis günlerimiz:{" "}
             <strong className="font-medium text-foreground">
               {formatHomeDeliveryDays(settings.homeDeliveryDays)}
             </strong>
