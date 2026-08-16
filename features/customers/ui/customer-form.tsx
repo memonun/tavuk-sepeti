@@ -142,22 +142,26 @@ const addressAccuracy = watch("address.accuracy");
     if (!hasGeocodableShape(parts)) {
       return;
     }
+    // Don't overwrite — or even re-verify — a coordinate the admin set
+    // deliberately: pin drag ("admin_corrected" / "user_pin"), the lat/lng
+    // inputs ("admin_corrected"), or an autocomplete pick ("geocoded_manual").
+    // Burning a Google call just to discard its result also meant a transient
+    // failure (zero results, rate limit) surfaced a scary "Geocoding
+    // servisine ulaşılamadı" error under an address whose coordinate was
+    // fine all along — same early-exit the storefront address form already
+    // does before calling geocodeAddressAction.
+    if (
+      addressSource === "admin_corrected" ||
+      addressSource === "geocoded_manual" ||
+      addressSource === "user_pin"
+    ) {
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setGeocodingState({ kind: "loading" });
       const result = await geocodeAddressAction(composeGeocoderQuery(parts));
       if (result.ok) {
-        // Don't overwrite a coordinate the admin set deliberately — pin drag
-        // ("admin_corrected" / "user_pin"), the lat/lng inputs ("admin_corrected"),
-        // or an autocomplete pick ("geocoded_manual").
-        if (
-          addressSource === "admin_corrected" ||
-          addressSource === "geocoded_manual" ||
-          addressSource === "user_pin"
-        ) {
-          setGeocodingState({ kind: "ready" });
-          return;
-        }
         setValue("address.lat", result.lat, { shouldValidate: true });
         setValue("address.lng", result.lng, { shouldValidate: true });
         setValue("address.source", result.source, { shouldValidate: true });
