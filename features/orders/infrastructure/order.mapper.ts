@@ -127,6 +127,11 @@ export function rowToOrder(row: OrderRowWithItems): Order {
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     created_by: row.created_by,
+    cargo_carrier: (row as { cargo_carrier?: string | null }).cargo_carrier ?? null,
+    cargo_tracking_number:
+      (row as { cargo_tracking_number?: string | null }).cargo_tracking_number ?? null,
+    cargo_tracking_url:
+      (row as { cargo_tracking_url?: string | null }).cargo_tracking_url ?? null,
   };
 }
 
@@ -146,6 +151,9 @@ interface ListOrderRow {
   created_at: string;
   source: string;
   fulfillment_channel: string | null;
+  cargo_carrier: string | null;
+  cargo_tracking_number: string | null;
+  cargo_tracking_url: string | null;
   recurring_template_id: string | null;
   customers: { first_name: string | null; last_name: string | null } | null;
 }
@@ -172,6 +180,9 @@ export function rowToListItem(row: ListOrderRow): OrderListItem {
     created_at: new Date(row.created_at),
     source: row.source as OrderSource,
     fulfillment_channel: toFulfillmentChannel(row.fulfillment_channel),
+    cargo_carrier: row.cargo_carrier,
+    cargo_tracking_number: row.cargo_tracking_number,
+    cargo_tracking_url: row.cargo_tracking_url,
     recurring_template_id: row.recurring_template_id,
   };
 }

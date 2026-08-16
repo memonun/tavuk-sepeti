@@ -1,22 +1,24 @@
 "use client";
 
-import { CheckCircle2, Truck, X } from "lucide-react";
+import { CheckCircle2, Package, Truck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { transitionOrderAction } from "@/features/orders/application/transition-order";
 import { Button } from "@/components/ui/button";
 
-import type { OrderStatus } from "@/features/orders/domain/order";
+import type { FulfillmentChannel, OrderStatus } from "@/features/orders/domain/order";
 
 interface OrderStatusActionsProps {
   orderId: string;
   currentStatus: OrderStatus;
+  fulfillmentChannel: FulfillmentChannel;
 }
 
 export function OrderStatusActions({
   orderId,
   currentStatus,
+  fulfillmentChannel,
 }: OrderStatusActionsProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -48,8 +50,15 @@ export function OrderStatusActions({
   };
 
   const canConfirm = currentStatus === "pending";
-  const canDeliver = currentStatus === "confirmed";
-  const canCancel = currentStatus === "pending" || currentStatus === "confirmed";
+  // Optional step for cargo orders — a confirmed shipping order may go
+  // straight to "delivered" too; this only offers the in-between marker.
+  const canMarkShipped =
+    currentStatus === "confirmed" && fulfillmentChannel === "shipping";
+  const canDeliver = currentStatus === "confirmed" || currentStatus === "shipped";
+  const canCancel =
+    currentStatus === "pending" ||
+    currentStatus === "confirmed" ||
+    currentStatus === "shipped";
 
   if (!canConfirm && !canDeliver && !canCancel) {
     return (
@@ -72,6 +81,19 @@ export function OrderStatusActions({
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             Onayla
+          </Button>
+        ) : null}
+        {canMarkShipped ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => dispatch("shipped")}
+            className="gap-1.5"
+          >
+            <Package className="h-3.5 w-3.5" />
+            Kargolandı
           </Button>
         ) : null}
         {canDeliver ? (

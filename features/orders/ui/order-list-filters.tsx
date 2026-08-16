@@ -17,6 +17,7 @@ const STATUS_LABEL: Record<string, string> = {
   all: "Tüm durumlar",
   pending: "Beklemede",
   confirmed: "Onaylı",
+  shipped: "Kargolandı",
   delivered: "Teslim edildi",
   cancelled: "İptal",
 };

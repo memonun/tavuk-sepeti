@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, CircleX, Clock, PackageCheck } from "lucide-react";
+import { CircleCheck, CircleX, Clock, Package, PackageCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -30,6 +30,7 @@ import type { OrderStatus } from "@/features/orders/domain/order";
 const LABELS: Record<OrderStatus, string> = {
   pending: "Bekliyor",
   confirmed: "Onaylı",
+  shipped: "Kargolandı",
   delivered: "Teslim",
   cancelled: "İptal",
 };
@@ -40,6 +41,7 @@ const VARIANT: Record<
 > = {
   pending: "secondary",
   confirmed: "default",
+  shipped: "outline",
   delivered: "outline",
   cancelled: "destructive",
 };
@@ -48,6 +50,7 @@ const VARIANT: Record<
 const STATUS_ICON: Record<OrderStatus, LucideIcon> = {
   pending: Clock,
   confirmed: CircleCheck,
+  shipped: Package,
   delivered: PackageCheck,
   cancelled: CircleX,
 };

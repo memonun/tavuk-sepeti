@@ -77,6 +77,9 @@ describe("lookupGuestOrder", () => {
           scheduled_for: "2026-08-19",
           fulfillment_channel: "shipping",
           created_at: "2026-08-16T00:00:00Z",
+          cargo_carrier: "PTT Kargo",
+          cargo_tracking_number: "1234567890",
+          cargo_tracking_url: "https://example.com/track/1234567890",
         },
       ],
       error: null,
@@ -96,6 +99,9 @@ describe("lookupGuestOrder", () => {
         scheduledFor: "2026-08-19",
         channel: "shipping",
         createdAt: "2026-08-16T00:00:00Z",
+        cargoCarrier: "PTT Kargo",
+        cargoTrackingNumber: "1234567890",
+        cargoTrackingUrl: "https://example.com/track/1234567890",
       },
     });
   });

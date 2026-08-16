@@ -3,13 +3,19 @@
  *
  * Allowed transitions (SPEC.md §3.6):
  *
- *   pending ──→ confirmed ──→ delivered   (terminal)
- *      │            │
- *      ↓            ↓
- *   cancelled    cancelled                 (terminal)
+ *   pending ──→ confirmed ──┬──→ delivered   (terminal)
+ *      │            │       │
+ *      │            │       └──→ shipped ──→ delivered (terminal)
+ *      ↓            ↓                  │
+ *   cancelled    cancelled          cancelled          (terminal)
  *
  *   delivered → *   FORBIDDEN
  *   cancelled → *   FORBIDDEN
+ *
+ * "shipped" is an OPTIONAL step for shipping-channel (kargo) orders — a
+ * confirmed order can go straight to delivered, or via shipped first. Which
+ * button an admin sees for a given order is a UI concern (gated on
+ * `fulfillment_channel`); the reducer itself allows both paths for any order.
  *
  * Cancellation requires a non-empty reason. Other transitions don't.
  *
@@ -25,7 +31,8 @@ import type { Order, OrderStatus } from "@/features/orders/domain/order";
 
 const ALLOWED: Readonly<Record<OrderStatus, ReadonlySet<OrderStatus>>> = {
   pending: new Set<OrderStatus>(["confirmed", "cancelled"]),
-  confirmed: new Set<OrderStatus>(["delivered", "cancelled"]),
+  confirmed: new Set<OrderStatus>(["shipped", "delivered", "cancelled"]),
+  shipped: new Set<OrderStatus>(["delivered", "cancelled"]),
   delivered: new Set<OrderStatus>(),
   cancelled: new Set<OrderStatus>(),
 };
