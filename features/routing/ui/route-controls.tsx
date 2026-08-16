@@ -190,8 +190,8 @@ export function RouteControls({
   const busy = pending || locating;
 
   return (
-    <div className="flex flex-wrap items-end gap-3 border-b pb-4">
-      <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:flex-wrap sm:items-end">
+      <div className="flex w-full flex-col gap-1.5 sm:w-auto">
         <Label htmlFor="route-start-time" className="text-xs">
           Başlangıç saati
         </Label>
@@ -204,7 +204,7 @@ export function RouteControls({
         />
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-1.5 sm:w-auto">
         <Label className="text-xs">
           Başlangıç konumu <span className="text-destructive">*</span>
         </Label>
@@ -213,7 +213,7 @@ export function RouteControls({
           onValueChange={(v) => v && onPick(v)}
           disabled={busy}
         >
-          <SelectTrigger className="h-9 w-56" aria-label="Başlangıç konumu seç">
+          <SelectTrigger className="h-9 w-full sm:w-56" aria-label="Başlangıç konumu seç">
             {locating ? (
               <span className="flex items-center gap-1.5 text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -250,13 +250,14 @@ export function RouteControls({
         </Select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-1.5 sm:w-auto">
         <Label className="text-xs">Varış konumu</Label>
         <DestinationPicker
           savedLocations={savedLocations}
           orders={orders}
           value={destValue}
           disabled={busy}
+          className="h-9 w-full sm:w-56"
           onRoundTrip={clearDestination}
           onSavedLocation={(loc) => setDestLocation(loc.lat, loc.lng, loc.name)}
           onOrder={setDestOrder}
@@ -264,7 +265,14 @@ export function RouteControls({
       </div>
 
       {optimized ? (
-        <Button type="button" variant="outline" size="sm" onClick={reset} disabled={busy}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={reset}
+          disabled={busy}
+          className="w-full sm:w-auto"
+        >
           {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           Optimizasyonu kaldır
         </Button>
@@ -274,7 +282,7 @@ export function RouteControls({
           size="sm"
           onClick={optimize}
           disabled={busy || !hasOrders || !hasOrigin}
-          className="gap-1.5"
+          className="w-full gap-1.5 sm:w-auto"
           title={!hasOrigin ? "Önce başlangıç konumu seç" : undefined}
         >
           {pending ? (
