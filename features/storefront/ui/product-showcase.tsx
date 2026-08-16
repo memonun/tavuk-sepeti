@@ -26,7 +26,12 @@ import { formatTRY } from "@/shared/utils/money";
 
 import { productImagePublicUrl } from "@/features/products/application/product-image";
 import { useCart } from "@/features/storefront/ui/cart-provider";
-import { fromPriceMinor, hasVolumeDiscount } from "@/features/storefront/ui/line-pricing";
+import {
+  fromPriceMinor,
+  halfUnitPriceMinor,
+  hasHalfUnitOption,
+  hasVolumeDiscount,
+} from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
 
@@ -217,6 +222,14 @@ function ShowcaseCaption({ product }: { product: Product }) {
         </span>{" "}
         / {product.unit_label}
       </p>
+      {hasHalfUnitOption(product) ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          yarım kilo{" "}
+          <span className="text-foreground tabular-nums">
+            {formatTRY(halfUnitPriceMinor(product))}
+          </span>
+        </p>
+      ) : null}
 
       <div className="mt-4 lg:mt-6">
         {qty > 0 ? (
