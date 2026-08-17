@@ -8,7 +8,10 @@ import { formatTRY } from "@/shared/utils/money";
 import { env } from "@/shared/env";
 
 import { productImagePublicUrl } from "@/features/products/application/product-image";
-import { DELIVERY_ONLY_BADGE } from "@/features/storefront/domain/storefront.config";
+import {
+  DELIVERY_ONLY_BADGE,
+  SHIPPING_BADGE,
+} from "@/features/storefront/domain/storefront.config";
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import {
   fromPriceMinor,
@@ -80,25 +83,27 @@ export function ProductCard({ product }: { product: Product }) {
           </span>
         </p>
       ) : null}
+
+      {/* Fulfilment rule, right under the price where an older shopper is
+          already reading — a small pill, not a wall of badges, but not a
+          quiet gray footnote either. The delivery restriction reads warmer
+          (primary-tinted) since it's the one that can surprise someone. */}
+      {product.fulfillment_type === "shipping" ? (
+        <p className="mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
+          <TruckIcon className="size-3.5 shrink-0" aria-hidden /> {SHIPPING_BADGE}
+        </p>
+      ) : (
+        <p className="mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+          <MapPinIcon className="size-3.5 shrink-0" aria-hidden />{" "}
+          {DELIVERY_ONLY_BADGE}
+        </p>
+      )}
+
       {product.web_description ? (
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground/90">
           {product.web_description}
         </p>
       ) : null}
-
-      {/* Fulfilment rule, demoted from a filled pill to a quiet line — except
-          the delivery restriction, which the owner wants read as a warning. */}
-      {product.fulfillment_type === "shipping" ? (
-        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <TruckIcon className="size-3.5 shrink-0" aria-hidden /> Kargo ile
-          gönderilir
-        </p>
-      ) : (
-        <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-foreground">
-          <MapPinIcon className="size-3.5 shrink-0 text-primary" aria-hidden />{" "}
-          {DELIVERY_ONLY_BADGE}
-        </p>
-      )}
       {product.is_featured ? (
         <p className="mt-1.5 text-xs tracking-[0.14em] text-primary uppercase">
           Öne çıkan

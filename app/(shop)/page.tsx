@@ -1,7 +1,13 @@
+import { Suspense } from "react";
 import { MapPinIcon, TruckIcon } from "lucide-react";
 
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
+import {
+  filterProductsForScope,
+  parseCatalogFilter,
+  parseDeliveryScope,
+} from "@/features/storefront/domain/catalog-filter";
 import { formatHomeDeliveryDays } from "@/features/storefront/domain/delivery-window";
 import { orderMinimumNotice } from "@/features/storefront/domain/order-minimum";
 import {
@@ -9,7 +15,11 @@ import {
   FULFILLMENT_NOTICE,
 } from "@/features/storefront/domain/storefront.config";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
+import { CatalogScopeControls } from "@/features/storefront/ui/catalog-scope-controls";
+import { DeliveryScopeHero } from "@/features/storefront/ui/delivery-scope-hero";
 import { ProductShowcase } from "@/features/storefront/ui/product-showcase";
+import { RecurringOrderTeaser } from "@/features/storefront/ui/recurring-order-teaser";
+import { StorefrontScopeSync } from "@/features/storefront/ui/storefront-scope-sync";
 
 /**
  * Storefront home: a compact masthead, the vitrine (shop window), the fulfilment
@@ -22,16 +32,34 @@ import { ProductShowcase } from "@/features/storefront/ui/product-showcase";
  *
  * Admins see the shop too (the header shows a "Yönetim" button → /admin); they
  * are not auto-redirected away, so they can preview the storefront.
+ *
+ * `?teslimat=malatya|kargo` (+ `&filtre=tumu|ozel|kargo`) is a pure browsing
+ * hint — see `catalog-filter.ts`. It narrows what this page shows; it is
+ * never read by checkout or order creation, so a wrong guess here can't
+ * affect the real fulfillment decision.
  */
-export default async function ShopHomePage() {
+export default async function ShopHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ teslimat?: string; filtre?: string }>;
+}) {
+  const params = await searchParams;
+  const scope = parseDeliveryScope(params.teslimat);
+  const filter = parseCatalogFilter(params.filtre);
+
   const [catalog, settings] = await Promise.all([
     getStorefrontCatalog(),
     getStorefrontSettings(),
   ]);
   const products = catalog.ok ? catalog.value : [];
+  const catalogProducts = filterProductsForScope(products, scope, filter);
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+      <Suspense fallback={null}>
+        <StorefrontScopeSync />
+      </Suspense>
+
       <section
         data-enter
         className="flex flex-col gap-5 pt-10 pb-9 sm:pt-14 sm:pb-12 lg:flex-row lg:items-end lg:justify-between lg:gap-12"
@@ -49,6 +77,9 @@ export default async function ShopHomePage() {
           hazırlayın, teslimat gününü seçin — gerisini biz halledelim.
         </p>
       </section>
+
+      <DeliveryScopeHero scope={scope} />
+      <RecurringOrderTeaser />
 
       <ProductShowcase products={products} />
 
@@ -81,11 +112,16 @@ export default async function ShopHomePage() {
         </p>
       </div>
 
-      <section aria-labelledby="catalog-heading" className="mt-14 sm:mt-16">
+      <section
+        id="urunler"
+        aria-labelledby="catalog-heading"
+        className="mt-14 scroll-mt-20 sm:mt-16"
+      >
         <h2 id="catalog-heading" className="sr-only">
           Ürünler
         </h2>
-        <CatalogGrid products={products} unavailable={!catalog.ok} />
+        <CatalogScopeControls scope={scope} filter={filter} />
+        <CatalogGrid products={catalogProducts} unavailable={!catalog.ok} />
       </section>
     </main>
   );

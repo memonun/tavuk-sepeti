@@ -41,6 +41,10 @@ export const DELIVERY_PROVINCE_CENTER = { lat: 38.3552, lng: 38.3095 } as const;
 /** Short per-product badge shown on delivery-only (non-cargoable) items. */
 export const DELIVERY_ONLY_BADGE = `Yalnızca ${DELIVERY_PROVINCE}'da teslim`;
 
+/** Short per-product badge shown on cargo (nationwide shipping) items —
+ *  the symmetric counterpart to DELIVERY_ONLY_BADGE. */
+export const SHIPPING_BADGE = "Kargo ile Türkiye'nin Her Yerine";
+
 /** Full customer-facing notice (home page + checkout). */
 export const FULFILLMENT_NOTICE = `Taze ürünlerimiz (süt ürünleri ve yumurta gibi kargoya verilemeyen ürünler) yalnızca ${DELIVERY_PROVINCE} il sınırları içinde teslim edilir. Kargoyla gönderilebilen ürünler Türkiye'nin her yerine gönderilir.`;
 
