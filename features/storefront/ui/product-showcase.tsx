@@ -16,7 +16,7 @@
  * rail thumbnail reads as current — a mis-synced caption is impossible.
  */
 import { useEffect, useRef, useState } from "react";
-import { PlusIcon } from "lucide-react";
+import { MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,10 @@ import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
 
 import { productImagePublicUrl } from "@/features/products/application/product-image";
+import {
+  DELIVERY_ONLY_BADGE,
+  SHIPPING_BADGE,
+} from "@/features/storefront/domain/storefront.config";
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import {
   fromPriceMinor,
@@ -230,6 +234,20 @@ function ShowcaseCaption({ product }: { product: Product }) {
           </span>
         </p>
       ) : null}
+
+      {/* Same fulfilment pill as ProductCard — the vitrine is the first thing
+          a shopper sees, so a delivery-only product needs this warning here
+          too, not just further down in the grid. */}
+      {product.fulfillment_type === "shipping" ? (
+        <p className="mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
+          <TruckIcon className="size-3.5 shrink-0" aria-hidden /> {SHIPPING_BADGE}
+        </p>
+      ) : (
+        <p className="mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+          <MapPinIcon className="size-3.5 shrink-0" aria-hidden />{" "}
+          {DELIVERY_ONLY_BADGE}
+        </p>
+      )}
 
       <div className="mt-4 lg:mt-6">
         {qty > 0 ? (
