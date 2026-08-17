@@ -640,6 +640,7 @@ export type Database = {
           key: string
           min_qty: number
           package_size: number
+          sort_order: number
           step: number
           unit: string
           unit_label: string
@@ -659,6 +660,7 @@ export type Database = {
           key: string
           min_qty: number
           package_size: number
+          sort_order?: number
           step: number
           unit: string
           unit_label: string
@@ -678,6 +680,7 @@ export type Database = {
           key?: string
           min_qty?: number
           package_size?: number
+          sort_order?: number
           step?: number
           unit?: string
           unit_label?: string

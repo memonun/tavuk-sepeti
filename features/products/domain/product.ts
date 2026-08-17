@@ -41,4 +41,6 @@ export interface Product {
   /** Volume tiers (sorted by min_qty asc). Empty for flat-priced products. */
   readonly price_tiers: readonly ProductPriceTier[];
   readonly active: boolean;
+  /** Display order on the homepage/admin list — lower shows first. */
+  readonly sort_order: number;
 }

@@ -25,6 +25,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     web_description: null,
     image_path: null,
     image_alt: null,
+    sort_order: 0,
     ...overrides,
   };
 }

@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { saveProductPricingAction } from "@/features/products/application/save-product-pricing";
 import { setProductActiveAction } from "@/features/products/application/set-product-active";
 import { updateProductFlagsAction } from "@/features/products/application/set-product-flags";
+import { updateProductSortOrderAction } from "@/features/products/application/set-product-sort-order";
 import { ProductFormDialog } from "@/features/products/ui/product-form";
 import { ProductImageDropzone } from "@/features/products/ui/product-image-dropzone";
 import { formatTRY4, parseTRY2, parseTRY4 } from "@/features/products/ui/money";
@@ -197,6 +198,7 @@ function ProductCard({ product }: { product: Product }) {
   const router = useRouter();
   const [toggling, startToggling] = useTransition();
   const [flagPending, startFlag] = useTransition();
+  const [sortPending, startSort] = useTransition();
   const archived = !product.active;
 
   const setFlag = (patch: { is_web_visible?: boolean; is_featured?: boolean }) => {
@@ -204,6 +206,20 @@ function ProductCard({ product }: { product: Product }) {
       const result = await updateProductFlagsAction({
         product_key: product.key,
         ...patch,
+      });
+      if (result.ok) {
+        router.refresh();
+      } else {
+        toast.error(result.error.message);
+      }
+    });
+  };
+
+  const setSortOrder = (value: number) => {
+    startSort(async () => {
+      const result = await updateProductSortOrderAction({
+        product_key: product.key,
+        sort_order: value,
       });
       if (result.ok) {
         router.refresh();
@@ -307,9 +323,33 @@ function ProductCard({ product }: { product: Product }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <DetailChip label="Paket" value={String(product.package_size)} />
         <DetailChip label="Min." value={String(product.min_qty)} />
+        <div className="flex flex-col rounded-md bg-muted/50 px-2.5 py-1.5">
+          <Label
+            htmlFor={`sort-order-${product.key}`}
+            className="text-[10px] uppercase tracking-wide text-muted-foreground"
+          >
+            Sıra
+          </Label>
+          <Input
+            id={`sort-order-${product.key}`}
+            type="number"
+            min={0}
+            max={9999}
+            step={1}
+            defaultValue={product.sort_order}
+            onBlur={(e) => {
+              const value = Number(e.target.value);
+              if (Number.isFinite(value) && value !== product.sort_order) {
+                setSortOrder(value);
+              }
+            }}
+            disabled={sortPending}
+            className="h-6 border-0 bg-transparent p-0 text-sm font-medium tabular-nums shadow-none focus-visible:ring-0"
+          />
+        </div>
       </div>
 
       <Separator />
