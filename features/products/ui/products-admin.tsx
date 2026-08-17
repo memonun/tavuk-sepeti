@@ -323,33 +323,39 @@ function ProductCard({ product }: { product: Product }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <DetailChip label="Paket" value={String(product.package_size)} />
         <DetailChip label="Min." value={String(product.min_qty)} />
-        <div className="flex flex-col rounded-md bg-muted/50 px-2.5 py-1.5">
+      </div>
+
+      <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+        <div className="flex flex-col">
           <Label
             htmlFor={`sort-order-${product.key}`}
-            className="text-[10px] uppercase tracking-wide text-muted-foreground"
+            className="text-sm font-medium"
           >
-            Sıra
+            Vitrin sırası
           </Label>
-          <Input
-            id={`sort-order-${product.key}`}
-            type="number"
-            min={0}
-            max={9999}
-            step={1}
-            defaultValue={product.sort_order}
-            onBlur={(e) => {
-              const value = Number(e.target.value);
-              if (Number.isFinite(value) && value !== product.sort_order) {
-                setSortOrder(value);
-              }
-            }}
-            disabled={sortPending}
-            className="h-6 border-0 bg-transparent p-0 text-sm font-medium tabular-nums shadow-none focus-visible:ring-0"
-          />
+          <span className="text-xs text-muted-foreground">
+            Küçük sayı önce gösterilir (ana sayfa ve bu liste).
+          </span>
         </div>
+        <Input
+          id={`sort-order-${product.key}`}
+          type="number"
+          min={0}
+          max={9999}
+          step={1}
+          defaultValue={product.sort_order}
+          onBlur={(e) => {
+            const value = Number(e.target.value);
+            if (Number.isFinite(value) && value !== product.sort_order) {
+              setSortOrder(value);
+            }
+          }}
+          disabled={sortPending}
+          className="h-9 w-20 text-center tabular-nums"
+        />
       </div>
 
       <Separator />
