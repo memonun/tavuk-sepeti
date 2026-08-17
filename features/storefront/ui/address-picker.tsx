@@ -41,8 +41,8 @@ interface AddressPickerProps {
 }
 
 const BLOCK_MESSAGE: Record<RouteBlockReason, string> = {
-  no_pin: `Taze ürünler için konum onayı gerekiyor — bu adreste harita pini yok. Adresi düzenleyip haritadan ${DELIVERY_PROVINCE} konumunuzu onaylayın.`,
-  other_province: `Taze ürünler yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Bu adres başka bir ilde — kargo siparişleri için kullanılabilir.`,
+  no_pin: `Bu ürünler için konum onayı gerekiyor — bu adreste harita pini yok. Adresi düzenleyip haritadan ${DELIVERY_PROVINCE} konumunuzu onaylayın.`,
+  other_province: `Bu ürünler yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Bu adres başka bir ilde — kargo siparişleri için kullanılabilir.`,
 };
 
 export function AddressPicker({
