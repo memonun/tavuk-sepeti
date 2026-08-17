@@ -83,7 +83,6 @@ import {
 } from "@/features/storefront/domain/route-capability";
 import {
   CARGO_FEE_MINOR,
-  CARGO_FREE_SHIPPING_NOTICE,
   DELIVERY_FEE_MINOR,
   DELIVERY_PROVINCE,
   TIME_SLOT_OPTIONS,
@@ -478,7 +477,7 @@ export function CheckoutForm({
                 // ships nationwide by default, but a route-capable Malatya
                 // address (below) upgrades it to hand-delivery instead —
                 // stated as a possibility here, not a settled fact.
-                `Sepetinizdeki ürünler kargoyla gönderilebilir — Türkiye'nin her yerine teslimat yapılır. Adresiniz ${DELIVERY_PROVINCE} içindeyse ekibimiz elden de teslim edebilir. ${CARGO_FREE_SHIPPING_NOTICE}`
+                "Siparişiniz Türkiye'nin her yerine kargo ile gönderilebilir. Teslimat adresinizi seçerek devam edin."
               )}
             </span>
           </p>
@@ -588,10 +587,8 @@ export function CheckoutForm({
                 aria-hidden
               />
               <span>
-                Siparişiniz onaylandıktan sonra hazırlanıp kargoya verilir.{" "}
-                <strong className="font-medium text-foreground">
-                  {CARGO_FREE_SHIPPING_NOTICE}
-                </strong>
+                Siparişiniz onaylandıktan sonra özenle hazırlanarak kargoya
+                teslim edilir.
               </span>
             </p>
             {/* channel, not a hardcoded cargo assumption: once an address
@@ -817,7 +814,7 @@ function OrderSummary({
             {`Yumurta ve süt ürünleri yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`}
           </strong>
         ) : (
-          CARGO_FREE_SHIPPING_NOTICE
+          "Türkiye geneli ücretsiz kargo"
         )}
       </p>
     </div>
