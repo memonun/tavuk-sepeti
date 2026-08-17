@@ -294,7 +294,12 @@ export async function listOrders(
 
   // Apply sort: primary sort is query-driven; secondary tie-breaker on
   // created_at (descending) unless created_at is already the primary sort.
-  builder = builder.order(query.sort, { ascending: query.order === "asc" });
+  // order_number sorts by its numeric backbone (order_seq), not the
+  // formatted string — the channel letter (R/K) sits before the digits, so
+  // string order would group by channel on same-day ties instead of by
+  // actual creation order.
+  const sortColumn = query.sort === "order_number" ? "order_seq" : query.sort;
+  builder = builder.order(sortColumn, { ascending: query.order === "asc" });
   if (query.sort !== "created_at") {
     builder = builder.order("created_at", { ascending: false });
   }
