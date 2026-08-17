@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { saveProductPricingAction } from "@/features/products/application/save-product-pricing";
 import { setProductActiveAction } from "@/features/products/application/set-product-active";
 import { updateProductFlagsAction } from "@/features/products/application/set-product-flags";
+import { updateProductSortOrderAction } from "@/features/products/application/set-product-sort-order";
 import { ProductFormDialog } from "@/features/products/ui/product-form";
 import { ProductImageDropzone } from "@/features/products/ui/product-image-dropzone";
 import { formatTRY4, parseTRY2, parseTRY4 } from "@/features/products/ui/money";
@@ -197,6 +198,7 @@ function ProductCard({ product }: { product: Product }) {
   const router = useRouter();
   const [toggling, startToggling] = useTransition();
   const [flagPending, startFlag] = useTransition();
+  const [sortPending, startSort] = useTransition();
   const archived = !product.active;
 
   const setFlag = (patch: { is_web_visible?: boolean; is_featured?: boolean }) => {
@@ -204,6 +206,20 @@ function ProductCard({ product }: { product: Product }) {
       const result = await updateProductFlagsAction({
         product_key: product.key,
         ...patch,
+      });
+      if (result.ok) {
+        router.refresh();
+      } else {
+        toast.error(result.error.message);
+      }
+    });
+  };
+
+  const setSortOrder = (value: number) => {
+    startSort(async () => {
+      const result = await updateProductSortOrderAction({
+        product_key: product.key,
+        sort_order: value,
       });
       if (result.ok) {
         router.refresh();
@@ -310,6 +326,36 @@ function ProductCard({ product }: { product: Product }) {
       <div className="grid grid-cols-2 gap-2">
         <DetailChip label="Paket" value={String(product.package_size)} />
         <DetailChip label="Min." value={String(product.min_qty)} />
+      </div>
+
+      <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+        <div className="flex flex-col">
+          <Label
+            htmlFor={`sort-order-${product.key}`}
+            className="text-sm font-medium"
+          >
+            Vitrin sırası
+          </Label>
+          <span className="text-xs text-muted-foreground">
+            Küçük sayı önce gösterilir (ana sayfa ve bu liste).
+          </span>
+        </div>
+        <Input
+          id={`sort-order-${product.key}`}
+          type="number"
+          min={0}
+          max={9999}
+          step={1}
+          defaultValue={product.sort_order}
+          onBlur={(e) => {
+            const value = Number(e.target.value);
+            if (Number.isFinite(value) && value !== product.sort_order) {
+              setSortOrder(value);
+            }
+          }}
+          disabled={sortPending}
+          className="h-9 w-20 text-center tabular-nums"
+        />
       </div>
 
       <Separator />

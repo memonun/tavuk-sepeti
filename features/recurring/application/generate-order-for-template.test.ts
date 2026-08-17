@@ -43,6 +43,7 @@ const eggs: Product = {
   web_description: null,
   image_path: null,
   image_alt: null,
+  sort_order: 0,
 };
 
 const cheese: Product = {
@@ -62,6 +63,7 @@ const cheese: Product = {
   web_description: null,
   image_path: null,
   image_alt: null,
+  sort_order: 0,
 };
 
 const products: Product[] = [eggs, cheese];

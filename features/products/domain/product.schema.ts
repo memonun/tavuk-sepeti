@@ -120,6 +120,20 @@ export const updateProductFlagsSchema = z
 
 export type UpdateProductFlagsInput = z.input<typeof updateProductFlagsSchema>;
 
+/** Display-order update payload — lower sort_order shows first. */
+export const updateProductSortOrderSchema = z.object({
+  product_key: z.string().min(1),
+  sort_order: z.coerce
+    .number()
+    .int("Tam sayı olmalı.")
+    .min(0, "0 veya daha büyük olmalı.")
+    .max(9999, "En fazla 9999 olabilir."),
+});
+
+export type UpdateProductSortOrderInput = z.input<
+  typeof updateProductSortOrderSchema
+>;
+
 /** Minimal payload that only identifies a product (e.g. image removal). */
 export const productKeySchema = z.object({
   product_key: z.string().min(1),

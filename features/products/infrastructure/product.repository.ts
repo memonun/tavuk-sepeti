@@ -162,6 +162,26 @@ export async function updateProductFlags(
   return ok(undefined);
 }
 
+/** Update a product's homepage/admin-list display order (lower shows first). */
+export async function updateProductSortOrder(
+  productKey: string,
+  sortOrder: number,
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ sort_order: sortOrder, updated_at: new Date().toISOString() })
+    .eq("key", productKey);
+  if (error) {
+    logger.error(
+      { productKey, code: error.code },
+      "update_product_sort_order_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
+
 /** Read a product's current cover-image object key (null when none). */
 export async function getProductImagePath(
   productKey: string,
