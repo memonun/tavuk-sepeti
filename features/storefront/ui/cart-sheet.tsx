@@ -13,10 +13,7 @@ import {
   checkOrderMinimum,
   orderMinimumMessage,
 } from "@/features/storefront/domain/order-minimum";
-import {
-  CARGO_FREE_SHIPPING_NOTICE,
-  DELIVERY_PROVINCE,
-} from "@/features/storefront/domain/storefront.config";
+import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
@@ -171,13 +168,28 @@ export function CartSheet({
                 <TruckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
               )}
               <span>
-                {mode === "route" ? (
-                  <strong className="font-bold text-foreground">
-                    {`Sepetinizde taze ürün var — bu sipariş yalnızca ${DELIVERY_PROVINCE} içine, kendi ekibimizle elden teslim edilir.`}
-                  </strong>
-                ) : (
-                  `Bu sepetin tamamı kargoyla gönderilir — Türkiye'nin her yerine. ${CARGO_FREE_SHIPPING_NOTICE}`
-                )}
+                <strong className="block font-bold text-foreground">
+                  Teslimat Bilgisi
+                </strong>
+                <span className="mt-1 block">
+                  <strong className="font-medium text-foreground">Yumurta:</strong>{" "}
+                  Kargoda hasar görme riski nedeniyle yalnızca {DELIVERY_PROVINCE}{" "}
+                  il sınırları içerisinde teslim edilir.
+                </span>
+                <span className="mt-1 block">
+                  <strong className="font-medium text-foreground">
+                    Süt ürünleri:
+                  </strong>{" "}
+                  Uygun taşıma koşullarının korunabilmesi için yalnızca{" "}
+                  {DELIVERY_PROVINCE} il sınırları içerisinde teslim edilir.
+                </span>
+                <span className="mt-1 block">
+                  <strong className="font-medium text-foreground">
+                    Diğer ürünler:
+                  </strong>{" "}
+                  Kargoya uygun ürünlerimiz Türkiye&apos;nin her yerine
+                  gönderilir.
+                </span>
               </span>
             </p>
             <div className="flex items-center justify-between text-sm">

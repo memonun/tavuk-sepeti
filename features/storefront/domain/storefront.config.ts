@@ -46,7 +46,7 @@ export const DELIVERY_ONLY_BADGE = `Yalnızca ${DELIVERY_PROVINCE}'da teslim`;
 export const SHIPPING_BADGE = "Kargo ile Türkiye'nin Her Yerine";
 
 /** Full customer-facing notice (home page + checkout). */
-export const FULFILLMENT_NOTICE = `Taze ürünlerimiz (süt ürünleri ve yumurta gibi kargoya verilemeyen ürünler) yalnızca ${DELIVERY_PROVINCE} il sınırları içinde teslim edilir. Kargoyla gönderilebilen ürünler Türkiye'nin her yerine gönderilir.`;
+export const FULFILLMENT_NOTICE = `Yumurta ve süt ürünlerimizi size en uygun koşullarda ulaştırabilmek için yalnızca ${DELIVERY_PROVINCE} il sınırları içerisinde teslim ediyoruz. Kargoya uygun ürünlerimizi ise Türkiye'nin dört bir yanına gönderiyoruz.`;
 
 /** Earliest delivery is this many days after "today" (1 = tomorrow). */
 export const MIN_DELIVERY_LEAD_DAYS = 1;
