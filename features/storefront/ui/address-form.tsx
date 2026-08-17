@@ -376,8 +376,7 @@ export function AddressForm({
       fallback={
         needsPin ? (
           <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-            Harita yüklenemedi. Taze ürün siparişi için konum onayı
-            gerektiğinden şu an bu adres kaydedilemiyor.
+            {`Harita yüklenemedi. ${DELIVERY_PROVINCE} içi teslimat için konum onayı gerektiğinden şu an bu adres kaydedilemiyor.`}
           </p>
         ) : (
           // Cargo does not depend on the map, so a missing key is a downgrade,
@@ -403,7 +402,7 @@ export function AddressForm({
           pinSource="user_pin"
           hint={
             !hasPin
-              ? "Haritada konumunuza dokunun — adres alanları kendiliğinden dolar."
+              ? "Haritada teslimat konumunuzu seçin — adres bilgileri otomatik doldurulsun."
               : needsPin
                 ? "Pini kapınızın tam önüne sürükleyin, sonra aşağıdan onaylayın."
                 : "Pini sürükleyerek konumu düzeltebilirsiniz."
@@ -449,8 +448,7 @@ export function AddressForm({
           <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
             <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
             <span>
-              Taze ürün siparişi için haritadan konumunuzu seçip onaylamanız
-              gerekiyor.
+              {`${DELIVERY_PROVINCE} içi teslimat için konumunuzu haritadan seçip onaylayın.`}
             </span>
           </p>
         ) : null}

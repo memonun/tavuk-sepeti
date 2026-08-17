@@ -86,7 +86,6 @@ import {
   CARGO_FREE_SHIPPING_NOTICE,
   DELIVERY_FEE_MINOR,
   DELIVERY_PROVINCE,
-  FULFILLMENT_NOTICE,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -472,7 +471,7 @@ export function CheckoutForm({
             <span>
               {mode === "route" ? (
                 <strong className="font-bold text-foreground">
-                  {`Sepetinizde taze ürün var — bu sipariş ${DELIVERY_PROVINCE} içinde kendi ekibimizle elden teslim edilir. Haritada konumunuzu onaylamanız gerekiyor.`}
+                  {`Sepetinizde ${DELIVERY_PROVINCE} içi teslim edilen ürün bulunuyor. Siparişiniz kendi ekibimizle adresinize ulaştırılacaktır. Konumunuzu haritadan seçerek devam edin.`}
                 </strong>
               ) : (
                 // Genuinely undecided until an address exists: this basket
@@ -525,8 +524,8 @@ export function CheckoutForm({
             <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
               <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
               <span>
-                Eve servis günlerimiz: <strong>{deliveryDaysLabel}</strong>.
-                Aşağıdaki günlerden birini seçin.
+                {DELIVERY_PROVINCE} içi teslimat günlerimiz{" "}
+                <strong>{deliveryDaysLabel}</strong>. Size uygun günü seçin.
               </span>
             </p>
 
@@ -814,7 +813,9 @@ function OrderSummary({
 
       <p className="rounded-lg bg-secondary/60 px-2.5 py-1.5 text-center text-xs text-muted-foreground">
         {mode === "route" ? (
-          <strong className="font-bold text-foreground">{FULFILLMENT_NOTICE}</strong>
+          <strong className="font-bold text-foreground">
+            {`Yumurta ve süt ürünleri yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`}
+          </strong>
         ) : (
           CARGO_FREE_SHIPPING_NOTICE
         )}
