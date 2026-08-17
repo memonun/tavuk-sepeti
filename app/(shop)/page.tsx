@@ -81,7 +81,9 @@ export default async function ShopHomePage({
       <DeliveryScopeHero scope={scope} />
       <RecurringOrderTeaser />
 
-      <ProductShowcase products={products} />
+      <div className="mt-14 sm:mt-16">
+        <ProductShowcase products={products} />
+      </div>
 
       {/* Both fulfilment stories, stated up front: when the van comes, and what
           shipping costs. Both are rules the owner edits in the admin. Set as a
