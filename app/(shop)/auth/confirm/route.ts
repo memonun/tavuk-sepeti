@@ -27,7 +27,17 @@ export async function GET(request: NextRequest) {
       type,
       token_hash: tokenHash,
     });
-    if (!error) return NextResponse.redirect(new URL(next, origin));
+    if (!error) {
+      // Signup confirmation gets a feedback page; recovery (and any other
+      // OTP type) keeps going straight to `next` so /sifre-yenile etc. don't
+      // gain an extra hop.
+      if (type === "email") {
+        return NextResponse.redirect(
+          new URL(`/e-posta-dogrulandi?next=${encodeURIComponent(next)}`, origin),
+        );
+      }
+      return NextResponse.redirect(new URL(next, origin));
+    }
     logger.warn({ supabaseStatus: error.status }, "customer_email_confirm_failed");
   } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
