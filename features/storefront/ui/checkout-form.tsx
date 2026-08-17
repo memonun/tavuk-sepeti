@@ -561,11 +561,10 @@ export function CheckoutForm({
                   <select
                     id="time_slot"
                     name="time_slot"
-                    defaultValue=""
+                    defaultValue={TIME_SLOT_OPTIONS[0].value}
                     className={controlClass}
                     disabled={pending}
                   >
-                    <option value="">Fark etmez</option>
                     {TIME_SLOT_OPTIONS.map((slot) => (
                       <option key={slot.value} value={slot.value}>
                         {slot.label}

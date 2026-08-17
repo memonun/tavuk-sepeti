@@ -57,9 +57,7 @@ export const MAX_DELIVERY_HORIZON_DAYS = 21;
 /** Delivery time-slot options shown at checkout. Values mirror the DB
  *  `time_slot` enum; labels are customer-facing Turkish. */
 export const TIME_SLOT_OPTIONS = [
-  { value: "morning", label: "Sabah (09:00–12:00)" },
-  { value: "afternoon", label: "Öğleden sonra (12:00–17:00)" },
-  { value: "evening", label: "Akşam (17:00–20:00)" },
+  { value: "morning", label: "Gün İçerisinde (Saat 10:00 - 19:00 arası)" },
 ] as const;
 
 /**

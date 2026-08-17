@@ -7,7 +7,7 @@ const base = {
   customerName: "Ayşe Yılmaz",
   channel: "delivery",
   scheduledFor: "2026-07-30",
-  timeSlotLabel: "Sabah (09:00–12:00)",
+  timeSlotLabel: "Gün İçerisinde (Saat 10:00 - 19:00 arası)",
   paymentMethodLabel: "Kapıda nakit ödeme",
   addressText: "Moda Cd. No: 12/3, Caferağa Mh., Kadıköy/İstanbul",
   items: [
@@ -40,7 +40,7 @@ describe("buildOrderConfirmationEmail", () => {
 
   it("names the delivery day on a home delivery", () => {
     const { text, html } = buildOrderConfirmationEmail(base);
-    expect(text).toContain("Teslimat günü: 2026-07-30 (Sabah (09:00–12:00))");
+    expect(text).toContain("Teslimat günü: 2026-07-30 (Gün İçerisinde (Saat 10:00 - 19:00 arası))");
     expect(html).toContain("Teslimat günü");
   });
 
