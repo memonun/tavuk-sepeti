@@ -903,7 +903,6 @@ function AccountBlock({
               name="phone"
               type="tel"
               inputMode="tel"
-              placeholder="0532 123 45 67"
               autoComplete="tel"
               required
               disabled={disabled}
@@ -1000,7 +999,6 @@ function GuestBlock({ disabled }: { disabled: boolean }) {
           name="phone"
           type="tel"
           inputMode="tel"
-          placeholder="0532 123 45 67"
           autoComplete="tel"
           required
           disabled={disabled}
