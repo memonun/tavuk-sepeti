@@ -498,6 +498,9 @@ export type Database = {
         Row: {
           address_id: string
           amount_paid_minor: number
+          cargo_carrier: string | null
+          cargo_tracking_number: string | null
+          cargo_tracking_url: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -508,6 +511,7 @@ export type Database = {
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           id: string
           order_number: string
+          order_seq: number
           paid_at: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_status: Database["public"]["Enums"]["payment_status"]
@@ -523,6 +527,9 @@ export type Database = {
         Insert: {
           address_id: string
           amount_paid_minor?: number
+          cargo_carrier?: string | null
+          cargo_tracking_number?: string | null
+          cargo_tracking_url?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -532,7 +539,8 @@ export type Database = {
           delivery_notes?: string | null
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           id?: string
-          order_number?: string
+          order_number: string
+          order_seq?: number
           paid_at?: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_status?: Database["public"]["Enums"]["payment_status"]
@@ -548,6 +556,9 @@ export type Database = {
         Update: {
           address_id?: string
           amount_paid_minor?: number
+          cargo_carrier?: string | null
+          cargo_tracking_number?: string | null
+          cargo_tracking_url?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -558,6 +569,7 @@ export type Database = {
           fulfillment_channel?: Database["public"]["Enums"]["fulfillment_channel"]
           id?: string
           order_number?: string
+          order_seq?: number
           paid_at?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_status?: Database["public"]["Enums"]["payment_status"]
@@ -827,6 +839,7 @@ export type Database = {
         Row: {
           cargo_min_order_minor: number
           home_delivery_days: number[]
+          home_min_order_minor: number
           id: boolean
           updated_at: string
           updated_by: string | null
@@ -834,6 +847,7 @@ export type Database = {
         Insert: {
           cargo_min_order_minor?: number
           home_delivery_days?: number[]
+          home_min_order_minor?: number
           id?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -841,6 +855,7 @@ export type Database = {
         Update: {
           cargo_min_order_minor?: number
           home_delivery_days?: number[]
+          home_min_order_minor?: number
           id?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -1255,6 +1270,10 @@ export type Database = {
       }
       gettransactionid: { Args: never; Returns: unknown }
       is_admin: { Args: never; Returns: boolean }
+      is_route_capable_address: {
+        Args: { a: Database["public"]["Tables"]["addresses"]["Row"] }
+        Returns: boolean
+      }
       is_within_service_area: {
         Args: { p_lat: number; p_lng: number }
         Returns: boolean
@@ -1273,6 +1292,9 @@ export type Database = {
       lookup_guest_order: {
         Args: { p_order_number: string; p_phone: string }
         Returns: {
+          cargo_carrier: string
+          cargo_tracking_number: string
+          cargo_tracking_url: string
           created_at: string
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           order_id: string
@@ -1284,7 +1306,6 @@ export type Database = {
           total_minor: number
         }[]
       }
-      next_order_number: { Args: never; Returns: string }
       place_guest_order: {
         Args: {
           p_address: Json
@@ -1367,7 +1388,10 @@ export type Database = {
         Returns: undefined
       }
       resolve_channel_for_items: {
-        Args: { p_items: Json }
+        Args: {
+          p_address: Database["public"]["Tables"]["addresses"]["Row"]
+          p_items: Json
+        }
         Returns: Database["public"]["Enums"]["fulfillment_channel"]
       }
       resolve_order_channel: {
@@ -2026,7 +2050,12 @@ export type Database = {
       customer_status: "active" | "inactive" | "blocked"
       fulfillment_channel: "delivery" | "shipping"
       order_source: "admin_manual" | "customer_web" | "recurring_generated"
-      order_status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled"
+      order_status:
+        | "pending"
+        | "confirmed"
+        | "shipped"
+        | "delivered"
+        | "cancelled"
       payment_channel: "cash" | "bank_transfer" | "card"
       payment_method: "cash_on_delivery" | "bank_transfer" | "credit_card"
       payment_status: "pending" | "paid" | "failed" | "refunded" | "partial"
@@ -2187,7 +2216,13 @@ export const Constants = {
       customer_status: ["active", "inactive", "blocked"],
       fulfillment_channel: ["delivery", "shipping"],
       order_source: ["admin_manual", "customer_web", "recurring_generated"],
-      order_status: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+      order_status: [
+        "pending",
+        "confirmed",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
       payment_channel: ["cash", "bank_transfer", "card"],
       payment_method: ["cash_on_delivery", "bank_transfer", "credit_card"],
       payment_status: ["pending", "paid", "failed", "refunded", "partial"],
