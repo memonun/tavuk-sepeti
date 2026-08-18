@@ -189,6 +189,10 @@ export function CheckoutForm({
   /** Guest address: collected in-form, submitted WITH the order (there is no
    *  address book to save it to before one exists). */
   const [guestAddress, setGuestAddress] = useState<CollectedAddress | null>(null);
+  // "Adresi düzenle" reopens the form pre-filled from `guestAddress` (see
+  // below) rather than discarding it — nulling it out here is what used to
+  // wipe every field, plus the map pin and its confirmation, back to blank.
+  const [editingGuestAddress, setEditingGuestAddress] = useState(false);
   const [pickedAddressId, setPickedAddressId] = useState<string | null>(null);
   // Tracked so the havale/EFT IBAN box can appear the moment that option is
   // picked, without waiting for a submit. Empty until the customer (or the
@@ -495,19 +499,28 @@ export function CheckoutForm({
               />
               <input type="hidden" name="address_id" value={addressId ?? ""} />
             </>
-          ) : guestAddress ? (
+          ) : guestAddress && !editingGuestAddress ? (
             // Collected, not saved: a guest has no address book, so the fields
             // ride along with the order submit as hidden inputs.
             <GuestAddressSummary
               address={guestAddress}
-              onEdit={() => setGuestAddress(null)}
+              onEdit={() => setEditingGuestAddress(true)}
             />
           ) : (
             <AddressForm
               mode={mode}
               mapsKey={mapsKey}
+              // Re-editing pre-fills from what was already collected — fields,
+              // pin and its confirmation all carry over instead of resetting.
+              {...(guestAddress ? { initial: guestAddress } : {})}
               onSaved={() => undefined}
-              onCollect={setGuestAddress}
+              onCollect={(address) => {
+                setGuestAddress(address);
+                setEditingGuestAddress(false);
+              }}
+              {...(guestAddress
+                ? { onCancel: () => setEditingGuestAddress(false) }
+                : {})}
             />
           )}
           <input type="hidden" name="address_mode" value={mode} />
@@ -1086,7 +1099,7 @@ function GuestAddressSummary({
         </p>
       </div>
       <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
-        Değiştir
+        Adresi düzenle
       </Button>
       {hidden.map(([name, value]) => (
         <input key={name} type="hidden" name={`addr_${name}`} value={value} />

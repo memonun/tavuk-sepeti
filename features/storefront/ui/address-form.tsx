@@ -66,8 +66,14 @@ export interface CollectedAddress {
 export interface AddressFormProps {
   mode: "route" | "cargo";
   mapsKey: string | undefined;
-  /** Present when editing an existing address. */
-  initial?: SavedAddress;
+  /**
+   * Present when editing an address that already has values — a saved address
+   * (has `id`/`is_primary`/`geo_verified`) or a guest's already-collected
+   * address (has none of those; nothing is persisted yet). Either way the
+   * form pre-fills from it instead of opening blank, which is what "Adresi
+   * düzenle" promises.
+   */
+  initial?: SavedAddress | CollectedAddress;
   onSaved: (addressId: string) => void;
   onCancel?: () => void;
   /**
@@ -147,8 +153,18 @@ export function AddressForm({
   const [detached, setDetached] = useState(
     initial?.apartment_no === DETACHED_HOUSE_APARTMENT_NO,
   );
-  // Editing an already-verified address starts confirmed; a new one never does.
-  const [confirmed, setConfirmed] = useState(Boolean(initial?.geo_verified));
+  // Editing an already-verified SAVED address starts confirmed (geo_verified
+  // says so explicitly). A guest's CollectedAddress has no such flag, but if
+  // it already carries a pin it could only have gotten here already confirmed
+  // — canSubmit required that the first time — so a pin implies confirmed. A
+  // brand new address (no `initial` at all) never starts confirmed.
+  const [confirmed, setConfirmed] = useState(
+    initial
+      ? "geo_verified" in initial
+        ? Boolean(initial.geo_verified)
+        : initial.lat !== 0 || initial.lng !== 0
+      : false,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -328,9 +344,14 @@ export function AddressForm({
       return;
     }
 
+    // Only a SAVED address (from AddressPicker's "Düzenle") has an id/is_primary
+    // to carry forward — a guest's CollectedAddress never reaches this branch at
+    // all (onCollect is always set for guests, see the early return above).
+    const savedInitial = initial && "id" in initial ? initial : undefined;
+
     setSaving(true);
     const result = await saveAddressAction({
-      addressId: initial?.id ?? null,
+      addressId: savedInitial?.id ?? null,
       mode,
       // Editing keeps whatever the address already was. A NEW one does not
       // claim the default: `upsert_customer_address` already promotes the very
@@ -339,7 +360,7 @@ export function AddressForm({
       // and the next checkout then preselected the address least likely to be
       // wanted. Choosing it for THIS order is the picker's job, not a flag on
       // the row.
-      makePrimary: initial ? initial.is_primary : false,
+      makePrimary: savedInitial ? savedInitial.is_primary : false,
       address: {
         ...fields,
         apartment_no: detached
