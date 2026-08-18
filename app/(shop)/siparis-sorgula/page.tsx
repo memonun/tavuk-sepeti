@@ -15,8 +15,8 @@ export default function FindOrderPage() {
         <h1 className="font-display text-3xl">Sipariş sorgula</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Hesabınız varsa yukarıdan &quot;Hesabım&quot; tuşuna basarak aktif
-          siparişlerinizi Hesabım sayfasında da takip edebilirsiniz. Hesabınız
-          olmadan verdiğiniz siparişin durumunu buradan görebilir, ödemesi
+          siparişlerinizi takip edebilirsiniz. Hesabınız
+          olmadan verdiğiniz siparişlerin durumunu da buradan görebilir, ödemesi
           yarım kaldıysa tamamlayabilirsiniz.
         </p>
       </div>
