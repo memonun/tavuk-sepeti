@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { SearchIcon } from "lucide-react";
 
 import { getViewer } from "@/features/auth/application/get-viewer";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 
 import { AccountNav } from "@/features/storefront/ui/account-nav";
 import { CartSheet } from "@/features/storefront/ui/cart-sheet";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import type { Product } from "@/features/products/application/list-products";
 
@@ -31,6 +34,17 @@ export async function ShopHeader({ products }: { products: readonly Product[] })
           </span>
         </Link>
         <div className="flex items-center gap-1">
+          <Link
+            href="/siparis-sorgula"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "lg" }),
+              "rounded-full",
+            )}
+            title="Siparişi sorgula"
+          >
+            <SearchIcon />
+            <span className="hidden sm:inline">Sipariş Sorgula</span>
+          </Link>
           <AccountNav authed={authed} isAdmin={isAdmin} />
           <CartSheet
             products={products}
