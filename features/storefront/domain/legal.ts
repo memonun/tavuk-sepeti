@@ -67,16 +67,42 @@ export interface LegalDoc {
   readonly relatedSlugs?: readonly string[];
 }
 
+/**
+ * The two documents a customer must acknowledge before a one-time web order.
+ *
+ * Keep a new version value for each substantive document revision. The order
+ * record stores these references with its acceptance timestamp, so a later
+ * edit to the public page does not erase which revision a past order accepted.
+ */
+export const SALES_LEGAL_ACCEPTANCE_DOCUMENTS = [
+  { slug: "on-bilgilendirme-formu", version: "2026-08-18" },
+  { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-18" },
+] as const;
+
+export interface SalesLegalAcceptance {
+  readonly accepted_at: string;
+  readonly documents: ReadonlyArray<{
+    readonly slug: (typeof SALES_LEGAL_ACCEPTANCE_DOCUMENTS)[number]["slug"];
+    readonly version: string;
+  }>;
+}
+
+/** A minimal, non-sensitive record suitable for the immutable order row. */
+export function createSalesLegalAcceptance(acceptedAt: Date): SalesLegalAcceptance {
+  return {
+    accepted_at: acceptedAt.toISOString(),
+    documents: SALES_LEGAL_ACCEPTANCE_DOCUMENTS.map((document) => ({ ...document })),
+  };
+}
+
 const p = (...paragraphs: string[]): LegalSection => ({ paragraphs });
 const s = (heading: string, ...paragraphs: string[]): LegalSection => ({
   heading,
   paragraphs,
 });
 
-const UPDATED = "2026-07-28";
-// Bumped only for docs whose content actually changed on this revision
-// (gizlilik-politikasi expansion, cerez-politikasi cookie/localStorage
-// correction, new kullanim-sartlari) — every other doc keeps UPDATED as-is.
+const SALES_LEGAL_UPDATED = "2026-08-18";
+// Protected by this task: these were set in PR #114 and remain untouched.
 const UPDATED_2 = "2026-08-18";
 
 export const LEGAL_DOCS: readonly LegalDoc[] = [
@@ -84,31 +110,54 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "mesafeli-satis-sozlesmesi",
     title: "Mesafeli Satış Sözleşmesi",
     longTitle: "Mesafeli Satış Sözleşmesi",
-    updated: UPDATED,
+    updated: SALES_LEGAL_UPDATED,
+    relatedSlugs: [
+      "on-bilgilendirme-formu",
+      "iptal-iade-kosullari",
+      "teslimat-kosullari",
+      "kvkk",
+      "duzenli-siparis-kosullari",
+    ],
     sections: [
       s(
         "1. Taraflar",
         `SATICI: ${COMPANY.tradeName}, Adres: ${COMPANY.address}, Telefon: ${COMPANY.phone}, E-posta: ${COMPANY.email}.`,
-        "ALICI: Siparişi veren, bilgileri sipariş formunda yer alan müşteri.",
+        "ALICI: Siparişi veren müşteri. ALICI'ya ait iletişim ve teslimat bilgileri sipariş formu ile sipariş kaydında yer alır; bu bilgiler statik sözleşme sayfasında gösterilmez.",
       ),
       s(
         "2. Konu",
-        "İşbu sözleşmenin konusu, ALICI'nın SATICI'ya ait internet sitesi üzerinden elektronik ortamda sipariş verdiği, sözleşmede nitelikleri ve satış fiyatı belirtilen ürünün satışı ve teslimi ile ilgili olarak 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümleri gereğince tarafların hak ve yükümlülüklerinin belirlenmesidir.",
+        "Bu sözleşme; ALICI'nın SATICI'ya ait internet sitesinde elektronik ortamda verdiği siparişin satışı, ödemesi, teslimi ve tarafların temel hak ve yükümlülüklerini 6502 sayılı Tüketicinin Korunması Hakkında Kanun ile uygulanabilir Mesafeli Sözleşmeler Yönetmeliği çerçevesinde açıklar.",
       ),
       s(
-        "3. Sözleşme Konusu Ürün ve Ödeme",
-        "Ürünlerin cinsi, adedi, KDV dahil satış fiyatı ve teslimat bilgileri sipariş özetinde belirtildiği gibidir. Ödeme, kapıda nakit ödeme, banka havalesi/EFT veya kredi/banka kartı (PayTR altyapısı) ile yapılabilir. Kart ile ödemelerde işlem, 3D Secure ile güvenli ödeme sağlayıcısı üzerinden gerçekleştirilir; kart bilgileri SATICI tarafından saklanmaz.",
+        "3. Ürünler, Fiyat ve Toplam Bedel",
+        "Siparişe konu ürünlerin temel nitelikleri, miktarları, güncel birim ve ara toplam fiyatları sipariş özeti ile sipariş kaydında gösterilir. Varsa teslimat veya kargo bedeli, indirimler ve toplam ödeme tutarı da müşteri siparişini göndermeden önce ekranda açıkça yer alır. Geçerli tutarlar sipariş sırasında gösterilen tutarlardır.",
       ),
       s(
-        "4. Teslimat",
-        "Ürün, ALICI'nın sipariş sırasında bildirdiği adrese, kendi teslimat aracımızla (bölge içi) veya kargo ile (kargo ile gönderilen ürünler) teslim edilir. Teslimat süresi, cayma hakkı süresi saklı kalmak kaydıyla siparişin onayından itibaren en geç 30 gündür.",
+        "4. Ödeme Yöntemleri",
+        "Siparişin teslimat kanalına göre kredi/banka kartı ile PayTR ödeme sayfası üzerinden ödeme, havale/EFT veya kapıda nakit ödeme sunulabilir. Kapıda nakit ödeme yalnızca eve teslimat kanalında kullanılabilir; kargo siparişlerinde kart veya havale/EFT seçenekleri gösterilir. Kart bilgilerinin girildiği ödeme işlemi PayTR'nin ödeme sayfasında yürütülür; kart numarası ve CVV gibi bilgiler SATICI'nın sipariş formunda istenmez.",
       ),
       s(
-        "5. Cayma Hakkı",
-        "ALICI, sözleşmeden 14 (on dört) gün içinde herhangi bir gerekçe göstermeksizin ve cezai şart ödemeksizin cayma hakkına sahiptir. Ancak çabuk bozulan veya son kullanma tarihi geçebilecek gıda ürünleri (taze süt ürünleri, yumurta vb.) ile ambalajı açılmış hijyenik ürünlerde Yönetmelik gereği cayma hakkı kullanılamaz.",
+        "5. Siparişin Kurulması ve Belgeler",
+        "Müşteri; ürünleri, miktarları, teslimat bilgilerini, toplam bedeli ve ödeme yöntemini kontrol ettikten; Ön Bilgilendirme Formu ile Mesafeli Satış Sözleşmesi'ni inceleyip satış koşullarını kabul ettikten sonra siparişini gönderir. Bu kabul, sipariş kaydıyla birlikte kabul edilen belge sürümleri ve zaman bilgisiyle saklanır. Kart ödemesinde ödeme işlemi ayrıca PayTR akışında tamamlanır.",
       ),
       s(
-        "6. Uyuşmazlıklar",
+        "6. Teslimat",
+        "Ürünün niteliği ve teslimat adresine göre sipariş eve/yerel teslimat veya kargo kanalıyla gönderilir. Eve teslimat için seçilebilir teslimat günleri ve varsa zaman aralığı ödeme ekranında gösterilir. Kargo siparişlerinde gönderim, ürün hazırlık sürecinden sonra yapılır. Teslimat, mevzuatta öngörülen azami süre ve istisnalar çerçevesinde gerçekleştirilir.",
+      ),
+      s(
+        "7. Cayma Hakkı ve İstisnaları",
+        "ALICI, kanuni istisnalar saklı kalmak üzere malın tesliminden itibaren on dört gün içinde gerekçe göstermeden cayma hakkını kullanabilir. Çabuk bozulabilen veya son kullanma tarihi geçebilecek mallar ile teslimden sonra koruyucu ambalajı açıldığında sağlık ve hijyen açısından iadesi uygun olmayan mallar bakımından ilgili mevzuatta öngörülen istisnalar uygulanabilir. Bir ürünün yalnızca gıda olması, tek başına cayma hakkının bulunmadığı anlamına gelmez.",
+      ),
+      s(
+        "8. Ayıplı, Hasarlı veya Yanlış Ürün",
+        "Cayma hakkına ilişkin istisnalar, ALICI'nın ayıplı mal hükümlerinden doğan yasal haklarını ortadan kaldırmaz. Yanlış, eksik, bozuk veya taşıma sırasında hasar görmüş bir ürün teslim alınırsa ALICI, SATICI'nın mevcut iletişim kanallarından durumu bildirebilir.",
+      ),
+      s(
+        "9. İptal ve Geri Ödeme",
+        "Hazırlanmamış, teslimata çıkmamış veya kargoya verilmemiş siparişler için iletilen iptal talebi operasyonel duruma göre değerlendirilir. Cayma veya uygun bir iptal halinde geri ödeme, uygulanabilir mevzuata uygun biçimde ve kullanılan ödeme aracına uygun olarak yapılır. Ayrıntılar İptal ve İade Koşulları'nda yer alır.",
+      ),
+      s(
+        "10. Uyuşmazlıklar",
         "İşbu sözleşmeden doğabilecek uyuşmazlıklarda, Ticaret Bakanlığı'nca ilan edilen parasal sınırlar dahilinde ALICI'nın yerleşim yerindeki Tüketici Hakem Heyetleri ile Tüketici Mahkemeleri yetkilidir.",
       ),
     ],
@@ -117,23 +166,42 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "on-bilgilendirme-formu",
     title: "Ön Bilgilendirme Formu",
     longTitle: "Ön Bilgilendirme Formu",
-    updated: UPDATED,
+    updated: SALES_LEGAL_UPDATED,
+    relatedSlugs: [
+      "mesafeli-satis-sozlesmesi",
+      "iptal-iade-kosullari",
+      "teslimat-kosullari",
+      "kvkk",
+      "duzenli-siparis-kosullari",
+    ],
     sections: [
       s(
         "Satıcı Bilgileri",
         `Ünvan: ${COMPANY.tradeName}. Adres: ${COMPANY.address}. Telefon: ${COMPANY.phone}. E-posta: ${COMPANY.email}.`,
       ),
       s(
-        "Ürün ve Bedel",
-        "Sipariş ettiğiniz ürünlerin temel nitelikleri, tüm vergiler dahil toplam bedeli, teslimat ücreti ve ödeme şekli, siparişi onaylamadan önce sipariş özeti ekranında gösterilir.",
+        "Ürünün Temel Nitelikleri ve Satış Bedeli",
+        "Sipariş ettiğiniz ürünlerin temel nitelikleri, miktarları ve güncel satış fiyatları sipariş özeti ekranında gösterilir. Siparişe uygulanıyorsa teslimat/kargo bedeli, indirimler ve toplam ödeme tutarı da siparişi göndermeden önce aynı ekranda yer alır. Vergiler konusunda sipariş ekranında gösterilen güncel bilgiler esas alınır.",
+      ),
+      s(
+        "Teslimat ve Ödeme",
+        "Ürünün niteliği ile teslimat adresine göre eve/yerel teslimat veya kargo yöntemi uygulanır. Eve teslimat günleri ve varsa zaman aralığı seçilebilir olarak gösterilir; kargo siparişleri için teslimat günü seçilmez. Ödeme seçenekleri siparişin teslimat kanalına göre gösterilir: kart ödemesi PayTR ödeme sayfası üzerinden, havale/EFT her iki kanalda, kapıda nakit ise yalnızca eve teslimatta sunulabilir.",
+      ),
+      s(
+        "Sipariş Öncesi Bilgiler",
+        "Ödeme yükümlülüğü doğmadan önce sipariş özeti; ürünleri, adet/miktarları, ara toplamı, varsa teslimat veya kargo bedelini, toplamı, teslimat yöntemini, seçilen adresi, uygulanıyorsa teslimat günü/zaman aralığını ve ödeme yöntemini gösterir. Bu bilgiler, siparişe özgü Ön Bilgilendirme'nin esasını oluşturur.",
       ),
       s(
         "Cayma Hakkı",
-        "Malın tesliminden itibaren 14 gün içinde cayma hakkınız vardır. Çabuk bozulabilen gıda ürünlerinde cayma hakkı istisnası uygulanır (bkz. Mesafeli Satış Sözleşmesi md. 5).",
+        "Kanuni istisnalar saklı kalmak üzere malın tesliminden itibaren on dört gün içinde cayma hakkınızı kullanabilirsiniz. Çabuk bozulabilen veya son kullanma tarihi geçebilecek mallar ile koruyucu ambalajı açılmış ve sağlık/hijyen yönünden iadesi uygun olmayan mallar, ilgili mevzuatta yer alan istisnalara girebilir. Her gıda ürünü kendiliğinden cayma hakkı dışında sayılmaz.",
+      ),
+      s(
+        "İade ve Şikâyet",
+        `Cayma bildiriminizi yazılı olarak veya kalıcı veri saklayıcısı yoluyla ${COMPANY.email} adresine iletebilirsiniz. Telefon, destek ve bilgi alma kanalı olarak kullanılabilir. Yanlış, eksik, hasarlı veya ayıplı ürünlere ilişkin yasal haklarınız saklıdır. Talep ve şikâyetlerinizi mevcut iletişim kanallarından iletebilirsiniz.`,
       ),
       s(
         "Şikâyet ve İtiraz",
-        "Talep ve şikâyetlerinizi yukarıdaki iletişim kanallarından iletebilir; çözülemeyen uyuşmazlıklarda Tüketici Hakem Heyeti / Tüketici Mahkemesi'ne başvurabilirsiniz.",
+        "Çözülemeyen tüketici uyuşmazlıklarında, Ticaret Bakanlığı tarafından her yıl belirlenen parasal sınırlar çerçevesinde Tüketici Hakem Heyeti'ne veya Tüketici Mahkemesi'ne başvurabilirsiniz.",
       ),
     ],
   },
@@ -237,23 +305,41 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "kvkk",
     title: "KVKK Aydınlatma Metni",
     longTitle: "KVKK Aydınlatma Metni",
-    updated: UPDATED,
+    updated: SALES_LEGAL_UPDATED,
+    relatedSlugs: [
+      "mesafeli-satis-sozlesmesi",
+      "on-bilgilendirme-formu",
+      "iptal-iade-kosullari",
+      "teslimat-kosullari",
+    ],
     sections: [
       s(
         "Veri Sorumlusu",
-        `6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca veri sorumlusu ${COMPANY.tradeName}'dir.`,
+        `6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca veri sorumlusu ${COMPANY.brand} (${COMPANY.tradeName})'dir. Adres: ${COMPANY.address}. Telefon: ${COMPANY.phone}. E-posta: ${COMPANY.email}.`,
       ),
       s(
-        "İşlenen Veriler ve Amaç",
-        "Kimlik, iletişim ve adres verileriniz; sipariş sözleşmesinin kurulması ve ifası, teslimat, ödeme ve muhasebe/yasal yükümlülükler amacıyla işlenir.",
+        "İşlenen Veri Kategorileri",
+        "Sipariş, hesap veya düzenli sipariş talebi sürecinde ad, soyad, telefon, e-posta, teslimat adresi ve konum bilgisi, sipariş/ürün/tutar bilgisi, seçilen ödeme yöntemi, teslimat bilgileri ve sipariş sorgulama verileri işlenebilir. Hesap kullanıldığında kimlik doğrulama ve oturum bilgileri; hizmetin güvenliği ve çalışması için IP adresi, tarayıcı ve erişim kayıtları gibi teknik veriler de işlenebilir.",
       ),
       s(
-        "Hukuki Sebep",
-        "KVKK md. 5/2 uyarınca sözleşmenin ifası için gerekli olması ve hukuki yükümlülük; açık rıza gerektiren hallerde rızanıza dayanılır.",
+        "İşleme Amaçları",
+        "Veriler; müşteri hesabının yönetilmesi, siparişin kurulması ve yürütülmesi, ödeme ve teslimat süreçlerinin işletilmesi, sipariş durumunun sorgulanması, düzenli sipariş talebinin değerlendirilmesi ve onaylanması, iletişim kurulması, güvenliğin sağlanması, muhasebe ile yasal yükümlülüklerin yerine getirilmesi amaçlarıyla işlenir.",
       ),
       s(
-        "Haklarınız",
-        `KVKK md. 11 kapsamında verilerinize erişme, düzeltme, silme ve işlenmesine itiraz etme haklarına sahipsiniz. Başvurularınızı ${COMPANY.email} adresine iletebilirsiniz.`,
+        "Toplama Yöntemi ve Hukuki Sebepler",
+        "Veriler; internet sitesi formları, hesap ve oturum işlemleri, sipariş/sipariş sorgulama ekranları, ödeme işlemi ve teknik kayıtlar aracılığıyla otomatik veya kısmen otomatik yollarla toplanabilir. İşleme, somut işleme faaliyetine göre sözleşmenin kurulması veya ifası için gerekli olması, hukuki yükümlülüğün yerine getirilmesi, bir hakkın tesisi/kullanılması/korunması ya da meşru menfaat gibi KVKK'daki uygun şartlara dayanabilir. Açık rıza gereken ayrı işlemler ayrıca sunulur; bu aydınlatma metni zorunlu bir açık rıza değildir.",
+      ),
+      s(
+        "Aktarım Alıcıları ve Amaçları",
+        "Veriler, hizmetin yürütülmesi için gerekli ölçüde ödeme hizmet sağlayıcısı PayTR'ye, hesap/kimlik doğrulama ve veritabanı altyapısı sağlayıcısı Supabase'e, e-posta gönderimi için Resend'e, adres/konum işlemleri için Google Haritalar'a, barındırma hizmeti için Vercel'e; ayrıca mevzuatın gerektirdiği hallerde yetkili kamu kurum ve kuruluşlarına aktarılabilir. Bu sağlayıcılar yalnızca kendi hizmetlerinin gerektirdiği veri kategorilerine erişir.",
+      ),
+      s(
+        "Yurt Dışına Aktarım",
+        "Kullanılan teknik hizmet sağlayıcıların altyapıları nedeniyle kişisel verilerin yurt dışında işlenmesi veya aktarılması gündeme gelebilir. Her somut aktarım için uygulanacak KVKK mekanizması ve ek yükümlülükler veri sorumlusu tarafından ayrıca değerlendirilir; bu metin belirli bir aktarım mekanizması beyanı değildir.",
+      ),
+      s(
+        "KVKK Kapsamındaki Haklar ve Başvuru",
+        `KVKK'nın 11. maddesi kapsamındaki bilgi alma, düzeltme, silme/yok etme, aktarılan kişileri öğrenme, itiraz etme ve şartları oluştuğunda zararın giderilmesini talep etme haklarınızı kullanabilirsiniz. Başvurunuzu kimliğinizi doğrulamaya elverişli bilgilerle ${COMPANY.email} adresine iletebilirsiniz.`,
       ),
     ],
   },
@@ -284,19 +370,33 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "iptal-iade-kosullari",
     title: "İptal ve İade Koşulları",
     longTitle: "İptal, İade ve Cayma Koşulları",
-    updated: UPDATED,
+    updated: SALES_LEGAL_UPDATED,
+    relatedSlugs: [
+      "mesafeli-satis-sozlesmesi",
+      "on-bilgilendirme-formu",
+      "teslimat-kosullari",
+      "kvkk",
+    ],
     sections: [
       s(
         "Sipariş İptali",
-        "Siparişiniz kargoya verilmeden / teslimata çıkmadan önce iptal talebinde bulunabilirsiniz. Kart ile ödenen iptal edilmiş siparişlerin bedeli aynı karta iade edilir.",
+        "Sitede otomatik sipariş iptal ekranı bulunmaz. Henüz hazırlanmamış, teslimata çıkmamış veya kargoya verilmemiş bir sipariş için mevcut iletişim kanallarından iptal talebi iletebilirsiniz; talep siparişin operasyonel durumuna göre değerlendirilir.",
       ),
       s(
         "Cayma Hakkı ve İstisnası",
-        "Teslimden itibaren 14 gün içinde cayma hakkınız vardır. Çabuk bozulabilen/son kullanma tarihi kısa gıda ürünlerinde (taze süt ürünleri, yumurta vb.) mevzuat gereği cayma hakkı kullanılamaz.",
+        "Kanuni istisnalar saklı kalmak üzere teslimden itibaren on dört gün içinde cayma hakkınızı kullanabilirsiniz. Çabuk bozulabilen veya son kullanma tarihi geçebilecek mallar ile koruyucu ambalajı açılmış ve sağlık/hijyen yönünden iadesi uygun olmayan mallar bakımından mevzuattaki istisnalar uygulanabilir. Tüm gıda ürünleri tek başına bu nedenle cayma hakkı dışında değildir.",
       ),
       s(
-        "İade Süreci",
-        `İade talebini ${COMPANY.email} veya ${COMPANY.phone} üzerinden iletin. Uygun iadelerde bedel, ödeme yönteminize göre 14 gün içinde iade edilir. Kart iadeleri PayTR üzerinden aynı karta yapılır.`,
+        "Cayma Bildirimi ve İade Süreci",
+        `Cayma bildiriminizi yazılı olarak veya kalıcı veri saklayıcısı yoluyla ${COMPANY.email} adresine iletebilirsiniz. Telefon, destek ve bilgi alma kanalı olarak kullanılabilir. İade yöntemi, ürünün niteliği ve iade talebinin kapsamına göre müşteriyle koordine edilir.`,
+      ),
+      s(
+        "Yanlış, Eksik, Hasarlı veya Ayıplı Ürün",
+        `Yanlış, eksik, taşıma sırasında hasar görmüş veya bozuk/ayıplı olduğunu düşündüğünüz ürün için ${COMPANY.email} ya da ${COMPANY.phone} üzerinden bizimle iletişime geçebilirsiniz. Cayma hakkı istisnası, ayıplı maldan doğan yasal haklarınızı sınırlamaz.`,
+      ),
+      s(
+        "Geri Ödeme",
+        "Uygun geri ödemeler, uygulanabilir mevzuata uygun biçimde ve kullanılan ödeme aracına uygun olarak yapılır. İade sürecinin somut yöntemi, siparişin ödeme biçimi ve talebin kapsamına göre müşteriyle koordine edilir.",
       ),
     ],
   },
@@ -304,19 +404,61 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "teslimat-kosullari",
     title: "Teslimat Koşulları",
     longTitle: "Teslimat ve Kargo Koşulları",
-    updated: UPDATED,
+    updated: SALES_LEGAL_UPDATED,
+    relatedSlugs: [
+      "mesafeli-satis-sozlesmesi",
+      "on-bilgilendirme-formu",
+      "iptal-iade-kosullari",
+      "kvkk",
+      "duzenli-siparis-kosullari",
+    ],
     sections: [
       s(
         "Teslimat Yöntemleri",
-        "Bölge içi taze ürünler kendi teslimat aracımızla seçtiğiniz teslimat gününde; kuru/dayanıklı ürünler (kuru kayısı, dut, pekmez vb.) anlaşmalı kargo ile gönderilir.",
+        "Ürünün niteliği ve teslimat adresine göre sipariş eve/yerel teslimat veya kargo kanalıyla yürütülür. Eve teslimat, Malatya'daki hizmet alanı için sunulur; hizmet alanının güncel kapsamı ve ürünün uygun teslimat yöntemi sipariş ekranında belirlenir. Kargoya uygun ürünler Türkiye geneline gönderilebilir.",
       ),
       s(
-        "Süre",
-        "Siparişler, seçilen teslimat gününe göre planlanır. Kargo ile gönderimlerde teslimat, kargo firmasının süreçlerine bağlıdır; yasal azami süre 30 gündür.",
+        "Teslimat Günleri ve Sipariş Tutarı",
+        "Eve teslimat için mevcut teslimat günleri ve varsa zaman aralığı ödeme ekranında seçilebilir olarak gösterilir. Geçerli minimum sipariş tutarı, teslimat/kargo bedeli ve toplam tutar sipariş sırasında ekranda gösterilir; bu değişkenler bu sayfada sabitlenmez.",
       ),
       s(
-        "Teslimat Ücreti",
-        "Teslimat ücreti sipariş özetinde açıkça gösterilir. Kampanya dönemlerinde ücretsiz teslimat uygulanabilir.",
+        "Teslimat Adresi ve Teslim Edilememe",
+        "Müşteri, doğru iletişim bilgisi ile açık adres, bina ve kapı/daire bilgisini sağlamakla sorumludur. Müşteriye ulaşılamaması veya adres bilgisinin yetersiz olması halinde teslimatın nasıl sürdürüleceği, siparişin somut operasyonel durumuna göre müşteriyle değerlendirilir.",
+      ),
+      s(
+        "Kargo Teslimi",
+        "Kargo tesliminde görünür bir hasar olup olmadığını kontrol etmeniz önerilir. Ancak kargo görevlisiyle tutanak tutulmamış olması, tüketici mevzuatından doğan haklarınızı tek başına ortadan kaldırmaz. Hasar, eksik veya yanlış ürün halinde mevcut iletişim kanallarından bize ulaşabilirsiniz.",
+      ),
+    ],
+  },
+  {
+    slug: "duzenli-siparis-kosullari",
+    title: "Düzenli Sipariş Koşulları",
+    longTitle: "Düzenli Sipariş Koşulları",
+    updated: SALES_LEGAL_UPDATED,
+    relatedSlugs: [
+      "mesafeli-satis-sozlesmesi",
+      "on-bilgilendirme-formu",
+      "teslimat-kosullari",
+      "iptal-iade-kosullari",
+      "kvkk",
+    ],
+    sections: [
+      s(
+        "Nasıl Çalışır",
+        "Düzenli sipariş özelliği, hesabınızdan seçtiğiniz ürünler ve haftalık veya iki haftada bir teslimat sıklığı için bir talep oluşturmanızı sağlar. Talep önce ekip tarafından değerlendirilir; onaylanmadıkça düzenli sipariş oluşturulmaz.",
+      ),
+      s(
+        "Oluşturulan Siparişler ve Fiyatlar",
+        "Onaylanan talep için sistem, seçtiğiniz periyotlarda yeni siparişler oluşturur. Her sipariş, oluşturulduğu tarihteki güncel katalog ve fiyat bilgileriyle hesaplanır; talebin oluşturulduğu tarihteki fiyatların gelecekte sabit kalacağı taahhüt edilmez. Ürün uygunluğu değişirse sipariş oluşturulamayabilir.",
+      ),
+      s(
+        "Ödeme ve Teslimat",
+        "Düzenli siparişlerde karttan otomatik tahsilat yapılmaz. Kullanılabilen ödeme yöntemleri, siparişin teslimat kanalına göre kapıda nakit ödeme veya havale/EFT'dir. Talepte seçilen teslimat günü, düzenli sipariş formunda müşteriye sunulan günlerden seçilir.",
+      ),
+      s(
+        "Durdurma ve İptal",
+        "Hesabınızdaki Düzenli Siparişlerim alanından talebinizi iptal edebilirsiniz. İptal edildiğinde talep pasifleştirilir; henüz sonuçlanmamış olarak oluşturulmuş düzenli siparişler de iptal edilir. Siparişiniz oluşturulduktan sonraki tüketici haklarınız, ilgili siparişe ait Mesafeli Satış Sözleşmesi ve İptal ve İade Koşulları çerçevesinde saklıdır.",
       ),
     ],
   },

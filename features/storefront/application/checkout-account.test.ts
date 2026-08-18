@@ -60,7 +60,6 @@ const SIGNUP = {
   first_name: "Ayşe",
   last_name: "Yılmaz",
   phone: "+905321234567",
-  kvkk_accepted: true,
 } as const;
 
 /** What Supabase returns for a brand-new signup: one identity, no session yet. */

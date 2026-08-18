@@ -84,7 +84,7 @@ export function RecurringOrderForm({ products, homeDeliveryDays }: RecurringOrde
       });
 
       if (result.status === "success") {
-        toast.success("Talebiniz alındı. Ekibimiz inceleyip onayladığında aboneliğiniz aktif olacak.");
+        toast.success("Talebiniz alındı. Ekibimiz inceleyip onayladığında düzenli siparişiniz aktif olacak.");
         setItems([]);
         router.refresh();
         return;
