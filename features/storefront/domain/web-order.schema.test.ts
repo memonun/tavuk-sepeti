@@ -60,6 +60,39 @@ describe("checkoutAccountSchema", () => {
     });
   });
 
+  describe("guest", () => {
+    const guest = {
+      mode: "guest",
+      email: "",
+      first_name: "Veli",
+      last_name: "Demir",
+      phone: "0532 111 22 33",
+      kvkk_accepted: true,
+    };
+
+    it("accepts a blank e-mail — it's optional", () => {
+      const parsed = checkoutAccountSchema.parse(guest);
+      if (parsed.mode !== "guest") throw new Error("wrong branch");
+      expect(parsed.email).toBeNull();
+    });
+
+    it("lowercases a given e-mail", () => {
+      const parsed = checkoutAccountSchema.parse({ ...guest, email: "Veli@Example.COM" });
+      if (parsed.mode !== "guest") throw new Error("wrong branch");
+      expect(parsed.email).toBe("veli@example.com");
+    });
+
+    it("still rejects a malformed, non-blank e-mail", () => {
+      expect(checkoutAccountSchema.safeParse({ ...guest, email: "not-an-email" }).success).toBe(
+        false,
+      );
+    });
+
+    it("still requires a phone", () => {
+      expect(checkoutAccountSchema.safeParse({ ...guest, phone: "" }).success).toBe(false);
+    });
+  });
+
   describe("signin", () => {
     it("accepts email + password", () => {
       const res = checkoutAccountSchema.safeParse({

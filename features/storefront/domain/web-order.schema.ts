@@ -59,14 +59,19 @@ export const checkoutAccountSchema = z.discriminatedUnion("mode", [
    * No account at all. Identity travels WITH the order because there is no
    * session to read it from and no `customers` row until the writer mints one.
    *
-   * E-mail is required, unlike on a phone order taken by the office: it is the
-   * guest's only durable record of the order (the confirmation mail carries the
-   * order number they need to look it up again), and PayTR refuses a card
-   * payment without one.
+   * E-mail is OPTIONAL — a guest can be reached by phone alone, and
+   * `lookup_guest_order`/siparis-sorgula finds the order by phone either way.
+   * It only becomes load-bearing for two things, both already gated where they
+   * happen rather than here: place-order.ts refuses a card payment (PayTR
+   * requires one) and skips the confirmation e-mail, when there's no address to
+   * send either to.
    */
   z.object({
     mode: z.literal("guest"),
-    email: z.string().email("Geçerli bir e-posta girin.").toLowerCase(),
+    email: z.preprocess(
+      blankToNull,
+      z.string().trim().toLowerCase().email("Geçerli bir e-posta girin.").nullable(),
+    ),
     first_name: z.string().trim().min(1, "Ad gerekli.").max(100),
     last_name: z.string().trim().min(1, "Soyad gerekli.").max(100),
     phone: phoneTR,

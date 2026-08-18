@@ -139,7 +139,10 @@ export interface GuestOrderRepoInput
   first_name: string;
   last_name: string;
   phone: string;
-  email: string;
+  /** Optional — `place_guest_order` stores null as-is (customers.email is
+   *  nullable), and the caller has already refused a card payment with no
+   *  email before this is ever called. */
+  email: string | null;
   address: GuestAddressPayload;
 }
 
