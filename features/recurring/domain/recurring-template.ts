@@ -14,6 +14,9 @@ export type RecurringCadence = "weekly" | "biweekly" | "monthly";
  *  dependency (ESLint boundaries: cross-feature imports go via application/). */
 export type RecurringPaymentMethod = "cash_on_delivery" | "bank_transfer";
 
+/** Mirrors customers' origin enum — who created this template. */
+export type RecurringTemplateSource = "admin_manual" | "customer_web" | "customer_guest";
+
 export interface RecurringTemplateItem {
   readonly product_key: string;
   readonly quantity: number;
@@ -31,6 +34,11 @@ export interface RecurringTemplate {
   readonly payment_method: RecurringPaymentMethod;
   readonly active: boolean;
   readonly next_run_at: Date;
+  readonly source: RecurringTemplateSource;
+  /** First time a customer_web request was switched active. Null = still
+   *  pending staff review — distinct from `active` so a later pause doesn't
+   *  make an already-approved row look like a fresh request again. */
+  readonly approved_at: Date | null;
   readonly created_at: Date;
   readonly updated_at: Date;
 }
@@ -47,4 +55,6 @@ export interface RecurringTemplateListItem {
   readonly payment_method: RecurringPaymentMethod;
   readonly active: boolean;
   readonly next_run_at: Date;
+  readonly source: RecurringTemplateSource;
+  readonly approved_at: Date | null;
 }

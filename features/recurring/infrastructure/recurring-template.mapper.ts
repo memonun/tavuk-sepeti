@@ -15,6 +15,7 @@ import type {
   RecurringTemplate,
   RecurringTemplateItem,
   RecurringTemplateListItem,
+  RecurringTemplateSource,
 } from "@/features/recurring/domain/recurring-template";
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,8 @@ export function rowToRecurringTemplate(row: Record<string, unknown>): RecurringT
     payment_method: (asString(row["payment_method"]) ?? "cash_on_delivery") as RecurringPaymentMethod,
     active: asBoolean(row["active"]),
     next_run_at: new Date(asString(row["next_run_at"]) ?? 0),
+    source: (asString(row["source"]) ?? "admin_manual") as RecurringTemplateSource,
+    approved_at: asString(row["approved_at"]) != null ? new Date(asString(row["approved_at"]) ?? 0) : null,
     created_at: new Date(asString(row["created_at"]) ?? 0),
     updated_at: new Date(asString(row["updated_at"]) ?? 0),
   };
@@ -89,5 +92,7 @@ export function rowToListItem(row: ListRow): RecurringTemplateListItem {
     payment_method: (asString(row["payment_method"]) ?? "cash_on_delivery") as RecurringPaymentMethod,
     active: asBoolean(row["active"]),
     next_run_at: new Date(asString(row["next_run_at"]) ?? 0),
+    source: (asString(row["source"]) ?? "admin_manual") as RecurringTemplateSource,
+    approved_at: asString(row["approved_at"]) != null ? new Date(asString(row["approved_at"]) ?? 0) : null,
   };
 }

@@ -93,8 +93,14 @@ export function RecurringOverviewList({ templates }: RecurringOverviewListProps)
             </div>
           </div>
 
-          {/* Right: active badge */}
-          <div className="shrink-0">
+          {/* Right: pending-request badge (source='customer_web', never
+              approved yet) takes priority over the active/paused badge — a
+              fresh request and a staff-paused subscription both have
+              active=false, and only approved_at tells them apart. */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {t.source === "customer_web" && t.approved_at === null ? (
+              <Badge variant="destructive">Yeni talep</Badge>
+            ) : null}
             <Badge variant={t.active ? "default" : "secondary"}>
               {t.active ? "Aktif" : "Durdu"}
             </Badge>
