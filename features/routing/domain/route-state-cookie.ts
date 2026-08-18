@@ -25,7 +25,7 @@
 export const ROUTE_STATE_COOKIE = "route_state";
 
 /** How long a cached route stays restorable before requiring a fresh optimize. */
-export const ROUTE_STATE_MAX_AGE_S = 60 * 60;
+export const ROUTE_STATE_MAX_AGE_S = 60 * 60 * 24;
 
 const MAX_COOKIE_LEN = 2000;
 
