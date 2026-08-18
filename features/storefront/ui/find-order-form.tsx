@@ -49,7 +49,7 @@ export function FindOrderForm() {
           <Input
             id="order_number"
             name="order_number"
-            placeholder="ORD-2026-00123"
+            placeholder="Sipariş numarasını girin"
             autoComplete="off"
             required
             disabled={pending}
@@ -62,7 +62,7 @@ export function FindOrderForm() {
             name="phone"
             type="tel"
             inputMode="tel"
-            placeholder="0532 123 45 67"
+            placeholder="Telefon numarasını girin"
             autoComplete="tel"
             required
             disabled={pending}
