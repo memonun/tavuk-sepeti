@@ -24,6 +24,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  clearedRouteStateCookieString,
+  routeStateCookieString,
+} from "@/features/routing/domain/route-state-cookie";
+import {
   DEST_LOC_PREFIX,
   DEST_ORDER_PREFIX,
   DEST_ROUND_TRIP,
@@ -75,6 +79,17 @@ export function RouteControls({
     const updated = new URLSearchParams(params.toString());
     updated.set("date", date);
     mutate(updated);
+    // Every URL update runs through here, so this is the one place that
+    // needs to know about the cache: still optimized after the mutation →
+    // refresh it (covers the initial Optimize click and tweaking start time
+    // while optimized); optimize just got dropped (reset, or picking a new
+    // origin/destination, which already clears it) → clear it. Nothing else
+    // needs a special case.
+    if (updated.get("optimize") === "1") {
+      document.cookie = routeStateCookieString(updated.toString());
+    } else {
+      document.cookie = clearedRouteStateCookieString();
+    }
     startTransition(() => router.replace(`${pathname}?${updated.toString()}`));
   };
 
