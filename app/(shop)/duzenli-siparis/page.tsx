@@ -17,9 +17,7 @@ import { RecurringOrderForm } from "@/features/storefront/ui/recurring-order-for
 export const metadata: Metadata = {
   title: "Düzenli Sipariş — Apuhan Çiftliği",
   description:
-    "Her hafta düzenli aldığınız ürünleri tekrar tekrar sipariş vermeden planlayın."
-     Teslimat alt limiti: 250 ₺
-     Düzenli siparişlerde eve teslimat için sipariş toplamının en az 250 ₺ olması gerekir.,
+    "Her hafta düzenli aldığınız ürünleri tekrar tekrar sipariş vermeden planlayın. Teslimat alt limiti: 250 ₺",
 };
 
 const STEPS = [
