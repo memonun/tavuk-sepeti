@@ -7,25 +7,38 @@
  * when a card payment fell through — pay it. Without this page a guest's only
  * move after a failed payment was to place the order again, which is the
  * duplicate-order behaviour we removed for account holders.
+ *
+ * Identifies the order by phone + order date + order type rather than
+ * order_number: the number is a dead end for anyone who lost the
+ * confirmation e-mail. The server resolves the real order_number/order_id
+ * itself (see find-guest-orders.ts) and, when more than one order matches,
+ * hands back every match so the guest can pick the right one here — no extra
+ * round trip.
  */
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { PackageSearchIcon } from "lucide-react";
 
 import {
-  findMyOrderAction,
-  type FindOrderState,
-} from "@/features/storefront/application/find-my-order";
+  findGuestOrdersAction,
+  type FindOrdersState,
+} from "@/features/storefront/application/find-guest-orders";
+import {
+  GUEST_ORDER_TYPE_OPTIONS,
+  type GuestOrderType,
+} from "@/features/storefront/domain/guest-order-lookup.schema";
 import { formatDeliveryDateLabel } from "@/features/storefront/domain/delivery-window";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { formatDate, todayInIstanbul } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 
 import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-button";
 
 import type { GuestOrderView } from "@/features/storefront/application/lookup-guest-order";
 
-const initialState: FindOrderState = { status: "idle" };
+const initialState: FindOrdersState = { status: "idle" };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",
@@ -37,24 +50,20 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function FindOrderForm() {
   const [state, formAction, pending] = useActionState(
-    findMyOrderAction,
+    findGuestOrdersAction,
     initialState,
   );
+  const [orderType, setOrderType] = useState<GuestOrderType>("delivery");
+  const [selectedOrder, setSelectedOrder] = useState<GuestOrderView | null>(null);
+
+  const phoneForCard =
+    state.status === "found_one" || state.status === "found_many"
+      ? state.phone
+      : "";
 
   return (
     <div className="flex flex-col gap-6">
       <form action={formAction} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="order_number">Sipariş numarası</Label>
-          <Input
-            id="order_number"
-            name="order_number"
-            placeholder="ORD-2026-00123"
-            autoComplete="off"
-            required
-            disabled={pending}
-          />
-        </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="phone">Siparişteki telefon</Label>
           <Input
@@ -62,17 +71,69 @@ export function FindOrderForm() {
             name="phone"
             type="tel"
             inputMode="tel"
-            placeholder="0532 123 45 67"
+            placeholder="Telefon numarasını girin"
             autoComplete="tel"
             required
             disabled={pending}
           />
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="order_date">Sipariş tarihi</Label>
+          <Input
+            id="order_date"
+            name="order_date"
+            type="date"
+            max={todayInIstanbul()}
+            required
+            disabled={pending}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>Sipariş türü</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {GUEST_ORDER_TYPE_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className={cn(
+                  "flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-center transition-colors",
+                  orderType === option.value
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-card hover:border-primary/50 hover:bg-secondary/40",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="order_type"
+                  value={option.value}
+                  checked={orderType === option.value}
+                  onChange={() => setOrderType(option.value)}
+                  disabled={pending}
+                  className="sr-only"
+                />
+                <span className="text-xl" aria-hidden>
+                  {option.emoji}
+                </span>
+                <span className="text-xs font-medium leading-tight text-foreground">
+                  {option.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
         {state.status === "not_found" ? (
           <p className="text-sm text-destructive" role="alert">
-            Bu numara ve telefonla eşleşen bir sipariş bulamadık. Sipariş
-            numarasını onay e-postanızda bulabilirsiniz.
+            Girdiğiniz bilgilerle eşleşen bir sipariş bulamadık. Telefon
+            numaranızı, sipariş tarihini ve sipariş türünü kontrol edip
+            tekrar deneyin.
+          </p>
+        ) : null}
+        {state.status === "rate_limited" ? (
+          <p className="text-sm text-destructive" role="alert">
+            Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar
+            deneyin.
           </p>
         ) : null}
         {state.status === "error" ? (
@@ -91,8 +152,53 @@ export function FindOrderForm() {
         </Button>
       </form>
 
-      {state.status === "found" ? (
+      {state.status === "found_one" ? (
         <OrderCard order={state.order} phone={state.phone} />
+      ) : null}
+
+      {state.status === "found_many" ? (
+        selectedOrder ? (
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedOrder(null)}
+              className="self-start text-sm text-muted-foreground underline underline-offset-2"
+            >
+              ← Başka sipariş seç
+            </button>
+            <OrderCard order={selectedOrder} phone={phoneForCard} />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              Bu bilgilerle {state.orders.length} sipariş bulduk. Görmek
+              istediğinizi seçin.
+            </p>
+            <div className="flex flex-col gap-2">
+              {state.orders.map((order) => (
+                <button
+                  key={order.orderId}
+                  type="button"
+                  onClick={() => setSelectedOrder(order)}
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-card p-4 text-left shadow-sm transition-colors hover:border-primary/50"
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-mono text-sm font-medium">
+                      {order.orderNumber}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(order.createdAt)} ·{" "}
+                      {STATUS_LABELS[order.status] ?? order.status}
+                    </span>
+                  </div>
+                  <span className="font-semibold tabular-nums">
+                    {formatTRY(order.totalMinor)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )
       ) : null}
     </div>
   );
