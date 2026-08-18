@@ -105,6 +105,11 @@ function OrderCard({ order, phone }: { order: GuestOrderView; phone: string }) {
     order.paymentStatus !== "paid" &&
     order.status !== "cancelled" &&
     order.paymentMethod !== "cash_on_delivery";
+  // A bank-transfer order is waiting on an admin to confirm the transfer
+  // manually, not on the customer — there's no card payment to retry, so it
+  // gets no pay button.
+  const canRetryCardPayment =
+    awaitingPayment && order.paymentMethod === "credit_card";
 
   return (
     <div className="flex flex-col gap-3 rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
@@ -125,7 +130,9 @@ function OrderCard({ order, phone }: { order: GuestOrderView; phone: string }) {
               ? "Ödendi"
               : order.paymentMethod === "cash_on_delivery"
                 ? "Teslimatta ödenecek"
-                : "Ödeme bekliyor"}
+                : order.paymentMethod === "bank_transfer"
+                  ? "Ödeme onayı bekliyor"
+                  : "Ödeme bekliyor"}
           </dd>
         </div>
         <div className="flex justify-between gap-4">
@@ -170,16 +177,12 @@ function OrderCard({ order, phone }: { order: GuestOrderView; phone: string }) {
         ) : null}
       </dl>
 
-      {awaitingPayment ? (
+      {canRetryCardPayment ? (
         <div className="pt-1">
           <ResumePaymentButton
             orderNumber={order.orderNumber}
             phone={phone}
-            label={
-              order.paymentMethod === "credit_card"
-                ? "Ödemeyi tamamla"
-                : "Kartla öde"
-            }
+            label="Ödemeyi tamamla"
           />
         </div>
       ) : null}
