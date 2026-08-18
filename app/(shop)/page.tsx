@@ -9,7 +9,6 @@ import {
   parseDeliveryScope,
 } from "@/features/storefront/domain/catalog-filter";
 import { formatHomeDeliveryDays } from "@/features/storefront/domain/delivery-window";
-import { orderMinimumNotice } from "@/features/storefront/domain/order-minimum";
 import {
   CARGO_FREE_SHIPPING_NOTICE,
   FULFILLMENT_NOTICE,
@@ -20,6 +19,7 @@ import { DeliveryScopeHero } from "@/features/storefront/ui/delivery-scope-hero"
 import { ProductShowcase } from "@/features/storefront/ui/product-showcase";
 import { RecurringOrderTeaser } from "@/features/storefront/ui/recurring-order-teaser";
 import { StorefrontScopeSync } from "@/features/storefront/ui/storefront-scope-sync";
+import { formatTRY } from "@/shared/utils/money";
 
 /**
  * Storefront home: a compact masthead, the vitrine (shop window), the fulfilment
@@ -108,7 +108,9 @@ export default async function ShopHomePage({
           <span>
             {CARGO_FREE_SHIPPING_NOTICE}{" "}
             {settings.cargoMinOrderMinor > 0
-              ? orderMinimumNotice("shipping", settings.cargoMinOrderMinor)
+              ? `Şehir dışı siparişlerde minimum sipariş tutarı ${formatTRY(
+                  settings.cargoMinOrderMinor,
+                )}'dir.`
               : null}
           </span>
         </p>
