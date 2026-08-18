@@ -40,6 +40,7 @@ Bu sistem **1000 eşzamanlı kullanıcıya** dayanacak şekilde tasarlanır. Şu
 - Foreign key'ler `on delete` davranışı **explicit** belirtilir (cascade/restrict/set null).
 - Money: minor units (kuruş), `numeric` veya `bigint`. Float yasak.
 - Tarih/saat: `timestamptz` zorunlu. App layer Europe/Istanbul'a çevirir.
+- **Migration'lar geriye dönük uyumlu yazılır.** Vercel merge'de deploy eder, migration CI gate'i (`.github/workflows/migrations.yml`) ise ayrı çalışır — aralarında bir pencere var. Bir RPC'nin imzasını değiştiriyorsan (`drop function` + yeni zorunlu parametreyle `create function`), eski kod o pencerede hâlâ eski imzayı çağırıyor olabilir. Bunun yerine: yeni parametreyi `default null` ile ekle (overload değil, aynı fonksiyonu genişlet) ve eski imzayı ancak yeni kod deploy olduktan sonraki bir PR'da düşür. 2026-08-19'da tam olarak bu yüzden — `place_web_order`'a zorunlu `p_legal_acceptance` eklenip eski imza aynı anda düşürülünce — her ödeme yöntemiyle sipariş alımı durdu.
 
 ## 8. Geocoding & Maps
 - Adres → koordinat dönüşümü **her zaman cache'ten kontrol** edilir.
