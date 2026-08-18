@@ -64,6 +64,12 @@ const serverSchema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(1).optional(),
 
+  // Owner/admin notification recipient — new order, new recurring request.
+  // Optional: when unset, admin e-mail notifications are skipped (same
+  // best-effort contract as RESEND_API_KEY above); the in-panel bell still
+  // works regardless, since it doesn't depend on this.
+  ADMIN_NOTIFICATION_EMAIL: z.string().email().optional(),
+
   // PayTR card payments (server-only merchant secrets). Optional: when any is
   // unset the card option is hidden and checkout falls back to COD / transfer.
   // PAYTR_TEST_MODE "1" = test (no real charge), "0" = live.
@@ -122,6 +128,7 @@ const rawServer = isServer
       GEOCODING_DAILY_LIMIT: process.env.GEOCODING_DAILY_LIMIT,
       RESEND_API_KEY: process.env.RESEND_API_KEY,
       EMAIL_FROM: process.env.EMAIL_FROM,
+      ADMIN_NOTIFICATION_EMAIL: process.env.ADMIN_NOTIFICATION_EMAIL,
       PAYTR_MERCHANT_ID: process.env.PAYTR_MERCHANT_ID,
       PAYTR_MERCHANT_KEY: process.env.PAYTR_MERCHANT_KEY,
       PAYTR_MERCHANT_SALT: process.env.PAYTR_MERCHANT_SALT,
