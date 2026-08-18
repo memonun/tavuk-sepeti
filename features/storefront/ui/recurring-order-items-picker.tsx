@@ -78,7 +78,7 @@ function LineRow({
         </select>
       </div>
 
-      <div className="flex items-center gap-2 sm:col-span-3">
+      <div className="flex items-center gap-2 sm:col-span-4">
         <Input
           type="number"
           inputMode="decimal"
@@ -86,17 +86,18 @@ function LineRow({
           step={product.step}
           value={quantity}
           aria-invalid={stepInvalid || minInvalid}
+          className="w-16 shrink-0"
           onChange={(e) => {
             const next = Number(e.target.value);
             if (Number.isFinite(next)) onQuantityChange(next);
           }}
         />
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className="min-w-0 truncate text-xs text-muted-foreground">
           {product.unit_label}
         </span>
       </div>
 
-      <div className="flex items-center justify-between sm:col-span-3 sm:justify-end">
+      <div className="flex items-center justify-between sm:col-span-2 sm:justify-end">
         <span
           className="font-mono text-xs text-muted-foreground"
           title="Tahmini tutar — teslimat anındaki güncel fiyat üzerinden hesaplanır"
