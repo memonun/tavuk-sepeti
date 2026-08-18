@@ -1,9 +1,16 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
 import { materializeDueRecurring } from "@/features/recurring/application/materialize-due-recurring";
 import { buildDayLoadManifest } from "@/features/routing/application/get-day-load-manifest";
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
 import { getDayRoute } from "@/features/routing/application/get-day-route";
 import { listSavedLocations } from "@/features/routing/application/list-saved-locations";
 import { serializeExcludeDelivered } from "@/features/routing/domain/exclude-delivered-url";
+import {
+  extractDateFromQueryString,
+  ROUTE_STATE_COOKIE,
+} from "@/features/routing/domain/route-state-cookie";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
@@ -46,6 +53,15 @@ function isHHmm(value: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
+/** decodeURIComponent, but a malformed input just means "ignore this" rather than a 500. */
+function safeDecodeURIComponent(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 function formatDistance(meters: number): string {
   if (meters < 1000) return `${meters} m`;
   return `${(meters / 1000).toFixed(1)} km`;
@@ -78,6 +94,29 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
       ? params.date
       : toIstanbulDateString(new Date());
   const wantsOptimize = params.optimize === "1";
+
+  // Restore the last-active optimized route on a bare landing (e.g. the
+  // sidebar's plain "Rota" link, which carries no query string at all) —
+  // only when the incoming URL doesn't already name a date, or names the
+  // SAME date the cache was for. A deliberate date-pager navigation always
+  // sets an explicit (different) ?date and drops ?optimize itself, so it
+  // never matches here and correctly falls through to that day's
+  // unoptimized list instead of resurrecting a different day's route.
+  if (!wantsOptimize) {
+    const cookieStore = await cookies();
+    const rawCookie = cookieStore.get(ROUTE_STATE_COOKIE)?.value;
+    // routeStateCookieString wrote this with encodeURIComponent — reverse it
+    // before use. A malformed/tampered cookie fails decodeURIComponent with
+    // a URIError, which just means "don't trust it," same as any other
+    // defensively-parsed input.
+    const cached = rawCookie ? safeDecodeURIComponent(rawCookie) : null;
+    if (cached) {
+      const cachedDate = extractDateFromQueryString(cached);
+      if (cachedDate && (!params.date || params.date === cachedDate)) {
+        redirect(`/routes?${cached}`);
+      }
+    }
+  }
 
   // Default start time = "now" expressed as Istanbul HH:mm.
   const startHHmm =
