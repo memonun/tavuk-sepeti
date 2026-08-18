@@ -31,6 +31,11 @@ vi.mock("@/shared/audit/log-audit", () => ({ logAudit: (...a: unknown[]) => logA
 const sendEmail = vi.fn();
 vi.mock("@/shared/email/send-email", () => ({ sendEmail: (...a: unknown[]) => sendEmail(...a) }));
 
+const notifyAdminOfNewOrder = vi.fn();
+vi.mock("@/features/admin-notifications/application/notify-admin-new-order", () => ({
+  notifyAdminOfNewOrder: (...a: unknown[]) => notifyAdminOfNewOrder(...a),
+}));
+
 const listActiveProducts = vi.fn();
 vi.mock("@/features/products/application/list-products", () => ({
   listActiveProducts: () => listActiveProducts(),
@@ -273,6 +278,7 @@ beforeEach(() => {
   });
   isPaytrEnabled.mockReturnValue(true);
   sendEmail.mockResolvedValue({ ok: true, value: undefined });
+  notifyAdminOfNewOrder.mockResolvedValue(undefined);
 });
 
 describe("placeOrderAction — account gate", () => {

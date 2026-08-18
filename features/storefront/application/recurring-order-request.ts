@@ -14,6 +14,7 @@
  */
 import { revalidatePath } from "next/cache";
 
+import { notifyAdminOfRecurringRequest } from "@/features/admin-notifications/application/notify-admin-recurring-request";
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
 import { firstRunOnOrAfter } from "@/features/recurring/application/next-run";
@@ -142,6 +143,8 @@ export async function createRecurringOrderRequestAction(
     entity_id: created.value,
     after: { cadence: p.cadence, day_of_week: p.day_of_week, item_count: p.items.length },
   });
+
+  await notifyAdminOfRecurringRequest(created.value);
 
   revalidatePath("/duzenli-siparis");
   return { status: "success" };

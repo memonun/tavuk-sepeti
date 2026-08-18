@@ -54,6 +54,7 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
+import { notifyAdminOfNewOrder } from "@/features/admin-notifications/application/notify-admin-new-order";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
 import {
   createPaytrPaymentSession,
@@ -622,6 +623,18 @@ export async function placeOrderAction(
       logger.warn({ code: sent.error.code }, "order_confirmation_email_failed");
     }
   }
+
+  // COD/bank orders are committed the moment they're placed (no further
+  // payment step to wait on), so the admin is notified right here — same
+  // point the customer's own confirmation e-mail goes out above. Card
+  // orders notify from the PayTR webhook instead (send-order-confirmation.ts).
+  await notifyAdminOfNewOrder({
+    orderId: placed.value.order_id,
+    orderNumber: placed.value.order_number,
+    customerName,
+    channel: placed.value.fulfillment_channel,
+    totalMinor,
+  });
 
   return {
     status: "success",

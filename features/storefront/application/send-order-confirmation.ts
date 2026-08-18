@@ -15,6 +15,7 @@ import "server-only";
  * reported, never thrown. A missed receipt must not cost us the "OK" that stops
  * PayTR from retrying a payment we already booked.
  */
+import { notifyAdminOfNewOrder } from "@/features/admin-notifications/application/notify-admin-new-order";
 import {
   BANK_TRANSFER_ACCOUNT_HOLDER,
   BANK_TRANSFER_BANK_NAME,
@@ -95,6 +96,18 @@ export async function sendOrderConfirmationEmail(
     logger.warn({ orderId, code: sent.error.code }, "order_confirmation_email_failed");
     return "failed";
   }
+
+  // This path only runs once the PayTR webhook confirms payment actually
+  // succeeded — so, unlike the COD/bank path, the admin is notified here
+  // rather than at placement (an abandoned card checkout never reaches
+  // this function, so it never generates a notification).
+  await notifyAdminOfNewOrder({
+    orderId,
+    orderNumber: order.orderNumber,
+    customerName: order.customerName || order.customerEmail,
+    channel: order.channel,
+    totalMinor: order.totalMinor,
+  });
 
   return sent.value === "skipped_not_configured" ? "skipped_not_configured" : "sent";
 }
