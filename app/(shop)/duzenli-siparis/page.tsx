@@ -43,7 +43,10 @@ function Header() {
       </h1>
       <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
         Her hafta düzenli aldığınız ürünleri tekrar tekrar sipariş vermeden
-        planlayın.
+        planlayın. {" "}
+        <Link href="/duzenli-siparis-kosullari" className="underline underline-offset-2">
+          Düzenli Sipariş Koşulları&apos;nı inceleyin.
+        </Link>
       </p>
     </div>
   );

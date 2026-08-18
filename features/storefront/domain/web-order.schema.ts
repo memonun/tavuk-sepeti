@@ -75,9 +75,6 @@ export const checkoutAccountSchema = z.discriminatedUnion("mode", [
     first_name: z.string().trim().min(1, "Ad gerekli.").max(100),
     last_name: z.string().trim().min(1, "Soyad gerekli.").max(100),
     phone: phoneTR,
-    kvkk_accepted: z.literal(true, {
-      errorMap: () => ({ message: "Devam etmek için sözleşmeleri onaylayın." }),
-    }),
   }),
   z.object({
     mode: z.literal("signup"),
@@ -86,9 +83,6 @@ export const checkoutAccountSchema = z.discriminatedUnion("mode", [
     first_name: z.string().trim().min(1, "Ad gerekli.").max(100),
     last_name: z.string().trim().min(1, "Soyad gerekli.").max(100),
     phone: phoneTR,
-    kvkk_accepted: z.literal(true, {
-      errorMap: () => ({ message: "Devam etmek için sözleşmeleri onaylayın." }),
-    }),
   }),
   z.object({
     mode: z.literal("signin"),
@@ -108,6 +102,12 @@ export const webOrderItemSchema = z.object({
 
 export const webOrderSchema = z.object({
   account: checkoutAccountSchema,
+  /** Mandatory sales acceptance; KVKK notice is informational and separate. */
+  distance_sales_accepted: z.literal(true, {
+    errorMap: () => ({
+      message: "Sipariş vermek için satış belgelerini kabul etmelisiniz.",
+    }),
+  }),
   /**
    * The saved address this order ships to — must belong to the resolved
    * customer, which the RPC re-checks (P0004).

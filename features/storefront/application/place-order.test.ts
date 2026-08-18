@@ -173,6 +173,7 @@ function buildForm(overrides: Record<string, string> = {}): FormData {
     scheduled_for: futureDate(),
     time_slot: "",
     payment_method: "cash_on_delivery",
+    distance_sales_accepted: "on",
     delivery_notes: "",
     items_json: JSON.stringify([{ product_key: "eggs", quantity: 2 }]),
     ...overrides,
@@ -351,6 +352,22 @@ describe("placeOrderAction — address", () => {
 
     expect(placeWebOrder).toHaveBeenCalledWith(
       expect.objectContaining({ addressId: MALATYA_ADDRESS.id }),
+    );
+  });
+
+  it("records the accepted sales-document versions on an account order", async () => {
+    await placeOrderAction(idle, buildForm());
+
+    expect(placeWebOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legal_acceptance: expect.objectContaining({
+          accepted_at: expect.any(String),
+          documents: [
+            { slug: "on-bilgilendirme-formu", version: "2026-08-18" },
+            { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-18" },
+          ],
+        }),
+      }),
     );
   });
 });
@@ -795,7 +812,6 @@ describe("placeOrderAction — guest", () => {
       last_name: "Demir",
       phone: "0532 111 22 33",
       account_email: "veli@example.com",
-      kvkk_accepted: "on",
       addr_city: "Malatya",
       addr_district: "Battalgazi",
       addr_neighborhood: "Çamurlu",
@@ -880,10 +896,10 @@ describe("placeOrderAction — guest", () => {
     expect(placeGuestOrder).not.toHaveBeenCalled();
   });
 
-  it("refuses a guest order with no KVKK consent", async () => {
+  it("refuses a guest order with no sales-document acceptance", async () => {
     const state = await placeOrderAction(
       { status: "idle" },
-      guestForm({ kvkk_accepted: "" }),
+      guestForm({ distance_sales_accepted: "" }),
     );
 
     expect(state.status).toBe("validation_error");
@@ -925,6 +941,22 @@ describe("placeOrderAction — guest", () => {
 
     expect(state).toMatchObject({ status: "success", hasEmail: true });
     expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("records the accepted sales-document versions on a guest order", async () => {
+    await placeOrderAction({ status: "idle" }, guestForm());
+
+    expect(placeGuestOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        legal_acceptance: expect.objectContaining({
+          accepted_at: expect.any(String),
+          documents: [
+            { slug: "on-bilgilendirme-formu", version: "2026-08-18" },
+            { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-18" },
+          ],
+        }),
+      }),
+    );
   });
 
   it("refuses a card payment from a guest with no e-mail — PayTR needs one", async () => {

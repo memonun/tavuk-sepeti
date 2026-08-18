@@ -7,6 +7,7 @@ import {
 
 const validOrder = {
   account: { mode: "existing" },
+  distance_sales_accepted: true,
   address_id: "11111111-1111-1111-1111-111111111111",
   address_mode: "route",
   scheduled_for: "2026-07-30",
@@ -29,7 +30,6 @@ describe("checkoutAccountSchema", () => {
       first_name: "Ayşe",
       last_name: "Yılmaz",
       phone: "0532 123 45 67",
-      kvkk_accepted: true,
     };
 
     it("normalizes the phone to E.164 and lowercases the email", () => {
@@ -50,8 +50,8 @@ describe("checkoutAccountSchema", () => {
       expect(checkoutAccountSchema.safeParse({ ...signup, password: "kisa" }).success).toBe(false);
     });
 
-    it("rejects an unticked KVKK consent", () => {
-      expect(checkoutAccountSchema.safeParse({ ...signup, kvkk_accepted: false }).success).toBe(false);
+    it("does not require a sales-document acceptance before account creation", () => {
+      expect(checkoutAccountSchema.safeParse(signup).success).toBe(true);
     });
 
     it("requires a name", () => {
@@ -67,7 +67,6 @@ describe("checkoutAccountSchema", () => {
       first_name: "Veli",
       last_name: "Demir",
       phone: "0532 111 22 33",
-      kvkk_accepted: true,
     };
 
     it("accepts a blank e-mail — it's optional", () => {
@@ -121,6 +120,15 @@ describe("webOrderSchema", () => {
     expect(parsed.items).toHaveLength(1);
     expect(parsed.payment_method).toBe("cash_on_delivery");
     expect(parsed.address_mode).toBe("route");
+  });
+
+  it("requires acceptance of the sales documents for every account mode", () => {
+    expect(
+      webOrderSchema.safeParse({ ...validOrder, distance_sales_accepted: false }).success,
+    ).toBe(false);
+    expect(
+      webOrderSchema.safeParse({ ...validOrder, distance_sales_accepted: undefined }).success,
+    ).toBe(false);
   });
 
   // The order binds to a saved address rather than carrying a typed one, which

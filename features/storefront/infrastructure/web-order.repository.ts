@@ -29,6 +29,8 @@ import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { getSupabaseAdminClient } from "@/shared/supabase/admin";
 
+import type { SalesLegalAcceptance } from "@/features/storefront/domain/legal";
+
 export interface WebOrderRepoItem {
   product_key: string;
   quantity: number;
@@ -47,6 +49,7 @@ export interface WebOrderRepoInput {
   payment_method: "cash_on_delivery" | "bank_transfer" | "credit_card";
   delivery_notes: string | null;
   delivery_fee_minor: number;
+  legal_acceptance: SalesLegalAcceptance;
   items: ReadonlyArray<WebOrderRepoItem>;
 }
 
@@ -80,6 +83,7 @@ export async function placeWebOrder(
     p_payment_method: input.payment_method,
     p_delivery_notes: input.delivery_notes,
     p_delivery_fee_minor: input.delivery_fee_minor,
+    p_legal_acceptance: input.legal_acceptance,
     p_items: input.items,
   });
 
@@ -176,6 +180,7 @@ export async function placeGuestOrder(
     p_payment_method: input.payment_method,
     p_delivery_notes: input.delivery_notes,
     p_delivery_fee_minor: input.delivery_fee_minor,
+    p_legal_acceptance: input.legal_acceptance,
     p_items: input.items,
   });
 

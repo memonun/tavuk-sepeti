@@ -106,6 +106,7 @@ import {
   PAYMENT_METHOD_OPTIONS,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
+import { createSalesLegalAcceptance } from "@/features/storefront/domain/legal";
 import { webOrderSchema } from "@/features/storefront/domain/web-order.schema";
 import {
   listMyAddresses,
@@ -199,6 +200,7 @@ export async function placeOrderAction(
 
   const parsed = webOrderSchema.safeParse({
     account: readCheckoutAccountInput(formData),
+    distance_sales_accepted: formData.get("distance_sales_accepted") === "on",
     address_id: formData.get("address_id"),
     address_mode: formData.get("address_mode"),
     scheduled_for: formData.get("scheduled_for"),
@@ -468,6 +470,7 @@ export async function placeOrderAction(
     payment_method: parsed.data.payment_method,
     delivery_notes: parsed.data.delivery_notes,
     delivery_fee_minor: deliveryFeeMinor,
+    legal_acceptance: createSalesLegalAcceptance(new Date()),
     items: enriched.value,
   };
 

@@ -200,6 +200,7 @@ export function CheckoutForm({
   // which falls back to the first offered option so the box still matches
   // what's actually pre-selected on first render.
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  const [distanceSalesAccepted, setDistanceSalesAccepted] = useState(false);
 
   // Empty the basket on inline success; for the card path, hand off to PayTR
   // (the basket is cleared on the success return page after payment).
@@ -413,7 +414,8 @@ export function CheckoutForm({
   // An account picks a saved address; a guest has to have finished the inline
   // address form. Either way the order cannot go without one.
   const hasAddress = identity ? addressId !== null : guestAddress !== null;
-  const canSubmit = !pending && hasAddress && minimum.ok && !noDeliveryDay;
+  const canSubmit =
+    !pending && hasAddress && minimum.ok && !noDeliveryDay && distanceSalesAccepted;
 
   return (
     <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_20rem]">
@@ -740,25 +742,53 @@ export function CheckoutForm({
                 })),
               )}
             />
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50">
+              <input
+                type="checkbox"
+                name="distance_sales_accepted"
+                checked={distanceSalesAccepted}
+                onChange={(event) => setDistanceSalesAccepted(event.target.checked)}
+                className="mt-0.5 size-4 accent-primary"
+                required
+                disabled={pending}
+              />
+              <span>
+                <Link
+                  href="/on-bilgilendirme-formu"
+                  className="underline underline-offset-2"
+                  target="_blank"
+                >
+                  Ön Bilgilendirme Formu&apos;nu
+                </Link>{" "}
+                ve{" "}
+                <Link
+                  href="/mesafeli-satis-sozlesmesi"
+                  className="underline underline-offset-2"
+                  target="_blank"
+                >
+                  Mesafeli Satış Sözleşmesi&apos;ni
+                </Link>{" "}
+                okudum, bilgilendirildim ve siparişimi bu koşullarla oluşturmayı
+                kabul ediyorum.
+              </span>
+            </label>
             <Button
               type="submit"
               size="lg"
               className="w-full rounded-full"
               disabled={!canSubmit}
             >
-              {pending ? "Gönderiliyor…" : "Siparişi ver"}
+              {pending ? "Gönderiliyor…" : "Ödeme yükümlülüğüyle siparişi ver"}
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              Siparişinizi oluştururken paylaştığınız bilgiler siparişinizin
-              hazırlanması, ödeme ve teslimat süreçlerinin yürütülmesi ve
-              gerektiğinde sizinle iletişime geçilmesi amacıyla işlenir.{" "}
+              Kişisel verilerinizin işlenmesine ilişkin bilgi için{" "}
               <Link
-                href="/gizlilik-politikasi"
+                href="/kvkk"
                 className="underline underline-offset-2"
                 target="_blank"
               >
-                Gizlilik Politikamızı
+                KVKK Aydınlatma Metni&apos;ni
               </Link>{" "}
               inceleyebilirsiniz.
             </p>
@@ -958,29 +988,6 @@ function AccountBlock({
               disabled={disabled}
             />
           </Field>
-          <label className="flex cursor-pointer items-start gap-2.5 self-end rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50">
-            <input
-              type="checkbox"
-              name="kvkk_accepted"
-              className="mt-0.5 size-4 accent-primary"
-              required
-              disabled={disabled}
-            />
-            <span>
-              <Link href="/kvkk" className="underline underline-offset-2" target="_blank">
-                KVKK Aydınlatma Metni
-              </Link>{" "}
-              ve{" "}
-              <Link
-                href="/mesafeli-satis-sozlesmesi"
-                className="underline underline-offset-2"
-                target="_blank"
-              >
-                Mesafeli Satış Sözleşmesi
-              </Link>
-              &apos;ni okudum, onaylıyorum.
-            </span>
-          </label>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -1053,29 +1060,6 @@ function GuestBlock({ disabled }: { disabled: boolean }) {
         e-posta zorunludur — girmezseniz siparişinizi numarası ve
         telefonunuzla sorgulayabilirsiniz.
       </p>
-      <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50 sm:col-span-2">
-        <input
-          type="checkbox"
-          name="kvkk_accepted"
-          className="mt-0.5 size-4 accent-primary"
-          required
-          disabled={disabled}
-        />
-        <span>
-          <Link href="/kvkk" className="underline underline-offset-2" target="_blank">
-            KVKK Aydınlatma Metni
-          </Link>{" "}
-          ve{" "}
-          <Link
-            href="/mesafeli-satis-sozlesmesi"
-            className="underline underline-offset-2"
-            target="_blank"
-          >
-            Mesafeli Satış Sözleşmesi
-          </Link>
-          &apos;ni okudum, onaylıyorum.
-        </span>
-      </label>
     </div>
   );
 }

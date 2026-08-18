@@ -93,7 +93,6 @@ export function readCheckoutAccountInput(formData: FormData): unknown {
       first_name: formData.get("first_name"),
       last_name: formData.get("last_name"),
       phone: formData.get("phone"),
-      kvkk_accepted: formData.get("kvkk_accepted") === "on",
     };
   }
   if (mode === "signin") {
@@ -113,7 +112,6 @@ export function readCheckoutAccountInput(formData: FormData): unknown {
       first_name: formData.get("first_name"),
       last_name: formData.get("last_name"),
       phone: formData.get("phone"),
-      kvkk_accepted: formData.get("kvkk_accepted") === "on",
     };
   }
   return { mode: "existing" };
