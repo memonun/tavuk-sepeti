@@ -749,6 +749,20 @@ export function CheckoutForm({
               {pending ? "Gönderiliyor…" : "Siparişi ver"}
             </Button>
 
+            <p className="text-center text-xs text-muted-foreground">
+              Siparişinizi oluştururken paylaştığınız bilgiler siparişinizin
+              hazırlanması, ödeme ve teslimat süreçlerinin yürütülmesi ve
+              gerektiğinde sizinle iletişime geçilmesi amacıyla işlenir.{" "}
+              <Link
+                href="/gizlilik-politikasi"
+                className="underline underline-offset-2"
+                target="_blank"
+              >
+                Gizlilik Politikamızı
+              </Link>{" "}
+              inceleyebilirsiniz.
+            </p>
+
             {!hasAddress ? (
               <p className="text-center text-xs text-muted-foreground">
                 Devam etmek için bir teslimat adresi seçin.

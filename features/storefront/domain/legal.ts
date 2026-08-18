@@ -61,6 +61,10 @@ export interface LegalDoc {
   readonly longTitle: string;
   readonly updated: string; // YYYY-MM-DD, shown as "son güncelleme"
   readonly sections: readonly LegalSection[];
+  /** Slugs of other legal docs to cross-link at the bottom of the page
+   *  ("İlgili hukuki metinler") — real navigable links, since these
+   *  paragraphs are plain strings and can't carry inline JSX links. */
+  readonly relatedSlugs?: readonly string[];
 }
 
 const p = (...paragraphs: string[]): LegalSection => ({ paragraphs });
@@ -70,6 +74,10 @@ const s = (heading: string, ...paragraphs: string[]): LegalSection => ({
 });
 
 const UPDATED = "2026-07-28";
+// Bumped only for docs whose content actually changed on this revision
+// (gizlilik-politikasi expansion, cerez-politikasi cookie/localStorage
+// correction, new kullanim-sartlari) — every other doc keeps UPDATED as-is.
+const UPDATED_2 = "2026-08-18";
 
 export const LEGAL_DOCS: readonly LegalDoc[] = [
   {
@@ -132,27 +140,96 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
   {
     slug: "gizlilik-politikasi",
     title: "Gizlilik Politikası",
-    longTitle: "Gizlilik ve Güvenlik Politikası",
-    updated: UPDATED,
+    longTitle: "Gizlilik Politikası",
+    updated: UPDATED_2,
+    relatedSlugs: ["kvkk", "cerez-politikasi", "mesafeli-satis-sozlesmesi", "kullanim-sartlari"],
     sections: [
       p(
-        `${COMPANY.brand} olarak kişisel verilerinizin gizliliğine önem veriyoruz. Bu politika, sitemizi kullanırken hangi verileri, hangi amaçla topladığımızı ve nasıl koruduğumuzu açıklar.`,
+        `${COMPANY.brand} olarak; sitemizi ziyaret ettiğinizde, müşteri hesabı oluşturduğunuzda, sipariş verdiğinizde, siparişinizi sorguladığınızda veya bizimle iletişime geçtiğinizde işlenen kişisel verilerinizin gizliliğine önem veriyoruz. Bu Gizlilik Politikası, hangi kişisel verilerin hangi amaçlarla işlendiğini, kimlerle paylaşılabileceğini ve KVKK kapsamındaki haklarınızı açıklamak amacıyla hazırlanmıştır.`,
       ),
       s(
-        "Toplanan Veriler",
-        "Ad-soyad, telefon, e-posta, teslimat adresi ve sipariş bilgileri; site kullanımına ilişkin teknik veriler (IP, çerezler).",
+        "Veri Sorumlusu",
+        `Kişisel verilerinizin işlenmesinden ${COMPANY.brand} (${COMPANY.tradeName}) sorumludur. Adres: ${COMPANY.address}. Telefon: ${COMPANY.phone}. E-posta: ${COMPANY.email}.`,
       ),
       s(
-        "Kullanım Amacı",
-        "Siparişin oluşturulması, teslimatı, ödemenin alınması, müşteri desteği ve yasal yükümlülüklerin yerine getirilmesi.",
+        "Kimlik ve İletişim Bilgileri",
+        "Hesap oluşturduğunuzda veya sipariş verdiğinizde ad, soyad, telefon numarası ve e-posta adresiniz alınır; bu bilgiler siparişin oluşturulması ve sizinle iletişime geçilebilmesi için kullanılır.",
       ),
       s(
-        "Ödeme Güvenliği",
-        "Kart ile ödemelerde işlemler 3D Secure ve PayTR güvenli ödeme altyapısı üzerinden yürütülür. Kart bilgileriniz sitemizde tutulmaz veya görüntülenmez.",
+        "Teslimat Adresi Bilgileri",
+        "Siparişinizin teslim edilebilmesi için adres bilgileriniz ve varsa teslimatla ilgili notlarınız işlenir. Adresin haritada gösterilmesi ve konumunun belirlenmesi Google Haritalar altyapısı üzerinden yapılır.",
       ),
       s(
-        "Üçüncü Taraflar",
-        "Verileriniz yalnızca teslimat (kargo), ödeme (PayTR) ve yasal merciler gibi hizmetin gerektirdiği taraflarla, gerektiği ölçüde paylaşılır; pazarlama amacıyla satılmaz.",
+        "Hesap ve Oturum Bilgileri",
+        "Müşteri hesabı oluşturursanız, giriş bilgileriniz ve oturumunuz kimlik doğrulama altyapımız olan Supabase üzerinden yönetilir. Şifreniz tarafımızca okunabilir biçimde saklanmaz.",
+      ),
+      s(
+        "Sipariş Bilgileri",
+        "Sipariş numarası, sipariş edilen ürünler ve miktarları, tutar, seçilen teslimat günü ve yöntemi (bölge içi teslimat veya kargo), ödeme yöntemi, sipariş notları ve sipariş durumu, siparişinizin yürütülmesi amacıyla kaydedilir.",
+      ),
+      s(
+        "Düzenli Sipariş Bilgileri",
+        "Düzenli sipariş talebinde bulunursanız, seçtiğiniz ürünler ve teslimat sıklığı; talebiniz onaylandıktan sonra ilgili tarihlerde sizin adınıza otomatik olarak sipariş oluşturmak amacıyla saklanır. Bu, kartınızdan otomatik tahsilat yapıldığı anlamına gelmez — düzenli siparişler yalnızca kapıda ödeme veya havale/EFT ile ödenir.",
+      ),
+      s(
+        "Sipariş Sorgulama Bilgileri",
+        "Hesabınız yoksa, siparişte kullandığınız telefon numarası veya sipariş numaranız ile siparişinizin durumunu sorgulayabilirsiniz. Bu sorgulama sırasında girdiğiniz bilgiler yalnızca ilgili siparişi bulmak amacıyla kullanılır.",
+      ),
+      s(
+        "Ödeme Bilgileri",
+        "Kredi/banka kartı ile ödemede işlem PayTR güvenli ödeme altyapısı üzerinden yürütülür; kart numarası, son kullanma tarihi ve CVV gibi bilgiler sitemizde veya sunucularımızda tutulmaz, doğrudan PayTR'ye iletilir. Havale/EFT ile ödemede yalnızca ödemeyi eşleştirebilmemiz için sipariş ve iletişim bilgileriniz kullanılır.",
+      ),
+      s(
+        "Teknik Kullanım Bilgileri",
+        "Sitenin güvenli ve düzgün çalışmasını sağlamak amacıyla IP adresi, tarayıcı bilgisi ve erişim kayıtları gibi teknik veriler, barındırma altyapımız (Vercel) tarafından işlenebilir.",
+      ),
+      s(
+        "Kişisel Verilerin İşlenme Amaçları",
+        "Verileriniz; sipariş oluşturma ve yürütme, ödeme işlemlerinin gerçekleştirilmesi, teslimatın yapılması, sipariş durumunun sorgulanabilmesi, müşteri hesabının yönetilmesi, sipariş onayı ve bilgilendirme e-postalarının gönderilmesi, müşteri talep ve şikâyetlerinin yanıtlanması ile yasal yükümlülüklerin yerine getirilmesi amacıyla işlenir.",
+      ),
+      s(
+        "Hukuki Sebepler",
+        "Kişisel verileriniz; aramızdaki sözleşmenin kurulması ve ifası, hukuki yükümlülüklerimizin yerine getirilmesi ve meşru menfaatlerimiz kapsamında, KVKK'nın ilgili hükümlerine dayanılarak işlenir. Açık rızanızın gerekli olduğu haller ayrıca ilgili işlem sırasında belirtilir.",
+      ),
+      s(
+        "Çerezler ve Yerel Depolama",
+        "Oturum açtığınızda kimlik doğrulama bilginiz, Supabase altyapısı tarafından güvenli çerezlerde tutulur. Sepetinizdeki ürünler ise çerez değildir; yalnızca kendi tarayıcınızda (localStorage) saklanır ve sunucularımıza gönderilmez. Sitemizde reklam veya pazarlama amaçlı çerez ya da izleme teknolojisi kullanılmaz. Ayrıntılar için Çerez Politikamıza bakabilirsiniz.",
+      ),
+      s(
+        "Üçüncü Taraf Hizmet Sağlayıcılar",
+        "Hizmetin yürütülmesi için şu sağlayıcılardan yararlanılmaktadır: Supabase (hesap/kimlik doğrulama ve sipariş veritabanı altyapısı), PayTR (kredi/banka kartı ile ödeme işlemleri), Resend (sipariş onay e-postalarının gönderimi), Google Haritalar (teslimat adresinin haritada gösterimi ve konum belirleme) ve Vercel (sitenin barındırılması). Bu sağlayıcılar yalnızca hizmetin gerektirdiği ölçüde ve kendi gizlilik/güvenlik uygulamaları çerçevesinde veri işler.",
+      ),
+      s(
+        "WhatsApp Üzerinden İletişim",
+        "Sitedeki WhatsApp bağlantısı, sizi WhatsApp uygulamasına yönlendiren basit bir bağlantıdır; buradan başlattığınız görüşmeler WhatsApp'ın kendi hizmet şartlarına tabidir.",
+      ),
+      s(
+        "Kişisel Verilerin Aktarılması",
+        "Kişisel verileriniz, hizmetin yürütülmesi için gerekli olduğu ölçüde ödeme hizmet sağlayıcımıza, teknik altyapı sağlayıcılarımıza ve hukuken yetkili kamu kurumlarına aktarılabilir. Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz veya kiralanmaz.",
+      ),
+      s(
+        "Yurt Dışına Veri Aktarımı",
+        "Kullandığımız bazı hizmet sağlayıcılar (barındırma, ödeme, e-posta, harita gibi) verileri yurt dışındaki sunucularında işleyebilir. Bu aktarımlar, hizmetin gerektirdiği ölçüde ve ilgili sağlayıcının kendi güvenlik uygulamaları çerçevesinde gerçekleşir.",
+      ),
+      s(
+        "Saklama Süresi",
+        "Kişisel verileriniz, işlendikleri amaç için gerekli olduğu ve ilgili mevzuatın (özellikle muhasebe ve tüketici mevzuatı) öngördüğü süre boyunca saklanır; bu süre sona erdiğinde silinir veya anonim hale getirilir.",
+      ),
+      s(
+        "Veri Güvenliği",
+        "Kişisel verilerinizin yetkisiz erişime, kayba veya kötüye kullanıma karşı korunması için makul teknik ve idari önlemler alınır. Ancak internet üzerinden yapılan hiçbir veri aktarımının veya elektronik saklamanın mutlak güvenliği garanti edilemez.",
+      ),
+      s(
+        "KVKK Kapsamındaki Haklarınız",
+        `6698 sayılı KVKK'nın 11. maddesi kapsamında; verilerinizin işlenip işlenmediğini öğrenme, işlenmişse buna ilişkin bilgi talep etme, eksik/yanlış verilerin düzeltilmesini isteme, mevzuatta öngörülen şartlarda silinmesini isteme ve işlenmesine itiraz etme haklarına sahipsiniz. Ayrıntılar için KVKK Aydınlatma Metni'ni inceleyebilir, taleplerinizi ${COMPANY.email} adresine iletebilirsiniz. Kimliğinizi doğrulamak için makul ek bilgi istenebilir.`,
+      ),
+      s(
+        "Üçüncü Taraf Bağlantılar",
+        "Sitede üçüncü taraf sitelere bağlantılar bulunabilir. Bu sitelerin içerik ve gizlilik uygulamaları bizim kontrolümüz dışındadır.",
+      ),
+      s(
+        "Değişiklikler",
+        "Bu Gizlilik Politikası, sitenin teknik altyapısında, hizmetlerinde veya yasal gerekliliklerde değişiklik olması halinde güncellenebilir; güncel sürüm bu sayfada, üstte belirtilen tarihle birlikte yayımlanır.",
       ),
     ],
   },
@@ -184,18 +261,22 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "cerez-politikasi",
     title: "Çerez Politikası",
     longTitle: "Çerez (Cookie) Politikası",
-    updated: UPDATED,
+    updated: UPDATED_2,
     sections: [
       p(
-        "Sitemiz, temel işlevlerin çalışması (oturum, sepet) ve deneyimin iyileştirilmesi için çerezler kullanır.",
+        "Sitemiz, yalnızca oturumunuzun açık kalması gibi temel işlevler için zorunlu çerez kullanır. Reklam veya pazarlama amaçlı çerez ya da izleme teknolojisi kullanılmaz.",
       ),
       s(
         "Kullanılan Çerezler",
-        "Zorunlu çerezler: oturum ve sepet bilgisi (site olmazsa olmaz). Bu çerezler kişisel pazarlama amacıyla kullanılmaz.",
+        "Zorunlu çerez: giriş yaptıysanız oturumunuzun açık kalması için kullanılır (site olmazsa olmaz). Bu çerez kişisel pazarlama amacıyla kullanılmaz.",
+      ),
+      s(
+        "Sepet ve Yerel Depolama",
+        "Sepetinizdeki ürünler çerez değildir; yalnızca kendi tarayıcınızda (localStorage) tutulur ve sunucularımıza gönderilmez.",
       ),
       s(
         "Çerez Yönetimi",
-        "Tarayıcı ayarlarınızdan çerezleri silebilir veya engelleyebilirsiniz; ancak zorunlu çerezler engellenirse sepet/oturum düzgün çalışmayabilir.",
+        "Tarayıcı ayarlarınızdan çerezleri silebilir veya engelleyebilirsiniz; ancak zorunlu oturum çerezi engellenirse giriş yapmış olarak kalamayabilirsiniz.",
       ),
     ],
   },
@@ -236,6 +317,106 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       s(
         "Teslimat Ücreti",
         "Teslimat ücreti sipariş özetinde açıkça gösterilir. Kampanya dönemlerinde ücretsiz teslimat uygulanabilir.",
+      ),
+    ],
+  },
+  {
+    slug: "kullanim-sartlari",
+    title: "Kullanım Şartları",
+    longTitle: "Kullanım Şartları",
+    updated: UPDATED_2,
+    relatedSlugs: [
+      "mesafeli-satis-sozlesmesi",
+      "on-bilgilendirme-formu",
+      "iptal-iade-kosullari",
+      "teslimat-kosullari",
+      "gizlilik-politikasi",
+      "kvkk",
+      "cerez-politikasi",
+    ],
+    sections: [
+      p(
+        `${COMPANY.brand} internet sitesini ziyaret ederek veya site üzerinden sunulan ürün görüntüleme, hesap, sepet, sipariş, sipariş sorgulama ve diğer hizmetleri kullanarak bu Kullanım Şartları'nı kabul etmiş olursunuz. Belirli bir satın alma işlemine ilişkin özel şartlar; Mesafeli Satış Sözleşmesi, Ön Bilgilendirme Formu, İptal ve İade Koşulları ile Teslimat Koşulları'nda ayrıca düzenlenir ve bu sayfanın altındaki "İlgili hukuki metinler" bölümünden bu sayfalara ulaşabilirsiniz.`,
+      ),
+      s(
+        "Kapsam",
+        "Bu Kullanım Şartları; internet sitesinin görüntülenmesi, ürünlerin incelenmesi, müşteri hesabının kullanılması, sepet işlemleri, sipariş oluşturulması, sipariş sorgulama ve site üzerinden iletişim kurulması gibi genel kullanım süreçlerini düzenler. Bu metin, Mesafeli Satış Sözleşmesi'nin yerine geçmez.",
+      ),
+      s(
+        "Ürün Bilgileri ve Görseller",
+        `${COMPANY.brand}, ürünlerle ilgili doğru ve güncel bilgi vermek için makul çaba gösterir; ürün adı, miktarı, fiyatı ve teslimat türü gibi bilgiler ürün sayfalarında yer alır. Ürünler doğal/tarımsal nitelikte olduğundan renk, boyut ve görünümde doğal farklılıklar olabilir ve ürün görselleri temsili niteliktedir. Sipariş için geçerli olan bilgiler, sipariş oluşturulurken ekranda gösterilen güncel bilgilerdir.`,
+      ),
+      s(
+        "Fiyatlar ve Sipariş Koşulları",
+        "Ürünlerin güncel satış fiyatı ve toplam sipariş tutarı, ödemeden önce sipariş özeti ekranında gösterilir. Geçerli minimum sipariş tutarı ve teslimat koşulları ürüne ve teslimat türüne göre değişebileceğinden, sipariş sırasında sitede gösterilen güncel bilgiler esas alınır.",
+      ),
+      s(
+        "Sipariş Oluşturma",
+        "Sipariş vermeden önce seçtiğiniz ürünleri, miktarları, teslimat bilgilerinizi, ödeme yönteminizi ve toplam tutarı kontrol etmeniz gerekir. Siparişiniz, sipariş özetini onaylayıp gönderdiğinizde oluşturulur ve kendine özgü bir sipariş numarası alır.",
+      ),
+      s(
+        "Yerel Teslimat ve Kargo",
+        "Ürünlerin teslimat şekli, ürünün niteliğine ve teslimat adresinize göre değişir: bazı ürünler yalnızca bölge içi teslimat kapsamında, bazıları ise Türkiye geneline kargo ile gönderilir. Teslimat gün ve süreleri ile kargoya ilişkin ayrıntılar Teslimat Koşulları'nda yer alır.",
+      ),
+      s(
+        "Düzenli Sipariş",
+        "Hesabınız üzerinden düzenli sipariş talebinde bulunabilirsiniz: seçtiğiniz ürünler ve teslimat sıklığına göre, talebiniz onaylandıktan sonra siparişleriniz seçtiğiniz tarihlerde sizin adınıza otomatik olarak oluşturulur. Bu bir otomatik kart tahsilatı (abonelik) değildir — düzenli siparişler yalnızca kapıda nakit ödeme veya havale/EFT ile ödenir. Oluşturulan her siparişi hesabınızdan takip edebilirsiniz.",
+      ),
+      s(
+        "Ödeme",
+        "Sipariş sırasında; kredi/banka kartı (PayTR güvenli ödeme altyapısı üzerinden), kapıda nakit ödeme (yalnızca bölge içi teslimatlarda) veya banka havalesi/EFT ile ödeme yapabilirsiniz. Kart bilgileriniz sitemizde saklanmaz.",
+      ),
+      s(
+        "Müşteri Hesabı",
+        "Hesap oluşturursanız, hesap bilgilerinizin doğruluğundan ve giriş bilgilerinizin gizliliğinden siz sorumlusunuz. Hesabınızda olağan dışı bir kullanım fark ederseniz bizimle iletişime geçmenizi rica ederiz.",
+      ),
+      s(
+        "Sipariş Sorgulama",
+        "Sipariş sorgulama özelliği yalnızca sipariş sahibinin kendi siparişine erişmesi için sunulur. Başkasına ait sipariş, telefon veya adres bilgilerine yetkisiz şekilde erişmeye çalışmak yasaktır.",
+      ),
+      s(
+        "Kullanıcının Sorumlulukları",
+        "Siteyi kullanırken yanıltıcı sipariş veya iletişim bilgisi vermemeyi, başkalarına ait kişisel bilgileri yetkisiz şekilde kullanmamayı, sahte sipariş oluşturmamayı, ödeme sistemlerini kötüye kullanmamayı ve sitenin güvenliğini veya çalışmasını bozacak faaliyetlerde bulunmamayı kabul edersiniz.",
+      ),
+      s(
+        "Ürünlerin Teslim Alınması ve Saklanması",
+        "Taze ve bozulabilir ürünlerin (yumurta, süt ürünleri vb.) tesliminden sonra uygun koşullarda saklanması sizin sorumluluğunuzdadır. Ürün ambalajında özel bir saklama bilgisi varsa buna uyulması önerilir.",
+      ),
+      s(
+        "İptal, İade ve Cayma Hakkı",
+        "Siparişlerin iptali, iadesi ve cayma hakkına ilişkin esaslar İptal ve İade Koşulları ile Mesafeli Satış Sözleşmesi'nde düzenlenmiştir; bu sayfanın altındaki \"İlgili hukuki metinler\" bölümünden ulaşabilirsiniz.",
+      ),
+      s(
+        "Fikri Mülkiyet",
+        `Aksi belirtilmedikçe sitede yer alan özgün metin, tasarım, görsel ve marka unsurları ${COMPANY.brand}'na aittir. Bu materyallerin kişisel kullanımın ötesinde ticari amaçla çoğaltılması veya kullanılması için izin alınması gerekir.`,
+      ),
+      s(
+        "Üçüncü Taraf Hizmetler",
+        "Site; ödeme, barındırma, e-posta ve harita hizmetleri için üçüncü taraf sağlayıcılardan yararlanır. Bu sağlayıcıların kendi kullanım şartları ve gizlilik uygulamaları geçerli olabilir. Ayrıntılar için Gizlilik Politikamıza bakabilirsiniz.",
+      ),
+      s(
+        "Teknik Kullanılabilirlik",
+        "Sitenin kesintisiz veya hatasız çalışacağı garanti edilmez; bakım, altyapı veya üçüncü taraf hizmet sorunları nedeniyle site geçici olarak kullanılamayabilir.",
+      ),
+      s(
+        "Sorumluluğun Sınırı",
+        "Uygulanabilir mevzuatın izin verdiği ölçüde, kontrolümüz dışındaki teknik veya üçüncü taraf kaynaklı sorunlardan doğan dolaylı zararlardan sorumlu tutulamayabiliriz. Bu hüküm, tüketici mevzuatından doğan haklarınızı ortadan kaldıracak şekilde yorumlanamaz.",
+      ),
+      s(
+        "Uygulanacak Hukuk",
+        "Uyuşmazlıklarda, Mesafeli Satış Sözleşmesi'nin 6. maddesinde belirtilen yetkili merciler geçerlidir.",
+      ),
+      s(
+        "Gizlilik",
+        "Kişisel verilerinizin nasıl işlendiği hakkında bilgi için Gizlilik Politikamızı ve KVKK Aydınlatma Metni'ni inceleyebilirsiniz.",
+      ),
+      s(
+        "Değişiklikler",
+        "Bu Kullanım Şartları, sitedeki hizmetlerin veya yasal gerekliliklerin değişmesi halinde güncellenebilir; güncel sürüm bu sayfada, üstte belirtilen tarihle birlikte yayımlanır.",
+      ),
+      s(
+        "İletişim",
+        `Bu Kullanım Şartları veya internet sitesiyle ilgili sorularınız için: ${COMPANY.tradeName}, ${COMPANY.address}. Telefon: ${COMPANY.phone}. E-posta: ${COMPANY.email}.`,
       ),
     ],
   },
