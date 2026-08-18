@@ -30,6 +30,7 @@ import {
   findGuestOrderByNumberAction,
   type FindOrderByNumberState,
 } from "@/features/storefront/application/find-guest-order-by-number";
+import { isAwaitingPayment } from "@/features/storefront/domain/card-confirmation";
 import {
   GUEST_ORDER_TYPE_OPTIONS,
   type GuestOrderType,
@@ -318,17 +319,35 @@ function OrderCard({
 }) {
   // Cash on delivery is unpaid by design until the driver arrives, so it is not
   // "awaiting payment" and must not be offered a pay button.
-  const awaitingPayment =
-    order.paymentStatus !== "paid" &&
-    order.status !== "cancelled" &&
-    order.paymentMethod !== "cash_on_delivery";
+  const paymentView = {
+    payment_status: order.paymentStatus,
+    payment_method: order.paymentMethod,
+    status: order.status,
+    created_at: order.createdAt,
+  };
+  const awaitingPayment = isAwaitingPayment(paymentView);
+  // A card payment placed moments ago may simply not have been booked yet —
+  // PayTR's callback trails the customer's return. Saying "Ödeme bekliyor" and
+  // offering to charge the card again in that window is how an order gets paid
+  // twice.
+  //
+  // Evaluated server-side when the lookup ran (see `mapGuestOrderRow`): reading
+  // the clock during a client render is impure, and this card only ever
+  // describes the instant the customer asked.
+  const awaitingConfirmation = order.awaitingCardConfirmation;
   // A bank-transfer order is waiting on an admin to confirm the transfer
   // manually, not on the customer — there's no card payment to retry, so it
   // gets no pay button.
   const canRetryCardPayment =
-    allowResume && awaitingPayment && order.paymentMethod === "credit_card";
+    allowResume &&
+    awaitingPayment &&
+    !awaitingConfirmation &&
+    order.paymentMethod === "credit_card";
   const paymentNeedsPhone =
-    !allowResume && awaitingPayment && order.paymentMethod === "credit_card";
+    !allowResume &&
+    awaitingPayment &&
+    !awaitingConfirmation &&
+    order.paymentMethod === "credit_card";
 
   return (
     <div className="flex flex-col gap-3 rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
@@ -344,14 +363,20 @@ function OrderCard({
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Ödeme</dt>
-          <dd className={awaitingPayment ? "text-destructive" : undefined}>
+          <dd
+            className={
+              awaitingPayment && !awaitingConfirmation ? "text-destructive" : undefined
+            }
+          >
             {order.paymentStatus === "paid"
               ? "Ödendi"
               : order.paymentMethod === "cash_on_delivery"
                 ? "Teslimatta ödenecek"
-                : order.paymentMethod === "bank_transfer"
-                  ? "Ödeme onayı bekliyor"
-                  : "Ödeme bekliyor"}
+                : awaitingConfirmation
+                  ? "Ödeme kontrol ediliyor"
+                  : order.paymentMethod === "bank_transfer"
+                    ? "Ödeme onayı bekliyor"
+                    : "Ödeme bekliyor"}
           </dd>
         </div>
         <div className="flex justify-between gap-4">

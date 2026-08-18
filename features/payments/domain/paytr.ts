@@ -119,3 +119,47 @@ export function orderIdFromMerchantOid(merchantOid: string): string | null {
   if (!/^[0-9a-f]{32}$/i.test(hex)) return null;
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+
+/**
+ * A signed proof that WE issued a card-return URL for this order number.
+ *
+ * PayTR redirects the browser to `merchant_ok_url` before — or in a race with —
+ * the server-to-server callback that actually books the payment, so the return
+ * page has to be able to re-read the order's payment state until the booking
+ * lands. For a logged-in customer the session scopes that read; a GUEST has no
+ * session, and `order_number` alone is sequential and guessable, so reading by
+ * order number alone would hand out an enumerable "is it paid?" oracle.
+ *
+ * This token closes that: only a URL we handed to PayTR carries a valid one, so
+ * the guest read is authorized by possession of the return URL rather than by
+ * the order number. Keyed by the merchant secrets — they exist exactly when
+ * card payments do, so no new secret has to be provisioned.
+ *
+ * Deliberately NOT an expiring token: PayTR's own `timeout_limit` bounds the
+ * session, and an expired token would strand a customer who left the tab open
+ * through 3-D Secure — the failure mode this whole change is fixing.
+ */
+export function signOrderReturnToken(
+  orderNumber: string,
+  merchantKey: string,
+  merchantSalt: string,
+): string {
+  return base64Hmac(`return:${orderNumber}:${merchantSalt}`, merchantKey)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/** Constant-time check of a token produced by `signOrderReturnToken`. */
+export function verifyOrderReturnToken(
+  token: string,
+  orderNumber: string,
+  merchantKey: string,
+  merchantSalt: string,
+): boolean {
+  const expected = signOrderReturnToken(orderNumber, merchantKey, merchantSalt);
+  // timingSafeEqual throws on a length mismatch, so guard before comparing —
+  // the length itself is not a secret.
+  if (token.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(token, "utf8"), Buffer.from(expected, "utf8"));
+}

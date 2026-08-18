@@ -16,6 +16,7 @@ import "server-only";
  * Runs on the service-role client because `orders` has no policy for `anon`,
  * and the authorization is the phone match inside the RPC rather than RLS.
  */
+import { isAwaitingCardConfirmation } from "@/features/storefront/domain/card-confirmation";
 import { AppError, ExternalApiError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
@@ -35,12 +36,32 @@ export interface GuestOrderView {
   cargoCarrier: string | null;
   cargoTrackingNumber: string | null;
   cargoTrackingUrl: string | null;
+  /**
+   * Whether this order's card payment might still be in flight, evaluated when
+   * the lookup ran.
+   *
+   * Derived here rather than in the component because the storefront's lookup
+   * card is a Client Component: reading the clock during its render is impure,
+   * and the compiler may re-render it at will. The value is a snapshot of the
+   * moment the customer asked — which is exactly the moment it describes.
+   */
+  awaitingCardConfirmation: boolean;
 }
 
 /** Shared row→view mapping for every RPC that returns this same column set
  *  (lookup_guest_order, lookup_guest_orders_by_details). */
 export function mapGuestOrderRow(row: Record<string, unknown>): GuestOrderView {
+  const createdAt = String(row.created_at);
   return {
+    awaitingCardConfirmation: isAwaitingCardConfirmation(
+      {
+        payment_status: String(row.payment_status),
+        payment_method: String(row.payment_method),
+        status: String(row.status),
+        created_at: createdAt,
+      },
+      new Date().getTime(),
+    ),
     orderId: String(row.order_id),
     orderNumber: String(row.order_number),
     status: String(row.status),
@@ -49,7 +70,7 @@ export function mapGuestOrderRow(row: Record<string, unknown>): GuestOrderView {
     totalMinor: Number(row.total_minor ?? 0),
     scheduledFor: String(row.scheduled_for),
     channel: row.fulfillment_channel === "shipping" ? "shipping" : "delivery",
-    createdAt: String(row.created_at),
+    createdAt,
     cargoCarrier: typeof row.cargo_carrier === "string" ? row.cargo_carrier : null,
     cargoTrackingNumber:
       typeof row.cargo_tracking_number === "string" ? row.cargo_tracking_number : null,
