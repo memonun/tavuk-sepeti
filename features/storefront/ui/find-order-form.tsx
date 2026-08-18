@@ -8,12 +8,16 @@
  * move after a failed payment was to place the order again, which is the
  * duplicate-order behaviour we removed for account holders.
  *
- * Identifies the order by phone + order type rather than order_number: the
- * number is a dead end for anyone who lost the confirmation e-mail, and most
- * guests don't remember the exact placement date either. The server
- * resolves the real order_number/order_id itself (see find-guest-orders.ts)
- * and, when more than one order matches, hands back every match so the
- * guest can pick the right one here — no extra round trip.
+ * Two tabs, because guests show up with different information in hand:
+ *
+ *   phone       — phone + order type. Every matching order comes back for
+ *                 the guest to pick from (find-guest-orders.ts).
+ *   order_number — the order number alone, nothing else asked
+ *                 (find-guest-order-by-number.ts). A deliberate trade-off:
+ *                 this tab has no phone-based scanning defense, so an order
+ *                 found here cannot offer "Ödemeyi tamamla" — resuming a
+ *                 card payment needs a phone to prove ownership, which this
+ *                 tab never collects.
  */
 import { useActionState, useState } from "react";
 import { PackageSearchIcon } from "lucide-react";
@@ -22,6 +26,10 @@ import {
   findGuestOrdersAction,
   type FindOrdersState,
 } from "@/features/storefront/application/find-guest-orders";
+import {
+  findGuestOrderByNumberAction,
+  type FindOrderByNumberState,
+} from "@/features/storefront/application/find-guest-order-by-number";
 import {
   GUEST_ORDER_TYPE_OPTIONS,
   type GuestOrderType,
@@ -39,6 +47,7 @@ import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-but
 import type { GuestOrderView } from "@/features/storefront/application/lookup-guest-order";
 
 const initialState: FindOrdersState = { status: "idle" };
+const initialByNumberState: FindOrderByNumberState = { status: "idle" };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",
@@ -48,7 +57,56 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "İptal edildi",
 };
 
+type LookupMode = "phone" | "order_number";
+
 export function FindOrderForm() {
+  const [mode, setMode] = useState<LookupMode>("phone");
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="inline-flex gap-1 self-start rounded-full bg-secondary p-1">
+        <ModeTab active={mode === "phone"} onClick={() => setMode("phone")}>
+          Telefon ile bul
+        </ModeTab>
+        <ModeTab
+          active={mode === "order_number"}
+          onClick={() => setMode("order_number")}
+        >
+          Sipariş numarası ile bul
+        </ModeTab>
+      </div>
+
+      {mode === "phone" ? <PhoneLookup /> : <OrderNumberLookup />}
+    </div>
+  );
+}
+
+function ModeTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PhoneLookup() {
   const [state, formAction, pending] = useActionState(
     findGuestOrdersAction,
     initialState,
@@ -140,7 +198,7 @@ export function FindOrderForm() {
       </form>
 
       {state.status === "found_one" ? (
-        <OrderCard order={state.order} phone={state.phone} />
+        <OrderCard order={state.order} phone={state.phone} allowResume />
       ) : null}
 
       {state.status === "found_many" ? (
@@ -153,7 +211,7 @@ export function FindOrderForm() {
             >
               ← Başka sipariş seç
             </button>
-            <OrderCard order={selectedOrder} phone={phoneForCard} />
+            <OrderCard order={selectedOrder} phone={phoneForCard} allowResume />
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -191,7 +249,73 @@ export function FindOrderForm() {
   );
 }
 
-function OrderCard({ order, phone }: { order: GuestOrderView; phone: string }) {
+function OrderNumberLookup() {
+  const [state, formAction, pending] = useActionState(
+    findGuestOrderByNumberAction,
+    initialByNumberState,
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <form action={formAction} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="order_number">Sipariş numarası</Label>
+          <Input
+            id="order_number"
+            name="order_number"
+            placeholder="Sipariş numaranızı girin"
+            autoComplete="off"
+            required
+            disabled={pending}
+          />
+        </div>
+
+        {state.status === "not_found" ? (
+          <p className="text-sm text-destructive" role="alert">
+            Bu numarayla eşleşen bir sipariş bulamadık. Sipariş numaranızı
+            kontrol edip tekrar deneyin.
+          </p>
+        ) : null}
+        {state.status === "rate_limited" ? (
+          <p className="text-sm text-destructive" role="alert">
+            Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar
+            deneyin.
+          </p>
+        ) : null}
+        {state.status === "error" ? (
+          <p className="text-sm text-destructive" role="alert">
+            {state.message}
+          </p>
+        ) : null}
+
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full rounded-full"
+          disabled={pending}
+        >
+          {pending ? "Sorgulanıyor…" : "Siparişimi bul"}
+        </Button>
+      </form>
+
+      {state.status === "found" ? (
+        <OrderCard order={state.order} phone="" allowResume={false} />
+      ) : null}
+    </div>
+  );
+}
+
+function OrderCard({
+  order,
+  phone,
+  allowResume,
+}: {
+  order: GuestOrderView;
+  phone: string;
+  /** False on the order-number-only tab: no phone was collected, and
+   *  resumeCardPaymentAction requires one to prove a guest owns the order. */
+  allowResume: boolean;
+}) {
   // Cash on delivery is unpaid by design until the driver arrives, so it is not
   // "awaiting payment" and must not be offered a pay button.
   const awaitingPayment =
@@ -202,7 +326,9 @@ function OrderCard({ order, phone }: { order: GuestOrderView; phone: string }) {
   // manually, not on the customer — there's no card payment to retry, so it
   // gets no pay button.
   const canRetryCardPayment =
-    awaitingPayment && order.paymentMethod === "credit_card";
+    allowResume && awaitingPayment && order.paymentMethod === "credit_card";
+  const paymentNeedsPhone =
+    !allowResume && awaitingPayment && order.paymentMethod === "credit_card";
 
   return (
     <div className="flex flex-col gap-3 rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
@@ -278,6 +404,13 @@ function OrderCard({ order, phone }: { order: GuestOrderView; phone: string }) {
             label="Ödemeyi tamamla"
           />
         </div>
+      ) : null}
+
+      {paymentNeedsPhone ? (
+        <p className="text-xs text-muted-foreground">
+          Kart ile ödemeyi tamamlamak için &quot;Telefon ile bul&quot;
+          sekmesinden siparişinizi tekrar sorgulayın.
+        </p>
       ) : null}
     </div>
   );
