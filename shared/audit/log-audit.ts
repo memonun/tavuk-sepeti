@@ -44,6 +44,10 @@ export type AuditAction =
   | "recurring.resumed"
   | "recurring.deleted"
   | "recurring.order_generated"
+  | "recurring.approved"
+  // Storefront (customer-initiated) recurring order request lifecycle.
+  | "recurring.requested"
+  | "recurring.request_cancelled"
   // Storefront (customer-initiated). The actor is the customer's auth user,
   // not an admin — before this the web order path wrote no audit trail at all.
   | "order.web_placed"

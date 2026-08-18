@@ -62,7 +62,7 @@ export interface UpdateTemplateInput {
 // ---------------------------------------------------------------------------
 
 const TEMPLATE_SELECT =
-  "id, customer_id, cadence, day_of_week, day_of_month, items, payment_method, active, next_run_at, created_at, updated_at" as const;
+  "id, customer_id, cadence, day_of_week, day_of_month, items, payment_method, active, next_run_at, source, approved_at, created_at, updated_at" as const;
 
 // ---------------------------------------------------------------------------
 // Public repository functions
@@ -136,6 +136,9 @@ export async function setTemplateActive(
   id: string,
   active: boolean,
   nextRunAt: Date | null,
+  /** Set only on a customer_web template's FIRST approval (see
+   *  setRecurringTemplateActiveAction) — never cleared afterwards. */
+  approvedAt?: Date,
 ): Promise<Result<RecurringTemplate, RecurringRepoFailure>> {
   const supabase = await createSupabaseServerClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,6 +147,7 @@ export async function setTemplateActive(
     .update({
       active,
       ...(nextRunAt != null ? { next_run_at: nextRunAt.toISOString() } : {}),
+      ...(approvedAt != null ? { approved_at: approvedAt.toISOString() } : {}),
     })
     .eq("id", id)
     .select(TEMPLATE_SELECT)
@@ -280,6 +284,31 @@ export async function advanceNextRun(
   }
 
   return ok(undefined);
+}
+
+/** Does this customer have a primary delivery address? Used as an approval
+ *  gate — create_recurring_order requires one and fails loudly (but silently
+ *  to the approver) at materialization time otherwise. `addresses` is a
+ *  regular typed table, no cast needed. */
+export async function hasPrimaryAddress(
+  customerId: string,
+): Promise<Result<boolean, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("addresses")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("is_primary", true)
+    .limit(1);
+
+  if (error) {
+    logger.error(
+      { customerId, code: error.code },
+      "recurring_template_check_primary_address_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok((data ?? []).length > 0);
 }
 
 export async function listTemplatesByCustomer(

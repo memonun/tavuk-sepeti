@@ -14,12 +14,15 @@
 import { revalidatePath } from "next/cache";
 
 import { assertAdmin } from "@/features/auth/application/assert-admin";
+import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
+import { listActiveProducts } from "@/features/products/application/list-products";
 import { firstRunOnOrAfter } from "@/features/recurring/domain/compute-next-run";
 import { recurringTemplateFormSchema } from "@/features/recurring/domain/recurring-template.schema";
 import {
   createTemplate,
   deleteTemplate,
   findTemplateById,
+  hasPrimaryAddress,
   listAllTemplates,
   listTemplatesByCustomer,
   setTemplateActive,
@@ -171,6 +174,39 @@ export async function setRecurringTemplateActiveAction(
   if (!findResult.ok) return err(findResult.error);
   const tpl = findResult.value;
 
+  // A customer_web request's FIRST approval — distinct from a routine
+  // pause/resume, and the one moment worth a readiness check: once staff
+  // flips this on, the template runs unattended (materialize-due-recurring
+  // never surfaces failures anywhere staff would see them), so a broken
+  // template (archived product, no primary address) should fail loudly HERE
+  // rather than silently forever on every future /routes load.
+  const isFirstApproval =
+    active && tpl.source === "customer_web" && tpl.approved_at === null;
+
+  if (isFirstApproval) {
+    const addressCheck = await hasPrimaryAddress(tpl.customer_id);
+    if (!addressCheck.ok) return err(addressCheck.error);
+    if (!addressCheck.value) {
+      return err(
+        new ValidationError({
+          message:
+            "Bu müşterinin kayıtlı bir teslimat adresi yok — onaylamadan önce müşteri kartından bir adres ekleyin.",
+        }),
+      );
+    }
+
+    const catalog = await listActiveProducts();
+    if (!catalog.ok) return err(catalog.error);
+    const enriched = enrichOrderItems(tpl.items, catalog.value);
+    if (!enriched.ok) {
+      return err(
+        new ValidationError({
+          message: `Şablon onaylanamadı: ${enriched.error.message}`,
+        }),
+      );
+    }
+  }
+
   const nextRun = active
     ? firstRunOnOrAfter(todayInIstanbul(), tpl.cadence, {
         dayOfWeek: tpl.day_of_week,
@@ -178,19 +214,29 @@ export async function setRecurringTemplateActiveAction(
       })
     : null;
 
-  const result = await setTemplateActive(id, active, nextRun);
+  const result = await setTemplateActive(
+    id,
+    active,
+    nextRun,
+    isFirstApproval ? new Date() : undefined,
+  );
   if (!result.ok) return err(result.error);
   const updated = result.value;
 
   await logAudit({
     actor_id: user.id,
-    action: active ? "recurring.resumed" : "recurring.paused",
+    action: isFirstApproval
+      ? "recurring.approved"
+      : active
+        ? "recurring.resumed"
+        : "recurring.paused",
     entity_type: "recurring_template",
     entity_id: id,
     after: { active, next_run_at: nextRun?.toISOString() ?? null },
   });
 
   revalidatePath(`/customers/${tpl.customer_id}`);
+  revalidatePath("/recurring");
   return ok(updated);
 }
 

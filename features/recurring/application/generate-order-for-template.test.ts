@@ -81,6 +81,8 @@ const template: RecurringTemplate = {
   payment_method: "cash_on_delivery",
   active: true,
   next_run_at: new Date("2026-06-22T06:00:00+03:00"),
+  source: "admin_manual",
+  approved_at: null,
   created_at: new Date("2026-01-01T00:00:00Z"),
   updated_at: new Date("2026-01-01T00:00:00Z"),
 };
