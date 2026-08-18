@@ -102,6 +102,12 @@ export function RecurringOrderForm({ products, homeDeliveryDays }: RecurringOrde
         Talebiniz ekibimiz onayladıktan sonra aktif olur.
       </p>
 
+      <div className="mb-5 rounded-lg bg-amber-50 border border-amber-200 p-3">
+        <p className="text-sm text-amber-900">
+          Eve teslimat hizmeti, 250 ₺ ve üzeri tutardaki siparişler için geçerlidir.
+        </p>
+      </div>
+
       <div className="space-y-5">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="cadence">Sıklık</Label>
