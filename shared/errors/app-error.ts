@@ -85,3 +85,10 @@ export class ExternalApiError extends AppError {
     this.name = "ExternalApiError";
   }
 }
+
+export class RateLimitedError extends AppError {
+  constructor(opts: AppErrorOptions = {}) {
+    super(ErrorCode.RATE_LIMITED, opts);
+    this.name = "RateLimitedError";
+  }
+}

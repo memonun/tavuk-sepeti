@@ -37,6 +37,27 @@ export interface GuestOrderView {
   cargoTrackingUrl: string | null;
 }
 
+/** Shared row→view mapping for every RPC that returns this same column set
+ *  (lookup_guest_order, lookup_guest_orders_by_details). */
+export function mapGuestOrderRow(row: Record<string, unknown>): GuestOrderView {
+  return {
+    orderId: String(row.order_id),
+    orderNumber: String(row.order_number),
+    status: String(row.status),
+    paymentStatus: String(row.payment_status),
+    paymentMethod: String(row.payment_method),
+    totalMinor: Number(row.total_minor ?? 0),
+    scheduledFor: String(row.scheduled_for),
+    channel: row.fulfillment_channel === "shipping" ? "shipping" : "delivery",
+    createdAt: String(row.created_at),
+    cargoCarrier: typeof row.cargo_carrier === "string" ? row.cargo_carrier : null,
+    cargoTrackingNumber:
+      typeof row.cargo_tracking_number === "string" ? row.cargo_tracking_number : null,
+    cargoTrackingUrl:
+      typeof row.cargo_tracking_url === "string" ? row.cargo_tracking_url : null,
+  };
+}
+
 /** Null = no order matches that number/phone pair. Deliberately indistinguishable
  *  from "wrong phone" so the lookup cannot confirm an order exists. */
 export async function lookupGuestOrder(
@@ -64,20 +85,5 @@ export async function lookupGuestOrder(
     | undefined;
   if (!row?.order_id) return ok(null);
 
-  return ok({
-    orderId: String(row.order_id),
-    orderNumber: String(row.order_number),
-    status: String(row.status),
-    paymentStatus: String(row.payment_status),
-    paymentMethod: String(row.payment_method),
-    totalMinor: Number(row.total_minor ?? 0),
-    scheduledFor: String(row.scheduled_for),
-    channel: row.fulfillment_channel === "shipping" ? "shipping" : "delivery",
-    createdAt: String(row.created_at),
-    cargoCarrier: typeof row.cargo_carrier === "string" ? row.cargo_carrier : null,
-    cargoTrackingNumber:
-      typeof row.cargo_tracking_number === "string" ? row.cargo_tracking_number : null,
-    cargoTrackingUrl:
-      typeof row.cargo_tracking_url === "string" ? row.cargo_tracking_url : null,
-  });
+  return ok(mapGuestOrderRow(row));
 }
