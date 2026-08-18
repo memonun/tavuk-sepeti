@@ -171,6 +171,20 @@ export function CustomerAuthForm({
             : "Hesap oluştur"}
       </Button>
 
+      {mode === "signup" ? (
+        <p className="text-center text-xs text-muted-foreground">
+          Hesap bilgilerinizin nasıl işlendiğine ilişkin ayrıntılar için{" "}
+          <Link
+            href="/gizlilik-politikasi"
+            className="underline underline-offset-2"
+            target="_blank"
+          >
+            Gizlilik Politikamızı
+          </Link>{" "}
+          inceleyebilirsiniz.
+        </p>
+      ) : null}
+
       <p className="text-center text-sm text-muted-foreground">
         {mode === "signin" ? (
           <>

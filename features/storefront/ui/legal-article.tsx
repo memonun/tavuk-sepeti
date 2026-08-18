@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getLegalDoc } from "@/features/storefront/domain/legal";
@@ -6,6 +7,10 @@ import { getLegalDoc } from "@/features/storefront/domain/legal";
 export function LegalArticle({ slug }: { slug: string }) {
   const doc = getLegalDoc(slug);
   if (!doc) notFound();
+
+  const related = (doc.relatedSlugs ?? [])
+    .map((s) => getLegalDoc(s))
+    .filter((d): d is NonNullable<typeof d> => d != null);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -33,6 +38,29 @@ export function LegalArticle({ slug }: { slug: string }) {
           </section>
         ))}
       </div>
+
+      {related.length > 0 ? (
+        <nav
+          aria-label="İlgili hukuki metinler"
+          className="mt-10 border-t border-border/60 pt-6"
+        >
+          <p className="text-sm font-medium text-foreground">
+            İlgili hukuki metinler
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+            {related.map((d) => (
+              <li key={d.slug}>
+                <Link
+                  href={`/${d.slug}`}
+                  className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {d.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
     </main>
   );
 }
