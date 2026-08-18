@@ -8,12 +8,12 @@
  * move after a failed payment was to place the order again, which is the
  * duplicate-order behaviour we removed for account holders.
  *
- * Identifies the order by phone + order date + order type rather than
- * order_number: the number is a dead end for anyone who lost the
- * confirmation e-mail. The server resolves the real order_number/order_id
- * itself (see find-guest-orders.ts) and, when more than one order matches,
- * hands back every match so the guest can pick the right one here — no extra
- * round trip.
+ * Identifies the order by phone + order type rather than order_number: the
+ * number is a dead end for anyone who lost the confirmation e-mail, and most
+ * guests don't remember the exact placement date either. The server
+ * resolves the real order_number/order_id itself (see find-guest-orders.ts)
+ * and, when more than one order matches, hands back every match so the
+ * guest can pick the right one here — no extra round trip.
  */
 import { useActionState, useState } from "react";
 import { PackageSearchIcon } from "lucide-react";
@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { formatDate, todayInIstanbul } from "@/shared/utils/date";
+import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 
 import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-button";
@@ -79,18 +79,6 @@ export function FindOrderForm() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="order_date">Sipariş tarihi</Label>
-          <Input
-            id="order_date"
-            name="order_date"
-            type="date"
-            max={todayInIstanbul()}
-            required
-            disabled={pending}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
           <Label>Sipariş türü</Label>
           <div className="grid grid-cols-3 gap-2">
             {GUEST_ORDER_TYPE_OPTIONS.map((option) => (
@@ -126,8 +114,7 @@ export function FindOrderForm() {
         {state.status === "not_found" ? (
           <p className="text-sm text-destructive" role="alert">
             Girdiğiniz bilgilerle eşleşen bir sipariş bulamadık. Telefon
-            numaranızı, sipariş tarihini ve sipariş türünü kontrol edip
-            tekrar deneyin.
+            numaranızı ve sipariş türünü kontrol edip tekrar deneyin.
           </p>
         ) : null}
         {state.status === "rate_limited" ? (

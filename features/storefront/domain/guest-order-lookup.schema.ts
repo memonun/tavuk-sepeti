@@ -1,10 +1,11 @@
 /**
- * Guest order lookup — phone + order date + order type, replacing order_number
- * as the second factor (see lookup_guest_orders_by_details, 20260819160000).
+ * Guest order lookup — phone + order type, replacing order_number as the
+ * second factor (see lookup_guest_orders_by_phone_and_type, 20260819170000).
+ * Every matching order comes back for the guest to pick from; no placement
+ * date is asked since most guests don't remember it.
  */
 import { z } from "zod";
 
-import { todayInIstanbul } from "@/shared/utils/date";
 import { isE164TR, normalizeTRPhone } from "@/shared/utils/phone";
 
 const phoneTR = z
@@ -37,10 +38,6 @@ export const GUEST_ORDER_TYPE_OPTIONS: ReadonlyArray<{
 
 export const guestOrderLookupSchema = z.object({
   phone: phoneTR,
-  order_date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Geçerli bir tarih girin.")
-    .refine((d) => d <= todayInIstanbul(), "İleri bir tarih seçemezsiniz."),
   order_type: z.enum(GUEST_ORDER_TYPES, {
     errorMap: () => ({ message: "Sipariş türünü seçin." }),
   }),

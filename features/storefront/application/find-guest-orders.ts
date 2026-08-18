@@ -9,8 +9,8 @@
  *
  * Replaces the old order_number + phone lookup: order_number is a dead end
  * for anyone who lost the confirmation e-mail, so the guest now identifies
- * their order by phone + order date + order type instead. The server
- * resolves the real order_number/order_id itself.
+ * their order(s) by phone + order type instead. The server resolves the
+ * real order_number/order_id itself and hands back every matching order.
  */
 import { headers } from "next/headers";
 
@@ -33,7 +33,6 @@ export async function findGuestOrdersAction(
 ): Promise<FindOrdersState> {
   const parsed = guestOrderLookupSchema.safeParse({
     phone: formData.get("phone"),
-    order_date: formData.get("order_date"),
     order_type: formData.get("order_type"),
   });
   // Same non-disclosure principle as the old order_number+phone lookup: an
@@ -46,7 +45,6 @@ export async function findGuestOrdersAction(
 
   const result = await lookupGuestOrdersByDetails(
     parsed.data.phone,
-    parsed.data.order_date,
     parsed.data.order_type,
     ip,
   );

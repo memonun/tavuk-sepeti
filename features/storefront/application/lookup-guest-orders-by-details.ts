@@ -1,10 +1,10 @@
 import "server-only";
 
 /**
- * Read every order matching phone + placement date + order type, for a guest
- * who no longer has (or never kept) their order number. Same non-disclosure
- * contract as lookupGuestOrder: a miss on any of the three criteria returns
- * an empty array, never a distinguishable reason.
+ * Read every order matching phone + order type, for a guest who no longer
+ * has (or never kept) their order number. Same non-disclosure contract as
+ * lookupGuestOrder: a miss on either criterion returns an empty array, never
+ * a distinguishable reason.
  *
  * Rate-limited server-side inside lookup_guest_orders_by_details (per phone
  * and per IP) — dropping order_number as the second factor shrinks the
@@ -23,7 +23,6 @@ const RATE_LIMIT_PG_ERRCODE = "P0002";
 
 export async function lookupGuestOrdersByDetails(
   phone: string,
-  orderDate: string,
   orderType: GuestOrderType,
   ip: string | null,
 ): Promise<Result<GuestOrderView[], AppError>> {
@@ -34,7 +33,6 @@ export async function lookupGuestOrdersByDetails(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any).rpc("lookup_guest_orders_by_details", {
     p_phone: normalizedPhone,
-    p_order_date: orderDate,
     p_order_type: orderType,
     p_ip: ip,
   });
