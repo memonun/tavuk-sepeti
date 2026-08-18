@@ -284,6 +284,7 @@ export function CheckoutForm({
         paymentMethod={state.paymentMethod}
         totalMinor={state.totalMinor}
         hasAccount={identity !== null}
+        hasEmail={state.hasEmail}
       />
     );
   }
@@ -1024,18 +1025,19 @@ function GuestBlock({ disabled }: { disabled: boolean }) {
           disabled={disabled}
         />
       </Field>
-      <Field label="E-posta" htmlFor="account_email">
+      <Field label="E-posta (opsiyonel)" htmlFor="account_email">
         <Input
           id="account_email"
           name="account_email"
           type="email"
           autoComplete="email"
-          required
           disabled={disabled}
         />
       </Field>
       <p className="text-xs text-muted-foreground sm:col-span-2">
-        Sipariş onayınızı ve takip bilgisini bu adrese göndereceğiz.
+        Girerseniz sipariş onayını bu adrese göndeririz. Kartla ödemek için
+        e-posta zorunludur — girmezseniz siparişinizi numarası ve
+        telefonunuzla sorgulayabilirsiniz.
       </p>
       <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50 sm:col-span-2">
         <input
@@ -1217,11 +1219,15 @@ function OrderConfirmation({
   /** False for a guest: there is no /hesap to send them to, so the order number
    *  they are looking at right now is their only handle on this order. */
   hasAccount,
+  /** False when a guest left the (optional) e-mail field blank — no
+   *  confirmation mail went out, so the wording below can't reference one. */
+  hasEmail,
 }: {
   orderNumber: string;
   paymentMethod: PaymentMethod;
   totalMinor: number;
   hasAccount: boolean;
+  hasEmail: boolean;
 }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
@@ -1237,7 +1243,9 @@ function OrderConfirmation({
         Siparişinizi hazırlamaya başlıyoruz. Durumunu istediğiniz zaman{" "}
         {hasAccount
           ? "hesabınızdan takip edebilirsiniz."
-          : "sipariş numaranız ve telefonunuzla sorgulayabilirsiniz — numarayı onay e-postanıza da gönderdik."}
+          : `sipariş numaranız ve telefonunuzla sorgulayabilirsiniz${
+              hasEmail ? " — numarayı onay e-postanıza da gönderdik." : "."
+            }`}
       </p>
 
       {!hasAccount ? (

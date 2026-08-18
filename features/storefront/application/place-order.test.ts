@@ -898,4 +898,39 @@ describe("placeOrderAction — guest", () => {
     });
     expect(placeGuestOrder).not.toHaveBeenCalled();
   });
+
+  // E-mail is optional for a guest: reachable by phone alone, and
+  // lookup_guest_order/siparis-sorgula finds the order by phone either way.
+  it("places an order with no e-mail, and sends no confirmation mail", async () => {
+    const state = await placeOrderAction(
+      { status: "idle" },
+      guestForm({ account_email: "" }),
+    );
+
+    expect(state).toMatchObject({ status: "success", hasEmail: false });
+    expect(placeGuestOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ email: null }),
+    );
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("still sends the confirmation mail when the guest gave one", async () => {
+    const state = await placeOrderAction({ status: "idle" }, guestForm());
+
+    expect(state).toMatchObject({ status: "success", hasEmail: true });
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a card payment from a guest with no e-mail — PayTR needs one", async () => {
+    const state = await placeOrderAction(
+      { status: "idle" },
+      guestForm({ account_email: "", payment_method: "credit_card" }),
+    );
+
+    expect(state).toMatchObject({
+      status: "validation_error",
+      message: "Kart ile ödeme için e-posta adresi gerekli.",
+    });
+    expect(placeGuestOrder).not.toHaveBeenCalled();
+  });
 });

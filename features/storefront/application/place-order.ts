@@ -127,6 +127,10 @@ export type PlaceOrderState =
       orderNumber: string;
       paymentMethod: PaymentMethod;
       totalMinor: number;
+      /** Did a confirmation e-mail go out? False for a guest who left the
+       *  (optional) e-mail field blank — the confirmation screen wording
+       *  depends on it. */
+      hasEmail: boolean;
     }
   | { status: "redirect"; url: string }
   /** Signup needs e-mail confirmation before a session exists. Basket kept. */
@@ -624,5 +628,6 @@ export async function placeOrderAction(
     orderNumber: placed.value.order_number,
     paymentMethod: parsed.data.payment_method,
     totalMinor,
+    hasEmail: Boolean(emailTo),
   };
 }
