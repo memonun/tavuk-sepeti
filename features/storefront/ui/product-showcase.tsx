@@ -98,7 +98,12 @@ export function ProductShowcase({ products }: { products: readonly Product[] }) 
           // offsetParent, so `offsetLeft` below is the offset *within* the
           // track — the number scrollTo wants. Without it the value carries the
           // track's own page position and only snapping hides the error.
-          className="shop-vitrine-track relative flex flex-1 items-start snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth lg:gap-0"
+          // items-stretch (not items-start): every slide's <article> gets
+          // the height of the tallest one currently laid out in the row —
+          // see ShowcaseCaption for why that's what actually fixes the
+          // "some buttons sit higher than others" misalignment, not just
+          // moves it around.
+          className="shop-vitrine-track relative flex flex-1 items-stretch snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth lg:gap-0"
         >
           {items.map((product, index) => (
             <ShowcaseSlide
@@ -161,12 +166,18 @@ function ShowcaseSlide({
       aria-label={product.display_name}
       // The peek is what says "there is more" below lg, so it stays a sliver:
       // any wider and the next product starts competing with the one on stage.
-      className="w-[86%] shrink-0 snap-center sm:w-[88%] lg:grid lg:w-full lg:grid-cols-[minmax(0,1.9fr)_minmax(210px,0.85fr)] lg:items-end lg:gap-8"
+      // flex flex-col below lg: the article now has the row's stretched
+      // height (from items-stretch on the track above), and stacking its own
+      // two children in a column is what lets ShowcaseCaption claim the
+      // leftover space and push its button to a shared bottom edge. Inert at
+      // lg+ (lg:grid takes over display) — this is a below-lg-only fix,
+      // matching the below-lg-only peeking-neighbor layout it repairs.
+      className="flex flex-col w-[86%] shrink-0 snap-center sm:w-[88%] lg:grid lg:w-full lg:grid-cols-[minmax(0,1.9fr)_minmax(210px,0.85fr)] lg:items-end lg:gap-8"
     >
       <div
         data-enter
         style={style}
-        className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-secondary/50"
+        className="relative aspect-[4/3] shrink-0 overflow-hidden rounded-2xl bg-secondary/50"
       >
         {imageUrl ? (
           <Image
@@ -200,11 +211,20 @@ function ShowcaseSlide({
  * against the button. A longer unit label ("Kavanoz (930gr)" vs "kg") wraps
  * the price to a second line, growing the block — and with the bottom edges
  * pinned together, the TITLE'S top edge is what moves to absorb the
- * difference. Every product's caption then sits at a slightly different
- * height depending on how its own unit label happens to wrap, which is
- * exactly the "some titles higher, some lower" misalignment. Stacking
- * top-down removes the mechanism entirely: the title is always the first
- * thing after the photo, regardless of what the price line does below it.
+ * difference. Stacking top-down fixed that WITHIN one caption (the title is
+ * always the first thing after the photo), but every product's caption is
+ * still exactly as tall as its own content — a product with no "yarım kilo"
+ * line, a shorter name, or a shorter fulfilment badge ends up with a plainly
+ * SHORTER caption than its neighbour. On mobile, where slides peek in from
+ * both edges and sit side by side, that reads as "some Sepete ekle buttons
+ * sit higher than others" — which is exactly the bug, not a rendering fluke.
+ *
+ * The actual fix is above this component: the track stretches every slide
+ * to the tallest one's height, and this caption is flex-1 flex-col so it
+ * claims that leftover space and pushes its button (mt-auto) down to a
+ * shared bottom edge — regardless of which lines above it happen to be
+ * present or how they wrap. Nothing here needs to special-case any one
+ * line's height for this to keep working.
  */
 function ShowcaseCaption({ product }: { product: Product }) {
   const { getQuantity, addItem } = useCart();
@@ -214,7 +234,7 @@ function ShowcaseCaption({ product }: { product: Product }) {
     <div
       data-enter
       style={{ "--enter-delay": "190ms" } as React.CSSProperties}
-      className="mt-5 lg:mt-0 lg:pb-1"
+      className="mt-5 flex flex-1 flex-col lg:mt-0 lg:pb-1"
     >
       <h2 className="font-display text-[clamp(1.5rem,2.6vw,2.1rem)] leading-[1.1] tracking-[-0.02em] text-balance text-foreground">
         {product.display_name}
@@ -249,7 +269,12 @@ function ShowcaseCaption({ product }: { product: Product }) {
         </p>
       )}
 
-      <div className="mt-4 lg:mt-6">
+      {/* mt-auto: pushes to the shared bottom edge the now-equal-height
+          caption provides, with pt-4 as the floor so the tallest slide in
+          the row (zero slack to absorb) still keeps its normal gap. lg+
+          reverts to the original fixed mt-6 — desktop shows one slide at a
+          time, so there's nothing to align against and no bug to fix. */}
+      <div className="mt-auto pt-4 lg:mt-6 lg:pt-0">
         {qty > 0 ? (
           <QuantityStepper product={product} />
         ) : (
