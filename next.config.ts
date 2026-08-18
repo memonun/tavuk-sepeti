@@ -16,6 +16,23 @@ const nextConfig: NextConfig = {
   // redirects on its callback request (confirmed empirically: a 308 here
   // was observed as a hard failure, not followed). Every other path,
   // including www itself, still redirects.
+  //
+  // WARNING — this exclusion does NOT protect the webhook in production, and
+  // must not be relied on. The www host is ALSO redirected at the Vercel
+  // domain level, which runs at the edge before Next.js sees the request:
+  //
+  //   $ curl -sI -X POST https://www.apuhanciftligi.com/api/paytr/callback
+  //   HTTP/2 308
+  //   location: https://apuhanciftligi.com/api/paytr/callback
+  //   server: Vercel                    ← no x-matched-path: never reached Next
+  //
+  // So the ONLY thing keeping card payments booked is that PayTR's merchant
+  // panel points its notification URL at the APEX host. Point it at www and
+  // every notification is answered with a 308, dropped, and the payment is
+  // never written to the ledger — the order stays unpaid for the customer
+  // while the money sits in PayTR. Verify that setting before touching
+  // anything here, and keep this redirect as-is regardless: it is the
+  // apex-only PayTR credential lock, not webhook protection.
   async redirects() {
     return [
       {

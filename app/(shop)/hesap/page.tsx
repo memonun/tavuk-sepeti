@@ -4,33 +4,20 @@ import { redirect } from "next/navigation";
 import { customerSignOutAction } from "@/features/storefront/application/customer-auth";
 import { ensureCustomerProfile } from "@/features/storefront/application/ensure-customer-profile";
 import { getMyAccount } from "@/features/storefront/application/get-account";
+import {
+  isAwaitingCardConfirmation,
+  isAwaitingPayment,
+  showsPaidBadge,
+} from "@/features/storefront/domain/card-confirmation";
 import { formatDeliveryDateLabel } from "@/features/storefront/domain/delivery-window";
 import { AccountAddresses } from "@/features/storefront/ui/account-addresses";
 import { AccountProfileForm } from "@/features/storefront/ui/account-profile-form";
+import { OrderStatusRefresher } from "@/features/storefront/ui/order-status-refresher";
 import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
-
-/**
- * Is this order actually waiting on money from the customer?
- *
- * `payment_status` alone is not the answer: a cash-on-delivery order is
- * legitimately unpaid right up to the doorstep, so badging it "Ödeme bekliyor"
- * and offering a pay button would be wrong on both counts.
- */
-function awaitingPayment(order: {
-  payment_status: string;
-  payment_method: string;
-  status: string;
-}): boolean {
-  return (
-    order.payment_status !== "paid" &&
-    order.status !== "cancelled" &&
-    order.payment_method !== "cash_on_delivery"
-  );
-}
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",
@@ -47,8 +34,20 @@ export default async function AccountPage() {
   const account = await getMyAccount();
   if (!account) redirect("/giris");
 
+  // Card payments are booked by a webhook that lands AFTER this page renders,
+  // and nothing else on the storefront re-reads the order. Poll while any card
+  // order is still inside its confirmation window so the customer watches it
+  // turn "Ödendi" instead of being left on a stale render.
+  // Server render time — this page is dynamic (cookies), so every request reads
+  // a fresh clock. Same `new Date()` shape the admin pages use for "today".
+  const nowMs = new Date().getTime();
+  const hasPendingCardOrder = account.orders.some((order) =>
+    isAwaitingCardConfirmation(order, nowMs),
+  );
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      {hasPendingCardOrder ? <OrderStatusRefresher /> : null}
       <div className="flex items-center justify-between gap-4">
         <h1 className="font-display text-3xl">Hesabım</h1>
         <form action={customerSignOutAction}>
@@ -109,9 +108,17 @@ export default async function AccountPage() {
                       route — read simply "Onaylandı" to the customer.
                       Cash-on-delivery is excluded: it is unpaid by design until
                       the driver arrives, so flagging it would be noise. */}
-                  {awaitingPayment(order) ? (
+                  {isAwaitingCardConfirmation(order, nowMs) ? (
+                    <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                      Ödeme kontrol ediliyor
+                    </span>
+                  ) : isAwaitingPayment(order) ? (
                     <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
                       Ödeme bekliyor
+                    </span>
+                  ) : showsPaidBadge(order) ? (
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                      Ödendi
                     </span>
                   ) : null}
                   <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
@@ -144,7 +151,10 @@ export default async function AccountPage() {
                     ) : null}
                   </div>
                 ) : null}
-                {awaitingPayment(order) ? (
+                {/* Hidden while the callback may still be in flight: offering
+                    "Ödemeyi tamamla" on a card payment that already succeeded
+                    is how a customer ends up paying twice. */}
+                {isAwaitingPayment(order) && !isAwaitingCardConfirmation(order, nowMs) ? (
                   <div className="w-full sm:w-auto">
                     <ResumePaymentButton
                       orderNumber={order.order_number}

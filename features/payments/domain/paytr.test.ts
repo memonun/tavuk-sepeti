@@ -6,7 +6,9 @@ import {
   encodeBasket,
   merchantOidFor,
   orderIdFromMerchantOid,
+  signOrderReturnToken,
   verifyCallbackHash,
+  verifyOrderReturnToken,
   type PaytrTokenFields,
 } from "@/features/payments/domain/paytr";
 
@@ -68,5 +70,47 @@ describe("merchantOid ↔ orderId", () => {
 
   it("returns null for a malformed oid", () => {
     expect(orderIdFromMerchantOid("not-a-valid-oid")).toBeNull();
+  });
+});
+
+describe("order return token", () => {
+  const key = "merchant-key";
+  const salt = "merchant-salt";
+
+  it("round-trips for the order it was minted for", () => {
+    const token = signOrderReturnToken("260818-K-00510", key, salt);
+    expect(verifyOrderReturnToken(token, "260818-K-00510", key, salt)).toBe(true);
+  });
+
+  it("is URL-safe, so it survives a query string untouched", () => {
+    const token = signOrderReturnToken("ORD-2026-00501", key, salt);
+    expect(token).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(encodeURIComponent(token)).toBe(token);
+  });
+
+  it("does not authorize a different order number", () => {
+    const token = signOrderReturnToken("260818-K-00510", key, salt);
+    expect(verifyOrderReturnToken(token, "260818-K-00511", key, salt)).toBe(false);
+  });
+
+  it("rejects a tampered or truncated token without throwing", () => {
+    const token = signOrderReturnToken("260818-K-00510", key, salt);
+    expect(verifyOrderReturnToken(token.slice(0, -1), "260818-K-00510", key, salt)).toBe(
+      false,
+    );
+    expect(verifyOrderReturnToken("", "260818-K-00510", key, salt)).toBe(false);
+    expect(
+      verifyOrderReturnToken(`${token}x`, "260818-K-00510", key, salt),
+    ).toBe(false);
+  });
+
+  it("is bound to both merchant secrets", () => {
+    const token = signOrderReturnToken("260818-K-00510", key, salt);
+    expect(verifyOrderReturnToken(token, "260818-K-00510", "other-key", salt)).toBe(
+      false,
+    );
+    expect(verifyOrderReturnToken(token, "260818-K-00510", key, "other-salt")).toBe(
+      false,
+    );
   });
 });

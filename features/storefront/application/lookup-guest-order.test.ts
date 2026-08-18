@@ -90,6 +90,8 @@ describe("lookupGuestOrder", () => {
     expect(result).toEqual({
       ok: true,
       value: {
+        // Bank transfer, so no card callback can be in flight for it.
+        awaitingCardConfirmation: false,
         orderId: "order-1",
         orderNumber: "ORD-2026-00123",
         status: "pending",

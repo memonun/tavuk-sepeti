@@ -11,7 +11,9 @@ import {
   encodeBasket,
   merchantOidFor,
   orderIdFromMerchantOid,
+  signOrderReturnToken,
   verifyCallbackHash,
+  verifyOrderReturnToken,
   type BasketLine,
 } from "@/features/payments/domain/paytr";
 import { requestPaytrToken } from "@/features/payments/infrastructure/paytr-client";
@@ -43,6 +45,25 @@ export function isPaytrEnabled(): boolean {
   return paytrCreds() !== null;
 }
 
+/**
+ * Verify the `t` parameter on a card-return URL (see `signOrderReturnToken`).
+ *
+ * The storefront's return page uses this to authorize re-reading a GUEST
+ * order's payment state — possession of the return URL stands in for the
+ * session it doesn't have. False whenever PayTR isn't configured, so a
+ * misconfigured deployment can't accidentally authorize anything.
+ */
+export function verifyPaytrReturnToken(orderNumber: string, token: string): boolean {
+  const creds = paytrCreds();
+  if (!creds) return false;
+  return verifyOrderReturnToken(
+    token,
+    orderNumber,
+    creds.merchantKey,
+    creds.merchantSalt,
+  );
+}
+
 export interface CreatePaymentInput {
   orderId: string;
   orderNumber: string;
@@ -70,6 +91,11 @@ export async function createPaytrPaymentSession(
   const merchantOid = merchantOidFor(input.orderId, input.nowMs);
   const userBasket = encodeBasket(input.basket);
   const appUrl = env.NEXT_PUBLIC_APP_URL;
+  const returnToken = signOrderReturnToken(
+    input.orderNumber,
+    creds.merchantKey,
+    creds.merchantSalt,
+  );
 
   const paytrToken = computePaytrToken(
     {
@@ -103,7 +129,9 @@ export async function createPaytrPaymentSession(
     user_name: input.userName,
     user_address: input.userAddress,
     user_phone: input.userPhone,
-    merchant_ok_url: `${appUrl}/odeme/basarili?no=${encodeURIComponent(input.orderNumber)}`,
+    // `t` lets the return page re-read this order's payment state while the
+    // callback is still in flight, including for a guest with no session.
+    merchant_ok_url: `${appUrl}/odeme/basarili?no=${encodeURIComponent(input.orderNumber)}&t=${returnToken}`,
     merchant_fail_url: `${appUrl}/odeme/basarisiz?no=${encodeURIComponent(input.orderNumber)}`,
   });
   if (!tokenRes.ok) return err(tokenRes.error);
