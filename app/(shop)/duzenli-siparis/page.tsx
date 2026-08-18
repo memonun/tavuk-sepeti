@@ -84,7 +84,10 @@ function SignedOutView() {
           Hesabınız yoksa giriş sayfasından birkaç saniyede oluşturabilirsiniz.
         </p>
         <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Link href="/giris" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
+          <Link
+            href="/giris?next=/duzenli-siparis"
+            className={cn(buttonVariants({ size: "lg" }), "rounded-full")}
+          >
             Giriş yap
           </Link>
           <a
