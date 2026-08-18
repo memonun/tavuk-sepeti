@@ -73,8 +73,8 @@ export default async function ShopHomePage({
           </h1>
         </div>
         <p className="max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground lg:text-right">
-          Çiftlikten sofranıza taze yumurta ve süt ürünleri. Sepetinizi
-          hazırlayın, teslimat gününü seçin — gerisini biz halledelim.
+          Çiftlikten sofranıza; taze yumurta, süt ürünleri, kuru kayısı ve özenle seçilmiş doğal ürünler. 
+          Sepetinizi hazırlayın, teslimat seçeneğinizi belirleyin — gerisini biz halledelim.
         </p>
       </section>
 
