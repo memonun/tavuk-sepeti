@@ -1,0 +1,124 @@
+name: Migrations
+
+# Closes the gap that took the storefront down on 2026-08-19: Vercel deploys on
+# merge, migrations were applied by hand in the Supabase SQL editor, and a PR
+# whose migration had not been applied broke every checkout the moment it
+# merged. See scripts/check-pending-migrations.mjs for the full story.
+#
+# Two jobs, deliberately separated:
+#   check  — runs on every PR. Red while this branch carries a migration that
+#            production has not got yet. This is the merge gate.
+#   apply  — manual only. Applies pending migrations and RECORDS them, so the
+#            history table stays trustworthy (hand-applied SQL is what made it
+#            untrustworthy in the first place).
+
+on:
+  pull_request:
+    branches: [main]
+  # Also on main: if something slips through, say so loudly rather than waiting
+  # for a customer to find it.
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "check = report only · apply = apply pending migrations to production"
+        required: true
+        default: check
+        type: choice
+        options: [check, apply]
+
+concurrency:
+  group: migrations-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Pending migrations
+    # Skipped when the operator explicitly asked to apply — the apply job runs
+    # its own check afterwards, against the post-apply state.
+    if: github.event_name != 'workflow_dispatch' || inputs.action == 'check'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check every migration is applied to production
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/check-pending-migrations.mjs
+
+  apply:
+    name: Apply pending migrations
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Lets you require a manual approval before anything touches production:
+    # Settings → Environments → production → Required reviewers.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Show what will be applied
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        # Expected to exit 1 when there is work to do — that is the point of
+        # running it here, so the log records exactly what this run changed.
+        run: node scripts/check-pending-migrations.mjs || true
+
+      - name: Apply
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        # `db push` applies pending migrations in version order and records each
+        # one in supabase_migrations.schema_migrations. Pinned so a CLI release
+        # can never change what a deploy does.
+        run: npx --yes supabase@2.115.0 db push --db-url "$SUPABASE_DB_URL"
+
+      - name: Verify nothing is left pending
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/check-pending-migrations.mjs
+
+      - name: Reload PostgREST schema cache
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        # Without this PostgREST keeps serving the OLD function signatures from
+        # its cache and the API still 404s on the new ones — which looks exactly
+        # like the migration not having run at all.
+        run: |
+          node -e "
+            const pg = require('pg');
+            const c = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } });
+            c.connect()
+              .then(() => c.query(\"notify pgrst, 'reload schema'\"))
+              .then(() => c.end())
+              .then(() => console.log('schema cache reloaded'))
+              .catch((e) => { console.error(e.message); process.exit(1); });
+          "
