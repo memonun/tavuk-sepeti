@@ -431,8 +431,24 @@ export function CheckoutForm({
             </>
           ) : (
             <>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 text-sm">
+                <span>
+                  Daha önce sipariş verdiyseniz bir hesabınız olabilir — giriş
+                  yaparsanız bu sipariş de hesabınıza kaydedilir.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPickedMode("signin")}
+                  className={cn(
+                    buttonVariants({ size: "sm", variant: "outline" }),
+                    "shrink-0 rounded-full",
+                  )}
+                >
+                  Giriş yap
+                </button>
+              </div>
               <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
-                Üye olmadan sipariş verebilirsiniz. Siparişinizi daha sonra
+                Üye olmadan da sipariş verebilirsiniz. Siparişinizi daha sonra
                 numarası ve telefonunuzla{" "}
                 <Link
                   href="/siparis-sorgula"
@@ -442,14 +458,6 @@ export function CheckoutForm({
                   sorgulayabilirsiniz
                 </Link>
                 .{" "}
-                <button
-                  type="button"
-                  onClick={() => setPickedMode("signin")}
-                  className="underline underline-offset-2"
-                >
-                  Hesabınız var mı?
-                </button>{" "}
-                ·{" "}
                 <button
                   type="button"
                   onClick={() => setPickedMode("signup")}
@@ -1231,6 +1239,16 @@ function OrderConfirmation({
           ? "hesabınızdan takip edebilirsiniz."
           : "sipariş numaranız ve telefonunuzla sorgulayabilirsiniz — numarayı onay e-postanıza da gönderdik."}
       </p>
+
+      {!hasAccount ? (
+        <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
+          Bir hesap açarsanız bir sonraki siparişinizi ve bu siparişi tek
+          yerden, &quot;Hesabım&quot; sayfasından takip edebilirsiniz.{" "}
+          <Link href="/kayit" className="underline underline-offset-2">
+            Hesap oluşturun
+          </Link>
+        </p>
+      ) : null}
 
       {paymentMethod === "bank_transfer" ? (
         <BankTransferDetails
