@@ -27,6 +27,7 @@ import { planWaypointChunks } from "@/features/routing/domain/chunk-waypoints";
 import { nearestNeighborOrder } from "@/features/routing/domain/nearest-neighbor-order";
 import { partitionDeliveredOrders } from "@/features/routing/domain/partition-delivered-orders";
 import { resolveRouteDestination } from "@/features/routing/domain/route-destination";
+import { routeFinishMs, stopEtaMs } from "@/features/routing/domain/route-schedule";
 import {
   DirectionsApiError,
   NoConfirmedOrdersError,
@@ -36,6 +37,7 @@ import {
 import { stitchChunkedRoute } from "@/features/routing/domain/stitch-chunked-route";
 import { callGoogleDirections } from "@/features/routing/infrastructure/google-directions";
 import { fetchDeliveryDetails } from "@/features/routing/infrastructure/order-delivery-details";
+import { persistStopEtas } from "@/features/routing/infrastructure/order-eta.repository";
 import { getDefaultSavedLocation } from "@/features/routing/infrastructure/saved-location.repository";
 import { ExternalApiError } from "@/shared/errors/app-error";
 import { env } from "@/shared/env";
@@ -199,7 +201,9 @@ export async function getDayRoute(
   );
   const stops: RouteStop[] = stitched.map((s, i) => {
     const order = s.item;
-    const etaIso = new Date(startMs + s.cumulativeDurationS * 1000).toISOString();
+    // sequence is i+1 (1-indexed) — see route-schedule.ts for why dwell at
+    // stop i+1's own visit isn't added to its own ETA.
+    const etaIso = new Date(stopEtaMs(startMs, s.cumulativeDurationS, i + 1)).toISOString();
     const detail = detailById.get(order.order_id);
     return {
       sequence: i + 1,
@@ -233,7 +237,18 @@ export async function getDayRoute(
   const allLegs = chunkDirections.flatMap((d) => d.legs);
   const totalDistanceM = allLegs.reduce((s, l) => s + l.distanceM, 0);
   const totalDurationS = allLegs.reduce((s, l) => s + l.durationS, 0);
-  const finishTimeIso = new Date(startMs + totalDurationS * 1000).toISOString();
+  // finish_time_iso (unlike total_duration_s, which stays pure driving time —
+  // see route-schedule.ts) includes dwell at every stop, so it's the real
+  // "when is the driver actually done" estimate.
+  const finishTimeIso = new Date(
+    routeFinishMs(startMs, totalDurationS, stops.length),
+  ).toISOString();
+
+  // Best-effort — persistStopEtas swallows its own errors (logs + returns),
+  // so a write hiccup here never fails the admin's route view. Piggybacks on
+  // this exact optimization call: zero new Google API usage, and the
+  // customer-facing lookup (features/storefront) reads whatever landed here.
+  await persistStopEtas(stops.map((s) => ({ order_id: s.order_id, eta_iso: s.eta_iso })));
 
   return ok({
     date: targetDate,

@@ -730,6 +730,8 @@ export type Database = {
           delivery_address_snapshot: Json
           delivery_fee_minor: number
           delivery_notes: string | null
+          estimated_delivery_at: string | null
+          estimated_delivery_computed_at: string | null
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           id: string
           legal_acceptance: Json | null
@@ -760,6 +762,8 @@ export type Database = {
           delivery_address_snapshot: Json
           delivery_fee_minor?: number
           delivery_notes?: string | null
+          estimated_delivery_at?: string | null
+          estimated_delivery_computed_at?: string | null
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           id?: string
           legal_acceptance?: Json | null
@@ -790,6 +794,8 @@ export type Database = {
           delivery_address_snapshot?: Json
           delivery_fee_minor?: number
           delivery_notes?: string | null
+          estimated_delivery_at?: string | null
+          estimated_delivery_computed_at?: string | null
           fulfillment_channel?: Database["public"]["Enums"]["fulfillment_channel"]
           id?: string
           legal_acceptance?: Json | null
@@ -1616,6 +1622,7 @@ export type Database = {
           cargo_tracking_number: string
           cargo_tracking_url: string
           created_at: string
+          estimated_delivery_at: string
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           order_id: string
           order_number: string
@@ -1633,6 +1640,7 @@ export type Database = {
           cargo_tracking_number: string
           cargo_tracking_url: string
           created_at: string
+          estimated_delivery_at: string
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           order_id: string
           order_number: string
@@ -1737,6 +1745,10 @@ export type Database = {
       resolve_order_channel: {
         Args: { p_order_id: string }
         Returns: Database["public"]["Enums"]["fulfillment_channel"]
+      }
+      set_order_eta_batch: {
+        Args: { p_eta_times: string[]; p_order_ids: string[] }
+        Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

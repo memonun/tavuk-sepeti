@@ -61,7 +61,9 @@ export interface RouteStop {
   readonly cumulative_distance_m: number;
   /** Total driving duration to this stop, in seconds. */
   readonly cumulative_duration_s: number;
-  /** Arrival ETA = start_time + cumulative_duration. ISO-8601 UTC. */
+  /** Arrival ETA = start_time + cumulative_duration + dwell time at every
+   *  PRIOR stop (route-schedule.ts's STOP_DWELL_SECONDS — a flat estimate,
+   *  not live tracking). ISO-8601 UTC. */
   readonly eta_iso: string;
 }
 
@@ -126,8 +128,11 @@ export interface OptimizedRoute {
   /** Anchor for ETA calculations. ISO-8601 UTC. */
   readonly start_time_iso: string;
   /** ETA at the final leg's end — the chosen destination, or the origin on a
-   *  round trip. */
+   *  round trip. Includes dwell time at every stop (route-schedule.ts), so
+   *  it's later than start_time_iso + total_duration_s on purpose. */
   readonly finish_time_iso: string;
   readonly total_distance_m: number;
+  /** Pure driving time — does NOT include stop dwell. See finish_time_iso
+   *  for the dwell-aware "when is the driver actually done" estimate. */
   readonly total_duration_s: number;
 }

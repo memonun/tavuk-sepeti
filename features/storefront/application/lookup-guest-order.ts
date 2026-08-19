@@ -36,6 +36,12 @@ export interface GuestOrderView {
   cargoCarrier: string | null;
   cargoTrackingNumber: string | null;
   cargoTrackingUrl: string | null;
+  /** Dwell-aware ETA from the admin's route-optimization flow
+   *  (features/routing/domain/route-schedule.ts) — a flat estimate, not live
+   *  tracking. Null until the order has been through an optimized route at
+   *  least once, and always null for `channel === "shipping"` (cargo orders
+   *  never go through /routes). */
+  estimatedDeliveryAt: string | null;
   /**
    * Whether this order's card payment might still be in flight, evaluated when
    * the lookup ran.
@@ -76,6 +82,8 @@ export function mapGuestOrderRow(row: Record<string, unknown>): GuestOrderView {
       typeof row.cargo_tracking_number === "string" ? row.cargo_tracking_number : null,
     cargoTrackingUrl:
       typeof row.cargo_tracking_url === "string" ? row.cargo_tracking_url : null,
+    estimatedDeliveryAt:
+      typeof row.estimated_delivery_at === "string" ? row.estimated_delivery_at : null,
   };
 }
 

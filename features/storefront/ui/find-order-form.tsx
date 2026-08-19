@@ -43,7 +43,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/shared/utils/date";
+import { formatDate, formatHHmm } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 
 import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-button";
@@ -384,6 +384,14 @@ function OrderCard({
               : formatDeliveryDateLabel(order.scheduledFor)}
           </dd>
         </div>
+        {order.channel === "delivery" &&
+        order.estimatedDeliveryAt &&
+        (order.status === "pending" || order.status === "confirmed") ? (
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Tahmini Teslimat</dt>
+            <dd>≈ {formatHHmm(order.estimatedDeliveryAt)}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Tutar</dt>
           <dd className="font-semibold tabular-nums">
