@@ -5,12 +5,14 @@
  * the optimize-result mapping can be unit-tested with a mocked Google response
  * (CLAUDE.md §11). The network wrapper (./google-directions) composes these.
  *
- * Why Routes API instead of the legacy Directions API: the legacy endpoint
- * caps waypoint optimization at 25 stops. `computeRoutes` with
- * `optimizeWaypointOrder` supports up to 98 stops when every point is a
- * lat/lng coordinate (which we always send) — see ./google-directions for the
- * cap. Durations arrive as protobuf strings ("75s"); distances/durations equal
- * to zero are omitted by proto3, so both default to 0 here.
+ * Why Routes API instead of the legacy Directions API: the legacy endpoint's
+ * optimization also caps at 25 waypoints, with a clunkier request/response
+ * shape and no per-step polylines. `computeRoutes` itself is ALSO capped at
+ * 25 intermediates per request (a real Google limit, not this app's choice —
+ * see ./google-directions) — a day with more stops than that is split into
+ * multiple chunked calls by the application layer. Durations arrive as
+ * protobuf strings ("75s"); distances/durations equal to zero are omitted by
+ * proto3, so both default to 0 here.
  */
 import { z } from "zod";
 

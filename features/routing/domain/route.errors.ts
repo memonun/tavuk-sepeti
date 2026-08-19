@@ -29,7 +29,7 @@ interface TooManyDetails {
 export class TooManyWaypointsError extends AppError {
   constructor(details: TooManyDetails) {
     super(ErrorCode.BUSINESS_RULE_VIOLATION, {
-      message: `Tek seferde ${details.cap} duraktan fazlası optimize edilemez (${details.count} sipariş var). Faz 2 VRP solver bu limiti kaldıracak.`,
+      message: `Bir günde en fazla ${details.cap} durak optimize edilebilir (${details.count} sipariş var). Siparişleri birden fazla güne dağıtmayı dene.`,
       details,
     });
     this.name = "TooManyWaypointsError";

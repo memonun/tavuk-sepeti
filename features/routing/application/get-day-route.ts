@@ -6,24 +6,34 @@ import "server-only";
  * Pipeline:
  *   1. Resolve the warehouse origin from env. If missing → typed error.
  *   2. Fetch the day's orders via getDayOrders.
- *   3. Reject if zero orders or > the optimization cap (98 waypoints).
- *   4. Hand to callGoogleDirections; reorder orders by the optimized order.
- *   5. Walk the legs in order to compute cumulative distance/duration and
- *      ETA per stop, anchored to `startTimeIso` (default = now).
+ *   3. Reject if zero orders or > the defensive per-day ceiling.
+ *   4. Split into chunks of at most 25 stops each (Google's real
+ *      computeRoutes cap — see chunk-waypoints.ts) and call
+ *      callGoogleDirections for every chunk in parallel.
+ *   5. Walk each chunk's legs in order, continuing one running cumulative
+ *      distance/duration/sequence across chunk boundaries, to compute ETA
+ *      per stop anchored to `startTimeIso` (default = now).
  *   6. Return OptimizedRoute with step polylines for high-fidelity render.
  *
- * Faz 2 will replace step 3-4 with a proper VRP solver (multiple vehicles /
- * time windows); spec §7.2 calls the single-request cap a stop-gap.
+ * A single chunk (≤25 stops, the common case) behaves exactly as a plain
+ * one-shot computeRoutes call always has — chunking only changes anything
+ * once a day has more than 25 stops.
+ *
+ * Faz 2 will replace this chunked heuristic with a proper VRP solver
+ * (multiple vehicles / time windows); spec §7.2 calls it a stop-gap.
  */
 import { getDayOrders } from "@/features/routing/application/get-day-orders";
+import { planWaypointChunks } from "@/features/routing/domain/chunk-waypoints";
+import { nearestNeighborOrder } from "@/features/routing/domain/nearest-neighbor-order";
+import { partitionDeliveredOrders } from "@/features/routing/domain/partition-delivered-orders";
+import { resolveRouteDestination } from "@/features/routing/domain/route-destination";
 import {
   DirectionsApiError,
   NoConfirmedOrdersError,
   TooManyWaypointsError,
   WarehouseNotConfiguredError,
 } from "@/features/routing/domain/route.errors";
-import { partitionDeliveredOrders } from "@/features/routing/domain/partition-delivered-orders";
-import { resolveRouteDestination } from "@/features/routing/domain/route-destination";
+import { stitchChunkedRoute } from "@/features/routing/domain/stitch-chunked-route";
 import { callGoogleDirections } from "@/features/routing/infrastructure/google-directions";
 import { fetchDeliveryDetails } from "@/features/routing/infrastructure/order-delivery-details";
 import { getDefaultSavedLocation } from "@/features/routing/infrastructure/saved-location.repository";
@@ -37,11 +47,18 @@ import type {
   OptimizedRoute,
   RouteStop,
 } from "@/features/routing/domain/route";
+import type { DirectionsResult } from "@/features/routing/infrastructure/google-directions";
 
-// Routes API `optimizeWaypointOrder` supports up to 98 intermediate stops when
-// every point is a lat/lng coordinate (we always send coordinates, never place
-// IDs). The destination is a separate point, not a waypoint.
-const MAX_WAYPOINTS = 98;
+// A single computeRoutes request supports at most 25 intermediate waypoints —
+// a real Google limit (see ../infrastructure/google-directions.ts), not
+// something this app chose. A day with more stops is split into multiple
+// chained computeRoutes calls instead of failing outright.
+const GOOGLE_CHUNK_SIZE = 25;
+
+// Defensive ceiling on total stops per day. Not a Google limit — just a sane
+// bound so a data mistake can't silently fan out into dozens of parallel
+// paid Directions calls. Comfortably above any realistic single-van day.
+const MAX_WAYPOINTS = 300;
 
 export type GetDayRouteFailure =
   | WarehouseNotConfiguredError
@@ -130,13 +147,34 @@ export async function getDayRoute(
     );
   }
 
-  const directionsResult = await callGoogleDirections({
+  // Nearest-neighbor pre-sort only matters for CHUNK MEMBERSHIP once there's
+  // more than one chunk — within a single chunk (the common case) Google's
+  // own optimizeWaypointOrder reorders freely regardless of input order.
+  const orderedWaypoints =
+    waypointOrders.length > GOOGLE_CHUNK_SIZE
+      ? nearestNeighborOrder(origin, waypointOrders)
+      : waypointOrders;
+  const chunkPlans = planWaypointChunks(
     origin,
-    destination: resolved.destCoord,
-    waypoints: waypointOrders.map((o) => ({ lat: o.lat, lng: o.lng })),
-  });
-  if (isErr(directionsResult)) return directionsResult;
-  const directions = directionsResult.value;
+    orderedWaypoints,
+    resolved.destCoord,
+    GOOGLE_CHUNK_SIZE,
+  );
+
+  const chunkResults = await Promise.all(
+    chunkPlans.map((chunk) =>
+      callGoogleDirections({
+        origin: chunk.origin,
+        destination: chunk.destination,
+        waypoints: chunk.intermediates.map((o) => ({ lat: o.lat, lng: o.lng })),
+      }),
+    ),
+  );
+  const chunkDirections: DirectionsResult[] = [];
+  for (const result of chunkResults) {
+    if (isErr(result)) return result;
+    chunkDirections.push(result.value);
+  }
 
   // Enrich with paid amount + line items (one batched lookup for the route).
   // Only the routed stops need details — completed markers are pins, not stops.
@@ -151,22 +189,17 @@ export async function getDayRoute(
   })();
   const startTimeIso = new Date(startMs).toISOString();
 
-  // waypointOrder is indices into the input waypoints. Reorder orders +
-  // walk legs in route sequence to derive cumulatives + ETAs. legs[i] is
-  // the segment FROM stop i TO stop i+1, with leg[0] being origin → stop 1.
-  let cumulativeDistanceM = 0;
-  let cumulativeDurationS = 0;
-  const stops: RouteStop[] = directions.waypointOrder.map((srcIdx, i) => {
-    const order = waypointOrders[srcIdx];
-    if (!order) {
-      throw new Error(`waypointOrder[${i}]=${srcIdx} out of range`);
-    }
-    const leg = directions.legs[i];
-    const legDistanceM = leg?.distanceM ?? null;
-    const legDurationS = leg?.durationS ?? null;
-    cumulativeDistanceM += legDistanceM ?? 0;
-    cumulativeDurationS += legDurationS ?? 0;
-    const etaIso = new Date(startMs + cumulativeDurationS * 1000).toISOString();
+  // Turn the per-chunk Google results back into one continuous stop
+  // sequence with one running cumulative distance/duration (chunk-boundary
+  // index math lives in stitch-chunked-route.ts, unit-tested there).
+  const stitched = stitchChunkedRoute(
+    chunkPlans,
+    chunkDirections,
+    resolved.appendStop,
+  );
+  const stops: RouteStop[] = stitched.map((s, i) => {
+    const order = s.item;
+    const etaIso = new Date(startMs + s.cumulativeDurationS * 1000).toISOString();
     const detail = detailById.get(order.order_id);
     return {
       sequence: i + 1,
@@ -187,56 +220,19 @@ export async function getDayRoute(
       total_minor: order.total_minor,
       amount_paid_minor: detail?.amount_paid_minor ?? 0,
       items: detail?.items ?? [],
-      leg_distance_m: legDistanceM,
-      leg_duration_s: legDurationS,
-      cumulative_distance_m: cumulativeDistanceM,
-      cumulative_duration_s: cumulativeDurationS,
+      leg_distance_m: s.legDistanceM,
+      leg_duration_s: s.legDurationS,
+      cumulative_distance_m: s.cumulativeDistanceM,
+      cumulative_duration_s: s.cumulativeDurationS,
       eta_iso: etaIso,
     };
   });
 
-  // Order destination: append it as the FINAL stop. Its leg is the last one
-  // (last waypoint → destination); accumulate so its ETA/cumulatives are right.
-  if (resolved.appendStop) {
-    const appended = resolved.appendStop;
-    const finalLeg = directions.legs[waypointOrders.length];
-    const legDistanceM = finalLeg?.distanceM ?? null;
-    const legDurationS = finalLeg?.durationS ?? null;
-    cumulativeDistanceM += legDistanceM ?? 0;
-    cumulativeDurationS += legDurationS ?? 0;
-    const etaIso = new Date(startMs + cumulativeDurationS * 1000).toISOString();
-    const detail = detailById.get(appended.order_id);
-    stops.push({
-      sequence: stops.length + 1,
-      order_id: appended.order_id,
-      order_number: appended.order_number,
-      customer_id: appended.customer_id,
-      customer_name: `${appended.customer_first_name} ${appended.customer_last_name}`,
-      customer_phone: appended.customer_phone,
-      customer_notes: detail?.customer_notes ?? null,
-      lat: appended.lat,
-      lng: appended.lng,
-      delivery_address: detail?.delivery_address ?? null,
-      delivery_street: appended.street,
-      building_no: appended.building_no,
-      apartment_no: appended.apartment_no,
-      in_service_area: appended.in_service_area,
-      delivery_notes: appended.delivery_notes,
-      total_minor: appended.total_minor,
-      amount_paid_minor: detail?.amount_paid_minor ?? 0,
-      items: detail?.items ?? [],
-      leg_distance_m: legDistanceM,
-      leg_duration_s: legDurationS,
-      cumulative_distance_m: cumulativeDistanceM,
-      cumulative_duration_s: cumulativeDurationS,
-      eta_iso: etaIso,
-    });
-  }
-
-  // Final leg (to the destination — origin on a round trip, the saved location,
-  // or the pinned order) is included in totals + finish ETA.
-  const totalDistanceM = directions.legs.reduce((s, l) => s + l.distanceM, 0);
-  const totalDurationS = directions.legs.reduce((s, l) => s + l.durationS, 0);
+  // Totals + finish ETA across every chunk's legs, including each chunk's
+  // final leg to its destination (the last chunk's is the route's own end).
+  const allLegs = chunkDirections.flatMap((d) => d.legs);
+  const totalDistanceM = allLegs.reduce((s, l) => s + l.distanceM, 0);
+  const totalDurationS = allLegs.reduce((s, l) => s + l.durationS, 0);
   const finishTimeIso = new Date(startMs + totalDurationS * 1000).toISOString();
 
   return ok({
@@ -245,8 +241,13 @@ export async function getDayRoute(
     destination: resolved.routeDestination,
     stops,
     completed_markers: completedMarkers,
-    overview_polyline: directions.overviewPolyline,
-    step_polylines: directions.stepPolylines,
+    // Google's simplified summary polyline, kept only as a low-zoom fallback
+    // (nothing in the UI actually renders it — step_polylines below is what
+    // route-map.tsx draws). Encoded polylines can't be naively concatenated
+    // across chunks, so on a multi-chunk day this is just the last chunk's;
+    // step_polylines stays complete and accurate regardless of chunk count.
+    overview_polyline: chunkDirections[chunkDirections.length - 1]!.overviewPolyline,
+    step_polylines: chunkDirections.flatMap((d) => d.stepPolylines),
     start_time_iso: startTimeIso,
     finish_time_iso: finishTimeIso,
     total_distance_m: totalDistanceM,
