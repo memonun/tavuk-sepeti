@@ -39,10 +39,12 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2Icon,
+  ChevronDownIcon,
   MailCheckIcon,
   MapPinIcon,
   MessageCircleIcon,
   PackageCheckIcon,
+  PlusIcon,
   ShoppingBasketIcon,
   TruckIcon,
 } from "lucide-react";
@@ -97,8 +99,9 @@ import { formatTRY } from "@/shared/utils/money";
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
-import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
+import { fromPriceMinor, lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
+import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
 
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
 import type { Product } from "@/features/products/application/list-products";
@@ -323,6 +326,7 @@ export function CheckoutForm({
       subtotal={subtotal}
       feeMinor={feeMinor}
       total={total}
+      products={products}
     />
   );
 
@@ -814,45 +818,106 @@ export function CheckoutForm({
 }
 
 /** Basket recap + totals. Shared by both steps so the customer always sees what
- *  they are paying for, including during account creation. */
+ *  they are paying for, including during account creation. Fully editable —
+ *  each line has the same QuantityStepper the cart sheet and shop listing
+ *  use (stepping below the minimum removes the line), and a "Ürün ekle"
+ *  disclosure lets a customer add another product without leaving checkout
+ *  and losing whatever they've already filled in below (address, payment
+ *  method). Mutates the same localStorage-backed useCart() store every other
+ *  add/remove surface in the app already writes to — no parallel cart path,
+ *  no server round-trip; the next render re-prices/re-derives the channel
+ *  from the updated basket automatically (see `rows`/`items` above). */
 function OrderSummary({
   rows,
   mode,
   subtotal,
   feeMinor,
   total,
+  products,
 }: {
   rows: ReadonlyArray<{ product: Product; quantity: number }>;
   mode: "route" | "cargo";
   subtotal: number;
   feeMinor: number;
   total: number;
+  products: readonly Product[];
 }) {
+  const { addItem } = useCart();
+  const [showAddPicker, setShowAddPicker] = useState(false);
+  const cartKeys = useMemo(() => new Set(rows.map((r) => r.product.key)), [rows]);
+  const addableProducts = products.filter((p) => !cartKeys.has(p.key));
+
   return (
     <div className="flex flex-col gap-4 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
       <h2 className="font-display text-lg">Sipariş özeti</h2>
-      <ul className="flex flex-col gap-2.5">
+      <ul className="flex flex-col gap-3">
         {rows.map(({ product, quantity }) => (
-          <li key={product.key} className="flex items-center gap-2.5 text-sm">
-            <span className="text-xl" aria-hidden>
-              {productEmoji(product.key)}
-            </span>
-            <span className="min-w-0 flex-1 truncate">
-              {product.display_name}
-              <span className="text-muted-foreground">
-                {" "}
-                ×{" "}
-                {quantity.toLocaleString("tr-TR", {
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-            </span>
-            <span className="tabular-nums">
-              {formatTRY(lineTotalMinor(product, quantity))}
-            </span>
+          <li key={product.key} className="flex items-center gap-3">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary/60 text-2xl">
+              <span aria-hidden>{productEmoji(product.key)}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {product.display_name}
+              </p>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {formatTRY(lineTotalMinor(product, quantity))}
+              </p>
+            </div>
+            <QuantityStepper product={product} />
           </li>
         ))}
       </ul>
+
+      {addableProducts.length > 0 ? (
+        <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-fit gap-1.5 text-primary hover:text-primary"
+            onClick={() => setShowAddPicker((v) => !v)}
+          >
+            <PlusIcon className="size-4" />
+            Ürün ekle
+            <ChevronDownIcon
+              className={cn(
+                "size-3.5 transition-transform",
+                showAddPicker && "rotate-180",
+              )}
+            />
+          </Button>
+          {showAddPicker ? (
+            <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto rounded-2xl border border-border/60 bg-secondary/30 p-2">
+              {addableProducts.map((product) => (
+                <li
+                  key={product.key}
+                  className="flex items-center gap-2.5 rounded-xl p-1.5"
+                >
+                  <span className="text-lg" aria-hidden>
+                    {productEmoji(product.key)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {product.display_name}
+                  </span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {formatTRY(fromPriceMinor(product))}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => addItem(product.key, product.min_qty)}
+                  >
+                    Ekle
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="border-t border-border/60 pt-3 text-sm">
         <div className="flex justify-between">
