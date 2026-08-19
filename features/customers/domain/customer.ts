@@ -85,7 +85,15 @@ export interface Customer {
   readonly tag: string | null;
   readonly legacy_segment: string | null;
   readonly origin: CustomerOrigin;
+  /** The primary address, or the shape every existing write/edit flow
+   *  (CustomerForm) still targets. Kept alongside `addresses` rather than
+   *  derived from it at every call site. */
   readonly address: CustomerAddress | null;
+  /** Every saved address, primary first — a customer can have more than
+   *  one (e.g. "Ev" and "İş"; the storefront account page already lists
+   *  them all). Read-only here: the admin panel only edits the primary
+   *  address today. */
+  readonly addresses: readonly CustomerAddress[];
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly created_by: string | null;
