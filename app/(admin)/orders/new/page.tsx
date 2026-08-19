@@ -5,7 +5,7 @@ import { listActiveProducts } from "@/features/products/application/list-product
 import { env } from "@/shared/env";
 import { toIstanbulDateString } from "@/shared/utils/date";
 
-import { NewCustomerAction } from "./_components/new-customer-action";
+import { NewCustomerAction } from "@/app/(admin)/_components/new-customer-action";
 
 export default async function NewOrderPage() {
   const productsResult = await listActiveProducts();

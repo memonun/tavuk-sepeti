@@ -1,14 +1,16 @@
 "use client";
 
 /**
- * "+ Yeni Müşteri Ekle" trigger for the bulk order screen: opens the same
- * CustomerForm used by /customers/new inside a side sheet, so an admin
- * mid-order never leaves the page to register a customer. Composed here
- * (app-route layer) rather than inside features/orders/ui, since a feature's
- * UI may not import another feature's UI directly (see eslint.config.mjs).
+ * "+ Yeni Müşteri Ekle" trigger: opens the same CustomerForm used by
+ * /customers/new inside a side sheet, so an admin never has to leave the
+ * current page (bulk order screen, orders list, …) to register a customer.
+ * Lives at the app-route layer (not inside features/orders/ui) since a
+ * feature's UI may not import another feature's UI directly (see
+ * eslint.config.mjs) — shared across admin routes from here.
  */
 import { UserPlus } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { CustomerForm } from "@/features/customers/ui/customer-form";
 import { Button } from "@/components/ui/button";
@@ -47,13 +49,11 @@ export function NewCustomerAction({ mapsBrowserKey, onCreated }: NewCustomerActi
             onCancel={() => setOpen(false)}
             onCreated={(customer) => {
               setOpen(false);
-              onCreated?.({
-                id: customer.id,
-                name:
-                  [customer.first_name, customer.last_name].filter(Boolean).join(" ") ||
-                  "(isimsiz)",
-                phone: customer.phone,
-              });
+              const name =
+                [customer.first_name, customer.last_name].filter(Boolean).join(" ") ||
+                "(isimsiz)";
+              toast.success(`${name} eklendi.`);
+              onCreated?.({ id: customer.id, name, phone: customer.phone });
             }}
           />
         </div>
