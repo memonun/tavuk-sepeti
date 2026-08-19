@@ -144,6 +144,13 @@ export interface DataGridProps<TRow, TPatch> {
    * the bare status). Defaults to identity: `{ [columnId]: value }`.
    */
   readonly toOptimisticPatch?: (columnId: string, value: unknown) => Partial<TRow>;
+  /**
+   * Per-row background wash (e.g. a CSS var like "var(--row-status-paid)").
+   * Applied to the row and to pinned/sticky cells, which otherwise paint an
+   * opaque `var(--background)` over it. Returns undefined for "no wash".
+   * Overridden by row selection, which always wins visually.
+   */
+  readonly getRowBackground?: (row: TRow) => string | undefined;
 }
 
 /** Persisted, per-table user prefs (column sizes, order, visibility). */

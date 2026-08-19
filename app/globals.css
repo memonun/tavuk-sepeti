@@ -5,6 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-row-status-pending: var(--row-status-pending);
+  --color-row-status-confirmed: var(--row-status-confirmed);
+  --color-row-status-paid: var(--row-status-paid);
+  --color-row-status-unpaid: var(--row-status-unpaid);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-mono: var(--font-geist-mono);
@@ -80,6 +84,13 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Orders grid row-status washes — soft background tints, never the sole
+     signal (status is still shown via icon + text badge, WCAG 1.4.1). */
+  --row-status-pending: oklch(0.93 0.04 300);
+  --row-status-confirmed: oklch(0.94 0.06 95);
+  --row-status-paid: oklch(0.93 0.06 145);
+  --row-status-unpaid: oklch(0.93 0.06 25);
 }
 
 .dark {
@@ -115,6 +126,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --row-status-pending: oklch(0.28 0.06 300);
+  --row-status-confirmed: oklch(0.3 0.07 95);
+  --row-status-paid: oklch(0.28 0.07 145);
+  --row-status-unpaid: oklch(0.3 0.09 25);
 }
 
 @layer base {
