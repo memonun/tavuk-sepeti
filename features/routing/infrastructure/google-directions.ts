@@ -1,18 +1,13 @@
 /**
- * Server-side wrapper around the Google Routes API (`computeRoutes`).
- *
- * Builds a single round-trip request (origin = destination = warehouse,
- * intermediates = orders) with `optimizeWaypointOrder:true`, parses the
- * response with Zod at the boundary, and returns the optimization output for
- * the caller to map onto the order list.
- *
- * We use the Routes API rather than the legacy Directions API because the
- * legacy endpoint caps optimization at 25 waypoints; `computeRoutes` supports
- * up to 98 lat/lng waypoints (the application layer enforces the cap). Note the
- * Routes API constraint for 25+ waypoints: the travel mode must be DRIVE (it
- * is) and the accumulated straight-line distance between all points must be
- * under 1,000 km — comfortably true for a city's daily deliveries; a violation
- * surfaces as a typed DirectionsApiError from Google.
+ * Server-side wrapper around a single Google Routes API (`computeRoutes`)
+ * request. One call always means one origin, up to 25 intermediates, and one
+ * destination — that 25-intermediate cap is real and enforced by Google, not
+ * a limit this app chose (an earlier version of this comment claimed 98,
+ * which was the *Routes Preferred* API's limit, a different enterprise
+ * product at a different endpoint — not this one). A day with more than 25
+ * stops is split into multiple chunked calls to this function by the
+ * application layer; see application/get-day-route.ts and
+ * domain/chunk-waypoints.ts.
  *
  * Request/response shaping lives in ./google-directions.mapper (pure, tested).
  */
