@@ -10,6 +10,7 @@ import {
   Repeat,
   Store,
   Tags,
+  Truck,
   Users,
 } from "lucide-react";
 import Image from "next/image";
@@ -43,6 +44,7 @@ const navItems = [
   { href: "/products", label: "Ürünler", icon: Tags, exact: false },
   { href: "/map", label: "Harita", icon: Map, exact: false },
   { href: "/routes", label: "Rota", icon: CalendarRange, exact: false },
+  { href: "/kargo", label: "Kargo", icon: Truck, exact: false },
   { href: "/magaza-ayarlari", label: "Mağaza ayarları", icon: Store, exact: false },
 ] as const;
 
