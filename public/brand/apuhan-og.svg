@@ -1,0 +1,33 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Apuhan Çiftliği — Taze ürünler, kapınızda</title>
+  <desc>Apuhan Çiftliği markasının taze çiftlik ürünleri önizleme görseli.</desc>
+  <defs>
+    <linearGradient id="gold-panel" x1="40" y1="40" x2="450" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E7AB50" />
+      <stop offset="1" stop-color="#BE7C2A" />
+    </linearGradient>
+    <linearGradient id="egg" x1="260" y1="174" x2="260" y2="459" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFCF5" />
+      <stop offset="1" stop-color="#F1E3C8" />
+    </linearGradient>
+    <filter id="shadow" x="118" y="102" width="284" height="430" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#6B4219" flood-opacity="0.24" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="#F8F4EB" />
+  <rect x="26" y="26" width="1148" height="578" rx="38" fill="#FFFDF8" stroke="#E7DCCB" stroke-width="2" />
+  <path d="M26 64C26 43.013 43.013 26 64 26H456V604H64C43.013 604 26 586.987 26 566V64Z" fill="url(#gold-panel)" />
+
+  <circle cx="260" cy="315" r="142" fill="#D99538" fill-opacity="0.32" />
+  <g filter="url(#shadow)">
+    <path d="M260 164C301 164 344 229 344 337C344 419 309 466 260 466C211 466 176 419 176 337C176 229 219 164 260 164Z" fill="url(#egg)" />
+    <path d="M223 262C213 276 207 296 205 319" stroke="white" stroke-opacity="0.6" stroke-width="12" stroke-linecap="round" />
+  </g>
+
+  <text x="526" y="250" fill="#2D241C" font-family="Georgia, 'Times New Roman', serif" font-size="62" font-weight="700">Apuhan Çiftliği</text>
+  <rect x="530" y="282" width="92" height="5" rx="2.5" fill="#C9872F" />
+  <text x="526" y="350" fill="#6E6257" font-family="Arial, Helvetica, sans-serif" font-size="30">Çiftlikten sofranıza,</text>
+  <text x="526" y="392" fill="#6E6257" font-family="Arial, Helvetica, sans-serif" font-size="30">taze ürünler kapınızda.</text>
+  <text x="526" y="478" fill="#A37436" font-family="Arial, Helvetica, sans-serif" font-size="20" letter-spacing="3">YUMURTA · SÜT ÜRÜNLERİ · DOĞAL ÜRÜNLER</text>
+</svg>
