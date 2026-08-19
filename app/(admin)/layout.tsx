@@ -44,7 +44,7 @@ export default async function AdminLayout({
             />
           </div>
         </header>
-        <main className="flex-1 overflow-hidden px-3 py-2 sm:px-4">{children}</main>
+        <main className="min-w-0 flex-1 overflow-hidden px-3 py-2 sm:px-4">{children}</main>
       </SidebarInset>
       <Toaster />
     </SidebarProvider>

@@ -664,3 +664,18 @@ export async function addCustomerRow(
   }
   return ok(rowToListItem({ ...data, addresses: data.addresses ?? [] } as never));
 }
+
+// ---- dashboard counts ---------------------------------------------------
+
+export async function countActiveCustomers(): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from("customers")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active");
+  if (error) {
+    logger.warn({ code: error.code }, "count_active_customers_failed");
+    return 0;
+  }
+  return count ?? 0;
+}

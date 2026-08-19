@@ -795,7 +795,7 @@ export function DataGrid<TRow extends object, TPatch>({
         aria-rowcount={totalCount}
         aria-colcount={visibleLeafColumns.length}
         onPaste={handlePaste}
-        className="relative min-h-0 flex-1 overflow-auto rounded-md border bg-background"
+        className="relative min-h-0 min-w-0 flex-1 overflow-auto rounded-md border bg-background"
       >
         <table
           className="text-[13px]"

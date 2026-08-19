@@ -180,7 +180,7 @@ export function CustomerGrid({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <DataGrid<CustomerListItem, CustomerCellPatch>
         data={items}
         columns={columns}

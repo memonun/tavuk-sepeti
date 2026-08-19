@@ -220,7 +220,7 @@ export function OrderGrid({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <DataGrid<OrderListItem, OrderCellPatch>
         data={items}
         columns={columns}
