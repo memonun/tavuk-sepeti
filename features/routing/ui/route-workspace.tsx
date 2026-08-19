@@ -10,11 +10,15 @@
  * mobile. A visually-hidden live region announces selection to screen
  * readers without stealing focus from the list.
  */
+import { Navigation } from "lucide-react";
 import { useState } from "react";
 
+import { buttonVariants } from "@/components/ui/button";
+import { buildGoogleMapsDirectionsUrl } from "@/features/routing/domain/google-maps-directions-url";
 import { RouteList } from "@/features/routing/ui/route-list";
 import { RouteMap } from "@/features/routing/ui/route-map";
 import { RouteStopPanel } from "@/features/routing/ui/route-stop-panel";
+import { cn } from "@/lib/utils";
 
 import type { OptimizedRoute } from "@/features/routing/domain/route";
 
@@ -30,6 +34,16 @@ export function RouteWorkspace({ apiKey, route }: RouteWorkspaceProps) {
 
   return (
     <div className="space-y-4">
+      <a
+        href={buildGoogleMapsDirectionsUrl(route)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full gap-1.5 sm:w-auto")}
+      >
+        <Navigation className="h-3.5 w-3.5" />
+        Google Maps&apos;te Aç
+      </a>
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="lg:flex-1">
           <RouteMap
