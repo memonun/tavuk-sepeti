@@ -30,7 +30,10 @@ import {
   findGuestOrderByNumberAction,
   type FindOrderByNumberState,
 } from "@/features/storefront/application/find-guest-order-by-number";
-import { isAwaitingPayment } from "@/features/storefront/domain/card-confirmation";
+import {
+  isAwaitingPayment,
+  paymentStatusLabel,
+} from "@/features/storefront/domain/card-confirmation";
 import {
   GUEST_ORDER_TYPE_OPTIONS,
   type GuestOrderType,
@@ -368,15 +371,7 @@ function OrderCard({
               awaitingPayment && !awaitingConfirmation ? "text-destructive" : undefined
             }
           >
-            {order.paymentStatus === "paid"
-              ? "Ödendi"
-              : order.paymentMethod === "cash_on_delivery"
-                ? "Teslimatta ödenecek"
-                : awaitingConfirmation
-                  ? "Ödeme kontrol ediliyor"
-                  : order.paymentMethod === "bank_transfer"
-                    ? "Ödeme onayı bekliyor"
-                    : "Ödeme bekliyor"}
+            {paymentStatusLabel(paymentView, awaitingConfirmation)}
           </dd>
         </div>
         <div className="flex justify-between gap-4">

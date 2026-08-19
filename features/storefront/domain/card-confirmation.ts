@@ -74,3 +74,28 @@ export function showsPaidBadge(order: {
     order.payment_status === "paid" && order.payment_method !== "cash_on_delivery"
   );
 }
+
+/**
+ * The one Turkish sentence a customer-facing order card shows for "what's
+ * going on with the money". A single source of truth so a cancelled order
+ * can't independently drift back to "Ödeme bekliyor" in some other view
+ * that re-derives the same branching by hand instead of calling this.
+ *
+ * Takes `awaitingCardConfirmation` as an already-computed boolean rather than
+ * a `nowMs` to derive it from: callers vary in when they may read the clock
+ * (an RSC render vs. a "use client" card rendering a value the server
+ * computed at lookup time — see find-order-form.tsx), so this stays pure and
+ * lets each caller pass `isAwaitingCardConfirmation(order, nowMs)` however
+ * (or whenever) it obtained that value.
+ */
+export function paymentStatusLabel(
+  order: PaymentStateView,
+  awaitingCardConfirmation: boolean,
+): string {
+  if (order.payment_status === "paid") return "Ödendi";
+  if (order.status === "cancelled") return "İptal edildi";
+  if (order.payment_method === "cash_on_delivery") return "Teslimatta ödenecek";
+  if (awaitingCardConfirmation) return "Ödeme kontrol ediliyor";
+  if (order.payment_method === "bank_transfer") return "Ödeme onayı bekliyor";
+  return "Ödeme bekliyor";
+}
