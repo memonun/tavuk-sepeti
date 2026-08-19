@@ -43,7 +43,7 @@ export const COMPANY: Company = {
   phone: "+90 533 255 64 44",
   email: "hamitapuhanlive@gmail.com",
   taxOffice: "Akçadağ",
-  taxNo: "", // Doğrulanmış numara kaynakta yok.
+  taxNo: "0710634448",
   mersisNo: "",
   kepAddress: "",
   tradeRegistryNo: "",
