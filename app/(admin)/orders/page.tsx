@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { NewCustomerAction } from "@/app/(admin)/_components/new-customer-action";
 import { parseFiltersFromQueryParam } from "@/components/data-grid/filters/filter-types";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -25,6 +26,7 @@ import { listViewsAction } from "@/features/views/application/list-views";
 import { ViewTabs } from "@/features/views/ui/view-tabs";
 import { buildViewUrl } from "@/features/views/ui/view-url";
 import { cn } from "@/lib/utils";
+import { env } from "@/shared/env";
 
 interface OrdersPageProps {
   searchParams: Promise<{
@@ -88,6 +90,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   // Views loading failure isn't fatal — render with an empty tab list.
   const views = viewsResult.ok ? viewsResult.value : [];
 
+  const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
+
   // Default view auto-apply: if the user lands here without any view
   // marker AND has a default view configured, redirect to it. The
   // "Tümü" tab sets ?view=none explicitly so it survives the redirect
@@ -120,6 +124,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <p className="text-xs text-muted-foreground">
             {listResult.value.total} kayıt
           </p>
+          {mapsKey ? <NewCustomerAction mapsBrowserKey={mapsKey} /> : null}
           <Link
             href="/orders/new"
             className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}

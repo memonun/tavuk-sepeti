@@ -14,6 +14,10 @@ import type { CSSProperties } from "react";
 
 export function getPinningStyles<T extends RowData>(
   column: Column<T, unknown>,
+  /** Row-level background override (e.g. a status wash) — pinned cells
+   *  otherwise paint an opaque `var(--background)` to hide horizontally
+   *  scrolled content underneath, which would blot out any row tint. */
+  background = "var(--background)",
 ): CSSProperties {
   const pin = column.getIsPinned();
   if (pin === false) {
@@ -25,7 +29,7 @@ export function getPinningStyles<T extends RowData>(
     position: "sticky",
     width: column.getSize(),
     zIndex: 1,
-    backgroundColor: "var(--background)",
+    backgroundColor: background,
   };
   if (pin === "left") {
     styles.left = `${column.getStart("left")}px`;

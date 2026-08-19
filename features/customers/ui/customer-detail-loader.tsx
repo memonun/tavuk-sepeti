@@ -15,6 +15,9 @@ import type { OrderListItem } from "@/features/orders/application/list-orders";
 interface CustomerDetailLoaderProps {
   readonly id: string;
   readonly mapsKey: string;
+  /** Called after a successful delete, so the caller (grid Sheet) can close
+   *  itself before the router.push in CustomerDetailPanel lands. */
+  readonly onDeleted?: () => void;
 }
 
 /** Fetch outcome tagged with the id it belongs to, so a result from a stale
@@ -33,7 +36,11 @@ type LoadState =
  * setState inside the effect — the render simply treats a state whose id
  * doesn't match the current prop as "still loading".
  */
-export function CustomerDetailLoader({ id, mapsKey }: CustomerDetailLoaderProps) {
+export function CustomerDetailLoader({
+  id,
+  mapsKey,
+  onDeleted,
+}: CustomerDetailLoaderProps) {
   const [state, setState] = useState<LoadState>({ kind: "loading", id });
 
   useEffect(() => {
@@ -60,6 +67,7 @@ export function CustomerDetailLoader({ id, mapsKey }: CustomerDetailLoaderProps)
       customer={state.customer}
       mapsKey={mapsKey}
       ordersSlot={<SheetCustomerOrders customerId={state.customer.id} />}
+      {...(onDeleted ? { onDeleted } : {})}
     />
   );
 }

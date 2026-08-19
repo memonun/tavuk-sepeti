@@ -9,7 +9,7 @@
  * The page shell passes its date-range presets through `toolbarExtra`, which
  * sits to the left of the filter builder in the toolbar row.
  */
-import { Maximize2, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -36,6 +36,7 @@ import {
   buildOrderColumns,
 } from "@/features/orders/ui/order-grid-columns";
 import { bulkDeleteOrdersAction } from "@/features/orders/application/bulk-delete-orders";
+import { getOrderRowBackground } from "@/features/orders/ui/order-row-color";
 import { patchOrderCellAction } from "@/features/orders/application/patch-order-cell";
 import { useOrdersRealtime } from "@/features/orders/ui/hooks/use-orders-realtime";
 import {
@@ -140,6 +141,53 @@ export function OrderGrid({
   // Row click → open the shared editable detail panel in a right-side Sheet.
   const [openRow, setOpenRow] = useState<OrderListItem | null>(null);
 
+  // Prev/Next through the currently loaded (filtered) rows, in `items` order
+  // — the "Excel view" already loads the whole bounded result set, so this
+  // covers everything the toolbar's filters currently match, not just one
+  // page. Client-side column-sort clicks aren't reflected here (DataGrid
+  // keeps that state internally); this walks the server-ordered list.
+  const openIndex = useMemo(
+    () => (openRow ? items.findIndex((o) => o.id === openRow.id) : -1),
+    [items, openRow],
+  );
+  const goToOffset = useCallback(
+    (delta: number) => {
+      if (openIndex === -1) return;
+      const next = items[openIndex + delta];
+      if (next) setOpenRow(next);
+    },
+    [items, openIndex],
+  );
+
+  // Left/Right arrow keys step through orders while the Sheet is open,
+  // unless focus is inside a form control (editing a field shouldn't be
+  // hijacked by cursor-left/right). Capture phase + stop propagation: the
+  // Sheet doesn't reliably pull DOM focus off the grid cell that opened it,
+  // and that cell's own onKeyDown already treats arrow keys as Excel-style
+  // cell-navigation — without this, both handlers would fire and the grid
+  // would consume the keystroke first.
+  useEffect(() => {
+    if (openRow === null) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      goToOffset(e.key === "ArrowLeft" ? -1 : 1);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [openRow, goToOffset]);
+
   // Debounced full-text search (sipariş no / müşteri adı / telefon) — mirrors
   // the `q` URL param the customers grid already uses.
   const [searchText, setSearchText] = useState(() => params.get("q") ?? "");
@@ -239,6 +287,7 @@ export function OrderGrid({
         }}
         buildPatch={buildPatch}
         toOptimisticPatch={toOptimisticPatch}
+        getRowBackground={getOrderRowBackground}
         columnLabels={ORDER_COLUMN_LABELS}
         toolbar={
           <div className="flex flex-1 flex-wrap items-center gap-1.5">
@@ -288,6 +337,32 @@ export function OrderGrid({
           {/* Visually-hidden title: base-ui Dialog requires a labelled title
               for a11y; the panel renders its own visible heading. */}
           <SheetTitle className="sr-only">Sipariş detayı</SheetTitle>
+          {openRow ? (
+            <div className="absolute left-3 top-3 z-10 flex items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Önceki sipariş"
+                title="Önceki sipariş"
+                disabled={openIndex <= 0}
+                onClick={() => goToOffset(-1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Sonraki sipariş"
+                title="Sonraki sipariş"
+                disabled={openIndex === -1 || openIndex >= items.length - 1}
+                onClick={() => goToOffset(1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : null}
           {openRow ? (
             <Link
               href={`/orders/${openRow.id}`}

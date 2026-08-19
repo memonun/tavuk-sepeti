@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SearchIcon } from "lucide-react";
+import { HouseIcon, SearchIcon } from "lucide-react";
 
 import { getViewer } from "@/features/auth/application/get-viewer";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
@@ -34,6 +34,17 @@ export async function ShopHeader({ products }: { products: readonly Product[] })
           </span>
         </Link>
         <div className="flex items-center gap-1">
+          <Link
+            href="/"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "lg" }),
+              "rounded-full",
+            )}
+            title="Anasayfa"
+          >
+            <HouseIcon />
+            <span className="hidden sm:inline">Anasayfa</span>
+          </Link>
           <Link
             href="/siparis-sorgula"
             className={cn(

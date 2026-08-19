@@ -7,8 +7,9 @@
  * plus optional volume tiers (≥ min_qty → unit price).
  *
  * Saving affects FUTURE orders only — existing orders keep their frozen line
- * prices (snapshot model). Removal is archive-only: order_items has an
- * ON DELETE RESTRICT FK to products, so an ordered product can't be deleted.
+ * prices (snapshot model). Hard delete is offered too, but only ever
+ * succeeds for a product with zero order_items (that FK is ON DELETE
+ * RESTRICT) — an ordered product must be archived instead, never deleted.
  *
  * Tier prices accept up to 4 decimals so fractional rates (eggs at 3 pkg ≈
  * ₺116.6667/pkg) round to an exact line total in the pricing engine.
@@ -26,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { deleteProductAction } from "@/features/products/application/delete-product";
 import { saveProductPricingAction } from "@/features/products/application/save-product-pricing";
 import { setProductActiveAction } from "@/features/products/application/set-product-active";
 import { updateProductFlagsAction } from "@/features/products/application/set-product-flags";
@@ -35,6 +37,13 @@ import { ProductImageDropzone } from "@/features/products/ui/product-image-dropz
 import { formatTRY4, parseTRY2, parseTRY4 } from "@/features/products/ui/money";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -197,6 +206,8 @@ function DetailChip({ label, value }: { label: string; value: string }) {
 function ProductCard({ product }: { product: Product }) {
   const router = useRouter();
   const [toggling, startToggling] = useTransition();
+  const [deleting, startDeleting] = useTransition();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [flagPending, startFlag] = useTransition();
   const [sortPending, startSort] = useTransition();
   const archived = !product.active;
@@ -241,6 +252,19 @@ function ProductCard({ product }: { product: Product }) {
             ? `${product.display_name} geri yüklendi.`
             : `${product.display_name} arşivlendi.`,
         );
+        router.refresh();
+      } else {
+        toast.error(result.error.message);
+      }
+    });
+  };
+
+  const confirmDelete = () => {
+    startDeleting(async () => {
+      const result = await deleteProductAction({ product_key: product.key });
+      if (result.ok) {
+        toast.success(`${product.display_name} silindi.`);
+        setDeleteOpen(false);
         router.refresh();
       } else {
         toast.error(result.error.message);
@@ -294,8 +318,54 @@ function ProductCard({ product }: { product: Product }) {
             )}
             {archived ? "Geri yükle" : "Arşivle"}
           </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setDeleteOpen(true)}
+            className="gap-1.5 text-destructive hover:text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Sil
+          </Button>
         </div>
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{product.display_name} silinsin mi?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Bu işlem geri alınamaz. Ürün hiç sipariş edilmemişse silinir; en az
+            bir siparişte kullanılmışsa engellenir — o durumda arşivlemen
+            gerekir.
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleting}
+            >
+              Vazgeç
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              Sil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ProductImageDropzone
         productKey={product.key}

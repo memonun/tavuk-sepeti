@@ -133,6 +133,7 @@ export function DataGrid<TRow extends object, TPatch>({
   footer,
   onCellError,
   onCellSuccess,
+  getRowBackground,
 }: DataGridProps<TRow, TPatch> & DataGridExtraProps) {
   const { prefs, setSizes, setOrder, setHidden, setPinning, setAggregate } = useColumnPrefs(
     tableId,
@@ -936,11 +937,14 @@ export function DataGrid<TRow extends object, TPatch>({
                 );
               }
               const isRowSelected = selectedRowIds.has(row.id);
+              // Selection always wins visually over a status wash.
+              const rowBg = isRowSelected ? undefined : getRowBackground?.(row.original);
               return (
               <Fragment key={row.id}>
                 <tr
                   ref={useWindowing ? virtualizer.measureElement : undefined}
                   data-index={rowIndex}
+                  style={rowBg ? { backgroundColor: rowBg } : undefined}
                   className={cn(
                     "group",
                     isRowSelected && "bg-blue-50/50 dark:bg-blue-950/20",
@@ -950,9 +954,10 @@ export function DataGrid<TRow extends object, TPatch>({
                   <td
                     className={cn(
                       "sticky left-0 z-[1] h-8 border-b border-r border-border align-middle",
-                      isRowSelected ? "bg-blue-50 dark:bg-blue-950/40" : "bg-background group-hover:bg-muted/40",
+                      isRowSelected ? "bg-blue-50 dark:bg-blue-950/40" : "group-hover:bg-muted/40",
+                      !isRowSelected && !rowBg && "bg-background",
                     )}
-                    style={{ width: 28 }}
+                    style={{ width: 28, ...(rowBg && !isRowSelected ? { backgroundColor: rowBg } : {}) }}
                   >
                     <div className="flex h-full items-center justify-center gap-0.5">
                       <GripVertical
@@ -967,10 +972,7 @@ export function DataGrid<TRow extends object, TPatch>({
                         checked={isRowSelected}
                         onChange={(e) => toggleRowSelection(row.id, e.target.checked)}
                         aria-label={`Satırı seç`}
-                        className={cn(
-                          "h-3.5 w-3.5 cursor-pointer accent-blue-600 transition-opacity",
-                          isRowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-                        )}
+                        className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
                       />
                     </div>
                   </td>
@@ -1018,7 +1020,7 @@ export function DataGrid<TRow extends object, TPatch>({
                         ref={(node) => registerCell(k, node)}
                         tabIndex={isActive ? 0 : -1}
                         style={{
-                          ...getPinningStyles(cell.column),
+                          ...getPinningStyles(cell.column, rowBg),
                           // Notion-style active outline; inline so it isn't
                           // killed by `outline-none` from earlier utilities
                           // and isn't shadowed by the pinning box-shadow.

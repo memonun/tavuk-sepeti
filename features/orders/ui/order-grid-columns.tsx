@@ -18,8 +18,8 @@ import { textCellEditor } from "@/components/data-grid/cells/text-cell";
 import { Badge } from "@/components/ui/badge";
 import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
 import { orderCellPatchSchemas } from "@/features/orders/domain/order.schema";
-import { isAwaitingCardPayment } from "@/features/orders/domain/payment";
 import { orderStatusEditor } from "@/features/orders/ui/order-status-cell";
+import { PaymentStatusCell } from "@/features/orders/ui/payment-status-cell";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 
@@ -29,19 +29,6 @@ import {
 } from "@/features/orders/domain/order";
 
 import { z } from "zod";
-
-// Payment status is derived from the ledger (recorded payments), so the grid
-// shows it read-only — record/settle payments in the order detail panel.
-const PAYMENT_LABELS: Record<
-  string,
-  { label: string; variant: "secondary" | "default" | "destructive" | "outline" }
-> = {
-  pending: { label: "Bekliyor", variant: "secondary" },
-  partial: { label: "Kısmi", variant: "outline" },
-  paid: { label: "Ödendi", variant: "default" },
-  failed: { label: "Başarısız", variant: "destructive" },
-  refunded: { label: "İade", variant: "outline" },
-};
 
 const TIME_SLOT_OPTIONS = [
   { value: "morning", label: "Sabah" },
@@ -176,30 +163,12 @@ export function buildOrderColumns(
       header: "Ödeme",
       size: 140,
       columnType: "text",
+      // Not a plain field edit: payment_status is derived from the
+      // order_payments ledger, so this isn't wired through the grid's
+      // usual editable/editor machinery. Click-to-mark-paid instead —
+      // see PaymentStatusCell.
       editable: false,
-      cell: ({ row }) => {
-        const o = row.original;
-        // An unpaid card order is held off the route, so it must not look like
-        // an ordinary "Bekliyor" (which for cash-on-delivery is business as
-        // usual). Call it out — this order needs attention or it ships nothing.
-        const meta = isAwaitingCardPayment(o)
-          ? { label: "Kart bekliyor", variant: "destructive" as const }
-          : (PAYMENT_LABELS[o.payment_status] ?? {
-              label: o.payment_status,
-              variant: "secondary" as const,
-            });
-        const balance = o.total_minor - o.amount_paid_minor;
-        return (
-          <div className="flex items-center gap-1.5">
-            <Badge variant={meta.variant}>{meta.label}</Badge>
-            {balance > 0 && o.amount_paid_minor > 0 ? (
-              <span className="text-[10px] text-muted-foreground">
-                kalan {formatTRY(balance)}
-              </span>
-            ) : null}
-          </div>
-        );
-      },
+      cell: ({ row }) => <PaymentStatusCell order={row.original} />,
     },
     {
       id: "delivery_fee",

@@ -32,6 +32,7 @@ export type AuditAction =
   | "product.created"
   | "product.updated"
   | "product.archived"
+  | "product.deleted"
   | "payment.recorded"
   | "payment.deleted"
   // PayTR webhook outcomes that leave no other durable trace. A successful

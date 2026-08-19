@@ -107,6 +107,14 @@ export const setProductActiveSchema = z.object({
 
 export type SetProductActiveInput = z.input<typeof setProductActiveSchema>;
 
+/** Hard-delete payload. Only ever succeeds for a product with zero
+ *  order_items — see deleteProductAction. */
+export const deleteProductSchema = z.object({
+  product_key: z.string().min(1),
+});
+
+export type DeleteProductInput = z.input<typeof deleteProductSchema>;
+
 /** Storefront-flag toggle payload — either or both switches (visible/featured). */
 export const updateProductFlagsSchema = z
   .object({

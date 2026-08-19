@@ -134,6 +134,51 @@ export async function setProductActive(
   return ok(undefined);
 }
 
+/** How many order_items reference this product — a hard delete must be 0. */
+export async function countOrderItemsForProduct(
+  productKey: string,
+): Promise<Result<number, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from("order_items")
+    .select("id", { count: "exact", head: true })
+    .eq("product_key", productKey);
+  if (error) {
+    logger.error(
+      { productKey, code: error.code },
+      "count_order_items_for_product_failed",
+    );
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(count ?? 0);
+}
+
+/**
+ * Hard delete. Only ever called after countOrderItemsForProduct confirms
+ * zero order_items — that FK is ON DELETE RESTRICT, so an ordered product
+ * would fail here anyway (23503), which we still surface as a friendly
+ * message in case of a race between the count and this call.
+ */
+export async function deleteProduct(
+  productKey: string,
+): Promise<Result<void, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("products").delete().eq("key", productKey);
+  if (error) {
+    logger.error({ productKey, code: error.code }, "delete_product_failed");
+    if (error.code === "23503") {
+      return err(
+        new ExternalApiError({
+          message: "Bu ürün bir siparişte kullanılmış, silinemez.",
+          cause: error,
+        }),
+      );
+    }
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
+
 /** Update a product's storefront flags (only the provided ones are written). */
 export async function updateProductFlags(
   productKey: string,
