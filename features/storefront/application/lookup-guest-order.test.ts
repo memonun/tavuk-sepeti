@@ -104,6 +104,7 @@ describe("lookupGuestOrder", () => {
         cargoCarrier: "PTT Kargo",
         cargoTrackingNumber: "1234567890",
         cargoTrackingUrl: "https://example.com/track/1234567890",
+        estimatedDeliveryAt: null,
       },
     });
   });

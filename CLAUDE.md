@@ -74,7 +74,7 @@ Bu sistem **1000 eşzamanlı kullanıcıya** dayanacak şekilde tasarlanır. Şu
 ## 13. Faz 1'de Yasak Kararlar
 - Recurring subscription UI yazma — schema hazır, UI Faz 2.
 - Stok takibi ekleme.
-- Müşteri-facing route ekleme.
+- ~~Müşteri-facing route ekleme.~~ 2026-08-19'da owner onayıyla kaldırıldı: `/siparis-sorgula` artık teslimat siparişleri için tahmini teslimat saati gösteriyor (`orders.estimated_delivery_at`, admin rota optimizasyonu sırasında doldurulur — yeni Google API çağrısı yok, sadece zaten hesaplanmış ETA'nın müşteriye yansıtılması). Canlı takip / harita hâlâ yok.
 - Online ödeme entegrasyonu.
 
 ## 14. Karar Verirken Sor
