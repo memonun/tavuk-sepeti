@@ -3,7 +3,16 @@
 
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import { getCustomersMissingPrimaryAddressAction } from "@/features/customers/application/customer-price-actions";
 import {
@@ -17,14 +26,26 @@ import { usePersistentState } from "@/features/orders/ui/use-persistent-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatTRPhone } from "@/shared/utils/phone";
 
 const PAGE_SIZE = 25;
+
+interface NewCustomerCreated {
+  id: string;
+  name: string;
+  phone: string;
+}
 
 interface Props {
   batch: DraftBatch;
   productsByKey: Map<string, Product>;
   selectedIds: ReadonlySet<string>;
   onSelectionChange: (ids: ReadonlySet<string>) => void;
+  // Opaque "+ Yeni Müşteri Ekle" trigger, composed by the page (app-route
+  // layer) since this feature's UI may not import another feature's UI
+  // directly. We only clone it with an onCreated callback at runtime — no
+  // import of the underlying component is needed here.
+  newCustomerSlot?: ReactNode;
 }
 
 export function CustomerPickList({
@@ -32,6 +53,7 @@ export function CustomerPickList({
   productsByKey,
   selectedIds,
   onSelectionChange,
+  newCustomerSlot,
 }: Props) {
   // Search + page persist too, so returning to the screen restores your spot.
   const [q, setQ] = usePersistentState("ts:bulk-order:picker-q:v1", "");
@@ -184,6 +206,25 @@ export function CustomerPickList({
     }
   };
 
+  // A customer created from the sheet won't necessarily match the current
+  // search/page — prepend it to the visible rows so it's immediately visible
+  // and checked, rather than silently selected-but-invisible until searched.
+  const handleCustomerCreated = (customer: NewCustomerCreated) => {
+    setRows((prev) => [
+      { id: customer.id, name: customer.name, phone: formatTRPhone(customer.phone), city: null },
+      ...prev.filter((r) => r.id !== customer.id),
+    ]);
+    setTotal((t) => t + 1);
+    onSelectionChange(new Set(selectedIds).add(customer.id));
+  };
+
+  const newCustomerAction = isValidElement(newCustomerSlot)
+    ? cloneElement(
+        newCustomerSlot as ReactElement<{ onCreated?: (c: NewCustomerCreated) => void }>,
+        { onCreated: handleCustomerCreated },
+      )
+    : newCustomerSlot;
+
   const selectAllFiltered = async () => {
     if (selectingAll) return;
     setSelectingAll(true);
@@ -230,6 +271,7 @@ export function CustomerPickList({
           placeholder="Müşteri ara (isim / telefon)…"
           className="h-8"
         />
+        {newCustomerAction}
         <Button
           type="button"
           variant="outline"

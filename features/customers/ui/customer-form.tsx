@@ -52,9 +52,22 @@ interface CustomerFormProps {
   mode:
     | { kind: "create" }
     | { kind: "edit"; customerId: string; defaultValues: CustomerFormInput };
+  // When set (create mode only), a successful submit reports the new
+  // customer back through this callback instead of navigating to its detail
+  // page — lets embedding UIs (e.g. a sheet opened from another flow) keep
+  // their own place and pick the customer up themselves.
+  onCreated?: (customer: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone: string;
+  }) => void;
+  // Overrides the Cancel button's default router.back() — needed when the
+  // form is embedded (e.g. a sheet) rather than its own page.
+  onCancel?: () => void;
 }
 
-export function CustomerForm({ mapsBrowserKey, mode }: CustomerFormProps) {
+export function CustomerForm({ mapsBrowserKey, mode, onCreated, onCancel }: CustomerFormProps) {
   const router = useRouter();
   const [submitting, startSubmitting] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -255,6 +268,15 @@ const addressAccuracy = watch("address.accuracy");
 
       switch (result.status) {
         case "success":
+          if (mode.kind === "create" && onCreated) {
+            onCreated({
+              id: result.customerId,
+              first_name: parsed.first_name ?? "",
+              last_name: parsed.last_name ?? "",
+              phone: parsed.phone ?? "",
+            });
+            return;
+          }
           router.push(`/customers/${result.customerId}`);
           router.refresh();
           return;
@@ -448,7 +470,7 @@ const addressAccuracy = watch("address.accuracy");
         <Button
           type="button"
           variant="ghost"
-          onClick={() => router.back()}
+          onClick={() => (onCancel ? onCancel() : router.back())}
           disabled={submitting}
         >
           İptal

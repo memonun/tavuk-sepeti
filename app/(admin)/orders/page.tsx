@@ -112,7 +112,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] flex-col gap-2">
+    <div className="flex h-[calc(100vh-3rem)] min-w-0 flex-col gap-2">
       {/* Notion-style page header: title left, count + action right */}
       <div className="flex items-baseline justify-between gap-4 px-1">
         <h1 className="text-lg font-semibold tracking-tight">Siparişler</h1>

@@ -1,7 +1,7 @@
 // features/orders/ui/bulk-order-screen.tsx
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -22,6 +22,8 @@ import { Separator } from "@/components/ui/separator";
 interface Props {
   products: Product[];
   today: string;
+  // Forwarded to CustomerPickList as-is — see its own prop doc.
+  newCustomerSlot?: ReactNode;
 }
 
 const SLOTS: Array<{ value: string; label: string }> = [
@@ -31,7 +33,7 @@ const SLOTS: Array<{ value: string; label: string }> = [
   { value: "evening", label: "Akşam" },
 ];
 
-export function BulkOrderScreen({ products, today }: Props) {
+export function BulkOrderScreen({ products, today, newCustomerSlot }: Props) {
   const router = useRouter();
   const { batch, setDate, setDefaults, apply, remove, reset } = useDraftBatch(today);
   // Selection persists across navigation (go view a customer, come back) — the
@@ -182,6 +184,7 @@ export function BulkOrderScreen({ products, today }: Props) {
             productsByKey={productsByKey}
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
+            newCustomerSlot={newCustomerSlot}
           />
         </div>
         <div className="overflow-hidden rounded-md border">

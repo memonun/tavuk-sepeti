@@ -2,7 +2,10 @@ import Link from "next/link";
 
 import { BulkOrderScreen } from "@/features/orders/ui/bulk-order-screen";
 import { listActiveProducts } from "@/features/products/application/list-products";
+import { env } from "@/shared/env";
 import { toIstanbulDateString } from "@/shared/utils/date";
+
+import { NewCustomerAction } from "./_components/new-customer-action";
 
 export default async function NewOrderPage() {
   const productsResult = await listActiveProducts();
@@ -15,6 +18,7 @@ export default async function NewOrderPage() {
   }
 
   const today = toIstanbulDateString(new Date());
+  const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
 
   return (
     <div className="space-y-3">
@@ -30,7 +34,13 @@ export default async function NewOrderPage() {
         </p>
       </div>
 
-      <BulkOrderScreen products={productsResult.value} today={today} />
+      <BulkOrderScreen
+        products={productsResult.value}
+        today={today}
+        newCustomerSlot={
+          mapsKey ? <NewCustomerAction mapsBrowserKey={mapsKey} /> : undefined
+        }
+      />
     </div>
   );
 }

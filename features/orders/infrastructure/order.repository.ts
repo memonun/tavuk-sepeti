@@ -20,6 +20,7 @@ import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 import { applyFilterRule } from "@/shared/filter/apply-filter-rules";
+import { toIstanbulDateString } from "@/shared/utils/date";
 
 import {
   rowToListItem,
@@ -696,4 +697,74 @@ export async function createOrdersBulk(
       order_number: r.order_number,
     })),
   );
+}
+
+// ---- dashboard counts ---------------------------------------------------
+
+/** Orders currently awaiting confirmation. */
+export async function countPendingOrders(): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (error) {
+    logger.warn({ code: error.code }, "count_pending_orders_failed");
+    return 0;
+  }
+  return count ?? 0;
+}
+
+/**
+ * Route (hand-delivered, fulfillment_channel="delivery") orders that
+ * actually transitioned to "delivered" today (Europe/Istanbul calendar day)
+ * — read from order_status_events rather than `orders.status`, since the
+ * order row carries no delivered_at and its updated_at also moves on
+ * unrelated edits. A two-step query (events first, then orders) avoids
+ * relying on PostgREST embedded-resource filter syntax for a dashboard tile.
+ */
+export async function countTodayHandDeliveries(now: Date = new Date()): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const day = toIstanbulDateString(now);
+  const startIso = new Date(`${day}T00:00:00+03:00`).toISOString();
+  const endIso = new Date(`${day}T23:59:59.999+03:00`).toISOString();
+
+  const events = await supabase
+    .from("order_status_events")
+    .select("order_id")
+    .eq("to_status", "delivered")
+    .gte("created_at", startIso)
+    .lte("created_at", endIso);
+  if (events.error) {
+    logger.warn({ code: events.error.code }, "count_today_hand_deliveries_events_failed");
+    return 0;
+  }
+  const orderIds = [...new Set((events.data ?? []).map((e) => e.order_id))];
+  if (orderIds.length === 0) return 0;
+
+  const { count, error } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("fulfillment_channel", "delivery")
+    .in("id", orderIds);
+  if (error) {
+    logger.warn({ code: error.code }, "count_today_hand_deliveries_failed");
+    return 0;
+  }
+  return count ?? 0;
+}
+
+/** Cargo (shipping-channel) orders confirmed but not yet handed to the carrier. */
+export async function countPendingCargo(): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("fulfillment_channel", "shipping")
+    .eq("status", "confirmed");
+  if (error) {
+    logger.warn({ code: error.code }, "count_pending_cargo_failed");
+    return 0;
+  }
+  return count ?? 0;
 }
