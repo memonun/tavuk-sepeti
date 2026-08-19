@@ -1271,7 +1271,10 @@ export type Database = {
       gettransactionid: { Args: never; Returns: unknown }
       is_admin: { Args: never; Returns: boolean }
       is_route_capable_address: {
-        Args: { a: Database["public"]["Tables"]["addresses"]["Row"] }
+        Args: {
+          a: Database["public"]["Tables"]["addresses"]["Row"]
+          p_require_apartment?: boolean
+        }
         Returns: boolean
       }
       is_within_service_area: {
@@ -1391,6 +1394,7 @@ export type Database = {
         Args: {
           p_address: Database["public"]["Tables"]["addresses"]["Row"]
           p_items: Json
+          p_relaxed_address?: boolean
         }
         Returns: Database["public"]["Enums"]["fulfillment_channel"]
       }
