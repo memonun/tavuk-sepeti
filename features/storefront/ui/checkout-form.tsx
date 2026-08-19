@@ -34,6 +34,7 @@
  * that the address belongs to the account; the RPC checks the service area
  * again inside the transaction.
  */
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
@@ -94,8 +95,10 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
 
+import { productImagePublicUrl } from "@/features/products/application/product-image";
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
@@ -851,22 +854,40 @@ function OrderSummary({
     <div className="flex flex-col gap-4 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
       <h2 className="font-display text-lg">Sipariş özeti</h2>
       <ul className="flex flex-col gap-3">
-        {rows.map(({ product, quantity }) => (
-          <li key={product.key} className="flex items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary/60 text-2xl">
-              <span aria-hidden>{productEmoji(product.key)}</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {product.display_name}
-              </p>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {formatTRY(lineTotalMinor(product, quantity))}
-              </p>
-            </div>
-            <QuantityStepper product={product} />
-          </li>
-        ))}
+        {rows.map(({ product, quantity }) => {
+          const imageUrl = productImagePublicUrl(
+            product.image_path,
+            env.NEXT_PUBLIC_SUPABASE_URL,
+          );
+          return (
+            <li key={product.key} className="flex items-center gap-3">
+              <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary/60">
+                {imageUrl ? (
+                  <Image
+                    src={imageUrl}
+                    alt={product.image_alt ?? product.display_name}
+                    fill
+                    sizes="44px"
+                    className="object-cover object-center"
+                  />
+                ) : (
+                  <span className="text-2xl" aria-hidden>
+                    {productEmoji(product.key)}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">
+                  {product.display_name}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {formatTRY(lineTotalMinor(product, quantity))}
+                </p>
+              </div>
+              <QuantityStepper product={product} />
+            </li>
+          );
+        })}
       </ul>
 
       {addableProducts.length > 0 ? (
@@ -889,31 +910,49 @@ function OrderSummary({
           </Button>
           {showAddPicker ? (
             <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto rounded-2xl border border-border/60 bg-secondary/30 p-2">
-              {addableProducts.map((product) => (
-                <li
-                  key={product.key}
-                  className="flex items-center gap-2.5 rounded-xl p-1.5"
-                >
-                  <span className="text-lg" aria-hidden>
-                    {productEmoji(product.key)}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm">
-                    {product.display_name}
-                  </span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {formatTRY(fromPriceMinor(product))}
-                  </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={() => addItem(product.key, product.min_qty)}
+              {addableProducts.map((product) => {
+                const imageUrl = productImagePublicUrl(
+                  product.image_path,
+                  env.NEXT_PUBLIC_SUPABASE_URL,
+                );
+                return (
+                  <li
+                    key={product.key}
+                    className="flex items-center gap-2.5 rounded-xl p-1.5"
                   >
-                    Ekle
-                  </Button>
-                </li>
-              ))}
+                    <div className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary/60">
+                      {imageUrl ? (
+                        <Image
+                          src={imageUrl}
+                          alt={product.image_alt ?? product.display_name}
+                          fill
+                          sizes="32px"
+                          className="object-cover object-center"
+                        />
+                      ) : (
+                        <span className="text-base" aria-hidden>
+                          {productEmoji(product.key)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {product.display_name}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {formatTRY(fromPriceMinor(product))}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => addItem(product.key, product.min_qty)}
+                    >
+                      Ekle
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
           ) : null}
         </div>

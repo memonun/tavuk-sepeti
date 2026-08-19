@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MapPinIcon, ShoppingBasketIcon, TruckIcon } from "lucide-react";
@@ -24,8 +25,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
 
+import { productImagePublicUrl } from "@/features/products/application/product-image";
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
@@ -116,13 +119,30 @@ export function CartSheet({
         ) : (
           <div className="flex-1 overflow-y-auto p-4">
             <ul className="flex flex-col gap-3">
-              {rows.map(({ product, quantity }) => (
+              {rows.map(({ product, quantity }) => {
+                const imageUrl = productImagePublicUrl(
+                  product.image_path,
+                  env.NEXT_PUBLIC_SUPABASE_URL,
+                );
+                return (
                 <li
                   key={product.key}
                   className="flex items-center gap-3 rounded-2xl border border-border/60 p-3"
                 >
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary/60 text-2xl">
-                    <span aria-hidden>{productEmoji(product.key)}</span>
+                  <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary/60">
+                    {imageUrl ? (
+                      <Image
+                        src={imageUrl}
+                        alt={product.image_alt ?? product.display_name}
+                        fill
+                        sizes="44px"
+                        className="object-cover object-center"
+                      />
+                    ) : (
+                      <span className="text-2xl" aria-hidden>
+                        {productEmoji(product.key)}
+                      </span>
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
@@ -136,7 +156,8 @@ export function CartSheet({
                     </div>
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
 
             {/* The only way out of a basket the customer wants to abandon.
