@@ -2,9 +2,8 @@
  * Legal / compliance content for the storefront (Turkish e-commerce law + what
  * PayTR requires before activating a merchant account).
  *
- * ⚠️ FILL IN `COMPANY` BELOW ⚠️ — every legal page and the footer read from it,
- * so your company identity is entered in exactly one place. The templates are a
- * practical starting point; have them reviewed by a lawyer before launch.
+ * Every legal page and the footer read the seller identity from the same source,
+ * so verified business information cannot drift between public documents.
  *
  * Pure data (no JSX / no I/O) so it stays in the domain layer and is easy to
  * diff/translate. The UI (legal-article.tsx / shop-footer.tsx) renders it.
@@ -15,32 +14,39 @@ export interface Company {
   readonly tradeName: string;
   /** Short brand shown in the footer/UI. */
   readonly brand: string;
+  /** Verified owner / authorised person shown in the public legal identity. */
+  readonly ownerName: string;
   readonly address: string;
   readonly phone: string;
   readonly email: string;
   readonly taxOffice: string; // Vergi Dairesi
   readonly taxNo: string; // Vergi / TC Kimlik No
-  readonly mersisNo: string; // "" if şahıs şirketi
-  readonly kepAddress: string; // KEP adresi ("" if none)
+  readonly mersisNo: string; // "" if not verified
+  readonly kepAddress: string; // "" if not verified
+  readonly tradeRegistryNo: string; // Ticaret sicil no ("" if unavailable)
   /** Public site URL (root domain). */
   readonly siteUrl: string;
   /** ETBİS doğrulama/kayıt bağlantısı (footer badge links here). */
   readonly etbisUrl: string;
 }
 
-// Şahıs işletmesi (Hamit Apuhan) — vergi levhasından dolduruldu.
-// Vergi/TC no bilinçli olarak herkese açık GÖSTERİLMEZ (KVKK/gizlilik). Footer ve
-// sözleşmede yalnızca ünvan + adres + telefon + e-posta gösterilir.
+/** Exact public marker for a required legal detail not verified in this repo. */
+export const PENDING_LEGAL_INFORMATION = "sonra eklenicek";
+
+// Only verified facts are filled in here. Empty official-identifier fields are
+// rendered as PENDING_LEGAL_INFORMATION in public legal documents.
 export const COMPANY: Company = {
   tradeName: "Hamit Apuhan",
   brand: "Apuhan Çiftliği",
+  ownerName: "Hamit Apuhan",
   address: "Bahri Mah. Mezarlık Cad. No: 17, Akçadağ / Malatya",
   phone: "+90 533 255 64 44",
   email: "hamitapuhanlive@gmail.com",
-  taxOffice: "Akçadağ", // kayıt için tutulur, sitede gösterilmez
-  taxNo: "", // TC/VKN repo'da saklanmaz, sitede gösterilmez
+  taxOffice: "Akçadağ",
+  taxNo: "", // Doğrulanmış numara kaynakta yok.
   mersisNo: "",
   kepAddress: "",
+  tradeRegistryNo: "",
   // Apex (www YOK) ve punycode değil: PayTR'nin panelde kilitli "SİTE ADRESİNİZ"
   // alanı tam olarak bu — NEXT_PUBLIC_APP_URL ile birebir aynı kalmalı, yoksa
   // ödeme sayfası "API bilgileri sadece ... için tanımlıdır" diye reddediyor.
@@ -51,6 +57,13 @@ export const COMPANY: Company = {
 export interface LegalSection {
   readonly heading?: string;
   readonly paragraphs: readonly string[];
+  /** Optional, visible references used where a public guide should link out. */
+  readonly links?: readonly LegalSectionLink[];
+}
+
+export interface LegalSectionLink {
+  readonly href: string;
+  readonly title: string;
 }
 
 export interface LegalDoc {
@@ -75,8 +88,8 @@ export interface LegalDoc {
  * edit to the public page does not erase which revision a past order accepted.
  */
 export const SALES_LEGAL_ACCEPTANCE_DOCUMENTS = [
-  { slug: "on-bilgilendirme-formu", version: "2026-08-18" },
-  { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-18" },
+  { slug: "on-bilgilendirme-formu", version: "2026-08-19" },
+  { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-19" },
 ] as const;
 
 export interface SalesLegalAcceptance {
@@ -101,8 +114,55 @@ const s = (heading: string, ...paragraphs: string[]): LegalSection => ({
   paragraphs,
 });
 
-const SALES_LEGAL_UPDATED = "2026-08-18";
-// Protected by this task: these were set in PR #114 and remain untouched.
+const sWithLinks = (
+  heading: string,
+  paragraphs: readonly string[],
+  links: readonly LegalSectionLink[],
+): LegalSection => ({ heading, paragraphs, links });
+
+const missingLegalInformation = (value: string): string =>
+  value.trim() || PENDING_LEGAL_INFORMATION;
+
+/** One source for the full seller identity required across public legal pages. */
+export const SELLER_IDENTITY_LINES = [
+  `Satıcı / İşletme Adı: ${COMPANY.tradeName}`,
+  `Marka: ${COMPANY.brand}`,
+  `Yetkili Kişi / İşletme Sahibi: ${COMPANY.ownerName}`,
+  `Açık Adres: ${COMPANY.address}`,
+  `Telefon: ${COMPANY.phone}`,
+  `E-posta: ${COMPANY.email}`,
+  `Web Sitesi: ${COMPANY.siteUrl}`,
+  `Vergi Dairesi: ${COMPANY.taxOffice}`,
+  `Vergi Kimlik Numarası: ${missingLegalInformation(COMPANY.taxNo)}`,
+  `KEP Adresi: ${missingLegalInformation(COMPANY.kepAddress)}`,
+  `MERSİS Numarası: ${missingLegalInformation(COMPANY.mersisNo)}`,
+  `Ticaret Sicil Numarası: ${missingLegalInformation(COMPANY.tradeRegistryNo)}`,
+] as const;
+
+const sellerIdentitySection = (
+  heading = "Satıcı / İşletme Bilgileri",
+  introduction?: string,
+): LegalSection =>
+  s(heading, ...(introduction ? [introduction] : []), ...SELLER_IDENTITY_LINES);
+
+const WITHDRAWAL_TIMING =
+  "Kanuni istisnalar saklı kalmak üzere tüketici, herhangi bir gerekçe göstermeden ve cezai şart ödemeden cayma hakkını sözleşmenin kurulduğu tarihten malın teslimine kadar olan sürede veya malın tesliminden itibaren on dört gün içinde kullanabilir.";
+
+const WITHDRAWAL_EXCEPTIONS =
+  "Çabuk bozulabilen veya son kullanma tarihi geçebilecek mallar; teslimden sonra koruyucu ambalajı açılmış, sağlık ve hijyen açısından iadesi uygun olmayan mallar; ayrıca yalnızca tüketicinin istekleri ya da kişisel ihtiyaçları doğrultusunda hazırlanan mallar bakımından, somut olayda mevzuattaki şartlar oluştuğu ölçüde cayma hakkı istisnaları uygulanabilir. Bir ürünün yalnızca gıda olması, tek başına cayma hakkının bulunmadığı anlamına gelmez.";
+
+const WITHDRAWAL_NOTICE =
+  "Cayma bildiriminizi yazılı olarak veya kalıcı veri saklayıcısı yoluyla e-posta adresimize iletebilirsiniz. Bildirimde sipariş numarasını, ad ve soyadınızı, siparişte kullanılan telefon veya e-posta bilgisini ve talebinizi belirtmeniz işlemin doğru siparişle eşleştirilmesine yardımcı olur. Telefon ve WhatsApp, destek ve bilgi alma kanalı olarak kullanılabilir.";
+
+const REFUND_TIMING =
+  "Cayma hakkının geçerli olduğu hallerde, tahsil edilen ödemeler cayma bildiriminin satıcıya ulaştığı tarihten itibaren en geç on dört gün içinde, tüketicinin satın alırken kullandığı ödeme aracına uygun şekilde iade edilir. Tüketicinin malı geri göndermesi gereken hallerde, satıcı malın geri gönderildiğini gösteren kanıt ulaşana veya mal teslim alınıncaya kadar, hangisi önce gerçekleşirse o ana kadar geri ödemeyi bekletebilir.";
+
+const RETURN_DETAILS_PENDING = [
+  `Öngörülen İade Taşıyıcısı: ${PENDING_LEGAL_INFORMATION}`,
+  `İade Gönderim Masrafı: ${PENDING_LEGAL_INFORMATION}`,
+] as const;
+
+const SALES_LEGAL_UPDATED = "2026-08-19";
 const UPDATED_2 = "2026-08-18";
 
 export const LEGAL_DOCS: readonly LegalDoc[] = [
@@ -117,11 +177,13 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       "teslimat-kosullari",
       "kvkk",
       "duzenli-siparis-kosullari",
+      "islem-rehberi",
     ],
     sections: [
       s(
         "1. Taraflar",
-        `SATICI: ${COMPANY.tradeName}, Adres: ${COMPANY.address}, Telefon: ${COMPANY.phone}, E-posta: ${COMPANY.email}.`,
+        "SATICI bilgileri aşağıdadır.",
+        ...SELLER_IDENTITY_LINES,
         "ALICI: Siparişi veren müşteri. ALICI'ya ait iletişim ve teslimat bilgileri sipariş formu ile sipariş kaydında yer alır; bu bilgiler statik sözleşme sayfasında gösterilmez.",
       ),
       s(
@@ -146,7 +208,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "7. Cayma Hakkı ve İstisnaları",
-        "ALICI, kanuni istisnalar saklı kalmak üzere malın tesliminden itibaren on dört gün içinde gerekçe göstermeden cayma hakkını kullanabilir. Çabuk bozulabilen veya son kullanma tarihi geçebilecek mallar ile teslimden sonra koruyucu ambalajı açıldığında sağlık ve hijyen açısından iadesi uygun olmayan mallar bakımından ilgili mevzuatta öngörülen istisnalar uygulanabilir. Bir ürünün yalnızca gıda olması, tek başına cayma hakkının bulunmadığı anlamına gelmez.",
+        WITHDRAWAL_TIMING,
+        WITHDRAWAL_EXCEPTIONS,
       ),
       s(
         "8. Ayıplı, Hasarlı veya Yanlış Ürün",
@@ -154,7 +217,10 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "9. İptal ve Geri Ödeme",
-        "Hazırlanmamış, teslimata çıkmamış veya kargoya verilmemiş siparişler için iletilen iptal talebi operasyonel duruma göre değerlendirilir. Cayma veya uygun bir iptal halinde geri ödeme, uygulanabilir mevzuata uygun biçimde ve kullanılan ödeme aracına uygun olarak yapılır. Ayrıntılar İptal ve İade Koşulları'nda yer alır.",
+        "Henüz hazırlanmamış, teslimata çıkmamış veya kargoya verilmemiş siparişler için iptal talebinizi e-posta, telefon veya WhatsApp destek kanalı üzerinden iletebilirsiniz. Sitede otomatik iptal ekranı bulunmadığından, talep siparişin güncel operasyonel durumuna göre değerlendirilir.",
+        WITHDRAWAL_NOTICE,
+        REFUND_TIMING,
+        "İade gönderimine ilişkin işletmeye özgü taşıyıcı ve masraf bilgileri İptal ve İade Koşulları'nda belirtilir.",
       ),
       s(
         "10. Uyuşmazlıklar",
@@ -173,12 +239,10 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       "teslimat-kosullari",
       "kvkk",
       "duzenli-siparis-kosullari",
+      "islem-rehberi",
     ],
     sections: [
-      s(
-        "Satıcı Bilgileri",
-        `Ünvan: ${COMPANY.tradeName}. Adres: ${COMPANY.address}. Telefon: ${COMPANY.phone}. E-posta: ${COMPANY.email}.`,
-      ),
+      sellerIdentitySection("Satıcı Bilgileri"),
       s(
         "Ürünün Temel Nitelikleri ve Satış Bedeli",
         "Sipariş ettiğiniz ürünlerin temel nitelikleri, miktarları ve güncel satış fiyatları sipariş özeti ekranında gösterilir. Siparişe uygulanıyorsa teslimat/kargo bedeli, indirimler ve toplam ödeme tutarı da siparişi göndermeden önce aynı ekranda yer alır. Vergiler konusunda sipariş ekranında gösterilen güncel bilgiler esas alınır.",
@@ -193,11 +257,14 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Cayma Hakkı",
-        "Kanuni istisnalar saklı kalmak üzere malın tesliminden itibaren on dört gün içinde cayma hakkınızı kullanabilirsiniz. Çabuk bozulabilen veya son kullanma tarihi geçebilecek mallar ile koruyucu ambalajı açılmış ve sağlık/hijyen yönünden iadesi uygun olmayan mallar, ilgili mevzuatta yer alan istisnalara girebilir. Her gıda ürünü kendiliğinden cayma hakkı dışında sayılmaz.",
+        WITHDRAWAL_TIMING,
+        WITHDRAWAL_EXCEPTIONS,
       ),
       s(
         "İade ve Şikâyet",
-        `Cayma bildiriminizi yazılı olarak veya kalıcı veri saklayıcısı yoluyla ${COMPANY.email} adresine iletebilirsiniz. Telefon, destek ve bilgi alma kanalı olarak kullanılabilir. Yanlış, eksik, hasarlı veya ayıplı ürünlere ilişkin yasal haklarınız saklıdır. Talep ve şikâyetlerinizi mevcut iletişim kanallarından iletebilirsiniz.`,
+        WITHDRAWAL_NOTICE,
+        REFUND_TIMING,
+        "Yanlış, eksik, hasarlı veya ayıplı ürünlere ilişkin yasal haklarınız saklıdır. Ayrıntılı iade süreci ve işletmeye özgü taşıyıcı/masraf bilgileri için İptal ve İade Koşulları'nı inceleyebilirsiniz.",
       ),
       s(
         "Şikâyet ve İtiraz",
@@ -209,15 +276,21 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "gizlilik-politikasi",
     title: "Gizlilik Politikası",
     longTitle: "Gizlilik Politikası",
-    updated: UPDATED_2,
-    relatedSlugs: ["kvkk", "cerez-politikasi", "mesafeli-satis-sozlesmesi", "kullanim-sartlari"],
+    updated: SALES_LEGAL_UPDATED,
+    relatedSlugs: [
+      "kvkk",
+      "cerez-politikasi",
+      "mesafeli-satis-sozlesmesi",
+      "kullanim-sartlari",
+      "islem-rehberi",
+    ],
     sections: [
       p(
         `${COMPANY.brand} olarak; sitemizi ziyaret ettiğinizde, müşteri hesabı oluşturduğunuzda, sipariş verdiğinizde, siparişinizi sorguladığınızda veya bizimle iletişime geçtiğinizde işlenen kişisel verilerinizin gizliliğine önem veriyoruz. Bu Gizlilik Politikası, hangi kişisel verilerin hangi amaçlarla işlendiğini, kimlerle paylaşılabileceğini ve KVKK kapsamındaki haklarınızı açıklamak amacıyla hazırlanmıştır.`,
       ),
-      s(
-        "Veri Sorumlusu",
-        `Kişisel verilerinizin işlenmesinden ${COMPANY.brand} (${COMPANY.tradeName}) sorumludur. Adres: ${COMPANY.address}. Telefon: ${COMPANY.phone}. E-posta: ${COMPANY.email}.`,
+      sellerIdentitySection(
+        "Veri Sorumlusu ve İletişim Bilgileri",
+        `Kişisel verilerinizin işlenmesinden ${COMPANY.brand} (${COMPANY.tradeName}) sorumludur.`,
       ),
       s(
         "Kimlik ve İletişim Bilgileri",
@@ -265,19 +338,22 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Üçüncü Taraf Hizmet Sağlayıcılar",
-        "Hizmetin yürütülmesi için şu sağlayıcılardan yararlanılmaktadır: Supabase (hesap/kimlik doğrulama ve sipariş veritabanı altyapısı), PayTR (kredi/banka kartı ile ödeme işlemleri), Resend (sipariş onay e-postalarının gönderimi), Google Haritalar (teslimat adresinin haritada gösterimi ve konum belirleme) ve Vercel (sitenin barındırılması). Bu sağlayıcılar yalnızca hizmetin gerektirdiği ölçüde ve kendi gizlilik/güvenlik uygulamaları çerçevesinde veri işler.",
+        "Teknik işleyişte kullanılan sağlayıcılar ve işledikleri veri kategorileri, hizmete göre farklılaşır: Supabase, müşteri hesabı/oturum, iletişim, adres ve sipariş kayıtlarının altyapısında; PayTR, kartla ödeme seçildiğinde ödeme işlemi için gerekli iletişim, sipariş, tutar ve kart ödeme verilerinde; Resend, e-posta adresi verilmiş ve e-posta gönderimi yapılandırılmış siparişlerde onay e-postasında; Google Haritalar, harita veya adres arama kullanıldığında konum ve adres arama verilerinde; Vercel ise siteye erişimin sunulmasıyla bağlantılı teknik günlük verilerinde rol alabilir.",
+        "Bu metin, her sağlayıcının her siparişte aynı veri kategorisini işlediği anlamına gelmez. Sağlayıcıya yalnızca ilgili hizmetin çalışması için gerekli veri aktarılır.",
       ),
       s(
         "WhatsApp Üzerinden İletişim",
         "Sitedeki WhatsApp bağlantısı, sizi WhatsApp uygulamasına yönlendiren basit bir bağlantıdır; buradan başlattığınız görüşmeler WhatsApp'ın kendi hizmet şartlarına tabidir.",
       ),
       s(
-        "Kişisel Verilerin Aktarılması",
-        "Kişisel verileriniz, hizmetin yürütülmesi için gerekli olduğu ölçüde ödeme hizmet sağlayıcımıza, teknik altyapı sağlayıcılarımıza ve hukuken yetkili kamu kurumlarına aktarılabilir. Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz veya kiralanmaz.",
+        "Kişisel Verilerin Yurt İçinde Aktarılması",
+        "Kişisel verileriniz, hizmetin yürütülmesi için gerekli olduğu ölçüde ödeme hizmet sağlayıcısına, teknik altyapı sağlayıcılarına ve mevzuatın gerektirdiği hallerde yetkili kamu kurumlarına aktarılabilir. Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz veya kiralanmaz.",
       ),
       s(
-        "Yurt Dışına Veri Aktarımı",
-        "Kullandığımız bazı hizmet sağlayıcılar (barındırma, ödeme, e-posta, harita gibi) verileri yurt dışındaki sunucularında işleyebilir. Bu aktarımlar, hizmetin gerektirdiği ölçüde ve ilgili sağlayıcının kendi güvenlik uygulamaları çerçevesinde gerçekleşir.",
+        "Kişisel Verilerin Yurt Dışına Aktarılması",
+        "Kullanılan teknik sağlayıcıların veri merkezi konumu veya hizmetin destek altyapısı nedeniyle kişisel verilerin yurt dışında işlenmesi gündeme gelebilir. Bu sayfada, belirli bir ülke, sağlayıcı hesabı veya aktarımın hukuki mekanizması için doğrulanmış bir kayıt bulunmadığından; standart sözleşme, açık rıza, yeterlilik kararı ya da başka bir mekanizmanın kullanıldığı beyan edilmez.",
+        "Yurt dışına kişisel veri aktarımı gerektiğinde, somut aktarım için KVKK'nın 9 uncu maddesindeki şartlar ve uygulanabilir ek yükümlülükler sağlanmalıdır.",
+        `Yurt Dışı Aktarım Mekanizması: ${PENDING_LEGAL_INFORMATION}`,
       ),
       s(
         "Saklama Süresi",
@@ -311,11 +387,14 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       "on-bilgilendirme-formu",
       "iptal-iade-kosullari",
       "teslimat-kosullari",
+      "gizlilik-politikasi",
+      "cerez-politikasi",
+      "islem-rehberi",
     ],
     sections: [
-      s(
+      sellerIdentitySection(
         "Veri Sorumlusu",
-        `6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca veri sorumlusu ${COMPANY.brand} (${COMPANY.tradeName})'dir. Adres: ${COMPANY.address}. Telefon: ${COMPANY.phone}. E-posta: ${COMPANY.email}.`,
+        `6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca veri sorumlusu ${COMPANY.brand} (${COMPANY.tradeName})'dir.`,
       ),
       s(
         "İşlenen Veri Kategorileri",
@@ -331,11 +410,13 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Aktarım Alıcıları ve Amaçları",
-        "Veriler, hizmetin yürütülmesi için gerekli ölçüde ödeme hizmet sağlayıcısı PayTR'ye, hesap/kimlik doğrulama ve veritabanı altyapısı sağlayıcısı Supabase'e, e-posta gönderimi için Resend'e, adres/konum işlemleri için Google Haritalar'a, barındırma hizmeti için Vercel'e; ayrıca mevzuatın gerektirdiği hallerde yetkili kamu kurum ve kuruluşlarına aktarılabilir. Bu sağlayıcılar yalnızca kendi hizmetlerinin gerektirdiği veri kategorilerine erişir.",
+        "Veriler, hizmetin yürütülmesi için gerekli olduğu ölçüde ve kullanılan hizmete bağlı olarak aktarılabilir: Supabase'e hesap/oturum, iletişim, adres ve sipariş verileri; PayTR'ye kartla ödeme seçildiğinde iletişim, sipariş, tutar ve ödeme verileri; Resend'e e-posta gönderimi yapılandırılmış ve e-posta adresi verilmiş siparişlerde e-posta iletimi için gerekli veriler; Google Haritalar'a harita veya adres arama kullanıldığında konum/adres arama verileri; Vercel'e sitenin sunulmasıyla bağlantılı teknik günlük verileri aktarılabilir. Mevzuatın gerektirdiği hallerde yetkili kamu kurum ve kuruluşlarına da aktarım yapılabilir.",
       ),
       s(
-        "Yurt Dışına Aktarım",
-        "Kullanılan teknik hizmet sağlayıcıların altyapıları nedeniyle kişisel verilerin yurt dışında işlenmesi veya aktarılması gündeme gelebilir. Her somut aktarım için uygulanacak KVKK mekanizması ve ek yükümlülükler veri sorumlusu tarafından ayrıca değerlendirilir; bu metin belirli bir aktarım mekanizması beyanı değildir.",
+        "Kişisel Verilerin Yurt Dışına Aktarılması",
+        "Kullanılan teknik sağlayıcıların veri merkezi konumu veya hizmetin destek altyapısı nedeniyle kişisel verilerin yurt dışında işlenmesi gündeme gelebilir. Bu sayfada belirli bir ülke, sağlayıcı hesabı veya aktarım mekanizmasını doğrulayan bilgi bulunmadığından; standart sözleşme, açık rıza, yeterlilik kararı ya da başka bir aktarım mekanizmasının kullanıldığı yönünde beyanda bulunulmaz.",
+        "Yurt dışına aktarım gerektiğinde, her somut aktarım için KVKK'nın 9 uncu maddesindeki şartlar ve uygulanabilir ek yükümlülükler sağlanmalıdır.",
+        `Yurt Dışı Aktarım Mekanizması: ${PENDING_LEGAL_INFORMATION}`,
       ),
       s(
         "KVKK Kapsamındaki Haklar ve Başvuru",
@@ -378,17 +459,29 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       "kvkk",
     ],
     sections: [
+      sellerIdentitySection(),
       s(
         "Sipariş İptali",
-        "Sitede otomatik sipariş iptal ekranı bulunmaz. Henüz hazırlanmamış, teslimata çıkmamış veya kargoya verilmemiş bir sipariş için mevcut iletişim kanallarından iptal talebi iletebilirsiniz; talep siparişin operasyonel durumuna göre değerlendirilir.",
+        "Sitede otomatik sipariş iptal ekranı bulunmaz. Henüz hazırlanmamış, teslimata çıkmamış veya kargoya verilmemiş bir sipariş için e-posta, telefon veya WhatsApp destek kanalı üzerinden iptal talebi iletebilirsiniz. Talebinizde sipariş numarasını, ad ve soyadınızı, siparişte kullanılan telefon veya e-posta bilgisini belirtmeniz işlemin doğru siparişle eşleştirilmesine yardımcı olur.",
+        "İptal talebi, siparişin o andaki operasyonel durumuna göre değerlendirilir. Teslimata çıkmış veya kargoya verilmiş siparişlerde, cayma hakkı ve ayıplı mal hakları saklı kalmak üzere otomatik iptal yapılamayabilir.",
       ),
       s(
-        "Cayma Hakkı ve İstisnası",
-        "Kanuni istisnalar saklı kalmak üzere teslimden itibaren on dört gün içinde cayma hakkınızı kullanabilirsiniz. Çabuk bozulabilen veya son kullanma tarihi geçebilecek mallar ile koruyucu ambalajı açılmış ve sağlık/hijyen yönünden iadesi uygun olmayan mallar bakımından mevzuattaki istisnalar uygulanabilir. Tüm gıda ürünleri tek başına bu nedenle cayma hakkı dışında değildir.",
+        "Cayma Hakkı Bulunan Ürünler",
+        WITHDRAWAL_TIMING,
+      ),
+      s(
+        "Cayma Hakkı İstisnaları",
+        WITHDRAWAL_EXCEPTIONS,
       ),
       s(
         "Cayma Bildirimi ve İade Süreci",
-        `Cayma bildiriminizi yazılı olarak veya kalıcı veri saklayıcısı yoluyla ${COMPANY.email} adresine iletebilirsiniz. Telefon, destek ve bilgi alma kanalı olarak kullanılabilir. İade yöntemi, ürünün niteliği ve iade talebinin kapsamına göre müşteriyle koordine edilir.`,
+        WITHDRAWAL_NOTICE,
+        "Bildirim ulaştıktan sonra, talebin cayma hakkı kapsamında olup olmadığı ve ürünün geri gönderilmesi gerekiyorsa izlenecek teslim/taşıma adımı değerlendirilir. Gerekli iade adımları, ürünün niteliği ve siparişin teslimat yöntemine göre yazılı olarak paylaşılır.",
+      ),
+      s(
+        "İade Taşıyıcısı ve Gönderim Masrafı",
+        ...RETURN_DETAILS_PENDING,
+        "Bu bilgiler, tüketici mevzuatından doğan hakları sınırlayacak şekilde yorumlanamaz.",
       ),
       s(
         "Yanlış, Eksik, Hasarlı veya Ayıplı Ürün",
@@ -396,7 +489,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Geri Ödeme",
-        "Uygun geri ödemeler, uygulanabilir mevzuata uygun biçimde ve kullanılan ödeme aracına uygun olarak yapılır. İade sürecinin somut yöntemi, siparişin ödeme biçimi ve talebin kapsamına göre müşteriyle koordine edilir.",
+        REFUND_TIMING,
       ),
     ],
   },
@@ -411,8 +504,10 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       "iptal-iade-kosullari",
       "kvkk",
       "duzenli-siparis-kosullari",
+      "islem-rehberi",
     ],
     sections: [
+      sellerIdentitySection(),
       s(
         "Teslimat Yöntemleri",
         "Ürünün niteliği ve teslimat adresine göre sipariş eve/yerel teslimat veya kargo kanalıyla yürütülür. Eve teslimat, Malatya'daki hizmet alanı için sunulur; hizmet alanının güncel kapsamı ve ürünün uygun teslimat yöntemi sipariş ekranında belirlenir. Kargoya uygun ürünler Türkiye geneline gönderilebilir.",
@@ -442,23 +537,98 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       "teslimat-kosullari",
       "iptal-iade-kosullari",
       "kvkk",
+      "islem-rehberi",
     ],
     sections: [
+      sellerIdentitySection(),
       s(
         "Nasıl Çalışır",
-        "Düzenli sipariş özelliği, hesabınızdan seçtiğiniz ürünler ve haftalık veya iki haftada bir teslimat sıklığı için bir talep oluşturmanızı sağlar. Talep önce ekip tarafından değerlendirilir; onaylanmadıkça düzenli sipariş oluşturulmaz.",
+        "Düzenli Sipariş, hesabınızdan seçtiğiniz ürünler ve haftalık veya iki haftada bir teslimat sıklığı için bir talep oluşturmanızı sağlar. Talep önce ekip tarafından değerlendirilir; onaylanmadıkça düzenli sipariş oluşturulmaz.",
       ),
       s(
         "Oluşturulan Siparişler ve Fiyatlar",
-        "Onaylanan talep için sistem, seçtiğiniz periyotlarda yeni siparişler oluşturur. Her sipariş, oluşturulduğu tarihteki güncel katalog ve fiyat bilgileriyle hesaplanır; talebin oluşturulduğu tarihteki fiyatların gelecekte sabit kalacağı taahhüt edilmez. Ürün uygunluğu değişirse sipariş oluşturulamayabilir.",
+        "Onaylanan talep için sistem, seçtiğiniz periyotlarda yeni siparişler oluşturur. Bu oluşturma için her seferinde ayrıca müşteri onayı alınmaz. Her sipariş, oluşturulduğu tarihteki güncel katalog ve fiyat bilgileriyle hesaplanır; talebin oluşturulduğu tarihteki fiyatların gelecekte sabit kalacağı taahhüt edilmez. Ürün uygunluğu değişirse sipariş oluşturulamayabilir.",
       ),
       s(
         "Ödeme ve Teslimat",
-        "Düzenli siparişlerde karttan otomatik tahsilat yapılmaz. Kullanılabilen ödeme yöntemleri, siparişin teslimat kanalına göre kapıda nakit ödeme veya havale/EFT'dir. Talepte seçilen teslimat günü, düzenli sipariş formunda müşteriye sunulan günlerden seçilir.",
+        "Düzenli siparişlerde karttan otomatik tahsilat yapılmaz. Kullanılabilen ödeme yöntemleri, siparişin teslimat kanalına göre kapıda nakit ödeme veya havale/EFT'dir. Talepte seçilen teslimat günü, düzenli sipariş formunda müşteriye sunulan günlerden seçilir. Hesabınızdaki Düzenli Siparişlerim alanında talebinizin durumu ile aktif talepler için sıradaki tarih gösterilir.",
       ),
       s(
         "Durdurma ve İptal",
-        "Hesabınızdaki Düzenli Siparişlerim alanından talebinizi iptal edebilirsiniz. İptal edildiğinde talep pasifleştirilir; henüz sonuçlanmamış olarak oluşturulmuş düzenli siparişler de iptal edilir. Siparişiniz oluşturulduktan sonraki tüketici haklarınız, ilgili siparişe ait Mesafeli Satış Sözleşmesi ve İptal ve İade Koşulları çerçevesinde saklıdır.",
+        "Hesabınızdaki Düzenli Siparişlerim alanından talebinizi iptal edebilirsiniz. İptal edildiğinde yeni düzenli sipariş oluşturulmaz ve yalnızca henüz beklemede olan, bu talepten üretilmiş siparişler iptal edilir. Onaylanmış, hazırlanmış, teslimata çıkmış veya kargoya verilmiş bir sipariş otomatik olarak iptal edilmez; bu siparişler için İptal ve İade Koşulları ile ilgili siparişin Mesafeli Satış Sözleşmesi uygulanır.",
+      ),
+    ],
+  },
+  {
+    slug: "islem-rehberi",
+    title: "İşlem Rehberi",
+    longTitle: "İşlem Rehberi",
+    updated: SALES_LEGAL_UPDATED,
+    relatedSlugs: [
+      "on-bilgilendirme-formu",
+      "mesafeli-satis-sozlesmesi",
+      "iptal-iade-kosullari",
+      "teslimat-kosullari",
+      "duzenli-siparis-kosullari",
+      "kvkk",
+      "gizlilik-politikasi",
+      "cerez-politikasi",
+      "kullanim-sartlari",
+    ],
+    sections: [
+      p(
+        "Bu rehber, Apuhan Çiftliği üzerinden sipariş verirken ekranda gördüğünüz adımları ve sipariş sonrasında erişebileceğiniz bilgileri açıklar. Siparişe ilişkin özel koşullar için ilgili hukuki metinler esas alınır.",
+      ),
+      s(
+        "Sipariş Oluşturma Adımları",
+        "1. Ürünleri ana sayfada inceler, ürünün teslimata uygunluğunu ve güncel fiyatını görürsünüz. 2. Ürünü sepetinize eklersiniz. 3. Malatya içi teslimat veya kargo tercihini ürünlerinize ve teslimat adresinize uygun şekilde belirlersiniz. 4. Ödeme sayfasında müşteri, iletişim ve teslimat bilgilerinizi girer veya hesabınızla devam edersiniz.",
+        "5. Sipariş özetinde ürünleri, miktarları, teslimat yöntemini, varsa teslimat günü/zaman aralığını, ödeme yöntemini ve toplam tutarı kontrol edersiniz. 6. Ön Bilgilendirme Formu ile Mesafeli Satış Sözleşmesi'ni açıp inceleyebilir; siparişi vermeden önce bu belgeleri okuduğunuzu ve koşulları kabul ettiğinizi onaylarsınız.",
+        "7. Kullanılabilen ödeme seçenekleri siparişin teslimat kanalına göre gösterilir. Kartla ödeme seçildiğinde ödeme işlemi PayTR'nin güvenli ödeme sayfasında sürer. 8. Sipariş oluşturulduğunda sistem sipariş numarasını üretir. Kartla ödemede, ödeme sonucu PayTR akışında tamamlanır. 9. Başarılı işlemden sonra sipariş numaranızı görür; e-posta adresi verilmiş ve e-posta gönderimi yapılandırılmış siparişlerde onay e-postası da gönderilebilir.",
+      ),
+      s(
+        "Veri Girişini Kontrol Etme ve Düzeltme",
+        "Siparişi vermeden önce sepetinizdeki ürünleri ve miktarları, iletişim bilgilerinizi, teslimat adresinizi, teslimat gününü ve ödeme yönteminizi ödeme ekranında gözden geçirip düzeltebilirsiniz. Sipariş gönderildikten sonra sitede otomatik sipariş düzenleme ekranı bulunmaz; bir değişiklik veya iptal talebiniz varsa sipariş numaranızla destek kanallarından iletişime geçebilirsiniz.",
+      ),
+      sWithLinks(
+        "Sözleşmelerin Elektronik Olarak Saklanması",
+        [
+          "Tek seferlik web siparişinde, Ön Bilgilendirme Formu ve Mesafeli Satış Sözleşmesi'nin kabulü zorunludur. Siparişle birlikte kabul edilen belgenin sürümü ve kabul zamanı elektronik olarak sipariş kaydına eklenir.",
+          "Bu kayıt, geçmiş bir siparişte hangi belge sürümünün kabul edildiğini göstermek içindir. Güncel metinlere aşağıdaki bağlantılardan her zaman ulaşabilirsiniz.",
+        ],
+        [
+          { href: "/on-bilgilendirme-formu", title: "Ön Bilgilendirme Formu" },
+          { href: "/mesafeli-satis-sozlesmesi", title: "Mesafeli Satış Sözleşmesi" },
+        ],
+      ),
+      sWithLinks(
+        "Sipariş Sonrası Erişim",
+        [
+          "Hesapla verilen siparişler Hesabım sayfasından takip edilebilir. Misafir olarak verilen siparişler için Sipariş Sorgula sayfasında siparişte kullanılan telefon numarasıyla veya sipariş numarasıyla arama yapabilirsiniz.",
+          "Düzenli Sipariş talebi oluşturduysanız, hesabınızdaki Düzenli Siparişlerim alanında talebin durumunu, aktifse sıradaki tarihi ve iptal seçeneğini görürsünüz.",
+        ],
+        [
+          { href: "/hesap", title: "Hesabım" },
+          { href: "/siparis-sorgula", title: "Sipariş Sorgula" },
+          { href: "/duzenli-siparis", title: "Düzenli Sipariş" },
+        ],
+      ),
+      sWithLinks(
+        "Gizlilik ve Kişisel Veriler",
+        [
+          "Kişisel verilerinizin hangi amaçlarla işlendiği, kimlere aktarılabileceği ve KVKK kapsamındaki haklarınız aşağıdaki metinlerde açıklanır. Bu rehber, bu politikaların yerine geçmez.",
+        ],
+        [
+          { href: "/kvkk", title: "KVKK Aydınlatma Metni" },
+          { href: "/gizlilik-politikasi", title: "Gizlilik Politikası" },
+          { href: "/cerez-politikasi", title: "Çerez Politikası" },
+        ],
+      ),
+      sWithLinks(
+        "Uyuşmazlıklar",
+        [
+          "Siparişten doğan uyuşmazlıklara ilişkin başvuru ve yetkili merciler, Mesafeli Satış Sözleşmesi'nin Uyuşmazlıklar bölümünde açıklanır.",
+        ],
+        [{ href: "/mesafeli-satis-sozlesmesi", title: "Mesafeli Satış Sözleşmesi" }],
       ),
     ],
   },
@@ -466,7 +636,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "kullanim-sartlari",
     title: "Kullanım Şartları",
     longTitle: "Kullanım Şartları",
-    updated: UPDATED_2,
+    updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "mesafeli-satis-sozlesmesi",
       "on-bilgilendirme-formu",
@@ -475,6 +645,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       "gizlilik-politikasi",
       "kvkk",
       "cerez-politikasi",
+      "islem-rehberi",
     ],
     sections: [
       p(
@@ -484,6 +655,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
         "Kapsam",
         "Bu Kullanım Şartları; internet sitesinin görüntülenmesi, ürünlerin incelenmesi, müşteri hesabının kullanılması, sepet işlemleri, sipariş oluşturulması, sipariş sorgulama ve site üzerinden iletişim kurulması gibi genel kullanım süreçlerini düzenler. Bu metin, Mesafeli Satış Sözleşmesi'nin yerine geçmez.",
       ),
+      sellerIdentitySection(),
       s(
         "Ürün Bilgileri ve Görseller",
         `${COMPANY.brand}, ürünlerle ilgili doğru ve güncel bilgi vermek için makul çaba gösterir; ürün adı, miktarı, fiyatı ve teslimat türü gibi bilgiler ürün sayfalarında yer alır. Ürünler doğal/tarımsal nitelikte olduğundan renk, boyut ve görünümde doğal farklılıklar olabilir ve ürün görselleri temsili niteliktedir. Sipariş için geçerli olan bilgiler, sipariş oluşturulurken ekranda gösterilen güncel bilgilerdir.`,
@@ -502,7 +674,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Düzenli Sipariş",
-        "Hesabınız üzerinden düzenli sipariş talebinde bulunabilirsiniz: seçtiğiniz ürünler ve teslimat sıklığına göre, talebiniz onaylandıktan sonra siparişleriniz seçtiğiniz tarihlerde sizin adınıza otomatik olarak oluşturulur. Bu bir otomatik kart tahsilatı (abonelik) değildir — düzenli siparişler yalnızca kapıda nakit ödeme veya havale/EFT ile ödenir. Oluşturulan her siparişi hesabınızdan takip edebilirsiniz.",
+        "Hesabınız üzerinden düzenli sipariş talebinde bulunabilirsiniz: seçtiğiniz ürünler ve teslimat sıklığına göre, talebiniz onaylandıktan sonra siparişleriniz seçtiğiniz tarihlerde sizin adınıza otomatik olarak oluşturulur. Düzenli siparişlerde karttan otomatik tahsilat yapılmaz; kullanılabilen ödeme yöntemleri kapıda nakit ödeme veya havale/EFT'dir. Aktif talebinizin sıradaki tarihini ve iptal seçeneğini hesabınızdaki Düzenli Siparişlerim alanında görebilirsiniz. Ayrıntılar için Düzenli Sipariş Koşulları'nı inceleyin.",
       ),
       s(
         "Ödeme",
@@ -546,7 +718,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Uygulanacak Hukuk",
-        "Uyuşmazlıklarda, Mesafeli Satış Sözleşmesi'nin 6. maddesinde belirtilen yetkili merciler geçerlidir.",
+        "Uyuşmazlıklarda, Mesafeli Satış Sözleşmesi'nin Uyuşmazlıklar bölümünde belirtilen yetkili merciler geçerlidir.",
       ),
       s(
         "Gizlilik",
