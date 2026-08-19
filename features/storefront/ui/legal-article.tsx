@@ -35,6 +35,20 @@ export function LegalArticle({ slug }: { slug: string }) {
                 {para}
               </p>
             ))}
+            {section.links?.length ? (
+              <ul className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1 text-sm">
+                {section.links.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    >
+                      {link.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
         ))}
       </div>

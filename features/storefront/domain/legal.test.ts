@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LEGAL_DOCS,
   SALES_LEGAL_ACCEPTANCE_DOCUMENTS,
+  SELLER_IDENTITY_LINES,
   createSalesLegalAcceptance,
   getLegalDoc,
 } from "@/features/storefront/domain/legal";
@@ -18,5 +20,40 @@ describe("sales legal acceptance", () => {
     expect(getLegalDoc("duzenli-siparis-kosullari")?.title).toBe(
       "Düzenli Sipariş Koşulları",
     );
+  });
+
+  it("keeps the verified seller identity and pending official fields consistent", () => {
+    const requiredDocs = [
+      "mesafeli-satis-sozlesmesi",
+      "on-bilgilendirme-formu",
+      "kvkk",
+      "gizlilik-politikasi",
+      "iptal-iade-kosullari",
+      "kullanim-sartlari",
+      "teslimat-kosullari",
+      "duzenli-siparis-kosullari",
+    ];
+
+    for (const slug of requiredDocs) {
+      const doc = getLegalDoc(slug);
+      const paragraphs = doc?.sections.flatMap((section) => section.paragraphs) ?? [];
+      expect(paragraphs).toEqual(expect.arrayContaining([...SELLER_IDENTITY_LINES]));
+    }
+  });
+
+  it("exposes the transaction guide with public order and privacy links", () => {
+    const guide = getLegalDoc("islem-rehberi");
+    const links = guide?.sections.flatMap((section) => section.links ?? []) ?? [];
+
+    expect(guide?.title).toBe("İşlem Rehberi");
+    expect(links).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ href: "/siparis-sorgula" }),
+        expect.objectContaining({ href: "/kvkk" }),
+        expect.objectContaining({ href: "/gizlilik-politikasi" }),
+        expect.objectContaining({ href: "/cerez-politikasi" }),
+      ]),
+    );
+    expect(LEGAL_DOCS.map((doc) => doc.slug)).toContain("islem-rehberi");
   });
 });
