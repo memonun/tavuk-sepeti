@@ -8,10 +8,17 @@
  * meters to the stop. The Haversine helper is pure math (no Maps script
  * dependency), so updates land instantly on every geolocation tick.
  */
-import { Check, MapPin, Navigation, Phone, SkipForward } from "lucide-react";
+import { Check, MapPin, MessageCircle, Navigation, Phone, SkipForward } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { buildWhatsAppLink } from "@/features/routing/domain/driver-contact-links";
 import { cn } from "@/lib/utils";
 import { haversineMeters, type LatLng } from "@/shared/geo/distance";
 import { formatHHmm } from "@/shared/utils/date";
@@ -60,6 +67,9 @@ export function StopCard({
   // back to web maps on desktop. Phone may be null for CSV-imported
   // customers; the "Ara" button is then hidden.
   const telHref = stop.customer_phone ? `tel:${stop.customer_phone}` : null;
+  const whatsAppHref = stop.customer_phone
+    ? buildWhatsAppLink(stop.customer_phone, viewState === "delivered")
+    : null;
   const navHref = `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}&travelmode=driving`;
 
   return (
@@ -226,16 +236,35 @@ export function StopCard({
 
       <div className={cn("grid gap-2", telHref ? "grid-cols-2" : "grid-cols-1")}>
         {telHref ? (
-          <a
-            href={telHref}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "lg" }),
-              "h-12 gap-2",
-            )}
-          >
-            <Phone className="h-4 w-4" />
-            {formatTRPhone(stop.customer_phone)}
-          </a>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-12 gap-2"
+                />
+              }
+            >
+              <Phone className="h-4 w-4" />
+              {formatTRPhone(stop.customer_phone)}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-56">
+              <DropdownMenuItem render={<a href={telHref} />} className="gap-2 py-2 text-sm">
+                <Phone className="h-4 w-4" />
+                Ara
+              </DropdownMenuItem>
+              {whatsAppHref ? (
+                <DropdownMenuItem
+                  render={<a href={whatsAppHref} target="_blank" rel="noopener noreferrer" />}
+                  className="gap-2 py-2 text-sm"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp Business&apos;ta mesaj gönder
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
         <a
           href={navHref}
