@@ -61,13 +61,28 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
-    // Product cover images served from the public Supabase Storage bucket.
     remotePatterns: [
+      // Product cover images served from the public Supabase Storage bucket.
       {
         protocol: "https",
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
+      // Local dev only — `supabase start`'s Storage runs on 127.0.0.1, which
+      // the pattern above doesn't match. next/image throws hard (not a
+      // graceful fallback) on an unconfigured host, so without this a
+      // product image set locally 500s every page that renders it. Never
+      // matches in production, where NEXT_PUBLIC_SUPABASE_URL is the real
+      // *.supabase.co host.
+      ...(process.env.NODE_ENV !== "production"
+        ? [
+            {
+              protocol: "http" as const,
+              hostname: "127.0.0.1",
+              pathname: "/storage/v1/object/public/**",
+            },
+          ]
+        : []),
     ],
   },
 };
