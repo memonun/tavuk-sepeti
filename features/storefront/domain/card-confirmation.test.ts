@@ -4,6 +4,7 @@ import {
   CARD_CONFIRMATION_GRACE_MS,
   isAwaitingCardConfirmation,
   isAwaitingPayment,
+  paymentStatusLabel,
   showsPaidBadge,
 } from "@/features/storefront/domain/card-confirmation";
 
@@ -90,5 +91,62 @@ describe("showsPaidBadge", () => {
     expect(
       showsPaidBadge({ payment_status: "pending", payment_method: "credit_card" }),
     ).toBe(false);
+  });
+});
+
+describe("paymentStatusLabel", () => {
+  it("says İptal edildi for a cancelled, unpaid order — regardless of payment method", () => {
+    expect(paymentStatusLabel({ ...cardOrder, status: "cancelled" }, false)).toBe(
+      "İptal edildi",
+    );
+    expect(
+      paymentStatusLabel(
+        { ...cardOrder, status: "cancelled", payment_method: "bank_transfer" },
+        false,
+      ),
+    ).toBe("İptal edildi");
+    expect(
+      paymentStatusLabel(
+        { ...cardOrder, status: "cancelled", payment_method: "cash_on_delivery" },
+        false,
+      ),
+    ).toBe("İptal edildi");
+  });
+
+  it("still says Ödendi for a cancelled order that was actually paid", () => {
+    expect(
+      paymentStatusLabel(
+        { ...cardOrder, status: "cancelled", payment_status: "paid" },
+        false,
+      ),
+    ).toBe("Ödendi");
+  });
+
+  it("says Teslimatta ödenecek for a live cash-on-delivery order", () => {
+    expect(
+      paymentStatusLabel({ ...cardOrder, payment_method: "cash_on_delivery" }, false),
+    ).toBe("Teslimatta ödenecek");
+  });
+
+  it("says Ödeme kontrol ediliyor when the caller says it's inside the grace window", () => {
+    expect(paymentStatusLabel(cardOrder, true)).toBe("Ödeme kontrol ediliyor");
+  });
+
+  it("says Ödeme onayı bekliyor for a live bank-transfer order", () => {
+    expect(
+      paymentStatusLabel({ ...cardOrder, payment_method: "bank_transfer" }, false),
+    ).toBe("Ödeme onayı bekliyor");
+  });
+
+  it("falls back to Ödeme bekliyor for a live card order once past the grace window", () => {
+    expect(paymentStatusLabel(cardOrder, false)).toBe("Ödeme bekliyor");
+  });
+
+  it("cancelled beats an in-progress card confirmation flag", () => {
+    // Defensive: even if a caller mistakenly still passed a stale "awaiting
+    // confirmation" flag, a cancelled order must never read as in-progress.
+    expect(paymentStatusLabel({ ...cardOrder, status: "cancelled" }, true)).toBe(
+      "İptal edildi",
+    );
   });
 });
