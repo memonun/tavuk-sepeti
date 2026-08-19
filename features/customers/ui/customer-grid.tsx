@@ -247,7 +247,11 @@ export function CustomerGrid({
             </Link>
           ) : null}
           {openId ? (
-            <CustomerDetailLoader id={openId} mapsKey={mapsKey} />
+            <CustomerDetailLoader
+              id={openId}
+              mapsKey={mapsKey}
+              onDeleted={() => setOpenId(null)}
+            />
           ) : null}
         </SheetContent>
       </Sheet>
