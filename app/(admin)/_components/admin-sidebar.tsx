@@ -6,6 +6,7 @@ import {
   LogOut,
   Map,
   Package,
+  PiggyBank,
   Repeat,
   Store,
   Tags,
@@ -29,6 +30,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
 const navItems = [
@@ -40,6 +44,15 @@ const navItems = [
   { href: "/map", label: "Harita", icon: Map, exact: false },
   { href: "/routes", label: "Rota", icon: CalendarRange, exact: false },
   { href: "/magaza-ayarlari", label: "Mağaza ayarları", icon: Store, exact: false },
+] as const;
+
+// Finans has sub-pages, so it's kept out of the flat navItems list above —
+// every other item stays exactly as it was, this is additive.
+const FINANS_HREF = "/finans";
+const financeSubItems = [
+  { href: "/finans", label: "Finans Özeti" },
+  { href: "/finans/pazar-satislari", label: "Pazar Satışları" },
+  { href: "/finans/giderler", label: "Giderler" },
 ] as const;
 
 interface AdminSidebarProps {
@@ -89,6 +102,37 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
                   </SidebarMenuItem>
                 );
               })}
+
+              {(() => {
+                const isFinansActive =
+                  pathname === FINANS_HREF || pathname.startsWith(`${FINANS_HREF}/`);
+                return (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={isFinansActive}
+                      tooltip="Finans"
+                      render={<Link href={FINANS_HREF} />}
+                    >
+                      <PiggyBank />
+                      <span>Finans</span>
+                    </SidebarMenuButton>
+                    {isFinansActive ? (
+                      <SidebarMenuSub>
+                        {financeSubItems.map((item) => (
+                          <SidebarMenuSubItem key={item.href}>
+                            <SidebarMenuSubButton
+                              isActive={pathname === item.href}
+                              render={<Link href={item.href} />}
+                            >
+                              <span>{item.label}</span>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    ) : null}
+                  </SidebarMenuItem>
+                );
+              })()}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

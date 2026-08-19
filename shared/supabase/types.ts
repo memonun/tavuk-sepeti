@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       addresses: {
@@ -295,6 +290,57 @@ export type Database = {
         }
         Relationships: []
       }
+      expenses: {
+        Row: {
+          amount_minor: number
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          expense_date: string
+          id: string
+          note: string | null
+          payment_method:
+            | Database["public"]["Enums"]["manual_payment_method"]
+            | null
+          payment_status: Database["public"]["Enums"]["expense_payment_status"]
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          amount_minor: number
+          category: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expense_date: string
+          id?: string
+          note?: string | null
+          payment_method?:
+            | Database["public"]["Enums"]["manual_payment_method"]
+            | null
+          payment_status?: Database["public"]["Enums"]["expense_payment_status"]
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          amount_minor?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expense_date?: string
+          id?: string
+          note?: string | null
+          payment_method?:
+            | Database["public"]["Enums"]["manual_payment_method"]
+            | null
+          payment_status?: Database["public"]["Enums"]["expense_payment_status"]
+          updated_at?: string
+          vendor?: string | null
+        }
+        Relationships: []
+      }
       geocoding_api_calls: {
         Row: {
           called_at: string
@@ -357,6 +403,182 @@ export type Database = {
           raw_response?: Json
         }
         Relationships: []
+      }
+      guest_order_lookup_attempts: {
+        Row: {
+          attempted_at: string
+          id: string
+          ip: string | null
+          order_number: string | null
+          phone: string | null
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          ip?: string | null
+          order_number?: string | null
+          phone?: string | null
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          ip?: string | null
+          order_number?: string | null
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      market_locations: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      market_sale_items: {
+        Row: {
+          id: string
+          product_key: string
+          quantity: number
+          sale_id: string
+        }
+        Insert: {
+          id?: string
+          product_key: string
+          quantity: number
+          sale_id: string
+        }
+        Update: {
+          id?: string
+          product_key?: string
+          quantity?: number
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_sale_items_product_key_fkey"
+            columns: ["product_key"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "market_sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "market_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_sales: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          location_id: string
+          note: string | null
+          payment_method: Database["public"]["Enums"]["manual_payment_method"]
+          sale_date: string
+          total_amount_minor: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id: string
+          note?: string | null
+          payment_method?: Database["public"]["Enums"]["manual_payment_method"]
+          sale_date: string
+          total_amount_minor: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location_id?: string
+          note?: string | null
+          payment_method?: Database["public"]["Enums"]["manual_payment_method"]
+          sale_date?: string
+          total_amount_minor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_sales_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "market_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          link: string
+          order_id: string | null
+          read_at: string | null
+          recurring_template_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          link: string
+          order_id?: string | null
+          read_at?: string | null
+          recurring_template_id?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          link?: string
+          order_id?: string | null
+          read_at?: string | null
+          recurring_template_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_recurring_template_id_fkey"
+            columns: ["recurring_template_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
@@ -510,6 +732,7 @@ export type Database = {
           delivery_notes: string | null
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           id: string
+          legal_acceptance: Json | null
           order_number: string
           order_seq: number
           paid_at: string | null
@@ -539,6 +762,7 @@ export type Database = {
           delivery_notes?: string | null
           fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
           id?: string
+          legal_acceptance?: Json | null
           order_number: string
           order_seq?: number
           paid_at?: string | null
@@ -568,6 +792,7 @@ export type Database = {
           delivery_notes?: string | null
           fulfillment_channel?: Database["public"]["Enums"]["fulfillment_channel"]
           id?: string
+          legal_acceptance?: Json | null
           order_number?: string
           order_seq?: number
           paid_at?: string | null
@@ -704,7 +929,9 @@ export type Database = {
       recurring_templates: {
         Row: {
           active: boolean
+          approved_at: string | null
           cadence: Database["public"]["Enums"]["recurring_cadence"]
+          cancelled_at: string | null
           created_at: string
           customer_id: string
           day_of_month: number | null
@@ -713,11 +940,14 @@ export type Database = {
           items: Json
           next_run_at: string
           payment_method: Database["public"]["Enums"]["payment_method"]
+          source: Database["public"]["Enums"]["customer_origin"]
           updated_at: string
         }
         Insert: {
           active?: boolean
+          approved_at?: string | null
           cadence: Database["public"]["Enums"]["recurring_cadence"]
+          cancelled_at?: string | null
           created_at?: string
           customer_id: string
           day_of_month?: number | null
@@ -726,11 +956,14 @@ export type Database = {
           items: Json
           next_run_at: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          source?: Database["public"]["Enums"]["customer_origin"]
           updated_at?: string
         }
         Update: {
           active?: boolean
+          approved_at?: string | null
           cadence?: Database["public"]["Enums"]["recurring_cadence"]
+          cancelled_at?: string | null
           created_at?: string
           customer_id?: string
           day_of_month?: number | null
@@ -739,6 +972,7 @@ export type Database = {
           items?: Json
           next_run_at?: string
           payment_method?: Database["public"]["Enums"]["payment_method"]
+          source?: Database["public"]["Enums"]["customer_origin"]
           updated_at?: string
         }
         Relationships: [
@@ -1039,6 +1273,10 @@ export type Database = {
         Args: { a: Database["public"]["Tables"]["addresses"]["Row"] }
         Returns: Json
       }
+      cancel_customer_recurring_template: {
+        Args: { p_auth_user_id: string; p_template_id: string }
+        Returns: undefined
+      }
       confirm_route_orders: {
         Args: { p_actor_id: string; p_order_ids: string[] }
         Returns: {
@@ -1051,6 +1289,17 @@ export type Database = {
           customer_id: string
           order_count: number
         }[]
+      }
+      create_customer_recurring_template: {
+        Args: {
+          p_auth_user_id: string
+          p_cadence: Database["public"]["Enums"]["recurring_cadence"]
+          p_day_of_week: number
+          p_items: Json
+          p_next_run_at: string
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+        }
+        Returns: string
       }
       create_order_with_items: {
         Args: {
@@ -1123,6 +1372,57 @@ export type Database = {
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      finance_collected_amount: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          market_minor: number
+          orders_minor: number
+        }[]
+      }
+      finance_expected_payments: {
+        Args: { p_date_basis?: string; p_from: string; p_to: string }
+        Returns: number
+      }
+      finance_expense_breakdown: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount_minor: number
+          category: string
+        }[]
+      }
+      finance_expense_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          paid_minor: number
+          pending_minor: number
+          total_minor: number
+        }[]
+      }
+      finance_market_revenue: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          location_id: string
+          location_name: string
+          revenue_minor: number
+          sale_count: number
+        }[]
+      }
+      finance_market_top_products: {
+        Args: { p_from: string; p_limit?: number; p_to: string }
+        Returns: {
+          product_key: string
+          product_name: string
+          total_quantity: number
+        }[]
+      }
+      finance_revenue_by_channel: {
+        Args: { p_date_basis?: string; p_from: string; p_to: string }
+        Returns: {
+          channel: string
+          order_count: number
+          revenue_minor: number
+        }[]
+      }
       find_customers_within_radius: {
         Args: { center_lat: number; center_lng: number; radius_meters: number }
         Returns: {
@@ -1309,6 +1609,40 @@ export type Database = {
           total_minor: number
         }[]
       }
+      lookup_guest_order_by_number: {
+        Args: { p_ip?: string; p_order_number: string }
+        Returns: {
+          cargo_carrier: string
+          cargo_tracking_number: string
+          cargo_tracking_url: string
+          created_at: string
+          fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
+          order_id: string
+          order_number: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          scheduled_for: string
+          status: Database["public"]["Enums"]["order_status"]
+          total_minor: number
+        }[]
+      }
+      lookup_guest_orders_by_details: {
+        Args: { p_ip?: string; p_order_type: string; p_phone: string }
+        Returns: {
+          cargo_carrier: string
+          cargo_tracking_number: string
+          cargo_tracking_url: string
+          created_at: string
+          fulfillment_channel: Database["public"]["Enums"]["fulfillment_channel"]
+          order_id: string
+          order_number: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          scheduled_for: string
+          status: Database["public"]["Enums"]["order_status"]
+          total_minor: number
+        }[]
+      }
       place_guest_order: {
         Args: {
           p_address: Json
@@ -1318,6 +1652,7 @@ export type Database = {
           p_first_name: string
           p_items: Json
           p_last_name: string
+          p_legal_acceptance: Json
           p_payment_method: Database["public"]["Enums"]["payment_method"]
           p_phone: string
           p_scheduled_for: string
@@ -1336,6 +1671,7 @@ export type Database = {
           p_delivery_fee_minor: number
           p_delivery_notes: string
           p_items: Json
+          p_legal_acceptance: Json
           p_payment_method: Database["public"]["Enums"]["payment_method"]
           p_scheduled_for: string
           p_time_slot: Database["public"]["Enums"]["time_slot"]
@@ -2052,7 +2388,9 @@ export type Database = {
       customer_order_type: "delivery" | "retail" | "wholesale" | "bazaar"
       customer_origin: "admin_manual" | "customer_web" | "customer_guest"
       customer_status: "active" | "inactive" | "blocked"
+      expense_payment_status: "paid" | "pending"
       fulfillment_channel: "delivery" | "shipping"
+      manual_payment_method: "cash" | "card" | "bank_transfer" | "other"
       order_source: "admin_manual" | "customer_web" | "recurring_generated"
       order_status:
         | "pending"
@@ -2218,7 +2556,9 @@ export const Constants = {
       customer_order_type: ["delivery", "retail", "wholesale", "bazaar"],
       customer_origin: ["admin_manual", "customer_web", "customer_guest"],
       customer_status: ["active", "inactive", "blocked"],
+      expense_payment_status: ["paid", "pending"],
       fulfillment_channel: ["delivery", "shipping"],
+      manual_payment_method: ["cash", "card", "bank_transfer", "other"],
       order_source: ["admin_manual", "customer_web", "recurring_generated"],
       order_status: [
         "pending",
@@ -2236,3 +2576,4 @@ export const Constants = {
     },
   },
 } as const
+

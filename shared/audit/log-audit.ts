@@ -56,7 +56,19 @@ export type AuditAction =
   | "address.web_updated"
   // Shop rules the owner edits (delivery days, cargo order floor). Worth an
   // audit row: a changed delivery day silently reshapes every future checkout.
-  | "storefront_settings.updated";
+  | "storefront_settings.updated"
+  // Finans — expenses and market-stall sales are money records entered
+  // entirely by hand (no ledger trigger backs them the way order_payments
+  // backs orders), so auditing every mutation matters more here than on
+  // most entities, not less.
+  | "expense.created"
+  | "expense.updated"
+  | "expense.deleted"
+  | "expense.paid"
+  | "market_sale.created"
+  | "market_sale.updated"
+  | "market_sale.deleted"
+  | "market_location.created";
 
 export type AuditEntityType =
   | "customer"
@@ -64,7 +76,10 @@ export type AuditEntityType =
   | "address"
   | "product"
   | "recurring_template"
-  | "storefront_settings";
+  | "storefront_settings"
+  | "expense"
+  | "market_sale"
+  | "market_location";
 
 /**
  * `audit_log.entity_id` is a uuid column, but a singleton config row has no
