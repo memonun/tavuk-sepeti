@@ -90,6 +90,11 @@ function asOrigin(value: unknown): CustomerOrigin {
 
 export function rowToCustomer(row: CustomerWithAddressRow): Customer {
   const primary = row.addresses.find((a) => a.is_primary);
+  // Primary first, then whatever order the join returned — the detail panel
+  // lists these in this order so "Varsayılan" always leads.
+  const ordered = primary
+    ? [primary, ...row.addresses.filter((a) => a.id !== primary.id)]
+    : row.addresses;
   return {
     id: row.id,
     first_name: row.first_name,
@@ -104,6 +109,7 @@ export function rowToCustomer(row: CustomerWithAddressRow): Customer {
     legacy_segment: row.legacy_segment,
     origin: asOrigin((row as { origin?: unknown }).origin),
     address: primary ? rowToAddress(primary) : null,
+    addresses: ordered.map(rowToAddress),
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     created_by: row.created_by,

@@ -1,12 +1,13 @@
 "use client";
 
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, MapPin, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { bulkDeleteCustomersAction } from "@/features/customers/application/bulk-delete-customers";
 import { CustomerForm } from "@/features/customers/ui/customer-form";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Customer } from "@/features/customers/domain/customer";
+import type { Customer, CustomerAddress } from "@/features/customers/domain/customer";
 import type { CustomerFormInput } from "@/features/customers/domain/customer.schema";
 
 interface CustomerDetailPanelProps {
@@ -107,6 +108,11 @@ export function CustomerDetailPanel({
           defaultValues,
         }}
       />
+
+      {customer.addresses.length > 0 ? (
+        <CustomerAddressList addresses={customer.addresses} />
+      ) : null}
+
       {ordersSlot}
       {recurringSlot}
 
@@ -149,5 +155,50 @@ export function CustomerDetailPanel({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * Read-only list of every saved address, primary first. The form above only
+ * edits the primary address (that's the whole edit flow today); a customer
+ * with a second address ("İş" etc. — the storefront account page already
+ * lets a customer save more than one) previously had no way to be seen at
+ * all from the admin panel.
+ */
+function CustomerAddressList({
+  addresses,
+}: {
+  readonly addresses: readonly CustomerAddress[];
+}) {
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-medium">Adresler ({addresses.length})</h3>
+      <ul className="space-y-2">
+        {addresses.map((address) => (
+          <li
+            key={address.id}
+            className="flex items-start gap-2 rounded-md border border-border p-3 text-sm"
+          >
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {address.is_primary ? (
+                  <Badge variant="secondary">Varsayılan</Badge>
+                ) : null}
+                {address.apartment_no ? (
+                  <span className="text-xs text-muted-foreground">
+                    Daire {address.apartment_no}
+                  </span>
+                ) : null}
+              </div>
+              <p>{address.raw_text}</p>
+              {address.description ? (
+                <p className="text-xs text-muted-foreground">{address.description}</p>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
