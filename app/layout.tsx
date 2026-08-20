@@ -10,6 +10,7 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
 // Inter is the SaaS-dashboard standard — designed for screen UI, excellent
 // at small sizes, full Turkish diacritic support (ğ, İ/ı, ş, ç, ü, ö).
@@ -25,8 +26,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(CANONICAL_ORIGIN),
   title: "Apuhan Çiftliği — Admin",
   description: "Sipariş, müşteri ve teslimat yönetimi.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/brand/apuhan-logo.png", type: "image/png", sizes: "256x256" },
+    ],
+    apple: "/brand/apuhan-logo.png",
+  },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
