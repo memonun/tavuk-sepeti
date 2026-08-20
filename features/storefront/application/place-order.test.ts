@@ -363,8 +363,8 @@ describe("placeOrderAction — address", () => {
         legal_acceptance: expect.objectContaining({
           accepted_at: expect.any(String),
           documents: [
-            { slug: "on-bilgilendirme-formu", version: "2026-08-19" },
-            { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-19" },
+            { slug: "on-bilgilendirme-formu", version: "2026-08-20" },
+            { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-20" },
           ],
         }),
       }),
@@ -951,8 +951,8 @@ describe("placeOrderAction — guest", () => {
         legal_acceptance: expect.objectContaining({
           accepted_at: expect.any(String),
           documents: [
-            { slug: "on-bilgilendirme-formu", version: "2026-08-19" },
-            { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-19" },
+            { slug: "on-bilgilendirme-formu", version: "2026-08-20" },
+            { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-20" },
           ],
         }),
       }),
