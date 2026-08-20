@@ -46,6 +46,12 @@ import type { RouteStop } from "@/features/routing/domain/route";
 // by the payment actions on the server, so it stays the single source of truth.
 type PaymentChannel = "cash" | "bank_transfer" | "card";
 
+const CHANNEL_LABEL: Record<PaymentChannel, string> = {
+  cash: "Nakit",
+  bank_transfer: "Havale/EFT",
+  card: "Kart",
+};
+
 interface DeliveryPaymentDialogProps {
   /** The delivered stop to collect for; null = dialog closed. */
   stop: RouteStop | null;
@@ -147,7 +153,11 @@ export function DeliveryPaymentDialog({ stop, onClose }: DeliveryPaymentDialogPr
 
         <div className="space-y-1.5">
           <Label className="text-xs">Kanal</Label>
-          <Select value={channel} onValueChange={(v) => v && setChannel(v as PaymentChannel)}>
+          <Select
+            value={channel}
+            onValueChange={(v) => v && setChannel(v as PaymentChannel)}
+            items={CHANNEL_LABEL}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

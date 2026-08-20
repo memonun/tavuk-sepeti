@@ -319,6 +319,7 @@ const addressAccuracy = watch("address.accuracy");
                   shouldValidate: true,
                 })
               }
+              items={{ active: "Aktif", inactive: "Pasif", blocked: "Engelli" }}
             >
               <SelectTrigger>
                 <SelectValue />

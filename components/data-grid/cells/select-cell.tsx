@@ -122,6 +122,7 @@ function SelectCellInput<TValue extends string>({
         onCommit(next);
         setOpen(false);
       }}
+      items={options}
     >
       <SelectTrigger
         className={cn("h-full w-full border-0 bg-transparent px-2 ring-0")}

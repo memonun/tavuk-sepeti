@@ -20,6 +20,11 @@ const STATUS_LABEL: Record<string, string> = {
   paid: "Ödendi",
 };
 
+const CATEGORY_LABEL: Record<string, string> = {
+  all: "Tüm kategoriler",
+  ...Object.fromEntries(EXPENSE_CATEGORY_OPTIONS.map((c) => [c, c])),
+};
+
 export function ExpenseFilterBar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -81,7 +86,7 @@ export function ExpenseFilterBar() {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label className="text-xs">Kategori</Label>
-        <Select value={category} onValueChange={setCategory} disabled={pending}>
+        <Select value={category} onValueChange={setCategory} disabled={pending} items={CATEGORY_LABEL}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -97,7 +102,7 @@ export function ExpenseFilterBar() {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label className="text-xs">Ödeme Durumu</Label>
-        <Select value={status} onValueChange={setStatus} disabled={pending}>
+        <Select value={status} onValueChange={setStatus} disabled={pending} items={STATUS_LABEL}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>

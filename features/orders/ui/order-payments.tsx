@@ -233,6 +233,7 @@ export function OrderPayments({
           <Select
             value={channel}
             onValueChange={(v) => v && setChannel(v as PaymentChannel)}
+            items={CHANNEL_LABEL}
           >
             <SelectTrigger>
               <SelectValue />
