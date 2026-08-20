@@ -33,6 +33,12 @@ export interface Company {
 /** Exact public marker for a required legal detail not verified in this repo. */
 export const PENDING_LEGAL_INFORMATION = "sonra eklenicek";
 
+/** Carrier confirmed by the business for cargo shipments. */
+export const CONTRACTED_CARGO_CARRIER = "Aras Kargo";
+
+const CONTRACTED_CARGO_CARRIER_SENTENCE =
+  `Kargolu siparişlerde anlaşmalı kargo firmamız ${CONTRACTED_CARGO_CARRIER}'dur.`;
+
 // Only verified facts are filled in here. Empty official-identifier fields are
 // rendered as PENDING_LEGAL_INFORMATION in public legal documents.
 export const COMPANY: Company = {
@@ -88,8 +94,8 @@ export interface LegalDoc {
  * edit to the public page does not erase which revision a past order accepted.
  */
 export const SALES_LEGAL_ACCEPTANCE_DOCUMENTS = [
-  { slug: "on-bilgilendirme-formu", version: "2026-08-19" },
-  { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-19" },
+  { slug: "on-bilgilendirme-formu", version: "2026-08-20" },
+  { slug: "mesafeli-satis-sozlesmesi", version: "2026-08-20" },
 ] as const;
 
 export interface SalesLegalAcceptance {
@@ -157,12 +163,12 @@ const WITHDRAWAL_NOTICE =
 const REFUND_TIMING =
   "Cayma hakkının geçerli olduğu hallerde, tahsil edilen ödemeler cayma bildiriminin satıcıya ulaştığı tarihten itibaren en geç on dört gün içinde, tüketicinin satın alırken kullandığı ödeme aracına uygun şekilde iade edilir. Tüketicinin malı geri göndermesi gereken hallerde, satıcı malın geri gönderildiğini gösteren kanıt ulaşana veya mal teslim alınıncaya kadar, hangisi önce gerçekleşirse o ana kadar geri ödemeyi bekletebilir.";
 
-const RETURN_DETAILS_PENDING = [
-  `Öngörülen İade Taşıyıcısı: ${PENDING_LEGAL_INFORMATION}`,
+const RETURN_DETAILS = [
+  `Öngörülen İade Taşıyıcısı: ${CONTRACTED_CARGO_CARRIER}`,
   `İade Gönderim Masrafı: ${PENDING_LEGAL_INFORMATION}`,
 ] as const;
 
-const SALES_LEGAL_UPDATED = "2026-08-19";
+const SALES_LEGAL_UPDATED = "2026-08-20";
 const UPDATED_2 = "2026-08-18";
 
 export const LEGAL_DOCS: readonly LegalDoc[] = [
@@ -204,7 +210,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "6. Teslimat",
-        "Ürünün niteliği ve teslimat adresine göre sipariş eve/yerel teslimat veya kargo kanalıyla gönderilir. Eve teslimat için seçilebilir teslimat günleri ve varsa zaman aralığı ödeme ekranında gösterilir. Kargo siparişlerinde gönderim, ürün hazırlık sürecinden sonra yapılır. Teslimat, mevzuatta öngörülen azami süre ve istisnalar çerçevesinde gerçekleştirilir.",
+        `Ürünün niteliği ve teslimat adresine göre sipariş eve/yerel teslimat veya kargo kanalıyla gönderilir. Eve teslimat için seçilebilir teslimat günleri ve varsa zaman aralığı ödeme ekranında gösterilir. ${CONTRACTED_CARGO_CARRIER_SENTENCE} Gönderim ürün hazırlık sürecinden sonra yapılır. Teslimat, mevzuatta öngörülen azami süre ve istisnalar çerçevesinde gerçekleştirilir.`,
       ),
       s(
         "7. Cayma Hakkı ve İstisnaları",
@@ -249,7 +255,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Teslimat ve Ödeme",
-        "Ürünün niteliği ile teslimat adresine göre eve/yerel teslimat veya kargo yöntemi uygulanır. Eve teslimat günleri ve varsa zaman aralığı seçilebilir olarak gösterilir; kargo siparişleri için teslimat günü seçilmez. Ödeme seçenekleri siparişin teslimat kanalına göre gösterilir: kart ödemesi PayTR ödeme sayfası üzerinden, havale/EFT her iki kanalda, kapıda nakit ise yalnızca eve teslimatta sunulabilir.",
+        `Ürünün niteliği ile teslimat adresine göre eve/yerel teslimat veya kargo yöntemi uygulanır. Eve teslimat günleri ve varsa zaman aralığı seçilebilir olarak gösterilir; kargo siparişleri için teslimat günü seçilmez. ${CONTRACTED_CARGO_CARRIER_SENTENCE} Ödeme seçenekleri siparişin teslimat kanalına göre gösterilir: kart ödemesi PayTR ödeme sayfası üzerinden, havale/EFT her iki kanalda, kapıda nakit ise yalnızca eve teslimatta sunulabilir.`,
       ),
       s(
         "Sipariş Öncesi Bilgiler",
@@ -338,7 +344,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Üçüncü Taraf Hizmet Sağlayıcılar",
-        "Teknik işleyişte kullanılan sağlayıcılar ve işledikleri veri kategorileri, hizmete göre farklılaşır: Supabase, müşteri hesabı/oturum, iletişim, adres ve sipariş kayıtlarının altyapısında; PayTR, kartla ödeme seçildiğinde ödeme işlemi için gerekli iletişim, sipariş, tutar ve kart ödeme verilerinde; Resend, e-posta adresi verilmiş ve e-posta gönderimi yapılandırılmış siparişlerde onay e-postasında; Google Haritalar, harita veya adres arama kullanıldığında konum ve adres arama verilerinde; Vercel ise siteye erişimin sunulmasıyla bağlantılı teknik günlük verilerinde rol alabilir.",
+        `Teknik işleyişte kullanılan sağlayıcılar ve işledikleri veri kategorileri, hizmete göre farklılaşır: Supabase, müşteri hesabı/oturum, iletişim, adres ve sipariş kayıtlarının altyapısında; PayTR, kartla ödeme seçildiğinde ödeme işlemi için gerekli iletişim, sipariş, tutar ve kart ödeme verilerinde; Resend, e-posta adresi verilmiş ve e-posta gönderimi yapılandırılmış siparişlerde onay e-postasında; Google Haritalar, harita veya adres arama kullanıldığında konum ve adres arama verilerinde; ${CONTRACTED_CARGO_CARRIER}, kargolu siparişlerde taşıma ve teslimat için gerekli ad, telefon, adres ve sipariş/gönderi bilgilerinde; Vercel ise siteye erişimin sunulmasıyla bağlantılı teknik günlük verilerinde rol alabilir.`,
         "Bu metin, her sağlayıcının her siparişte aynı veri kategorisini işlediği anlamına gelmez. Sağlayıcıya yalnızca ilgili hizmetin çalışması için gerekli veri aktarılır.",
       ),
       s(
@@ -347,7 +353,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Kişisel Verilerin Yurt İçinde Aktarılması",
-        "Kişisel verileriniz, hizmetin yürütülmesi için gerekli olduğu ölçüde ödeme hizmet sağlayıcısına, teknik altyapı sağlayıcılarına ve mevzuatın gerektirdiği hallerde yetkili kamu kurumlarına aktarılabilir. Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz veya kiralanmaz.",
+        `Kişisel verileriniz, hizmetin yürütülmesi için gerekli olduğu ölçüde ödeme hizmet sağlayıcısına, teknik altyapı sağlayıcılarına, kargolu siparişlerde ${CONTRACTED_CARGO_CARRIER}'na ve mevzuatın gerektirdiği hallerde yetkili kamu kurumlarına aktarılabilir. Kargo aktarımı yalnızca taşıma ve teslimat için gerekli ad, telefon, adres ve sipariş/gönderi bilgileriyle sınırlıdır. Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz veya kiralanmaz.`,
       ),
       s(
         "Kişisel Verilerin Yurt Dışına Aktarılması",
@@ -410,7 +416,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Aktarım Alıcıları ve Amaçları",
-        "Veriler, hizmetin yürütülmesi için gerekli olduğu ölçüde ve kullanılan hizmete bağlı olarak aktarılabilir: Supabase'e hesap/oturum, iletişim, adres ve sipariş verileri; PayTR'ye kartla ödeme seçildiğinde iletişim, sipariş, tutar ve ödeme verileri; Resend'e e-posta gönderimi yapılandırılmış ve e-posta adresi verilmiş siparişlerde e-posta iletimi için gerekli veriler; Google Haritalar'a harita veya adres arama kullanıldığında konum/adres arama verileri; Vercel'e sitenin sunulmasıyla bağlantılı teknik günlük verileri aktarılabilir. Mevzuatın gerektirdiği hallerde yetkili kamu kurum ve kuruluşlarına da aktarım yapılabilir.",
+        `Veriler, hizmetin yürütülmesi için gerekli olduğu ölçüde ve kullanılan hizmete bağlı olarak aktarılabilir: Supabase'e hesap/oturum, iletişim, adres ve sipariş verileri; PayTR'ye kartla ödeme seçildiğinde iletişim, sipariş, tutar ve ödeme verileri; Resend'e e-posta gönderimi yapılandırılmış ve e-posta adresi verilmiş siparişlerde e-posta iletimi için gerekli veriler; Google Haritalar'a harita veya adres arama kullanıldığında konum/adres arama verileri; kargolu siparişlerde ${CONTRACTED_CARGO_CARRIER}'na taşıma ve teslimat için gerekli ad, telefon, adres ve sipariş/gönderi verileri; Vercel'e sitenin sunulmasıyla bağlantılı teknik günlük verileri aktarılabilir. Mevzuatın gerektirdiği hallerde yetkili kamu kurum ve kuruluşlarına da aktarım yapılabilir.`,
       ),
       s(
         "Kişisel Verilerin Yurt Dışına Aktarılması",
@@ -480,7 +486,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "İade Taşıyıcısı ve Gönderim Masrafı",
-        ...RETURN_DETAILS_PENDING,
+        ...RETURN_DETAILS,
         "Bu bilgiler, tüketici mevzuatından doğan hakları sınırlayacak şekilde yorumlanamaz.",
       ),
       s(
@@ -510,7 +516,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       sellerIdentitySection(),
       s(
         "Teslimat Yöntemleri",
-        "Ürünün niteliği ve teslimat adresine göre sipariş eve/yerel teslimat veya kargo kanalıyla yürütülür. Eve teslimat, Malatya'daki hizmet alanı için sunulur; hizmet alanının güncel kapsamı ve ürünün uygun teslimat yöntemi sipariş ekranında belirlenir. Kargoya uygun ürünler Türkiye geneline gönderilebilir.",
+        `Ürünün niteliği ve teslimat adresine göre sipariş eve/yerel teslimat veya kargo kanalıyla yürütülür. Eve teslimat, Malatya'daki hizmet alanı için sunulur; hizmet alanının güncel kapsamı ve ürünün uygun teslimat yöntemi sipariş ekranında belirlenir. Kargoya uygun ürünler Türkiye geneline gönderilebilir. ${CONTRACTED_CARGO_CARRIER_SENTENCE}`,
       ),
       s(
         "Teslimat Günleri ve Sipariş Tutarı",
@@ -522,7 +528,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Kargo Teslimi",
-        "Kargo tesliminde görünür bir hasar olup olmadığını kontrol etmeniz önerilir. Ancak kargo görevlisiyle tutanak tutulmamış olması, tüketici mevzuatından doğan haklarınızı tek başına ortadan kaldırmaz. Hasar, eksik veya yanlış ürün halinde mevcut iletişim kanallarından bize ulaşabilirsiniz.",
+        `${CONTRACTED_CARGO_CARRIER_SENTENCE} Teslimat sırasında görünür bir hasar olup olmadığını kontrol etmeniz önerilir. Ancak kargo görevlisiyle tutanak tutulmamış olması, tüketici mevzuatından doğan haklarınızı tek başına ortadan kaldırmaz. Hasar, eksik veya yanlış ürün halinde mevcut iletişim kanallarından bize ulaşabilirsiniz.`,
       ),
     ],
   },
@@ -581,7 +587,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Sipariş Oluşturma Adımları",
-        "1. Ürünleri ana sayfada inceler, ürünün teslimata uygunluğunu ve güncel fiyatını görürsünüz. 2. Ürünü sepetinize eklersiniz. 3. Malatya içi teslimat veya kargo tercihini ürünlerinize ve teslimat adresinize uygun şekilde belirlersiniz. 4. Ödeme sayfasında müşteri, iletişim ve teslimat bilgilerinizi girer veya hesabınızla devam edersiniz.",
+        `1. Ürünleri ana sayfada inceler, ürünün teslimata uygunluğunu ve güncel fiyatını görürsünüz. 2. Ürünü sepetinize eklersiniz. 3. Malatya içi teslimat veya kargo tercihini ürünlerinize ve teslimat adresinize uygun şekilde belirlersiniz; ${CONTRACTED_CARGO_CARRIER_SENTENCE} 4. Ödeme sayfasında müşteri, iletişim ve teslimat bilgilerinizi girer veya hesabınızla devam edersiniz.`,
         "5. Sipariş özetinde ürünleri, miktarları, teslimat yöntemini, varsa teslimat günü/zaman aralığını, ödeme yöntemini ve toplam tutarı kontrol edersiniz. 6. Ön Bilgilendirme Formu ile Mesafeli Satış Sözleşmesi'ni açıp inceleyebilir; siparişi vermeden önce bu belgeleri okuduğunuzu ve koşulları kabul ettiğinizi onaylarsınız.",
         "7. Kullanılabilen ödeme seçenekleri siparişin teslimat kanalına göre gösterilir. Kartla ödeme seçildiğinde ödeme işlemi PayTR'nin güvenli ödeme sayfasında sürer. 8. Sipariş oluşturulduğunda sistem sipariş numarasını üretir. Kartla ödemede, ödeme sonucu PayTR akışında tamamlanır. 9. Başarılı işlemden sonra sipariş numaranızı görür; e-posta adresi verilmiş ve e-posta gönderimi yapılandırılmış siparişlerde onay e-postası da gönderilebilir.",
       ),
@@ -670,7 +676,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Yerel Teslimat ve Kargo",
-        "Ürünlerin teslimat şekli, ürünün niteliğine ve teslimat adresinize göre değişir: bazı ürünler yalnızca bölge içi teslimat kapsamında, bazıları ise Türkiye geneline kargo ile gönderilir. Teslimat gün ve süreleri ile kargoya ilişkin ayrıntılar Teslimat Koşulları'nda yer alır.",
+        `Ürünlerin teslimat şekli, ürünün niteliğine ve teslimat adresinize göre değişir: bazı ürünler yalnızca bölge içi teslimat kapsamında, bazıları ise Türkiye geneline ${CONTRACTED_CARGO_CARRIER} ile gönderilir. Teslimat gün ve süreleri ile kargoya ilişkin ayrıntılar Teslimat Koşulları'nda yer alır.`,
       ),
       s(
         "Düzenli Sipariş",

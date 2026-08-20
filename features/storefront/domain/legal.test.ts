@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CONTRACTED_CARGO_CARRIER,
   LEGAL_DOCS,
   SALES_LEGAL_ACCEPTANCE_DOCUMENTS,
   SELLER_IDENTITY_LINES,
@@ -55,5 +56,27 @@ describe("sales legal acceptance", () => {
       ]),
     );
     expect(LEGAL_DOCS.map((doc) => doc.slug)).toContain("islem-rehberi");
+  });
+
+  it("publishes the contracted Aras Kargo carrier in delivery and privacy texts", () => {
+    const requiredDocs = [
+      "mesafeli-satis-sozlesmesi",
+      "on-bilgilendirme-formu",
+      "teslimat-kosullari",
+      "iptal-iade-kosullari",
+      "gizlilik-politikasi",
+      "kvkk",
+    ];
+
+    for (const slug of requiredDocs) {
+      const doc = getLegalDoc(slug);
+      const paragraphs = doc?.sections.flatMap((section) => section.paragraphs) ?? [];
+      expect(paragraphs.join(" ")).toContain(CONTRACTED_CARGO_CARRIER);
+    }
+
+    const returnDoc = getLegalDoc("iptal-iade-kosullari");
+    const returnText = returnDoc?.sections.flatMap((section) => section.paragraphs).join(" ") ?? "";
+    expect(returnText).toContain("Öngörülen İade Taşıyıcısı: Aras Kargo");
+    expect(returnText).toContain("İade Gönderim Masrafı: sonra eklenicek");
   });
 });
