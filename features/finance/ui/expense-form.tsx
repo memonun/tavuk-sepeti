@@ -69,6 +69,14 @@ const PAYMENT_METHOD_OPTIONS = Object.entries(MANUAL_PAYMENT_METHOD_LABELS) as A
   [ManualPaymentMethod, string]
 >;
 
+// Base UI's Select only resolves the trigger's display label from this
+// `items` map — it never reads the popup's rendered SelectItem content, so
+// without it the trigger shows the raw enum value instead of the label.
+const PAYMENT_STATUS_LABELS: Record<ExpensePaymentStatus, string> = {
+  pending: "Ödeme Bekliyor",
+  paid: "Ödendi",
+};
+
 export function ExpenseFormDialog({
   mode,
   expense,
@@ -205,6 +213,7 @@ export function ExpenseFormDialog({
               <Select
                 value={fields.payment_status}
                 onValueChange={(v) => set({ payment_status: v as ExpensePaymentStatus })}
+                items={PAYMENT_STATUS_LABELS}
               >
                 <SelectTrigger id="ef-status" className="w-full">
                   <SelectValue />
@@ -220,6 +229,7 @@ export function ExpenseFormDialog({
               <Select
                 value={fields.payment_method}
                 onValueChange={(v) => set({ payment_method: v as ManualPaymentMethod })}
+                items={MANUAL_PAYMENT_METHOD_LABELS}
               >
                 <SelectTrigger id="ef-method" className="w-full">
                   <SelectValue placeholder="Seçin" />

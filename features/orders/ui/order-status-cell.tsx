@@ -123,6 +123,7 @@ function StatusInput({
             setSelectOpen(false);
           }
         }}
+        items={LABELS}
       >
         <SelectTrigger className="h-full w-full border-0 bg-transparent px-2 ring-0" autoFocus>
           <SelectValue placeholder={LABELS[current]} />

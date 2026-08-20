@@ -22,6 +22,10 @@ export function MarketSaleFilterBar({ locations }: { locations: MarketLocation[]
   const [pending, startTransition] = useTransition();
 
   const locationId = params.get("location_id") ?? "all";
+  const locationItems: Record<string, string> = {
+    all: "Tüm lokasyonlar",
+    ...Object.fromEntries(locations.map((loc) => [loc.id, loc.name])),
+  };
   const from = params.get("date_from") ?? "";
   const to = params.get("date_to") ?? "";
 
@@ -50,7 +54,7 @@ export function MarketSaleFilterBar({ locations }: { locations: MarketLocation[]
     <div className="grid gap-3 border-b pb-4 sm:grid-cols-3">
       <div className="flex flex-col gap-1.5">
         <Label className="text-xs">Pazar / Lokasyon</Label>
-        <Select value={locationId} onValueChange={setLocation} disabled={pending}>
+        <Select value={locationId} onValueChange={setLocation} disabled={pending} items={locationItems}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>

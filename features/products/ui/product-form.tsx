@@ -184,6 +184,7 @@ export function ProductFormDialog({
               <Select
                 value={fields.unit}
                 onValueChange={(value) => set({ unit: value as ProductUnit })}
+                items={PRODUCT_UNIT_OPTIONS}
               >
                 <SelectTrigger id="pf-unit" className="w-full">
                   <SelectValue />
@@ -238,6 +239,7 @@ export function ProductFormDialog({
               onValueChange={(value) =>
                 set({ fulfillment_type: value as FulfillmentType })
               }
+              items={FULFILLMENT_TYPE_OPTIONS}
             >
               <SelectTrigger id="pf-fulfillment" className="w-full">
                 <SelectValue />

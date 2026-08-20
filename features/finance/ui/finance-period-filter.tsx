@@ -83,7 +83,7 @@ export function FinancePeriodFilter() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Dönem</Label>
-          <Select value={range} onValueChange={setRange} disabled={pending}>
+          <Select value={range} onValueChange={setRange} disabled={pending} items={RANGE_LABEL}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -98,7 +98,7 @@ export function FinancePeriodFilter() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Tarih baz alma</Label>
-          <Select value={dateBasis} onValueChange={setDateBasis} disabled={pending}>
+          <Select value={dateBasis} onValueChange={setDateBasis} disabled={pending} items={DATE_BASIS_LABEL}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

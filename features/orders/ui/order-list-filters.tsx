@@ -91,7 +91,7 @@ export function OrderListFilters() {
       <div className="grid gap-3 md:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Durum</Label>
-          <Select value={status} onValueChange={setStatus} disabled={pending}>
+          <Select value={status} onValueChange={setStatus} disabled={pending} items={STATUS_LABEL}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -106,7 +106,7 @@ export function OrderListFilters() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Tarih</Label>
-          <Select value={range} onValueChange={setRange} disabled={pending}>
+          <Select value={range} onValueChange={setRange} disabled={pending} items={RANGE_LABEL}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

@@ -103,6 +103,12 @@ export function MarketSaleFormDialog({
   const [saving, startSaving] = useTransition();
   const [addingLocation, startAddingLocation] = useTransition();
 
+  // Base UI's Select only resolves the trigger's display label from this
+  // `items` map (id -> name) — it never reads the popup's rendered
+  // SelectItem/SelectItemText content, so without it the trigger shows the
+  // raw value (a UUID here) instead of the location name.
+  const locationItems = Object.fromEntries(localLocations.map((loc) => [loc.id, loc.name]));
+
   const set = (patch: Partial<FieldsState>) => setFields((prev) => ({ ...prev, ...patch }));
 
   const onOpenChange = (next: boolean) => {
@@ -196,7 +202,11 @@ export function MarketSaleFormDialog({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ms-location">Pazar / Lokasyon</Label>
             <div className="flex gap-2">
-              <Select value={fields.location_id} onValueChange={(v) => set({ location_id: v ?? "" })}>
+              <Select
+                value={fields.location_id}
+                onValueChange={(v) => set({ location_id: v ?? "" })}
+                items={locationItems}
+              >
                 <SelectTrigger id="ms-location" className="w-full">
                   <SelectValue placeholder="Seçin" />
                 </SelectTrigger>
@@ -255,6 +265,7 @@ export function MarketSaleFormDialog({
             <Select
               value={fields.payment_method}
               onValueChange={(v) => set({ payment_method: v as ManualPaymentMethod })}
+              items={MANUAL_PAYMENT_METHOD_LABELS}
             >
               <SelectTrigger id="ms-method" className="w-full">
                 <SelectValue />

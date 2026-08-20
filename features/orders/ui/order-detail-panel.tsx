@@ -354,7 +354,11 @@ function OrderEditForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Zaman dilimi</Label>
-          <Select value={timeSlot} onValueChange={(v) => v && setTimeSlot(v)}>
+          <Select
+            value={timeSlot}
+            onValueChange={(v) => v && setTimeSlot(v)}
+            items={{ [NO_TIME_SLOT]: "—", ...TIME_SLOT_LABEL }}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -371,6 +375,7 @@ function OrderEditForm({
           <Select
             value={paymentMethod}
             onValueChange={(v) => v && setPaymentMethod(v)}
+            items={PAYMENT_METHOD_LABEL}
           >
             <SelectTrigger>
               <SelectValue />
