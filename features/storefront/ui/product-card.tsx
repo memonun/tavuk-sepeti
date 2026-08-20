@@ -68,9 +68,9 @@ export function ProductCard({ product }: { product: Product }) {
       <h3 className="mt-4 font-display text-xl leading-tight tracking-[-0.01em] text-foreground">
         {product.display_name}
       </h3>
-      <p className="mt-1.5 text-sm text-muted-foreground">
+      <p className="mt-1.5 text-base text-muted-foreground">
         {hasVolumeDiscount(product) ? "başlangıç " : ""}
-        <span className="text-foreground tabular-nums">
+        <span className="font-medium text-foreground tabular-nums">
           {formatTRY(fromPriceMinor(product))}
         </span>{" "}
         / {product.unit_label}
@@ -122,10 +122,10 @@ export function ProductCard({ product }: { product: Product }) {
           <Button
             type="button"
             size="lg"
-            className="h-10 w-full rounded-full sm:w-auto sm:px-5"
+            className="h-12 w-full rounded-full text-base sm:w-auto sm:px-6"
             onClick={() => addItem(product.key, product.min_qty)}
           >
-            <PlusIcon /> Sepete ekle
+            <PlusIcon className="size-5" /> Sepete ekle
           </Button>
         )}
       </div>

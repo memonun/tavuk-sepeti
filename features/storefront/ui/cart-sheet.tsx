@@ -37,15 +37,24 @@ import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
 import type { Product } from "@/features/products/application/list-products";
 
 /** Header basket button + slide-over. Resolves each line against the live
- *  catalog so displayed prices are never stale. */
+ *  catalog so displayed prices are never stale.
+ *
+ * `variant` swaps only the opening control — the header's pill button
+ * ("header") or the mobile tab bar's stacked icon+label ("tab") — while the
+ * slide-over itself (lines, minimum check, checkout link) stays the single
+ * shared instance of this logic. Each mount owns its own open/close state,
+ * but both read the same module-level cart store, so a basket opened from
+ * the tab bar shows the same lines as one opened from the header. */
 export function CartSheet({
   products,
   cargoMinOrderMinor,
+  variant = "header",
 }: {
   products: readonly Product[];
   /** Cargo order floor in kuruş — stated here so a customer never carries a
    *  too-small basket all the way to checkout only to be refused. */
   cargoMinOrderMinor: number;
+  variant?: "header" | "tab";
 }) {
   const { lines, lineCount, hydrated, clear, retainOnly } = useCart();
   const [open, setOpen] = useState(false);
@@ -92,19 +101,40 @@ export function CartSheet({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <Button variant="outline" size="lg" className="relative rounded-full" />
-        }
-      >
-        <ShoppingBasketIcon />
-        <span className="hidden sm:inline">Sepet</span>
-        {hydrated && lineCount > 0 ? (
-          <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground tabular-nums">
-            {lineCount}
+      {variant === "tab" ? (
+        <SheetTrigger
+          render={
+            <button
+              type="button"
+              className="flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-muted-foreground transition-colors active:bg-secondary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            />
+          }
+        >
+          <span className="relative">
+            <ShoppingBasketIcon className="size-6" aria-hidden />
+            {hydrated && lineCount > 0 ? (
+              <span className="absolute -top-1.5 -right-2 flex min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[0.65rem] font-bold text-primary-foreground tabular-nums">
+                {lineCount}
+              </span>
+            ) : null}
           </span>
-        ) : null}
-      </SheetTrigger>
+          <span className="text-[11px] leading-none font-semibold">Sepetim</span>
+        </SheetTrigger>
+      ) : (
+        <SheetTrigger
+          render={
+            <Button variant="outline" size="lg" className="relative rounded-full" />
+          }
+        >
+          <ShoppingBasketIcon />
+          <span className="hidden sm:inline">Sepet</span>
+          {hydrated && lineCount > 0 ? (
+            <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground tabular-nums">
+              {lineCount}
+            </span>
+          ) : null}
+        </SheetTrigger>
+      )}
 
       <SheetContent className="w-full gap-0 sm:max-w-md">
         <SheetHeader className="border-b border-border/60">
