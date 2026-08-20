@@ -9,3 +9,10 @@ import type { Result } from "@/shared/result";
 export async function listMarketLocations(): Promise<Result<MarketLocation[], AppError>> {
   return repoListMarketLocations();
 }
+
+/** Active + inactive — the location-management dialog needs to show
+ *  archived locations too (so they can be reactivated), unlike every other
+ *  caller which only ever wants the pickable/active set. */
+export async function listAllMarketLocations(): Promise<Result<MarketLocation[], AppError>> {
+  return repoListMarketLocations(true);
+}

@@ -68,7 +68,9 @@ export type AuditAction =
   | "market_sale.created"
   | "market_sale.updated"
   | "market_sale.deleted"
-  | "market_location.created";
+  | "market_location.created"
+  | "market_location.updated"
+  | "market_location.deleted";
 
 export type AuditEntityType =
   | "customer"
