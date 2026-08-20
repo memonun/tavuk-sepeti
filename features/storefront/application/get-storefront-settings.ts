@@ -14,6 +14,7 @@ import "server-only";
  * floor. The repository already logged why.
  */
 import { unstable_cache } from "next/cache";
+import { cache } from "react";
 
 import {
   DEFAULT_STOREFRONT_SETTINGS,
@@ -31,9 +32,18 @@ async function loadSettings(): Promise<StorefrontSettings> {
   return read.kind === "row" ? read.settings : DEFAULT_STOREFRONT_SETTINGS;
 }
 
-/** Cached entry point — call this from Server Components and Server Actions. */
-export const getStorefrontSettings = unstable_cache(
-  loadSettings,
-  [STOREFRONT_SETTINGS_TAG],
-  { tags: [STOREFRONT_SETTINGS_TAG] },
+/**
+ * Cached entry point — call this from Server Components and Server Actions.
+ *
+ * Wrapped in React `cache()` on top of `unstable_cache`, the same layering
+ * `get-catalog.ts` uses: `unstable_cache` persists the value across requests
+ * (until the admin's tag invalidation), while `cache()` dedupes the several
+ * calls a single request now makes (the shop layout for the header + the
+ * mobile tab bar, and the homepage for its own fulfilment-info panel) down to
+ * one `unstable_cache` read instead of racing several on a cold cache.
+ */
+export const getStorefrontSettings = cache(
+  unstable_cache(loadSettings, [STOREFRONT_SETTINGS_TAG], {
+    tags: [STOREFRONT_SETTINGS_TAG],
+  }),
 );

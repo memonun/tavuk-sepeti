@@ -48,22 +48,22 @@ export function QuantityStepper({ product }: { product: Product }) {
     <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-background p-1">
       <Button
         type="button"
-        size="icon-sm"
+        size="icon-lg"
         variant="ghost"
-        className="rounded-full"
+        className="size-11 shrink-0 rounded-full"
         onClick={handleDecrement}
         aria-label={atMin ? "Ürünü çıkar" : "Azalt"}
       >
         {atMin ? <Trash2Icon /> : <MinusIcon />}
       </Button>
-      <span className="min-w-13 text-center text-sm font-medium tabular-nums">
+      <span className="min-w-13 text-center text-base font-medium tabular-nums">
         {formatQty(product, qty)}
       </span>
       <Button
         type="button"
-        size="icon-sm"
+        size="icon-lg"
         variant="ghost"
-        className="rounded-full"
+        className="size-11 shrink-0 rounded-full"
         onClick={handleIncrement}
         aria-label="Artır"
       >
