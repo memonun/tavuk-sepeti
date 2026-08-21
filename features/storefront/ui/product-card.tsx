@@ -43,7 +43,11 @@ export function ProductCard({ product }: { product: Product }) {
   );
 
   return (
-    <article className="group flex h-full flex-col">
+    // min-w-0: a grid item's default min-width is its content's min-content
+    // width, not the grid track — without it the in-cart row below (which
+    // has an un-shrinkable quantity stepper) forced this card wider than its
+    // 2-column mobile track, overflowing into the next column.
+    <article className="group flex h-full min-w-0 flex-col">
       {/* Radius tracks the frame's size — the stage above can carry the theme's
           2xl, a 350px shelf photo reads bubbly at it. */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-secondary/50">
