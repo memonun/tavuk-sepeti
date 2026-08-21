@@ -61,6 +61,14 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "İptal edildi",
 };
 
+/** Short form for a summary card — same vocabulary as the admin order
+ *  panel's PAYMENT_METHOD_LABEL, kept local since it's three lines. */
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash_on_delivery: "Kapıda nakit",
+  bank_transfer: "Havale / EFT",
+  credit_card: "Kredi / banka kartı",
+};
+
 type LookupMode = "phone" | "order_number";
 
 export function FindOrderForm() {
@@ -375,6 +383,10 @@ function OrderCard({
           </dd>
         </div>
         <div className="flex justify-between gap-4">
+          <dt className="text-muted-foreground">Ödeme Türü</dt>
+          <dd>{PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">
             {order.channel === "shipping" ? "Gönderim" : "Teslimat"}
           </dt>
@@ -397,6 +409,10 @@ function OrderCard({
           <dd className="font-semibold tabular-nums">
             {formatTRY(order.totalMinor)}
           </dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-muted-foreground">Ödenen Tutar</dt>
+          <dd className="tabular-nums">{formatTRY(order.amountPaidMinor)}</dd>
         </div>
         {order.channel === "shipping" &&
         (order.cargoCarrier || order.cargoTrackingNumber || order.cargoTrackingUrl) ? (
@@ -423,6 +439,25 @@ function OrderCard({
           </div>
         ) : null}
       </dl>
+
+      {order.items.length > 0 ? (
+        <div className="border-t border-border/60 pt-3">
+          <p className="mb-2 text-sm font-medium text-foreground">Ürünler</p>
+          <ul className="flex flex-col gap-1.5 text-sm">
+            {order.items.map((item, index) => (
+              <li key={index} className="flex items-start justify-between gap-4">
+                <span className="text-muted-foreground">
+                  {item.quantity.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
+                  {item.unitLabel ? ` ${item.unitLabel}` : ""} · {item.displayName}
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  {formatTRY(item.lineTotalMinor)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {canRetryCardPayment ? (
         <div className="pt-1">
