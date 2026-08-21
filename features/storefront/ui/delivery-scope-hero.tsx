@@ -16,9 +16,11 @@ import type { DeliveryScope } from "@/features/storefront/domain/catalog-filter"
  * scope is currently active (`aria-current` + a check badge mark the active
  * one), so switching is always one tap away.
  *
- * Solid primary/destructive fills are the one deliberately loud moment on an
- * otherwise quiet, cream page — everywhere else colour is reserved for the
- * products themselves. This is the exception: it is the single decision that
+ * Solid primary fill (same tone on both cards, deliberately — this is one
+ * choice with two equally valid answers, not a "safe" option next to a
+ * "warning" one) is the one deliberately loud moment on an otherwise quiet,
+ * cream page — everywhere else colour is reserved for the products
+ * themselves. This is the exception: it is the single decision that
  * determines what a customer can even buy, so it gets to look like one.
  */
 export function DeliveryScopeHero({ scope }: { scope: DeliveryScope | null }) {
@@ -37,7 +39,6 @@ export function DeliveryScopeHero({ scope }: { scope: DeliveryScope | null }) {
         <ScopeCard
           href="/?teslimat=malatya#urunler"
           active={scope === "malatya"}
-          tone="primary"
           icon={<HouseIcon className="size-8 sm:size-9" aria-hidden />}
           title="Malatya İçindeyim"
           description="Malatya içi teslim edilen ürünleri görüntüleyin."
@@ -46,7 +47,6 @@ export function DeliveryScopeHero({ scope }: { scope: DeliveryScope | null }) {
         <ScopeCard
           href="/?teslimat=kargo#urunler"
           active={scope === "kargo"}
-          tone="destructive"
           icon={<TruckIcon className="size-8 sm:size-9" aria-hidden />}
           title="Malatya Dışındayım"
           description="Türkiye geneline kargolanabilen ürünleri görüntüleyin."
@@ -60,7 +60,6 @@ export function DeliveryScopeHero({ scope }: { scope: DeliveryScope | null }) {
 function ScopeCard({
   href,
   active,
-  tone,
   icon,
   title,
   description,
@@ -68,7 +67,6 @@ function ScopeCard({
 }: {
   href: string;
   active: boolean;
-  tone: "primary" | "destructive";
   icon: React.ReactNode;
   title: string;
   description: string;
@@ -80,12 +78,11 @@ function ScopeCard({
       aria-current={active ? "true" : undefined}
       className={cn(
         // Generous padding + min-height: a large, unambiguous touch target,
-        // not a dense info card. White text throughout — both fills are
-        // mid-lightness, saturated colours, so a single readable-on-either
-        // text colour keeps this simple rather than branching per tone.
-        "relative flex min-h-44 flex-col gap-2 rounded-2xl p-4 text-left text-white shadow-sm transition-transform sm:min-h-48 sm:p-6",
+        // not a dense info card. Both cards share the same primary fill —
+        // this is one choice with two equally valid answers, not a
+        // "safe green / warning red" pair.
+        "relative flex min-h-44 flex-col gap-2 rounded-2xl bg-primary p-4 text-left text-white shadow-sm transition-transform sm:min-h-48 sm:p-6",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-[0.98]",
-        tone === "primary" ? "bg-primary" : "bg-destructive",
       )}
     >
       {active ? (

@@ -68,7 +68,7 @@ export default async function ShopHomePage({
 
       <DeliveryScopeHero scope={scope} />
       <RecurringOrderTeaser />
-      <TrustHighlights />
+      <TrustHighlights homeDeliveryDays={settings.homeDeliveryDays} />
 
       <div className="mt-10 sm:mt-12">
         {/* Highlights are drawn from the same scope-filtered list as the full

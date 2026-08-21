@@ -24,7 +24,9 @@ import { MarkCargoShippedButton } from "@/features/cargo/ui/mark-cargo-shipped-b
 
 import type { OrderListItem, PaymentStatus } from "@/features/orders/application/list-orders";
 
-const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+/** Shared with cargo-shipped-order-table.tsx — same payment-status vocabulary
+ *  for both the prep queue and the shipped-history view below it. */
+export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   pending: "Bekliyor",
   partial: "Kısmi",
   paid: "Ödendi",
@@ -32,7 +34,7 @@ const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   refunded: "İade",
 };
 
-const PAYMENT_STATUS_VARIANT: Record<PaymentStatus, "default" | "secondary" | "destructive"> = {
+export const PAYMENT_STATUS_VARIANT: Record<PaymentStatus, "default" | "secondary" | "destructive"> = {
   pending: "secondary",
   partial: "secondary",
   paid: "default",
