@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import {
   customerSignInAction,
@@ -27,6 +27,13 @@ export function CustomerAuthForm({
   const action =
     mode === "signin" ? customerSignInAction : customerSignUpAction;
   const [state, formAction, pending] = useActionState(action, initialState);
+  // React resets every uncontrolled field in a `action={fn}` form once the
+  // action settles — including on a failed submission, not just a successful
+  // one. That silently wiped the e-mail field on a wrong password, forcing a
+  // retype for no reason. A controlled value survives it: React re-applies
+  // this state to the input on the very next render regardless of what the
+  // native reset just did to the DOM.
+  const [email, setEmail] = useState("");
   const withNext = (path: string): string =>
     next ? `${path}?next=${encodeURIComponent(next)}` : path;
 
@@ -122,6 +129,8 @@ export function CustomerAuthForm({
           autoComplete="email"
           required
           disabled={pending}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
       </div>
 

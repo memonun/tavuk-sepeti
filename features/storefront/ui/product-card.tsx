@@ -110,7 +110,11 @@ export function ProductCard({ product }: { product: Product }) {
         </p>
       ) : null}
 
-      <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+      {/* flex-wrap: the stepper's buttons are large (48px, accessibility) and
+          in the homepage's 2-column mobile grid the two together no longer
+          fit one row — without wrap the price overflowed past the card into
+          the next column instead of dropping to its own line. */}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-5">
         {inCart ? (
           <>
             <QuantityStepper product={product} />
