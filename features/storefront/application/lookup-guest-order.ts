@@ -23,6 +23,16 @@ import { err, ok, type Result } from "@/shared/result";
 import { getSupabaseAdminClient } from "@/shared/supabase/admin";
 import { normalizeTRPhone } from "@/shared/utils/phone";
 
+/** One purchased line, read from `order_items.product_snapshot` — frozen at
+ *  order time, so a later product rename/deletion never breaks this. */
+export interface GuestOrderItemView {
+  displayName: string;
+  unitLabel: string;
+  quantity: number;
+  unitPriceMinor: number;
+  lineTotalMinor: number;
+}
+
 export interface GuestOrderView {
   orderId: string;
   orderNumber: string;
@@ -30,12 +40,23 @@ export interface GuestOrderView {
   paymentStatus: string;
   paymentMethod: string;
   totalMinor: number;
+  /** How much of `totalMinor` has actually been received so far — kuruş.
+   *  Owner decision 2026-08-21: guests see this alongside the total, not
+   *  just admins. */
+  amountPaidMinor: number;
   scheduledFor: string;
   channel: "delivery" | "shipping";
   createdAt: string;
   cargoCarrier: string | null;
   cargoTrackingNumber: string | null;
   cargoTrackingUrl: string | null;
+  /** What was bought. Owner decision 2026-08-21 (see the migration this
+   *  shipped with): the guest lookups used to return status fields only —
+   *  never items — specifically because the order-number-only tab has no
+   *  phone check and order numbers are sequential/guessable. The owner asked
+   *  to show items anyway, on every lookup path; still never address, name
+   *  or e-mail. */
+  items: readonly GuestOrderItemView[];
   /** Dwell-aware ETA from the admin's route-optimization flow
    *  (features/routing/domain/route-schedule.ts) — a flat estimate, not live
    *  tracking. Null until the order has been through an optimized route at
@@ -52,6 +73,28 @@ export interface GuestOrderView {
    * moment the customer asked — which is exactly the moment it describes.
    */
   awaitingCardConfirmation: boolean;
+}
+
+/** Defensive parse of the `items` jsonb column — falls back to an empty list
+ *  rather than throwing, so a deploy where this app code lands slightly ahead
+ *  of the migration (the old RPC has no `items` column yet) degrades to "no
+ *  items shown" instead of a broken lookup page. */
+function parseGuestOrderItems(value: unknown): GuestOrderItemView[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw): GuestOrderItemView[] => {
+    if (typeof raw !== "object" || raw === null) return [];
+    const r = raw as Record<string, unknown>;
+    if (typeof r.display_name !== "string") return [];
+    return [
+      {
+        displayName: r.display_name,
+        unitLabel: typeof r.unit_label === "string" ? r.unit_label : "",
+        quantity: Number(r.quantity ?? 0),
+        unitPriceMinor: Number(r.unit_price_minor ?? 0),
+        lineTotalMinor: Number(r.line_total_minor ?? 0),
+      },
+    ];
+  });
 }
 
 /** Shared row→view mapping for every RPC that returns this same column set
@@ -74,6 +117,7 @@ export function mapGuestOrderRow(row: Record<string, unknown>): GuestOrderView {
     paymentStatus: String(row.payment_status),
     paymentMethod: String(row.payment_method),
     totalMinor: Number(row.total_minor ?? 0),
+    amountPaidMinor: Number(row.amount_paid_minor ?? 0),
     scheduledFor: String(row.scheduled_for),
     channel: row.fulfillment_channel === "shipping" ? "shipping" : "delivery",
     createdAt,
@@ -84,6 +128,7 @@ export function mapGuestOrderRow(row: Record<string, unknown>): GuestOrderView {
       typeof row.cargo_tracking_url === "string" ? row.cargo_tracking_url : null,
     estimatedDeliveryAt:
       typeof row.estimated_delivery_at === "string" ? row.estimated_delivery_at : null,
+    items: parseGuestOrderItems(row.items),
   };
 }
 
