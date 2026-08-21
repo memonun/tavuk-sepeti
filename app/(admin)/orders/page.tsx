@@ -22,6 +22,7 @@ import { listOrders } from "@/features/orders/application/list-orders";
 import { listActiveProducts } from "@/features/products/application/list-products";
 import { OrderGrid } from "@/features/orders/ui/order-grid";
 import { OrderListFilters } from "@/features/orders/ui/order-list-filters";
+import { OrderRowColorLegend } from "@/features/orders/ui/order-row-color-legend";
 import { listViewsAction } from "@/features/views/application/list-views";
 import { ViewTabs } from "@/features/views/ui/view-tabs";
 import { buildViewUrl } from "@/features/views/ui/view-url";
@@ -119,7 +120,10 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     <div className="flex h-[calc(100vh-3rem)] min-w-0 flex-col gap-2">
       {/* Notion-style page header: title left, count + action right */}
       <div className="flex items-baseline justify-between gap-4 px-1">
-        <h1 className="text-lg font-semibold tracking-tight">Siparişler</h1>
+        <div className="flex items-baseline gap-4">
+          <h1 className="text-lg font-semibold tracking-tight">Siparişler</h1>
+          <OrderRowColorLegend />
+        </div>
         <div className="flex items-center gap-4">
           <p className="text-xs text-muted-foreground">
             {listResult.value.total} kayıt
