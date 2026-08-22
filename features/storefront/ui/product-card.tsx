@@ -77,21 +77,31 @@ export function ProductCard({ product }: { product: Product }) {
       <h3 className="mt-4 line-clamp-2 min-h-[3.125rem] font-display text-xl leading-tight tracking-[-0.01em] text-foreground">
         {product.display_name}
       </h3>
-      <p className="mt-1.5 text-base text-muted-foreground">
+      {/* min-h reserves 2 lines here too — a long unit_label ("paket (15
+          adet)") plus the "başlangıç" prefix can wrap on the narrower
+          showcase columns while a short one ("kg") never does, which shifted
+          this card's badge out of line with its row-neighbors same as the
+          name did above. */}
+      <p className="mt-1.5 min-h-12 text-base text-muted-foreground">
         {hasVolumeDiscount(product) ? "başlangıç " : ""}
         <span className="font-medium text-foreground tabular-nums">
           {formatTRY(fromPriceMinor(product))}
         </span>{" "}
         / {product.unit_label}
       </p>
-      {hasHalfUnitOption(product) ? (
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          yarım kilo{" "}
-          <span className="text-foreground tabular-nums">
-            {formatTRY(halfUnitPriceMinor(product))}
-          </span>
-        </p>
-      ) : null}
+      {/* min-h reserves this line's own height (16px) even when absent, so
+          the fulfilment badge below it lands at the same row across cards
+          regardless of which ones have a half-kilo price and which don't. */}
+      <div className="mt-0.5 min-h-4">
+        {hasHalfUnitOption(product) ? (
+          <p className="text-xs text-muted-foreground">
+            yarım kilo{" "}
+            <span className="text-foreground tabular-nums">
+              {formatTRY(halfUnitPriceMinor(product))}
+            </span>
+          </p>
+        ) : null}
+      </div>
 
       {/* Fulfilment rule, right under the price where an older shopper is
           already reading — a small pill, not a wall of badges, but not a
