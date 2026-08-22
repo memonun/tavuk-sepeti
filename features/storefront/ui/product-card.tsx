@@ -69,7 +69,12 @@ export function ProductCard({ product }: { product: Product }) {
         )}
       </div>
 
-      <h3 className="mt-4 font-display text-xl leading-tight tracking-[-0.01em] text-foreground">
+      {/* min-h reserves 2 lines (text-xl leading-tight = 1.25rem × 1.25 = 25px/line)
+          so the price row below starts at the same height whether a name wraps
+          or not — without it, a long name in one card and a short one next to
+          it in the same grid row pushed that card's price out of line with its
+          neighbors. */}
+      <h3 className="mt-4 line-clamp-2 min-h-[3.125rem] font-display text-xl leading-tight tracking-[-0.01em] text-foreground">
         {product.display_name}
       </h3>
       <p className="mt-1.5 text-base text-muted-foreground">
