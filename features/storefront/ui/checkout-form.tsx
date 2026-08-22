@@ -339,7 +339,7 @@ export function CheckoutForm({
   // needs no session, so the guest flow stays on the single order submit below.
   if (!identity && accountMode !== "guest") {
     return (
-      <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_20rem]">
         <form action={accountAction} className="flex flex-col gap-8">
           <Section title="1. Hesap">
             <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
@@ -425,7 +425,13 @@ export function CheckoutForm({
     !pending && hasAddress && minimum.ok && !noDeliveryDay && distanceSalesAccepted;
 
   return (
-    <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    // grid-cols-1: without an explicit base track, the implicit single-column
+    // grid track sizes to its content's min-content width (`auto`) instead of
+    // clamping to the container — a form field slightly wider than its
+    // column pushed the whole page ~10px past the viewport, which iOS Safari
+    // then read back into the fixed bottom nav's width, showing as a black
+    // strip down the right edge.
+    <form action={formAction} className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-8">
         <Section title="1. İletişim">
           {identity ? (
