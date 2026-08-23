@@ -84,6 +84,7 @@ import {
   rangesToCells,
 } from "@/components/data-grid/selection-model";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -819,15 +820,12 @@ export function DataGrid<TRow extends object, TPatch>({
                   className="sticky left-0 z-10 h-8 w-7 border-b border-r border-border bg-muted px-1 align-middle"
                   style={{ width: 28 }}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label="Tümünü seç"
                     checked={allVisibleSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = someVisibleSelected;
-                    }}
-                    onChange={(e) => selectAllVisibleRows(e.target.checked)}
-                    className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
+                    indeterminate={someVisibleSelected}
+                    onCheckedChange={selectAllVisibleRows}
+                    className="size-3.5 cursor-pointer [&_svg]:size-2.5 data-[checked]:border-blue-600 data-[checked]:bg-blue-600 data-[indeterminate]:border-blue-600 data-[indeterminate]:bg-blue-600"
                   />
                 </th>
                 {headerGroup.headers.map((header) => (
@@ -967,12 +965,11 @@ export function DataGrid<TRow extends object, TPatch>({
                           isRowSelected && "opacity-100",
                         )}
                       />
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={isRowSelected}
-                        onChange={(e) => toggleRowSelection(row.id, e.target.checked)}
-                        aria-label={`Satırı seç`}
-                        className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
+                        onCheckedChange={(checked) => toggleRowSelection(row.id, checked)}
+                        aria-label="Satırı seç"
+                        className="size-3.5 cursor-pointer [&_svg]:size-2.5 data-[checked]:border-blue-600 data-[checked]:bg-blue-600"
                       />
                     </div>
                   </td>

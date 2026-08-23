@@ -95,6 +95,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
@@ -641,26 +642,25 @@ export function CheckoutForm({
         )}
 
         <Section title="4. Ödeme">
-          <div className="grid gap-2 sm:grid-cols-2">
+          <RadioGroup
+            name="payment_method"
+            value={selectedPaymentMethod}
+            onValueChange={setPaymentMethod}
+            disabled={pending}
+            required
+            className="grid gap-2 sm:grid-cols-2"
+          >
             {paymentOptions.map((option) => (
               <label
                 key={option.value}
-                className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input p-3 text-sm transition-colors has-checked:border-primary has-checked:bg-secondary/50"
+                data-checked={selectedPaymentMethod === option.value || undefined}
+                className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input p-3 text-sm transition-colors data-[checked]:border-primary data-[checked]:bg-secondary/50"
               >
-                <input
-                  type="radio"
-                  name="payment_method"
-                  value={option.value}
-                  checked={selectedPaymentMethod === option.value}
-                  onChange={() => setPaymentMethod(option.value)}
-                  className="size-4 accent-primary"
-                  disabled={pending}
-                  required
-                />
+                <RadioGroupItem value={option.value} />
                 {option.label}
               </label>
             ))}
-          </div>
+          </RadioGroup>
           {/* Say WHY the door-payment option is missing, rather than leaving a
               customer hunting for it. Keyed on `channel`, not `mode`: once an
               address upgrades a flexible-only basket to delivery, kapıda
