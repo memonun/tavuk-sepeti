@@ -44,8 +44,14 @@ export interface ExpenseSummaryRow {
   pending_minor: number;
 }
 
-export interface ExpenseBreakdownRow {
-  category: string;
+/** Leaf-level row from finance_expense_category_breakdown — parent_id/name
+ *  are null for a top-level category with no parent. The app layer sums by
+ *  `parent_id ?? category_id` for the Ana Kategoriler view (spec §18). */
+export interface ExpenseCategoryBreakdownRow {
+  category_id: string;
+  category_name: string;
+  parent_id: string | null;
+  parent_name: string | null;
   amount_minor: number;
 }
 
@@ -136,18 +142,18 @@ export async function financeExpenseSummary(
   return ok(row ?? { total_minor: 0, paid_minor: 0, pending_minor: 0 });
 }
 
-export async function financeExpenseBreakdown(
+export async function financeExpenseCategoryBreakdown(
   from: string,
   to: string,
-): Promise<Result<ExpenseBreakdownRow[], ExternalApiError>> {
+): Promise<Result<ExpenseCategoryBreakdownRow[], ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc("finance_expense_breakdown", {
+  const { data, error } = await (supabase as any).rpc("finance_expense_category_breakdown", {
     p_from: from,
     p_to: to,
   });
-  if (error) return rpcFailure("finance_expense_breakdown", error);
-  return ok((data ?? []) as ExpenseBreakdownRow[]);
+  if (error) return rpcFailure("finance_expense_category_breakdown", error);
+  return ok((data ?? []) as ExpenseCategoryBreakdownRow[]);
 }
 
 export async function financeMarketTopProducts(

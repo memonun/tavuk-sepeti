@@ -8,11 +8,14 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EXPENSE_CATEGORY_OPTIONS } from "@/features/finance/domain/expense";
+import { formatCategoryPath } from "@/features/finance/domain/expense-category";
+
+import type { ExpenseCategoryNode } from "@/features/finance/domain/expense-category";
 
 const STATUS_LABEL: Record<string, string> = {
   all: "Tüm durumlar",
@@ -20,19 +23,20 @@ const STATUS_LABEL: Record<string, string> = {
   paid: "Ödendi",
 };
 
-const CATEGORY_LABEL: Record<string, string> = {
-  all: "Tüm kategoriler",
-  ...Object.fromEntries(EXPENSE_CATEGORY_OPTIONS.map((c) => [c, c])),
-};
-
-export function ExpenseFilterBar() {
+export function ExpenseFilterBar({
+  categories,
+}: {
+  /** Full tree (incl. archived) — a filter needs to find expenses recorded
+   *  under a since-archived category, unlike the create form. */
+  categories: readonly ExpenseCategoryNode[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
 
   const q = params.get("q") ?? "";
-  const category = params.get("category") ?? "all";
+  const categoryId = params.get("category_id") ?? "all";
   const status = params.get("payment_status") ?? "all";
   const from = params.get("date_from") ?? "";
   const to = params.get("date_to") ?? "";
@@ -53,8 +57,8 @@ export function ExpenseFilterBar() {
   const setCategory = (value: string | null) => {
     if (value === null) return;
     const next = new URLSearchParams(params.toString());
-    if (value === "all") next.delete("category");
-    else next.set("category", value);
+    if (value === "all") next.delete("category_id");
+    else next.set("category_id", value);
     update(next);
   };
 
@@ -73,6 +77,14 @@ export function ExpenseFilterBar() {
     update(next);
   };
 
+  const categoryItems: Record<string, string> = { all: "Tüm kategoriler" };
+  for (const parent of categories) {
+    categoryItems[parent.id] = parent.children.length > 0 ? `${parent.name} (tümü)` : parent.name;
+    for (const child of parent.children) {
+      categoryItems[child.id] = formatCategoryPath(child.name, parent.name);
+    }
+  }
+
   return (
     <div className="grid gap-3 border-b pb-4 sm:grid-cols-2 lg:grid-cols-4">
       <div className="flex flex-col gap-1.5">
@@ -86,16 +98,30 @@ export function ExpenseFilterBar() {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label className="text-xs">Kategori</Label>
-        <Select value={category} onValueChange={setCategory} disabled={pending} items={CATEGORY_LABEL}>
+        <Select value={categoryId} onValueChange={setCategory} disabled={pending} items={categoryItems}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tüm kategoriler</SelectItem>
-            {EXPENSE_CATEGORY_OPTIONS.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
+            {categories.map((parent) => (
+              <SelectGroup key={parent.id}>
+                {parent.children.length > 0 ? (
+                  <>
+                    {/* Selecting the parent includes every child (spec §19) —
+                        the create form never offers this option, but a
+                        filter legitimately wants "all Üretim Giderleri". */}
+                    <SelectItem value={parent.id}>{parent.name} (tümü)</SelectItem>
+                    {parent.children.map((child) => (
+                      <SelectItem key={child.id} value={child.id}>
+                        {formatCategoryPath(child.name, parent.name)}
+                      </SelectItem>
+                    ))}
+                  </>
+                ) : (
+                  <SelectItem value={parent.id}>{parent.name}</SelectItem>
+                )}
+              </SelectGroup>
             ))}
           </SelectContent>
         </Select>

@@ -51,7 +51,7 @@ export async function createExpenseAction(
     action: "expense.created",
     entity_type: "expense",
     entity_id: created.value,
-    after: { category: parsed.data.category, amount_minor: parsed.data.amount_minor },
+    after: { category_id: parsed.data.category_id, amount_minor: parsed.data.amount_minor },
   });
 
   revalidatePath(GIDERLER_PATH);
@@ -84,7 +84,7 @@ export async function updateExpenseAction(
     action: "expense.updated",
     entity_type: "expense",
     entity_id: id,
-    after: { category: rest.category, amount_minor: rest.amount_minor },
+    after: { category_id: rest.category_id, amount_minor: rest.amount_minor },
   });
 
   revalidatePath(GIDERLER_PATH);

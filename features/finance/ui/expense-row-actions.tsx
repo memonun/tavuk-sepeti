@@ -22,8 +22,17 @@ import {
 } from "@/components/ui/dialog";
 
 import type { Expense } from "@/features/finance/domain/expense";
+import type { ExpenseCategoryNode } from "@/features/finance/domain/expense-category";
 
-export function ExpenseRowActions({ expense }: { expense: Expense }) {
+export function ExpenseRowActions({
+  expense,
+  categories,
+  categoryLabel,
+}: {
+  expense: Expense;
+  categories: readonly ExpenseCategoryNode[];
+  categoryLabel: string;
+}) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startPending] = useTransition();
@@ -71,6 +80,7 @@ export function ExpenseRowActions({ expense }: { expense: Expense }) {
       <ExpenseFormDialog
         mode="edit"
         expense={expense}
+        categories={categories}
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Düzenle">
             <Pencil className="h-3.5 w-3.5" />
@@ -94,7 +104,7 @@ export function ExpenseRowActions({ expense }: { expense: Expense }) {
             <DialogTitle>Gideri sil</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            &quot;{expense.category}&quot; giderini silmek istediğine emin misin? Bu işlem geri
+            &quot;{categoryLabel}&quot; giderini silmek istediğine emin misin? Bu işlem geri
             alınamaz.
           </p>
           <DialogFooter>

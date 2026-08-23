@@ -14,11 +14,12 @@ import type { Expense } from "@/features/finance/domain/expense";
 import type { ExpenseListQuery } from "@/features/finance/domain/expense.schema";
 
 const EXPENSE_SELECT =
-  "id, category, amount_minor, expense_date, description, payment_status, payment_method, vendor, note, created_at, updated_at, created_by" as const;
+  "id, category, category_id, amount_minor, expense_date, description, payment_status, payment_method, vendor, note, quantity, unit, created_at, updated_at, created_by" as const;
 
 type ExpenseRow = {
   id: string;
-  category: string;
+  category: string | null;
+  category_id: string | null;
   amount_minor: number;
   expense_date: string;
   description: string | null;
@@ -26,6 +27,8 @@ type ExpenseRow = {
   payment_method: Expense["payment_method"];
   vendor: string | null;
   note: string | null;
+  quantity: number | null;
+  unit: Expense["unit"];
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -35,6 +38,7 @@ function rowToExpense(row: ExpenseRow): Expense {
   return {
     id: row.id,
     category: row.category,
+    category_id: row.category_id,
     amount_minor: row.amount_minor,
     expense_date: row.expense_date,
     description: row.description,
@@ -42,6 +46,8 @@ function rowToExpense(row: ExpenseRow): Expense {
     payment_method: row.payment_method,
     vendor: row.vendor,
     note: row.note,
+    quantity: row.quantity,
+    unit: row.unit,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     created_by: row.created_by,
@@ -55,8 +61,17 @@ export interface ListExpensesResult {
   pageSize: number;
 }
 
+/** Same as the Zod-parsed list query, except `category_id` (a single,
+ *  possibly-top-level selection) is replaced by `category_ids` — the
+ *  application layer expands a parent category to itself + its children
+ *  (collectSelfAndDescendantIds) before calling the repository, so this
+ *  layer never needs to know about the category tree. */
+export type ExpenseListFilter = Omit<ExpenseListQuery, "category_id"> & {
+  category_ids?: string[];
+};
+
 export async function listExpenses(
-  query: ExpenseListQuery,
+  query: ExpenseListFilter,
 ): Promise<Result<ListExpensesResult, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
   const from = (query.page - 1) * query.pageSize;
@@ -67,7 +82,9 @@ export async function listExpenses(
     .from("expenses")
     .select(EXPENSE_SELECT, { count: "exact" });
 
-  if (query.category) builder = builder.eq("category", query.category);
+  if (query.category_ids && query.category_ids.length > 0) {
+    builder = builder.in("category_id", query.category_ids);
+  }
   if (query.payment_status) builder = builder.eq("payment_status", query.payment_status);
   if (query.date_from) builder = builder.gte("expense_date", query.date_from);
   if (query.date_to) builder = builder.lte("expense_date", query.date_to);
@@ -114,7 +131,7 @@ export async function findExpenseById(
 }
 
 export interface ExpenseWriteInput {
-  category: string;
+  category_id: string;
   amount_minor: number;
   expense_date: string;
   description: string | null;
@@ -122,6 +139,8 @@ export interface ExpenseWriteInput {
   payment_method: Expense["payment_method"];
   vendor: string | null;
   note: string | null;
+  quantity: number | null;
+  unit: Expense["unit"];
   created_by: string;
 }
 
@@ -133,7 +152,7 @@ export async function createExpense(
   const { data, error } = await (supabase as any)
     .from("expenses")
     .insert({
-      category: input.category,
+      category_id: input.category_id,
       amount_minor: input.amount_minor,
       expense_date: input.expense_date,
       description: input.description,
@@ -141,6 +160,8 @@ export async function createExpense(
       payment_method: input.payment_method,
       vendor: input.vendor,
       note: input.note,
+      quantity: input.quantity,
+      unit: input.unit,
       created_by: input.created_by,
     })
     .select("id")
@@ -162,7 +183,7 @@ export async function updateExpense(
   const { error } = await (supabase as any)
     .from("expenses")
     .update({
-      category: input.category,
+      category_id: input.category_id,
       amount_minor: input.amount_minor,
       expense_date: input.expense_date,
       description: input.description,
@@ -170,6 +191,8 @@ export async function updateExpense(
       payment_method: input.payment_method,
       vendor: input.vendor,
       note: input.note,
+      quantity: input.quantity,
+      unit: input.unit,
     })
     .eq("id", id);
 

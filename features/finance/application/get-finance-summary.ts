@@ -12,7 +12,6 @@ import { calculateNetDurum } from "@/features/finance/domain/net-durum";
 import {
   financeCollectedAmount,
   financeExpectedPayments,
-  financeExpenseBreakdown,
   financeExpenseSummary,
   financeMarketRevenue,
   financeRevenueByChannel,
@@ -38,14 +37,13 @@ export async function getFinanceSummary(
   }
   const { from, to, dateBasis } = parsed.data;
 
-  const [channelRes, marketRes, collectedRes, expectedRes, expenseSummaryRes, expenseBreakdownRes] =
+  const [channelRes, marketRes, collectedRes, expectedRes, expenseSummaryRes] =
     await Promise.all([
       financeRevenueByChannel(from, to, dateBasis),
       financeMarketRevenue(from, to),
       financeCollectedAmount(from, to),
       financeExpectedPayments(from, to, dateBasis),
       financeExpenseSummary(from, to),
-      financeExpenseBreakdown(from, to),
     ]);
 
   if (!channelRes.ok) return err(channelRes.error);
@@ -53,7 +51,6 @@ export async function getFinanceSummary(
   if (!collectedRes.ok) return err(collectedRes.error);
   if (!expectedRes.ok) return err(expectedRes.error);
   if (!expenseSummaryRes.ok) return err(expenseSummaryRes.error);
-  if (!expenseBreakdownRes.ok) return err(expenseBreakdownRes.error);
 
   const marketRevenueMinor = marketRes.value.reduce((acc, r) => acc + r.revenue_minor, 0);
   const onlineRevenueMinor = channelRes.value.reduce((acc, r) => acc + r.revenue_minor, 0);
@@ -90,10 +87,6 @@ export async function getFinanceSummary(
       locationName: row.location_name,
       revenueMinor: row.revenue_minor,
       saleCount: row.sale_count,
-    })),
-    expenseBreakdown: expenseBreakdownRes.value.map((row) => ({
-      category: row.category,
-      amountMinor: row.amount_minor,
     })),
   };
 
