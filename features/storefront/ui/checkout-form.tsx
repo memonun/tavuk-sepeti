@@ -91,6 +91,7 @@ import {
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -749,13 +750,15 @@ export function CheckoutForm({
                 })),
               )}
             />
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50">
-              <input
-                type="checkbox"
+            <label
+              data-checked={distanceSalesAccepted || undefined}
+              className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs data-[checked]:border-primary data-[checked]:bg-secondary/50"
+            >
+              <Checkbox
                 name="distance_sales_accepted"
                 checked={distanceSalesAccepted}
-                onChange={(event) => setDistanceSalesAccepted(event.target.checked)}
-                className="mt-0.5 size-4 accent-primary"
+                onCheckedChange={setDistanceSalesAccepted}
+                className="mt-0.5"
                 required
                 disabled={pending}
               />
