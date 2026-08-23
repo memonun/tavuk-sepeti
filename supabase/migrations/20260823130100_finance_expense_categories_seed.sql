@@ -1,4 +1,4 @@
--- 20260822090100_finance_expense_categories_seed
+-- 20260823130100_finance_expense_categories_seed
 --
 -- Seeds the Apuhan Çiftliği expense category hierarchy. Data-only, additive.
 -- system_key values are the only thing the next (backfill) migration

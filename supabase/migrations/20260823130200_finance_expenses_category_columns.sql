@@ -1,4 +1,4 @@
--- 20260822090200_finance_expenses_category_columns
+-- 20260823130200_finance_expenses_category_columns
 --
 -- Adds the managed-category FK and optional quantity/unit (Birim Maliyet,
 -- spec §7) to expenses. All additive/loosening changes:

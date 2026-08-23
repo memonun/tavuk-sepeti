@@ -1,4 +1,4 @@
--- 20260822090000_finance_expense_categories
+-- 20260823130000_finance_expense_categories
 --
 -- Finance V2: replaces expenses' free-text `category` with a managed,
 -- two-level category system so spending can actually be aggregated ("Bu ay

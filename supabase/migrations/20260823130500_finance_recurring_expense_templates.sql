@@ -1,4 +1,4 @@
--- 20260823090000_finance_recurring_expense_templates
+-- 20260823130500_finance_recurring_expense_templates
 --
 -- Finance V2 — recurring expense templates. A template is a schedule, not a
 -- ledger entry: it lazily generates ordinary `expenses` rows (see the next

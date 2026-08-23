@@ -1,4 +1,4 @@
--- 20260822090400_finance_expense_breakdown_category_join
+-- 20260823130400_finance_expense_breakdown_category_join
 --
 -- finance_expense_breakdown's signature is UNCHANGED (still (date, date) ->
 -- table(category text, amount_minor bigint)) — only the body changes, to

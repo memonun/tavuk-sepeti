@@ -1,4 +1,4 @@
--- 20260823090100_finance_expenses_recurring_columns
+-- 20260823130600_finance_expenses_recurring_columns
 --
 -- Wires generated recurring expenses back to their template, mirroring
 -- orders.source/orders.recurring_template_id + the partial unique dedupe

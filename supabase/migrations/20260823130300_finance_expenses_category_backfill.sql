@@ -1,4 +1,4 @@
--- 20260822090300_finance_expenses_category_backfill
+-- 20260823130300_finance_expenses_category_backfill
 --
 -- Backfills expenses.category_id from the pre-V2 free-text category column.
 -- Defensive by design: this migration's author has no live access to

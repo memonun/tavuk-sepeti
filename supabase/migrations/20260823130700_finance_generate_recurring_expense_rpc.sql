@@ -1,4 +1,4 @@
--- 20260823090200_finance_generate_recurring_expense_rpc
+-- 20260823130700_finance_generate_recurring_expense_rpc
 --
 -- generate_recurring_expense — mirrors create_recurring_order
 -- (20260622140100) exactly in structure: idempotency pre-check (fast path)
