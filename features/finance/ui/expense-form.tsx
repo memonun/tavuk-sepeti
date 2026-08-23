@@ -11,13 +11,16 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
-  EXPENSE_CATEGORY_OPTIONS,
+  EXPENSE_UNIT_LABELS,
   MANUAL_PAYMENT_METHOD_LABELS,
+  calculateUnitCostMinor,
   type Expense,
   type ExpensePaymentStatus,
+  type ExpenseUnit,
   type ManualPaymentMethod,
 } from "@/features/finance/domain/expense";
 import { createExpenseAction, updateExpenseAction } from "@/features/finance/application/expense-actions";
+import { ExpenseCategorySelect } from "@/features/finance/ui/expense-category-select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,11 +41,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { parseTRYInput } from "@/shared/utils/money";
+import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 import { todayInIstanbul } from "@/shared/utils/date";
 
+import type { ExpenseCategoryNode } from "@/features/finance/domain/expense-category";
+
 interface FieldsState {
-  category: string;
+  category_id: string;
   amount: string; // TRY
   expense_date: string;
   description: string;
@@ -50,11 +55,13 @@ interface FieldsState {
   payment_method: ManualPaymentMethod | "";
   vendor: string;
   note: string;
+  quantity: string;
+  unit: ExpenseUnit | "";
 }
 
 function initialFields(expense?: Expense): FieldsState {
   return {
-    category: expense?.category ?? "",
+    category_id: expense?.category_id ?? "",
     amount: expense ? (expense.amount_minor / 100).toFixed(2).replace(".", ",") : "",
     expense_date: expense?.expense_date ?? todayInIstanbul(),
     description: expense?.description ?? "",
@@ -62,8 +69,12 @@ function initialFields(expense?: Expense): FieldsState {
     payment_method: expense?.payment_method ?? "",
     vendor: expense?.vendor ?? "",
     note: expense?.note ?? "",
+    quantity: expense?.quantity != null ? String(expense.quantity) : "",
+    unit: expense?.unit ?? "",
   };
 }
+
+const UNIT_OPTIONS = Object.entries(EXPENSE_UNIT_LABELS) as Array<[ExpenseUnit, string]>;
 
 const PAYMENT_METHOD_OPTIONS = Object.entries(MANUAL_PAYMENT_METHOD_LABELS) as Array<
   [ManualPaymentMethod, string]
@@ -80,10 +91,13 @@ const PAYMENT_STATUS_LABELS: Record<ExpensePaymentStatus, string> = {
 export function ExpenseFormDialog({
   mode,
   expense,
+  categories,
   trigger,
 }: {
   mode: "create" | "edit";
   expense?: Expense;
+  /** Active categories only — the create/edit form never offers an archived one. */
+  categories: readonly ExpenseCategoryNode[];
   trigger: ReactNode;
 }) {
   const router = useRouter();
@@ -98,19 +112,29 @@ export function ExpenseFormDialog({
     setOpen(next);
   };
 
+  const quantity = fields.quantity.trim() === "" ? null : Number(fields.quantity.replace(",", "."));
+  const unitCostMinor =
+    quantity !== null && !Number.isNaN(quantity) && fields.unit !== ""
+      ? calculateUnitCostMinor(parseTRYInput(fields.amount) ?? 0, quantity)
+      : null;
+
   const submit = () => {
     const amount_minor = parseTRYInput(fields.amount);
     if (amount_minor === null || amount_minor <= 0) {
       toast.error("Geçersiz tutar.");
       return;
     }
-    if (fields.category.trim() === "") {
+    if (fields.category_id === "") {
       toast.error("Kategori gerekli.");
+      return;
+    }
+    if ((fields.quantity.trim() === "") !== (fields.unit === "")) {
+      toast.error("Miktar ve birim birlikte girilmeli.");
       return;
     }
 
     const payload = {
-      category: fields.category,
+      category_id: fields.category_id,
       amount_minor,
       expense_date: fields.expense_date,
       description: fields.description,
@@ -118,6 +142,8 @@ export function ExpenseFormDialog({
       payment_method: fields.payment_method === "" ? null : fields.payment_method,
       vendor: fields.vendor,
       note: fields.note,
+      quantity: fields.quantity.trim() === "" ? null : Number(fields.quantity.replace(",", ".")),
+      unit: fields.unit === "" ? null : fields.unit,
     };
 
     startSaving(async () => {
@@ -150,19 +176,12 @@ export function ExpenseFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ef-category">Gider Kategorisi</Label>
-              <Input
+              <ExpenseCategorySelect
                 id="ef-category"
-                list="ef-category-options"
-                value={fields.category}
-                onChange={(e) => set({ category: e.target.value })}
-                placeholder="ör. Yakıt"
-                autoFocus
+                categories={categories}
+                value={fields.category_id}
+                onValueChange={(category_id) => set({ category_id })}
               />
-              <datalist id="ef-category-options">
-                {EXPENSE_CATEGORY_OPTIONS.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ef-amount">Tutar (₺)</Label>
@@ -196,6 +215,46 @@ export function ExpenseFormDialog({
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ef-quantity">Miktar — opsiyonel</Label>
+              <Input
+                id="ef-quantity"
+                inputMode="decimal"
+                value={fields.quantity}
+                onChange={(e) => set({ quantity: e.target.value })}
+                placeholder="ör. 2000"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ef-unit">Birim</Label>
+              <Select
+                value={fields.unit}
+                onValueChange={(v) => {
+                  if (typeof v === "string") set({ unit: v as ExpenseUnit });
+                }}
+                items={EXPENSE_UNIT_LABELS}
+              >
+                <SelectTrigger id="ef-unit" className="w-full">
+                  <SelectValue placeholder="Seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  {UNIT_OPTIONS.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {unitCostMinor !== null && fields.unit !== "" ? (
+            <p className="text-xs text-muted-foreground">
+              Birim Maliyet: {formatTRY(unitCostMinor)} / {EXPENSE_UNIT_LABELS[fields.unit]}
+            </p>
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ef-desc">Açıklama — opsiyonel</Label>

@@ -9,15 +9,20 @@ import {
   getFinanceDateRangeBounds,
   isFinanceDateRangePreset,
 } from "@/features/finance/application/date-range-presets";
+import { getExpenseCategoryBreakdown } from "@/features/finance/application/get-expense-category-breakdown";
 import { getFinanceSummary } from "@/features/finance/application/get-finance-summary";
 import { getRecentFinancialActivity } from "@/features/finance/application/get-recent-financial-activity";
+import { getUpcomingRecurringExpenses } from "@/features/finance/application/get-upcoming-recurring-expenses";
+import { materializeDueRecurringExpenses } from "@/features/finance/application/materialize-due-recurring-expenses";
 import { ChannelRevenueBars } from "@/features/finance/ui/channel-revenue-bars";
 import { CollectionStatus } from "@/features/finance/ui/collection-status";
 import { ExpenseBreakdownBars } from "@/features/finance/ui/expense-breakdown-bars";
 import { FinancePeriodFilter } from "@/features/finance/ui/finance-period-filter";
 import { RecentActivityList } from "@/features/finance/ui/recent-activity-list";
 import { StatCard } from "@/features/finance/ui/stat-card";
+import { UpcomingRecurringExpenses } from "@/features/finance/ui/upcoming-recurring-expenses";
 import { formatTRY } from "@/shared/utils/money";
+import { todayInIstanbul } from "@/shared/utils/date";
 
 interface FinansPageProps {
   searchParams: Promise<{
@@ -29,6 +34,10 @@ interface FinansPageProps {
 }
 
 export default async function FinansPage({ searchParams }: FinansPageProps) {
+  // Lazy materialization: viewing Finance is what drives generation, no
+  // external cron (spec §14) — see Rutin Giderler's page for the same call.
+  await materializeDueRecurringExpenses(todayInIstanbul());
+
   const params = await searchParams;
   const preset = isFinanceDateRangePreset(params.range) ? params.range : "this_month";
   const dateBasis = params.date_basis === "created_at" ? "created_at" : "scheduled_for";
@@ -37,9 +46,11 @@ export default async function FinansPage({ searchParams }: FinansPageProps) {
       ? { from: params.date_from, to: params.date_to }
       : getFinanceDateRangeBounds(preset);
 
-  const [summaryResult, activityResult] = await Promise.all([
+  const [summaryResult, activityResult, categoryBreakdownResult, upcomingResult] = await Promise.all([
     getFinanceSummary({ from: bounds.from, to: bounds.to, dateBasis }),
     getRecentFinancialActivity(),
+    getExpenseCategoryBreakdown(bounds.from, bounds.to),
+    getUpcomingRecurringExpenses(),
   ]);
 
   if (!summaryResult.ok) {
@@ -52,6 +63,10 @@ export default async function FinansPage({ searchParams }: FinansPageProps) {
 
   const summary = summaryResult.value;
   const activity = activityResult.ok ? activityResult.value : [];
+  const categoryBreakdown = categoryBreakdownResult.ok
+    ? categoryBreakdownResult.value
+    : { byParent: [], byCategory: [] };
+  const upcoming = upcomingResult.ok ? upcomingResult.value : [];
 
   return (
     <div className="space-y-6">
@@ -87,9 +102,11 @@ export default async function FinansPage({ searchParams }: FinansPageProps) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ExpenseBreakdownBars rows={summary.expenseBreakdown} />
+        <ExpenseBreakdownBars byParent={categoryBreakdown.byParent} byCategory={categoryBreakdown.byCategory} />
         <RecentActivityList items={activity} />
       </div>
+
+      <UpcomingRecurringExpenses items={upcoming} />
     </div>
   );
 }

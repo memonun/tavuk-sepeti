@@ -20,11 +20,6 @@ export interface FinanceLocationRevenue {
   readonly saleCount: number;
 }
 
-export interface FinanceExpenseCategoryAmount {
-  readonly category: string;
-  readonly amountMinor: number;
-}
-
 export interface FinanceSummary {
   readonly period: { readonly from: string; readonly to: string; readonly dateBasis: FinanceDateBasis };
   readonly totalRevenueMinor: number;
@@ -36,5 +31,7 @@ export interface FinanceSummary {
   readonly netDurumMinor: number;
   readonly channelBreakdown: readonly FinanceChannelRevenue[];
   readonly marketByLocation: readonly FinanceLocationRevenue[];
-  readonly expenseBreakdown: readonly FinanceExpenseCategoryAmount[];
+  // Gider Dağılımı (Ana Kategoriler/Detay) is fetched separately — see
+  // features/finance/application/get-expense-category-breakdown.ts — since
+  // it needs category hierarchy the plain expense-summary RPCs don't carry.
 }

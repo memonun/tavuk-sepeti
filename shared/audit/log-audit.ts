@@ -65,6 +65,21 @@ export type AuditAction =
   | "expense.updated"
   | "expense.deleted"
   | "expense.paid"
+  // Finance V2 — managed expense categories replace V1's free-text field.
+  | "expense_category.created"
+  | "expense_category.updated"
+  | "expense_category.archived"
+  | "expense_category.reactivated"
+  // Finance V2 — recurring expense templates (Rutin Giderler). Namespace
+  // mirrors the existing "recurring.*" convention (customer orders) — a
+  // distinct "recurring_expense.*" prefix, not "recurring.expense_*",
+  // matching how "expense.*" already reads as its own namespace.
+  | "recurring_expense.created"
+  | "recurring_expense.updated"
+  | "recurring_expense.paused"
+  | "recurring_expense.resumed"
+  | "recurring_expense.deleted"
+  | "recurring_expense.generated"
   | "market_sale.created"
   | "market_sale.updated"
   | "market_sale.deleted"
@@ -80,6 +95,8 @@ export type AuditEntityType =
   | "recurring_template"
   | "storefront_settings"
   | "expense"
+  | "expense_category"
+  | "recurring_expense_template"
   | "market_sale"
   | "market_location";
 

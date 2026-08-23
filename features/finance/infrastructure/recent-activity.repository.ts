@@ -34,7 +34,7 @@ export async function getRecentFinancialActivity(): Promise<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabase as any)
       .from("expenses")
-      .select("id, category, amount_minor, created_at")
+      .select("id, category, amount_minor, created_at, expense_categories(name)")
       .order("created_at", { ascending: false })
       .limit(PER_SOURCE_LIMIT),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,7 +67,7 @@ export async function getRecentFinancialActivity(): Promise<
     ...((expensesRes.data ?? []) as any[]).map((row) => ({
       id: `expense-${row.id}`,
       kind: "expense" as const,
-      description: `Gider eklendi — ${row.category}`,
+      description: `Gider eklendi — ${row.expense_categories?.name ?? row.category ?? "—"}`,
       amountMinor: row.amount_minor,
       occurredAt: new Date(row.created_at),
     })),
