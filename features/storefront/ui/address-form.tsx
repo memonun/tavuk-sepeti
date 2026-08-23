@@ -30,6 +30,7 @@ import { AddressAutocomplete } from "@/components/address/address-autocomplete";
 import { AddressMapsProvider } from "@/components/address/address-maps-provider";
 import { AddressPinCorrector } from "@/components/address/address-pin-corrector";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { geocodeAddressAction } from "@/features/geocoding/application/geocode-address-action";
@@ -450,12 +451,14 @@ export function AddressForm({
         </div>
 
         {needsPin && hasPin ? (
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-sm has-checked:border-primary has-checked:bg-secondary/50">
-            <input
-              type="checkbox"
+          <label
+            data-checked={confirmed || undefined}
+            className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-sm data-[checked]:border-primary data-[checked]:bg-secondary/50"
+          >
+            <Checkbox
               checked={confirmed}
-              onChange={(e) => setConfirmed(e.target.checked)}
-              className="mt-0.5 size-4 accent-primary"
+              onCheckedChange={setConfirmed}
+              className="mt-0.5"
               disabled={saving}
             />
             <span>
@@ -556,11 +559,9 @@ export function AddressForm({
                 explicitly beats leaving the field blank, which would make the
                 stop show a red "Daire" warning on every route forever. */}
             <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={detached}
-                onChange={(e) => setDetached(e.target.checked)}
-                className="size-3.5 accent-primary"
+                onCheckedChange={setDetached}
                 disabled={saving}
               />
               Müstakil ev — daire numarası yok

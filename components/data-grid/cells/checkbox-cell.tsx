@@ -9,6 +9,7 @@
  * Notion's checkbox column behaves exactly the same way: no double
  * click, no Enter — single click toggles.
  */
+import { Checkbox } from "@/components/ui/checkbox";
 import { ok } from "@/shared/result";
 
 import type { CellEditor } from "@/components/data-grid/data-grid-types";
@@ -24,24 +25,22 @@ export function checkboxCellEditor(
     schema,
     render: (value) => (
       <span className="flex h-full items-center justify-center">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={value === true}
           readOnly
           tabIndex={-1}
-          className="pointer-events-none h-3.5 w-3.5 accent-blue-600"
+          className="pointer-events-none size-3.5 [&_svg]:size-2.5 data-[checked]:border-blue-600 data-[checked]:bg-blue-600"
         />
       </span>
     ),
     edit: ({ value, onCommit, onCancel }) => (
       <span className="flex h-full items-center justify-center">
-        <input
-          type="checkbox"
+        <Checkbox
           autoFocus
           defaultChecked={value === true}
-          onChange={(e) => onCommit(e.target.checked)}
+          onCheckedChange={onCommit}
           onBlur={onCancel}
-          className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
+          className="size-3.5 cursor-pointer [&_svg]:size-2.5 data-[checked]:border-blue-600 data-[checked]:bg-blue-600"
         />
       </span>
     ),

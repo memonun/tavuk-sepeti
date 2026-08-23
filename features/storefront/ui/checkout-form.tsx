@@ -91,9 +91,11 @@ import {
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
@@ -339,7 +341,7 @@ export function CheckoutForm({
   // needs no session, so the guest flow stays on the single order submit below.
   if (!identity && accountMode !== "guest") {
     return (
-      <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_20rem]">
         <form action={accountAction} className="flex flex-col gap-8">
           <Section title="1. Hesap">
             <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
@@ -425,7 +427,13 @@ export function CheckoutForm({
     !pending && hasAddress && minimum.ok && !noDeliveryDay && distanceSalesAccepted;
 
   return (
-    <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    // grid-cols-1: without an explicit base track, the implicit single-column
+    // grid track sizes to its content's min-content width (`auto`) instead of
+    // clamping to the container — a form field slightly wider than its
+    // column pushed the whole page ~10px past the viewport, which iOS Safari
+    // then read back into the fixed bottom nav's width, showing as a black
+    // strip down the right edge.
+    <form action={formAction} className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-8">
         <Section title="1. İletişim">
           {identity ? (
@@ -634,26 +642,25 @@ export function CheckoutForm({
         )}
 
         <Section title="4. Ödeme">
-          <div className="grid gap-2 sm:grid-cols-2">
+          <RadioGroup
+            name="payment_method"
+            value={selectedPaymentMethod}
+            onValueChange={setPaymentMethod}
+            disabled={pending}
+            required
+            className="grid gap-2 sm:grid-cols-2"
+          >
             {paymentOptions.map((option) => (
               <label
                 key={option.value}
-                className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input p-3 text-sm transition-colors has-checked:border-primary has-checked:bg-secondary/50"
+                data-checked={selectedPaymentMethod === option.value || undefined}
+                className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input p-3 text-sm transition-colors data-[checked]:border-primary data-[checked]:bg-secondary/50"
               >
-                <input
-                  type="radio"
-                  name="payment_method"
-                  value={option.value}
-                  checked={selectedPaymentMethod === option.value}
-                  onChange={() => setPaymentMethod(option.value)}
-                  className="size-4 accent-primary"
-                  disabled={pending}
-                  required
-                />
+                <RadioGroupItem value={option.value} />
                 {option.label}
               </label>
             ))}
-          </div>
+          </RadioGroup>
           {/* Say WHY the door-payment option is missing, rather than leaving a
               customer hunting for it. Keyed on `channel`, not `mode`: once an
               address upgrades a flexible-only basket to delivery, kapıda
@@ -749,13 +756,15 @@ export function CheckoutForm({
                 })),
               )}
             />
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs has-checked:border-primary has-checked:bg-secondary/50">
-              <input
-                type="checkbox"
+            <label
+              data-checked={distanceSalesAccepted || undefined}
+              className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs data-[checked]:border-primary data-[checked]:bg-secondary/50"
+            >
+              <Checkbox
                 name="distance_sales_accepted"
                 checked={distanceSalesAccepted}
-                onChange={(event) => setDistanceSalesAccepted(event.target.checked)}
-                className="mt-0.5 size-4 accent-primary"
+                onCheckedChange={setDistanceSalesAccepted}
+                className="mt-0.5"
                 required
                 disabled={pending}
               />

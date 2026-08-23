@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { ValidationError } from "@/shared/errors/app-error";
 import { err, ok } from "@/shared/result";
@@ -167,11 +168,11 @@ function MultiSelectInput<TValue extends string>({
               "hover:bg-accent hover:text-accent-foreground",
             )}
           >
-            <input
-              type="checkbox"
+            <Checkbox
               checked={checked}
               readOnly
-              className="h-3 w-3 accent-blue-600"
+              tabIndex={-1}
+              className="size-3 [&_svg]:size-2 data-[checked]:border-blue-600 data-[checked]:bg-blue-600"
             />
             <span className="flex-1 truncate">{opt.label}</span>
           </button>
