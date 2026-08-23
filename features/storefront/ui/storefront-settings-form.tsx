@@ -24,6 +24,7 @@ import {
   type Weekday,
 } from "@/features/storefront/domain/delivery-window";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatTRY } from "@/shared/utils/money";
@@ -85,15 +86,14 @@ export function StorefrontSettingsForm({
             return (
               <label
                 key={day}
-                className="flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm transition-colors has-checked:border-primary has-checked:bg-secondary/60"
+                data-checked={checked || undefined}
+                className="flex cursor-pointer items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm transition-colors data-[checked]:border-primary data-[checked]:bg-secondary/60"
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   name="home_delivery_days"
-                  value={day}
+                  value={String(day)}
                   checked={checked}
-                  onChange={() => toggleDay(day)}
-                  className="size-4 accent-primary"
+                  onCheckedChange={() => toggleDay(day)}
                   disabled={pending}
                 />
                 {WEEKDAY_NAMES_TR[day]}
