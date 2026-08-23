@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRightIcon, RepeatIcon } from "lucide-react";
 
+import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
+
 /**
  * A deliberately separate section from the two delivery-scope cards above:
  * those two answer "where are you", this one answers "how do you want to
@@ -21,7 +23,10 @@ export function RecurringOrderTeaser() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground sm:text-xl">
-            Düzenli Sipariş
+            Düzenli Sipariş{" "}
+            <span className="font-sans text-xs font-normal text-muted-foreground">
+              (Sadece {DELIVERY_PROVINCE}&apos;daki Müşterilerimiz için)
+            </span>
           </p>
           <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground sm:text-base">
             Her hafta aldığınız ürünleri tekrar tekrar sipariş vermeden
