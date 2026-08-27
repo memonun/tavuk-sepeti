@@ -9,6 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { clearCheckoutDraft } from "@/features/storefront/ui/use-checkout-draft";
 
 import type { OrderPaymentState } from "@/features/storefront/application/get-order-payment-status";
 
@@ -52,10 +53,14 @@ export function PaymentSuccess({
   const [gaveUp, setGaveUp] = useState(false);
   const paid = paymentState === "paid";
 
-  // Only a booked payment retires the basket. While the payment is unconfirmed
-  // the basket is the customer's only way to re-place the order.
+  // Only a booked payment retires the basket and the saved checkout draft.
+  // While the payment is unconfirmed the basket is the customer's only way to
+  // re-place the order, and the draft keeps their details for that retry.
   useEffect(() => {
-    if (paid) clear();
+    if (paid) {
+      clear();
+      clearCheckoutDraft();
+    }
   }, [paid, clear]);
 
   const check = useCallback(async (): Promise<OrderPaymentState> => {

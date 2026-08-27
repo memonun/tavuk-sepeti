@@ -107,6 +107,7 @@ import { AddressPicker } from "@/features/storefront/ui/address-picker";
 import { fromPriceMinor, lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
+import { useCheckoutDraft } from "@/features/storefront/ui/use-checkout-draft";
 
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
 import type { Product } from "@/features/products/application/list-products";
@@ -175,6 +176,11 @@ export function CheckoutForm({
     createCheckoutAccountAction,
     initialAccountState,
   );
+  // Everything the customer types (guest contact block, delivery note, payment
+  // method, the guest's collected address) mirrored to sessionStorage, so a
+  // failed submit, a payment-method switch or the PayTR round-trip no longer
+  // blanks the form. See use-checkout-draft.
+  const { draft, patch, clearDraft } = useCheckoutDraft();
   // Which account tab is showing is normally the customer's pick, but a server
   // answer of `email_taken` overrides it — expecting them to spot the "Zaten
   // hesabım var" pill themselves is what produced the repeated-signup loop (and,
@@ -195,27 +201,33 @@ export function CheckoutForm({
   const accountMode: CheckoutMode =
     pickedMode ?? (accountState.status === "email_taken" ? "signin" : "guest");
   /** Guest address: collected in-form, submitted WITH the order (there is no
-   *  address book to save it to before one exists). */
-  const [guestAddress, setGuestAddress] = useState<CollectedAddress | null>(null);
+   *  address book to save it to before one exists). Held in the persisted draft
+   *  so it survives an error / the PayTR return like every other typed field. */
+  const guestAddress = draft.guestAddress;
   // "Adresi düzenle" reopens the form pre-filled from `guestAddress` (see
   // below) rather than discarding it — nulling it out here is what used to
   // wipe every field, plus the map pin and its confirmation, back to blank.
   const [editingGuestAddress, setEditingGuestAddress] = useState(false);
   const [pickedAddressId, setPickedAddressId] = useState<string | null>(null);
   // Tracked so the havale/EFT IBAN box can appear the moment that option is
-  // picked, without waiting for a submit. Empty until the customer (or the
-  // radio's own defaultChecked) picks one — see `selectedPaymentMethod` below,
-  // which falls back to the first offered option so the box still matches
-  // what's actually pre-selected on first render.
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  // picked, without waiting for a submit. Empty until the customer picks one —
+  // see `selectedPaymentMethod` below, which falls back to the first offered
+  // option so the box still matches what's actually pre-selected on first
+  // render. Lives in the persisted draft so the choice outlives an error.
+  const paymentMethod = draft.paymentMethod;
   const [distanceSalesAccepted, setDistanceSalesAccepted] = useState(false);
 
-  // Empty the basket on inline success; for the card path, hand off to PayTR
-  // (the basket is cleared on the success return page after payment).
+  // Empty the basket AND the saved draft on inline success; for the card path,
+  // hand off to PayTR and keep both (the customer may bounce back from a failed
+  // payment) — the success return page clears them once the payment books.
   useEffect(() => {
-    if (state.status === "success") clear();
-    else if (state.status === "redirect") window.location.href = state.url;
-  }, [state, clear]);
+    if (state.status === "success") {
+      clear();
+      clearDraft();
+    } else if (state.status === "redirect") {
+      window.location.href = state.url;
+    }
+  }, [state, clear, clearDraft]);
 
   // The session now exists, but `identity` and the saved addresses are read on
   // the server — so the page has to be re-rendered before the address step can
@@ -418,8 +430,13 @@ export function CheckoutForm({
     (option) => option.value !== "credit_card" || paytrEnabled,
   );
   // The radios default to the first offered option (matching the old
-  // `defaultChecked={index === 0}`) until the customer actually picks one.
-  const selectedPaymentMethod = paymentMethod || paymentOptions[0]?.value;
+  // `defaultChecked={index === 0}`) until the customer actually picks one. A
+  // value restored from the draft is only honoured if it's still on offer —
+  // a persisted "kapıda nakit" is meaningless once the basket turned cargo.
+  const selectedPaymentMethod =
+    paymentMethod && paymentOptions.some((o) => o.value === paymentMethod)
+      ? paymentMethod
+      : paymentOptions[0]?.value;
   // An account picks a saved address; a guest has to have finished the inline
   // address form. Either way the order cannot go without one.
   const hasAddress = identity ? addressId !== null : guestAddress !== null;
@@ -484,7 +501,20 @@ export function CheckoutForm({
                   Hesap oluşturun
                 </button>
               </p>
-              <GuestBlock disabled={pending} />
+              <GuestBlock
+                disabled={pending}
+                values={{
+                  firstName: draft.firstName,
+                  lastName: draft.lastName,
+                  phone: draft.phone,
+                  email: draft.email,
+                }}
+                onChange={patch}
+                // E-mail is only mandatory for the card path — PayTR won't take
+                // a payment without one. Havale/EFT and kapıda nakit don't need
+                // it, so it stays optional there.
+                emailRequired={selectedPaymentMethod === "credit_card"}
+              />
               <input type="hidden" name="account_mode" value="guest" />
             </>
           )}
@@ -541,7 +571,7 @@ export function CheckoutForm({
               {...(guestAddress ? { initial: guestAddress } : {})}
               onSaved={() => undefined}
               onCollect={(address) => {
-                setGuestAddress(address);
+                patch({ guestAddress: address });
                 setEditingGuestAddress(false);
               }}
               {...(guestAddress
@@ -645,7 +675,9 @@ export function CheckoutForm({
           <RadioGroup
             name="payment_method"
             value={selectedPaymentMethod}
-            onValueChange={setPaymentMethod}
+            onValueChange={(value) =>
+              patch({ paymentMethod: value as PaymentMethod })
+            }
             disabled={pending}
             required
             className="grid gap-2 sm:grid-cols-2"
@@ -683,6 +715,8 @@ export function CheckoutForm({
               className={cn(controlClass, "h-auto py-2")}
               placeholder="Eklemek istediğiniz bir şey var mı?"
               disabled={pending}
+              value={draft.deliveryNotes}
+              onChange={(e) => patch({ deliveryNotes: e.target.value })}
             />
           </Field>
         </Section>
@@ -794,7 +828,7 @@ export function CheckoutForm({
               className="w-full rounded-full"
               disabled={!canSubmit}
             >
-              {pending ? "Gönderiliyor…" : "Ödeme yükümlülüğüyle siparişi ver"}
+              {pending ? "Gönderiliyor…" : "Ödemeyi Tamamla"}
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
@@ -1133,20 +1167,65 @@ function AccountBlock({
 /**
  * Contact details for an order with no account behind it.
  *
- * Same field names as the signup block minus the password, so switching between
+ * Same fields as the signup block minus the password, so switching between
  * "üye olmadan devam et" and "hesap oluştur" does not throw away what the
- * customer already typed. E-mail is required here even though no account is
- * created: it carries the order number they will need to find the order again,
- * and PayTR will not take a card payment without one.
+ * customer already typed.
+ *
+ * Controlled (value + onChange), not uncontrolled: React 19 resets an
+ * uncontrolled `<form action>` once its action resolves, which is what used to
+ * blank all four fields on every failed order. The values live in the persisted
+ * checkout draft (see use-checkout-draft), so they also survive a reload and the
+ * PayTR round-trip.
+ *
+ * E-mail is optional except on the card path — PayTR won't take a payment
+ * without one — so `emailRequired` is wired to the selected method upstream.
  */
-function GuestBlock({ disabled }: { disabled: boolean }) {
+function GuestBlock({
+  disabled,
+  values,
+  onChange,
+  emailRequired,
+}: {
+  disabled: boolean;
+  values: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+  };
+  onChange: (
+    patch: Partial<{
+      firstName: string;
+      lastName: string;
+      phone: string;
+      email: string;
+    }>,
+  ) => void;
+  emailRequired: boolean;
+}) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Ad" htmlFor="first_name">
-        <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} />
+        <Input
+          id="first_name"
+          name="first_name"
+          autoComplete="given-name"
+          required
+          disabled={disabled}
+          value={values.firstName}
+          onChange={(e) => onChange({ firstName: e.target.value })}
+        />
       </Field>
       <Field label="Soyad" htmlFor="last_name">
-        <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} />
+        <Input
+          id="last_name"
+          name="last_name"
+          autoComplete="family-name"
+          required
+          disabled={disabled}
+          value={values.lastName}
+          onChange={(e) => onChange({ lastName: e.target.value })}
+        />
       </Field>
       <Field label="Telefon" htmlFor="phone">
         <Input
@@ -1157,21 +1236,25 @@ function GuestBlock({ disabled }: { disabled: boolean }) {
           autoComplete="tel"
           required
           disabled={disabled}
+          value={values.phone}
+          onChange={(e) => onChange({ phone: e.target.value })}
         />
       </Field>
-      <Field label="E-posta (opsiyonel)" htmlFor="account_email">
+      <Field label="E-posta" htmlFor="account_email">
         <Input
           id="account_email"
           name="account_email"
           type="email"
           autoComplete="email"
+          required={emailRequired}
           disabled={disabled}
+          value={values.email}
+          onChange={(e) => onChange({ email: e.target.value })}
         />
       </Field>
       <p className="text-xs text-muted-foreground sm:col-span-2">
-        Girerseniz sipariş onayını bu adrese göndeririz. Kartla ödemek için
-        e-posta zorunludur — girmezseniz siparişinizi numarası ve
-        telefonunuzla sorgulayabilirsiniz.
+        Sipariş onayını e-posta ile göndeririz. E-posta yalnızca kartla ödemede
+        zorunludur; havale/EFT ve kapıda nakit ödemede gerekmez.
       </p>
     </div>
   );
