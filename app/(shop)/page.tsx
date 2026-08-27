@@ -16,7 +16,10 @@ import {
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
 import { CatalogScopeControls } from "@/features/storefront/ui/catalog-scope-controls";
 import { DeliveryScopeHero } from "@/features/storefront/ui/delivery-scope-hero";
-import { ProductShowcase } from "@/features/storefront/ui/product-showcase";
+// "Öne Çıkan Ürünler" vitrini şimdilik UI'dan gizlendi (owner isteği — şu an
+// yeterince ürün yok). Bileşen ve veri akışı ileride geri açmak için korunuyor;
+// geri açmak için bu importu ve aşağıdaki <ProductShowcase /> bloğunu tekrar aç.
+// import { ProductShowcase } from "@/features/storefront/ui/product-showcase";
 import { RecurringOrderTeaser } from "@/features/storefront/ui/recurring-order-teaser";
 import { StorefrontScopeSync } from "@/features/storefront/ui/storefront-scope-sync";
 import { SupportContactCard } from "@/features/storefront/ui/support-contact-card";
@@ -70,12 +73,14 @@ export default async function ShopHomePage({
       <RecurringOrderTeaser />
       <TrustHighlights homeDeliveryDays={settings.homeDeliveryDays} />
 
-      <div className="mt-10 sm:mt-12">
-        {/* Highlights are drawn from the same scope-filtered list as the full
-            grid below — a product that isn't sellable under the chosen scope
-            never appears here as a tempting dead end either. */}
-        <ProductShowcase products={catalogProducts} />
-      </div>
+      {/* "Öne Çıkan Ürünler" vitrini şimdilik gizli (owner isteği — şu an az ürün var).
+          Arkadaki bileşen (product-showcase.tsx) ve veri akışı korunuyor; geri açmak
+          için yukarıdaki importu ve bu bloğu tekrar etkinleştir:
+
+          <div className="mt-10 sm:mt-12">
+            <ProductShowcase products={catalogProducts} />
+          </div>
+      */}
 
       <section
         id="urunler"

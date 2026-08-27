@@ -1,20 +1,24 @@
 "use client";
 
 /**
- * Persistent mobile tab bar — the native-app-style anchor for the five things
- * a customer needs to find without being told: the shop, the products, the
- * basket, an existing order, and their account. Present on every storefront
+ * Persistent mobile tab bar — the native-app-style anchor for the four things
+ * a customer needs to find without being told: the shop, the basket, an
+ * existing order, and their account. Present on every storefront
  * page (mounted once by the shop layout), not just the homepage, so a
  * shopper who has navigated away from `/` never loses their way back.
  *
- * Desktop already has all five reachable from the header (`ShopHeader`) plus
- * the hamburger drawer (`MobileNavSheet`), so this bar is `sm:hidden` — a
- * second, redundant nav row would just be more chrome on a screen with room
- * to spare.
+ * A "Ürünler" tab (→ `/#urunler`) used to sit second; it was removed from the
+ * UI on owner request while the catalog is small. The full list is still one
+ * scroll down the homepage, and the header drawer still links to it.
+ *
+ * Desktop still reaches every section (products included) from the header
+ * (`ShopHeader`) plus the hamburger drawer (`MobileNavSheet`), so this bar is
+ * `sm:hidden` — a second, redundant nav row would just be more chrome on a
+ * screen with room to spare.
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HouseIcon, LayoutGridIcon, SearchIcon, UserRoundIcon } from "lucide-react";
+import { HouseIcon, SearchIcon, UserRoundIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -47,9 +51,6 @@ export function MobileBottomNav({
       <div className="mx-auto flex max-w-6xl items-stretch justify-between gap-0.5 px-1.5">
         <NavLink href="/" active={isHome} label="Ana Sayfa">
           <HouseIcon className="size-6" aria-hidden />
-        </NavLink>
-        <NavLink href="/#urunler" active={false} label="Ürünler">
-          <LayoutGridIcon className="size-6" aria-hidden />
         </NavLink>
         <CartSheet
           products={products}
