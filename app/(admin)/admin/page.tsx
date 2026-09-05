@@ -1,5 +1,8 @@
+import { PackageIcon, TruckIcon } from "lucide-react";
+
 import { countActiveCustomers } from "@/features/customers/application/count-active-customers";
 import { getDashboardOrderStats } from "@/features/orders/application/get-dashboard-order-stats";
+import { DashboardOrderListPanel } from "@/features/orders/ui/dashboard-order-list-panel";
 import { DashboardPrepPanel } from "@/features/orders/ui/dashboard-prep-panel";
 
 export default async function DashboardHome() {
@@ -43,7 +46,25 @@ export default async function DashboardHome() {
         ))}
       </div>
 
-      <DashboardPrepPanel manifest={orderStats.prepManifest} />
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <DashboardPrepPanel manifest={orderStats.prepManifest} />
+        <div className="flex flex-col gap-4">
+          <DashboardOrderListPanel
+            title="Bugünkü rota"
+            icon={TruckIcon}
+            orders={orderStats.prepManifest.routeOrders}
+            totals={orderStats.prepManifest.route}
+            emptyLabel="Bugün planlı rota siparişi yok."
+          />
+          <DashboardOrderListPanel
+            title="Bekleyen kargo"
+            icon={PackageIcon}
+            orders={orderStats.prepManifest.cargoOrders}
+            totals={orderStats.prepManifest.cargo}
+            emptyLabel="Bekleyen kargo siparişi yok."
+          />
+        </div>
+      </div>
     </div>
   );
 }

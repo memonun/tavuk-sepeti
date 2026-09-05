@@ -1,39 +1,22 @@
 /**
- * "Bugün Hazırlanacaklar" — the Panel's answer to "bugün ne kadar siparişim
- * var, kaç paket yumurta / ne kadar kayısı hazırlamalıyım, bugünkü hasılat ne
- * kadar": today's route orders' product list combined with the cargo
- * backlog's — one packing list, since physically both go out today regardless
- * of which bucket they're counted in.
+ * "Bugün Hazırlanacaklar" — the Panel's answer to "kaç paket yumurta / ne
+ * kadar kayısı hazırlamalıyım": today's route orders' product list combined
+ * with the cargo backlog's, into one packing list — physically both go out
+ * today regardless of which bucket they're counted in.
  *
- * The order counts and money stay in two separate rows (route vs. cargo)
- * rather than one blended total: the cargo backlog has no date scope (a
- * days-old unshipped order sits in it every day until it ships), so folding
- * it into "today" would let stale orders quietly inflate a number that's
- * supposed to reset daily. Same visual language as
- * features/cargo/ui/cargo-manifest-panel.tsx's load list.
+ * The per-scope order counts / money / order lists live next to this panel in
+ * DashboardOrderListPanel ("Bugünkü Rota" / "Bekleyen Kargo"), kept apart from
+ * this combined product list because the cargo backlog has no date scope (a
+ * days-old unshipped order sits in it every day until it ships) — folding its
+ * numbers into this one would make a "today" figure that isn't. Same visual
+ * language as features/cargo/ui/cargo-manifest-panel.tsx's load list.
  */
 import { ClipboardListIcon } from "lucide-react";
 
-import { formatTRY } from "@/shared/utils/money";
-
-import type { DashboardManifest, DashboardManifestTotals } from "@/features/orders/domain/dashboard-manifest";
+import type { DashboardManifest } from "@/features/orders/domain/dashboard-manifest";
 
 function formatQty(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
-}
-
-function TotalsRow({ label, totals }: { label: string; totals: DashboardManifestTotals }) {
-  if (totals.orderCount === 0) {
-    return <p className="text-muted-foreground">{label}: yok</p>;
-  }
-  return (
-    <p className="text-muted-foreground">
-      <span className="font-medium text-foreground">{label}</span>
-      {`: ${totals.orderCount} sipariş`}
-      {totals.totalValueMinor > 0 ? ` · ${formatTRY(totals.totalValueMinor)} hasılat` : ""}
-      {totals.toCollectMinor > 0 ? ` · ${formatTRY(totals.toCollectMinor)} tahsil edilecek` : ""}
-    </p>
-  );
 }
 
 export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }) {
@@ -68,12 +51,6 @@ export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }
           ))}
         </ul>
       )}
-
-      <div className="flex flex-col gap-0.5 border-t px-3 py-2 text-xs">
-        {/* Two rows, never merged — see the file header for why. */}
-        <TotalsRow label="Bugünkü rota" totals={manifest.route} />
-        <TotalsRow label="Bekleyen kargo" totals={manifest.cargo} />
-      </div>
     </div>
   );
 }
