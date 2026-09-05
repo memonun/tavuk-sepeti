@@ -723,12 +723,20 @@ export async function countUndeliveredOrders(): Promise<number> {
 
 function rowToDashboardManifestOrder(row: {
   id: string;
+  order_number: string;
   total_minor: number | null;
   amount_paid_minor: number | null;
+  customers: { first_name: string | null; last_name: string | null } | null;
   order_items: ReadonlyArray<{ quantity: number; product_snapshot: unknown }> | null;
 }): DashboardManifestOrder {
+  const customer = row.customers;
+  const customerName = customer
+    ? [customer.first_name, customer.last_name].filter(Boolean).join(" ") || "—"
+    : "—";
   return {
     order_id: row.id,
+    order_number: row.order_number,
+    customer_name: customerName,
     total_minor: row.total_minor ?? 0,
     amount_paid_minor: row.amount_paid_minor ?? 0,
     items: (row.order_items ?? []).map((item) => {
@@ -758,10 +766,13 @@ export async function fetchTodayRoutePrepOrders(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("orders")
-    .select("id, total_minor, amount_paid_minor, order_items(quantity, product_snapshot)")
+    .select(
+      "id, order_number, total_minor, amount_paid_minor, customers!inner(first_name, last_name), order_items(quantity, product_snapshot)",
+    )
     .eq("fulfillment_channel", "delivery")
     .eq("scheduled_for", today)
-    .in("status", ["pending", "confirmed"]);
+    .in("status", ["pending", "confirmed"])
+    .order("created_at", { ascending: true });
   if (error) {
     logger.warn({ code: error.code }, "fetch_today_route_prep_orders_failed");
     return [];
@@ -780,9 +791,12 @@ export async function fetchCargoBacklogPrepOrders(): Promise<DashboardManifestOr
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("orders")
-    .select("id, total_minor, amount_paid_minor, order_items(quantity, product_snapshot)")
+    .select(
+      "id, order_number, total_minor, amount_paid_minor, customers!inner(first_name, last_name), order_items(quantity, product_snapshot)",
+    )
     .eq("fulfillment_channel", "shipping")
-    .eq("status", "confirmed");
+    .eq("status", "confirmed")
+    .order("created_at", { ascending: true });
   if (error) {
     logger.warn({ code: error.code }, "fetch_cargo_backlog_prep_orders_failed");
     return [];

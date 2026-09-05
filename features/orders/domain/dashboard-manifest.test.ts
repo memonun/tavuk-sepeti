@@ -8,6 +8,8 @@ describe("computeDashboardManifest", () => {
     expect(manifest.lines).toEqual([]);
     expect(manifest.route).toEqual({ orderCount: 0, totalValueMinor: 0, toCollectMinor: 0 });
     expect(manifest.cargo).toEqual({ orderCount: 0, totalValueMinor: 0, toCollectMinor: 0 });
+    expect(manifest.routeOrders).toEqual([]);
+    expect(manifest.cargoOrders).toEqual([]);
   });
 
   it("sums quantities for the same product + unit across both route and cargo orders", () => {
@@ -15,6 +17,8 @@ describe("computeDashboardManifest", () => {
       [
         {
           order_id: "r1",
+          order_number: "TS-001",
+          customer_name: "Ahmet Yılmaz",
           total_minor: 10000,
           amount_paid_minor: 0,
           items: [{ label: "Yumurta", unit_label: "paket", quantity: 2 }],
@@ -23,6 +27,8 @@ describe("computeDashboardManifest", () => {
       [
         {
           order_id: "c1",
+          order_number: "TS-002",
+          customer_name: "Ayşe Kaya",
           total_minor: 15000,
           amount_paid_minor: 0,
           items: [{ label: "Yumurta", unit_label: "paket", quantity: 3 }],
@@ -37,6 +43,8 @@ describe("computeDashboardManifest", () => {
       [
         {
           order_id: "r1",
+          order_number: "TS-001",
+          customer_name: "Ahmet Yılmaz",
           total_minor: 5000,
           amount_paid_minor: 0,
           items: [
@@ -56,6 +64,8 @@ describe("computeDashboardManifest", () => {
       [
         {
           order_id: "c1",
+          order_number: "TS-002",
+          customer_name: "Ayşe Kaya",
           total_minor: 1000,
           amount_paid_minor: 0,
           items: [
@@ -71,11 +81,32 @@ describe("computeDashboardManifest", () => {
   it("keeps route and cargo counts/money in separate buckets — a stale cargo order never inflates today's route figures", () => {
     const manifest = computeDashboardManifest(
       [
-        { order_id: "r1", total_minor: 10000, amount_paid_minor: 0, items: [] },
-        { order_id: "r2", total_minor: 8000, amount_paid_minor: 8000, items: [] },
+        {
+          order_id: "r1",
+          order_number: "TS-001",
+          customer_name: "Ahmet Yılmaz",
+          total_minor: 10000,
+          amount_paid_minor: 0,
+          items: [],
+        },
+        {
+          order_id: "r2",
+          order_number: "TS-002",
+          customer_name: "Ayşe Kaya",
+          total_minor: 8000,
+          amount_paid_minor: 8000,
+          items: [],
+        },
       ],
       [
-        { order_id: "c1", total_minor: 6000, amount_paid_minor: 2000, items: [] },
+        {
+          order_id: "c1",
+          order_number: "TS-003",
+          customer_name: "Mehmet Demir",
+          total_minor: 6000,
+          amount_paid_minor: 2000,
+          items: [],
+        },
       ],
     );
     expect(manifest.route).toEqual({
@@ -90,9 +121,40 @@ describe("computeDashboardManifest", () => {
     });
   });
 
+  it("passes the individual orders through unchanged, per scope, for the list panels", () => {
+    const routeOrder = {
+      order_id: "r1",
+      order_number: "TS-001",
+      customer_name: "Ahmet Yılmaz",
+      total_minor: 10000,
+      amount_paid_minor: 0,
+      items: [],
+    };
+    const cargoOrder = {
+      order_id: "c1",
+      order_number: "TS-002",
+      customer_name: "Ayşe Kaya",
+      total_minor: 6000,
+      amount_paid_minor: 2000,
+      items: [],
+    };
+    const manifest = computeDashboardManifest([routeOrder], [cargoOrder]);
+    expect(manifest.routeOrders).toEqual([routeOrder]);
+    expect(manifest.cargoOrders).toEqual([cargoOrder]);
+  });
+
   it("never lets an overpayment turn the outstanding balance negative", () => {
     const manifest = computeDashboardManifest(
-      [{ order_id: "r1", total_minor: 5000, amount_paid_minor: 6000, items: [] }],
+      [
+        {
+          order_id: "r1",
+          order_number: "TS-001",
+          customer_name: "Ahmet Yılmaz",
+          total_minor: 5000,
+          amount_paid_minor: 6000,
+          items: [],
+        },
+      ],
       [],
     );
     expect(manifest.route.toCollectMinor).toBe(0);
@@ -100,7 +162,16 @@ describe("computeDashboardManifest", () => {
 
   it("ignores orders with no items for the product lines, but still counts them", () => {
     const manifest = computeDashboardManifest(
-      [{ order_id: "r1", total_minor: 0, amount_paid_minor: 0, items: [] }],
+      [
+        {
+          order_id: "r1",
+          order_number: "TS-001",
+          customer_name: "Ahmet Yılmaz",
+          total_minor: 0,
+          amount_paid_minor: 0,
+          items: [],
+        },
+      ],
       [],
     );
     expect(manifest.lines).toEqual([]);

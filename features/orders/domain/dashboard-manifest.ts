@@ -33,6 +33,8 @@ export interface DashboardManifestLine {
 
 export interface DashboardManifestOrder {
   readonly order_id: string;
+  readonly order_number: string;
+  readonly customer_name: string;
   readonly total_minor: number;
   readonly amount_paid_minor: number;
   readonly items: readonly DashboardManifestItem[];
@@ -55,6 +57,12 @@ export interface DashboardManifest {
   /** The cargo backlog — NOT date-scoped. Kept apart from `route` so a
    *  days-old unshipped order never gets counted as today's business. */
   readonly cargo: DashboardManifestTotals;
+  /** The individual orders behind `route`, oldest first — what the "Bugünkü
+   *  rota" list panel renders. */
+  readonly routeOrders: readonly DashboardManifestOrder[];
+  /** The individual orders behind `cargo`, oldest first — what the "Bekleyen
+   *  kargo" list panel renders. */
+  readonly cargoOrders: readonly DashboardManifestOrder[];
 }
 
 function aggregateLines(
@@ -93,5 +101,7 @@ export function computeDashboardManifest(
     lines: aggregateLines([...routeOrders, ...cargoOrders]),
     route: totalsOf(routeOrders),
     cargo: totalsOf(cargoOrders),
+    routeOrders,
+    cargoOrders,
   };
 }
