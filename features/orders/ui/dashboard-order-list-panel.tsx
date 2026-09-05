@@ -18,14 +18,11 @@ function formatQty(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
 }
 
-/** "2 × Yumurta (paket) · 1 × Kuru Kayısı (kg)" — what's inside the order. */
+/** "2 × Yumurta · 1 × Kuru Kayısı" — just the count and the product name. The
+ *  unit label is dropped here: for Yumurta it's "paket (15 adet)", which
+ *  repeated on every line read like a hardcoded "15". */
 function itemLine(items: readonly DashboardManifestItem[]): string {
-  return items
-    .map(
-      (i) =>
-        `${formatQty(i.quantity)} × ${i.label}${i.unit_label ? ` (${i.unit_label})` : ""}`,
-    )
-    .join(" · ");
+  return items.map((i) => `${formatQty(i.quantity)} × ${i.label}`).join(" · ");
 }
 
 export function DashboardOrderListPanel({

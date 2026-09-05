@@ -19,6 +19,14 @@ function formatQty(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
 }
 
+/** Drop a trailing size annotation from a unit label so the list reads
+ *  "Yumurta ×61 paket", not "Yumurta ×61 paket (15 adet)" — the "(15 adet)"
+ *  repeated down every line looked like a hardcoded number. Keeps the base
+ *  unit ("paket", "kg", "litre", "Kavanoz"). */
+function baseUnit(unitLabel: string): string {
+  return unitLabel.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
 export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }) {
   return (
     <div className="rounded-lg border bg-card">
@@ -35,24 +43,27 @@ export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }
         </p>
       ) : (
         <ul className="space-y-1.5 px-3 py-2">
-          {manifest.lines.map((l) => (
-            <li key={`${l.label} ${l.unit_label}`} className="text-sm">
-              <div className="flex flex-wrap items-baseline gap-x-1.5">
-                <span className="font-medium">{l.label}</span>
-                <span className="font-mono font-semibold tabular-nums">
-                  ×{formatQty(l.quantity)}
-                </span>
-                {l.unit_label ? (
-                  <span className="text-muted-foreground">{l.unit_label}</span>
-                ) : null}
-              </div>
-              {/* Always shown, for every product: how much of that total goes
-                  out by hand on today's route vs. by cargo. */}
-              <div className="text-xs text-muted-foreground tabular-nums">
-                {formatQty(l.routeQuantity)} elden · {formatQty(l.cargoQuantity)} kargo
-              </div>
-            </li>
-          ))}
+          {manifest.lines.map((l) => {
+            const unit = baseUnit(l.unit_label);
+            return (
+              <li key={`${l.label} ${l.unit_label}`} className="text-sm">
+                <div className="flex flex-wrap items-baseline gap-x-1.5">
+                  <span className="font-medium">{l.label}</span>
+                  <span className="font-mono font-semibold tabular-nums">
+                    ×{formatQty(l.quantity)}
+                  </span>
+                  {unit ? (
+                    <span className="text-muted-foreground">{unit}</span>
+                  ) : null}
+                </div>
+                {/* Always shown, for every product: how much of that total
+                    goes out by hand on today's route vs. by cargo. */}
+                <div className="text-xs text-muted-foreground tabular-nums">
+                  {formatQty(l.routeQuantity)} elden · {formatQty(l.cargoQuantity)} kargo
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
