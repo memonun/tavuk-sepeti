@@ -1,15 +1,32 @@
 /**
  * One scope of the Panel's prep manifest ("Bugünkü Rota" / "Bekleyen Kargo")
- * as its own card: the individual orders behind the number, not just a total.
- * Sits to the right of DashboardPrepPanel's combined product list.
+ * as its own card: the individual orders behind the number — order no,
+ * customer, amount, and what's in each one — not just a total. Takes the wide
+ * column of the Panel; DashboardPrepPanel's combined product list is the
+ * narrow sidebar beside it.
  */
 import { formatTRY } from "@/shared/utils/money";
 
 import type { ComponentType } from "react";
 import type {
+  DashboardManifestItem,
   DashboardManifestOrder,
   DashboardManifestTotals,
 } from "@/features/orders/domain/dashboard-manifest";
+
+function formatQty(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
+}
+
+/** "2 × Yumurta (paket) · 1 × Kuru Kayısı (kg)" — what's inside the order. */
+function itemLine(items: readonly DashboardManifestItem[]): string {
+  return items
+    .map(
+      (i) =>
+        `${formatQty(i.quantity)} × ${i.label}${i.unit_label ? ` (${i.unit_label})` : ""}`,
+    )
+    .join(" · ");
+}
 
 export function DashboardOrderListPanel({
   title,
@@ -34,30 +51,33 @@ export function DashboardOrderListPanel({
       {orders.length === 0 ? (
         <p className="px-3 py-3 text-sm text-muted-foreground">{emptyLabel}</p>
       ) : (
-        <ul className="max-h-72 space-y-1.5 overflow-y-auto px-3 py-2 text-sm">
+        <ul className="max-h-96 divide-y divide-border/60 overflow-y-auto px-3 text-sm">
           {orders.map((order) => {
             const unpaid = order.amount_paid_minor < order.total_minor;
+            const items = itemLine(order.items);
             return (
-              <li
-                key={order.order_id}
-                className="flex items-center justify-between gap-2"
-              >
-                <span className="min-w-0 truncate">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {order.order_number}
-                  </span>{" "}
-                  {order.customer_name}
-                </span>
-                <span className="shrink-0 text-right">
-                  <span className="font-medium tabular-nums">
-                    {formatTRY(order.total_minor)}
+              <li key={order.order_id} className="flex flex-col gap-0.5 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {order.order_number}
+                    </span>{" "}
+                    {order.customer_name}
                   </span>
-                  {unpaid ? (
-                    <span className="ml-1.5 text-xs text-destructive">
-                      tahsil edilecek
+                  <span className="shrink-0 text-right">
+                    <span className="font-medium tabular-nums">
+                      {formatTRY(order.total_minor)}
                     </span>
-                  ) : null}
-                </span>
+                    {unpaid ? (
+                      <span className="ml-1.5 text-xs text-destructive">
+                        tahsil edilecek
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+                {items ? (
+                  <p className="text-xs text-muted-foreground">{items}</p>
+                ) : null}
               </li>
             );
           })}
