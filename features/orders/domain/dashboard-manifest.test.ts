@@ -12,7 +12,7 @@ describe("computeDashboardManifest", () => {
     expect(manifest.cargoOrders).toEqual([]);
   });
 
-  it("sums quantities for the same product + unit across both route and cargo orders", () => {
+  it("sums quantities for the same product + unit across both route and cargo orders, keeping the split", () => {
     const manifest = computeDashboardManifest(
       [
         {
@@ -35,7 +35,40 @@ describe("computeDashboardManifest", () => {
         },
       ],
     );
-    expect(manifest.lines).toEqual([{ label: "Yumurta", unit_label: "paket", quantity: 5 }]);
+    expect(manifest.lines).toEqual([
+      {
+        label: "Yumurta",
+        unit_label: "paket",
+        quantity: 5,
+        routeQuantity: 2,
+        cargoQuantity: 3,
+      },
+    ]);
+  });
+
+  it("reports a product that's only in one channel with a zero on the other side", () => {
+    const manifest = computeDashboardManifest(
+      [
+        {
+          order_id: "r1",
+          order_number: "TS-001",
+          customer_name: "Ahmet Yılmaz",
+          total_minor: 5000,
+          amount_paid_minor: 0,
+          items: [{ label: "Süt", unit_label: "litre", quantity: 4 }],
+        },
+      ],
+      [],
+    );
+    expect(manifest.lines).toEqual([
+      {
+        label: "Süt",
+        unit_label: "litre",
+        quantity: 4,
+        routeQuantity: 4,
+        cargoQuantity: 0,
+      },
+    ]);
   });
 
   it("keeps different products (or different units of the same product) as separate lines", () => {

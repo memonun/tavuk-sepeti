@@ -24,11 +24,16 @@ export interface DashboardManifestItem {
   readonly quantity: number;
 }
 
-/** One aggregated product line across every order in scope. */
+/** One aggregated product line across every order in scope, with the
+ *  route-vs-cargo split so the prep list can show "Yumurta ×30 (15 rota ·
+ *  15 kargo)". */
 export interface DashboardManifestLine {
   readonly label: string;
   readonly unit_label: string;
+  /** routeQuantity + cargoQuantity. */
   readonly quantity: number;
+  readonly routeQuantity: number;
+  readonly cargoQuantity: number;
 }
 
 export interface DashboardManifestOrder {
@@ -66,20 +71,49 @@ export interface DashboardManifest {
 }
 
 function aggregateLines(
-  orders: readonly DashboardManifestOrder[],
+  routeOrders: readonly DashboardManifestOrder[],
+  cargoOrders: readonly DashboardManifestOrder[],
 ): DashboardManifestLine[] {
-  const byKey = new Map<string, { label: string; unit_label: string; quantity: number }>();
-  for (const order of orders) {
-    for (const item of order.items) {
-      // Same product name + unit aggregate together; " " can't collide with
-      // real label text.
-      const key = `${item.label} ${item.unit_label}`;
-      const existing = byKey.get(key);
-      if (existing) existing.quantity += item.quantity;
-      else byKey.set(key, { label: item.label, unit_label: item.unit_label, quantity: item.quantity });
+  const byKey = new Map<
+    string,
+    { label: string; unit_label: string; routeQuantity: number; cargoQuantity: number }
+  >();
+
+  const add = (
+    orders: readonly DashboardManifestOrder[],
+    field: "routeQuantity" | "cargoQuantity",
+  ) => {
+    for (const order of orders) {
+      for (const item of order.items) {
+        // Same product name + unit aggregate together; " " can't collide with
+        // real label text.
+        const key = `${item.label} ${item.unit_label}`;
+        const existing = byKey.get(key);
+        if (existing) existing[field] += item.quantity;
+        else {
+          byKey.set(key, {
+            label: item.label,
+            unit_label: item.unit_label,
+            routeQuantity: field === "routeQuantity" ? item.quantity : 0,
+            cargoQuantity: field === "cargoQuantity" ? item.quantity : 0,
+          });
+        }
+      }
     }
-  }
-  return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label, "tr"));
+  };
+
+  add(routeOrders, "routeQuantity");
+  add(cargoOrders, "cargoQuantity");
+
+  return [...byKey.values()]
+    .map((v) => ({
+      label: v.label,
+      unit_label: v.unit_label,
+      quantity: v.routeQuantity + v.cargoQuantity,
+      routeQuantity: v.routeQuantity,
+      cargoQuantity: v.cargoQuantity,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, "tr"));
 }
 
 function totalsOf(orders: readonly DashboardManifestOrder[]): DashboardManifestTotals {
@@ -98,7 +132,7 @@ export function computeDashboardManifest(
   cargoOrders: readonly DashboardManifestOrder[],
 ): DashboardManifest {
   return {
-    lines: aggregateLines([...routeOrders, ...cargoOrders]),
+    lines: aggregateLines(routeOrders, cargoOrders),
     route: totalsOf(routeOrders),
     cargo: totalsOf(cargoOrders),
     routeOrders,

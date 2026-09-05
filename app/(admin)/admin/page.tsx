@@ -46,8 +46,9 @@ export default async function DashboardHome() {
         ))}
       </div>
 
+      {/* Order lists take the wide column; the combined product prep list is
+          the narrow sidebar. */}
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <DashboardPrepPanel manifest={orderStats.prepManifest} />
         <div className="flex flex-col gap-4">
           <DashboardOrderListPanel
             title="Bugünkü rota"
@@ -64,6 +65,7 @@ export default async function DashboardHome() {
             emptyLabel="Bekleyen kargo siparişi yok."
           />
         </div>
+        <DashboardPrepPanel manifest={orderStats.prepManifest} />
       </div>
     </div>
   );

@@ -19,6 +19,16 @@ function formatQty(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
 }
 
+/** "15 rota · 15 kargo" — how a product's quantity splits across channels.
+ *  Only shown when both channels contribute; for a single-channel product the
+ *  total already is the split. */
+function channelSplit(routeQty: number, cargoQty: number): string | null {
+  if (routeQty > 0 && cargoQty > 0) {
+    return `${formatQty(routeQty)} rota · ${formatQty(cargoQty)} kargo`;
+  }
+  return null;
+}
+
 export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }) {
   return (
     <div className="rounded-lg border bg-card">
@@ -35,20 +45,26 @@ export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }
         </p>
       ) : (
         <ul className="space-y-0.5 px-3 py-2">
-          {manifest.lines.map((l) => (
-            <li
-              key={`${l.label} ${l.unit_label}`}
-              className="flex flex-wrap items-baseline gap-x-1.5 text-sm"
-            >
-              <span className="font-medium">{l.label}</span>
-              <span className="font-mono font-semibold tabular-nums">
-                ×{formatQty(l.quantity)}
-              </span>
-              {l.unit_label ? (
-                <span className="text-muted-foreground">{l.unit_label}</span>
-              ) : null}
-            </li>
-          ))}
+          {manifest.lines.map((l) => {
+            const split = channelSplit(l.routeQuantity, l.cargoQuantity);
+            return (
+              <li
+                key={`${l.label} ${l.unit_label}`}
+                className="flex flex-wrap items-baseline gap-x-1.5 text-sm"
+              >
+                <span className="font-medium">{l.label}</span>
+                <span className="font-mono font-semibold tabular-nums">
+                  ×{formatQty(l.quantity)}
+                </span>
+                {l.unit_label ? (
+                  <span className="text-muted-foreground">{l.unit_label}</span>
+                ) : null}
+                {split ? (
+                  <span className="text-xs text-muted-foreground">({split})</span>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
