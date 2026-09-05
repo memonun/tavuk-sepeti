@@ -1,5 +1,6 @@
 import { countActiveCustomers } from "@/features/customers/application/count-active-customers";
 import { getDashboardOrderStats } from "@/features/orders/application/get-dashboard-order-stats";
+import { DashboardPrepPanel } from "@/features/orders/ui/dashboard-prep-panel";
 
 export default async function DashboardHome() {
   const [orderStats, activeCustomers] = await Promise.all([
@@ -8,8 +9,13 @@ export default async function DashboardHome() {
   ]);
 
   const cards = [
-    { title: "Bekleyen Sipariş", value: orderStats.pendingOrders },
-    { title: "Elden Teslimat (bugün)", value: orderStats.todayHandDeliveries },
+    // Every order not yet delivered/cancelled, both channels — not just
+    // status="pending" (the old tile hid confirmed/shipped orders that are
+    // just as unfinished).
+    { title: "Teslim Edilmemiş Sipariş", value: orderStats.undeliveredOrders },
+    // Scheduled for today and not yet delivered — what's due out with the van
+    // today, not a count of what's already been delivered.
+    { title: "Bugün Teslim Edilecek", value: orderStats.todayRouteOrders },
     { title: "Kargo (bekleyen)", value: orderStats.pendingCargo },
     { title: "Aktif Müşteri", value: activeCustomers },
   ];
@@ -34,6 +40,8 @@ export default async function DashboardHome() {
           </div>
         ))}
       </div>
+
+      <DashboardPrepPanel manifest={orderStats.prepManifest} />
     </div>
   );
 }

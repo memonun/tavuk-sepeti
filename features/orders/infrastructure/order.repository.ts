@@ -20,7 +20,6 @@ import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 import { applyFilterRule } from "@/shared/filter/apply-filter-rules";
-import { toIstanbulDateString } from "@/shared/utils/date";
 
 import {
   rowToListItem,
@@ -28,6 +27,7 @@ import {
   rowToStatusEvent,
 } from "@/features/orders/infrastructure/order.mapper";
 
+import type { DashboardManifestOrder } from "@/features/orders/domain/dashboard-manifest";
 import type {
   Order,
   OrderListItem,
@@ -699,72 +699,93 @@ export async function createOrdersBulk(
   );
 }
 
-// ---- dashboard counts ---------------------------------------------------
+// ---- dashboard counts + prep manifest ------------------------------------
 
-/** Orders currently awaiting confirmation. */
-export async function countPendingOrders(): Promise<number> {
+/**
+ * Every order not yet at a terminal state (delivered/cancelled) — what the
+ * owner still owes a customer, across both channels. Replaces the old
+ * "Bekleyen Sipariş" tile, which only counted status="pending" and hid
+ * confirmed/shipped orders that are just as unfinished — the owner's actual
+ * complaint ("teslim edilmemiş tüm siparişlerin gözükmesi lazım").
+ */
+export async function countUndeliveredOrders(): Promise<number> {
   const supabase = await createSupabaseServerClient();
   const { count, error } = await supabase
     .from("orders")
     .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+    .in("status", ["pending", "confirmed", "shipped"]);
   if (error) {
-    logger.warn({ code: error.code }, "count_pending_orders_failed");
+    logger.warn({ code: error.code }, "count_undelivered_orders_failed");
     return 0;
   }
   return count ?? 0;
+}
+
+function rowToDashboardManifestOrder(row: {
+  id: string;
+  total_minor: number | null;
+  amount_paid_minor: number | null;
+  order_items: ReadonlyArray<{ quantity: number; product_snapshot: unknown }> | null;
+}): DashboardManifestOrder {
+  return {
+    order_id: row.id,
+    total_minor: row.total_minor ?? 0,
+    amount_paid_minor: row.amount_paid_minor ?? 0,
+    items: (row.order_items ?? []).map((item) => {
+      const snap = (item.product_snapshot ?? null) as
+        | { display_name?: unknown; unit_label?: unknown }
+        | null;
+      return {
+        label: snap && typeof snap.display_name === "string" ? snap.display_name : "Ürün",
+        unit_label: snap && typeof snap.unit_label === "string" ? snap.unit_label : "",
+        quantity: Number(item.quantity),
+      };
+    }),
+  };
 }
 
 /**
- * Route (hand-delivered, fulfillment_channel="delivery") orders that
- * actually transitioned to "delivered" today (Europe/Istanbul calendar day)
- * — read from order_status_events rather than `orders.status`, since the
- * order row carries no delivered_at and its updated_at also moves on
- * unrelated edits. A two-step query (events first, then orders) avoids
- * relying on PostgREST embedded-resource filter syntax for a dashboard tile.
+ * Today's route (fulfillment_channel="delivery") orders still needing
+ * delivery — same status set find_orders_for_route treats as "on today's
+ * route", minus "delivered" (nothing left to prepare for those). Feeds both
+ * the "Bugün Teslim Edilecek" tile and the prep manifest below it; replaces
+ * the old "Elden Teslimat (bugün)" tile, which actually counted deliveries
+ * already COMPLETED today (a rear-view number) rather than what's still due.
  */
-export async function countTodayHandDeliveries(now: Date = new Date()): Promise<number> {
+export async function fetchTodayRoutePrepOrders(
+  today: string,
+): Promise<DashboardManifestOrder[]> {
   const supabase = await createSupabaseServerClient();
-  const day = toIstanbulDateString(now);
-  const startIso = new Date(`${day}T00:00:00+03:00`).toISOString();
-  const endIso = new Date(`${day}T23:59:59.999+03:00`).toISOString();
-
-  const events = await supabase
-    .from("order_status_events")
-    .select("order_id")
-    .eq("to_status", "delivered")
-    .gte("created_at", startIso)
-    .lte("created_at", endIso);
-  if (events.error) {
-    logger.warn({ code: events.error.code }, "count_today_hand_deliveries_events_failed");
-    return 0;
-  }
-  const orderIds = [...new Set((events.data ?? []).map((e) => e.order_id))];
-  if (orderIds.length === 0) return 0;
-
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("orders")
-    .select("id", { count: "exact", head: true })
+    .select("id, total_minor, amount_paid_minor, order_items(quantity, product_snapshot)")
     .eq("fulfillment_channel", "delivery")
-    .in("id", orderIds);
+    .eq("scheduled_for", today)
+    .in("status", ["pending", "confirmed"]);
   if (error) {
-    logger.warn({ code: error.code }, "count_today_hand_deliveries_failed");
-    return 0;
+    logger.warn({ code: error.code }, "fetch_today_route_prep_orders_failed");
+    return [];
   }
-  return count ?? 0;
+  return (data ?? []).map(rowToDashboardManifestOrder);
 }
 
-/** Cargo (shipping-channel) orders confirmed but not yet handed to the carrier. */
-export async function countPendingCargo(): Promise<number> {
+/**
+ * Cargo backlog — every confirmed shipping-channel order not yet shipped.
+ * Same set features/cargo's own queue (getCargoOrders) reads; duplicated here
+ * rather than imported because a feature may only reach another feature's
+ * code via its application/ layer (CLAUDE.md §2), and cargo's version returns
+ * paginated OrderListItem rows richer than this dashboard tile needs.
+ */
+export async function fetchCargoBacklogPrepOrders(): Promise<DashboardManifestOrder[]> {
   const supabase = await createSupabaseServerClient();
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("orders")
-    .select("id", { count: "exact", head: true })
+    .select("id, total_minor, amount_paid_minor, order_items(quantity, product_snapshot)")
     .eq("fulfillment_channel", "shipping")
     .eq("status", "confirmed");
   if (error) {
-    logger.warn({ code: error.code }, "count_pending_cargo_failed");
-    return 0;
+    logger.warn({ code: error.code }, "fetch_cargo_backlog_prep_orders_failed");
+    return [];
   }
-  return count ?? 0;
+  return (data ?? []).map(rowToDashboardManifestOrder);
 }
