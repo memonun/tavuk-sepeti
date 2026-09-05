@@ -15,10 +15,8 @@ export default async function DashboardHome() {
     { title: "Teslim Edilmemiş Sipariş", value: orderStats.undeliveredOrders },
     // Scheduled for today and not yet delivered — what's due out with the van
     // today, not a count of what's already been delivered.
-    { title: "Bugün Teslim Edilecek", value: orderStats.prepManifest.route.orderCount },
-    // The cargo backlog has no date scope (see dashboard-manifest.ts) — kept
-    // as its own tile rather than folded into "today" above.
-    { title: "Kargo (bekleyen)", value: orderStats.prepManifest.cargo.orderCount },
+    { title: "Bugün Teslim Edilecek", value: orderStats.todayRouteOrders },
+    { title: "Kargo (bekleyen)", value: orderStats.pendingCargo },
     { title: "Aktif Müşteri", value: activeCustomers },
   ];
 

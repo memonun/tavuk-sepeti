@@ -11,10 +11,12 @@ import type { DashboardManifest } from "@/features/orders/domain/dashboard-manif
 export interface OrderDashboardStats {
   /** Every order not yet delivered or cancelled, across both channels. */
   readonly undeliveredOrders: number;
-  /** Today's route orders and the cargo backlog, kept in separate buckets so
-   *  a days-old unshipped cargo order never reads as "today's" business —
-   *  route.orderCount / cargo.orderCount are what the dashboard tiles show,
-   *  `lines` is the combined per-product prep list. */
+  /** Route orders scheduled for today and not yet delivered. */
+  readonly todayRouteOrders: number;
+  /** Cargo orders confirmed but not yet handed to the carrier. */
+  readonly pendingCargo: number;
+  /** What today's route + the whole cargo backlog add up to: per-product prep
+   *  quantities, order count, expected revenue and what's still uncollected. */
   readonly prepManifest: DashboardManifest;
 }
 
@@ -28,6 +30,8 @@ export async function getDashboardOrderStats(): Promise<OrderDashboardStats> {
 
   return {
     undeliveredOrders,
-    prepManifest: computeDashboardManifest(routeOrders, cargoOrders),
+    todayRouteOrders: routeOrders.length,
+    pendingCargo: cargoOrders.length,
+    prepManifest: computeDashboardManifest([...routeOrders, ...cargoOrders]),
   };
 }
