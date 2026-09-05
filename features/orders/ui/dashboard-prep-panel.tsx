@@ -19,16 +19,6 @@ function formatQty(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
 }
 
-/** "15 rota · 15 kargo" — how a product's quantity splits across channels.
- *  Only shown when both channels contribute; for a single-channel product the
- *  total already is the split. */
-function channelSplit(routeQty: number, cargoQty: number): string | null {
-  if (routeQty > 0 && cargoQty > 0) {
-    return `${formatQty(routeQty)} rota · ${formatQty(cargoQty)} kargo`;
-  }
-  return null;
-}
-
 export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }) {
   return (
     <div className="rounded-lg border bg-card">
@@ -44,14 +34,10 @@ export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }
           Bugün hazırlanacak sipariş yok.
         </p>
       ) : (
-        <ul className="space-y-0.5 px-3 py-2">
-          {manifest.lines.map((l) => {
-            const split = channelSplit(l.routeQuantity, l.cargoQuantity);
-            return (
-              <li
-                key={`${l.label} ${l.unit_label}`}
-                className="flex flex-wrap items-baseline gap-x-1.5 text-sm"
-              >
+        <ul className="space-y-1.5 px-3 py-2">
+          {manifest.lines.map((l) => (
+            <li key={`${l.label} ${l.unit_label}`} className="text-sm">
+              <div className="flex flex-wrap items-baseline gap-x-1.5">
                 <span className="font-medium">{l.label}</span>
                 <span className="font-mono font-semibold tabular-nums">
                   ×{formatQty(l.quantity)}
@@ -59,12 +45,14 @@ export function DashboardPrepPanel({ manifest }: { manifest: DashboardManifest }
                 {l.unit_label ? (
                   <span className="text-muted-foreground">{l.unit_label}</span>
                 ) : null}
-                {split ? (
-                  <span className="text-xs text-muted-foreground">({split})</span>
-                ) : null}
-              </li>
-            );
-          })}
+              </div>
+              {/* Always shown, for every product: how much of that total goes
+                  out by hand on today's route vs. by cargo. */}
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {formatQty(l.routeQuantity)} elden · {formatQty(l.cargoQuantity)} kargo
+              </div>
+            </li>
+          ))}
         </ul>
       )}
     </div>
