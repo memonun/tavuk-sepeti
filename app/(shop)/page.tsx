@@ -11,6 +11,7 @@ import {
 import { formatHomeDeliveryDays } from "@/features/storefront/domain/delivery-window";
 import {
   CARGO_FREE_SHIPPING_NOTICE,
+  DELIVERY_FEE_NOTICE,
   FULFILLMENT_NOTICE,
 } from "@/features/storefront/domain/storefront.config";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
@@ -115,7 +116,10 @@ export default async function ShopHomePage({
               <strong className="font-semibold text-foreground">
                 {formatHomeDeliveryDays(settings.homeDeliveryDays)}
               </strong>
-              .
+              .{" "}
+              <strong className="font-semibold text-foreground">
+                {DELIVERY_FEE_NOTICE}
+              </strong>
             </p>
           </div>
           <div className="flex gap-3 rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
