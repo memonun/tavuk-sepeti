@@ -14,7 +14,10 @@ import {
   checkOrderMinimum,
   orderMinimumMessage,
 } from "@/features/storefront/domain/order-minimum";
-import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
+import {
+  DELIVERY_FEE_NOTICE,
+  DELIVERY_PROVINCE,
+} from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
@@ -249,6 +252,11 @@ export function CartSheet({
                 {formatTRY(subtotal)}
               </span>
             </div>
+            {mode === "route" ? (
+              <p className="text-xs text-muted-foreground">
+                {DELIVERY_FEE_NOTICE} Ödeme adımında eklenir.
+              </p>
+            ) : null}
             {minimum.ok ? (
               <Link
                 href="/odeme"

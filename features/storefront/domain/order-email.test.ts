@@ -25,12 +25,22 @@ describe("buildOrderConfirmationEmail", () => {
     expect(buildOrderConfirmationEmail(base).subject).toContain("ORD-2026-00042");
   });
 
-  it("lists items + total and shows free delivery", () => {
-    const { html, text } = buildOrderConfirmationEmail(base);
+  it("lists items + total and formats the delivery fee", () => {
+    const { html, text } = buildOrderConfirmationEmail({
+      ...base,
+      deliveryFeeMinor: 5000,
+      totalMinor: 34000,
+    });
     expect(html).toContain("Yumurta");
-    expect(html).toContain("Ücretsiz");
+    expect(html).toContain("50,00");
+    expect(text).toContain("Teslimat: 50,00 ₺");
     expect(text).toContain("ORD-2026-00042");
     expect(text).toContain("Süt");
+  });
+
+  it("still reads 'Ücretsiz' when there is no fee (cargo, or a comped delivery)", () => {
+    const { html } = buildOrderConfirmationEmail(base);
+    expect(html).toContain("Ücretsiz");
   });
 
   it("greets generically when the name is empty", () => {

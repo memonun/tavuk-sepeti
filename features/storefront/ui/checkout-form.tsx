@@ -86,7 +86,9 @@ import {
 } from "@/features/storefront/domain/route-capability";
 import {
   CARGO_FEE_MINOR,
+  CARGO_FREE_SHIPPING_NOTICE,
   DELIVERY_FEE_MINOR,
+  DELIVERY_FEE_NOTICE,
   DELIVERY_PROVINCE,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
@@ -340,6 +342,7 @@ export function CheckoutForm({
     <OrderSummary
       rows={rows}
       mode={mode}
+      channel={channel}
       subtotal={subtotal}
       feeMinor={feeMinor}
       total={total}
@@ -876,13 +879,19 @@ export function CheckoutForm({
 function OrderSummary({
   rows,
   mode,
+  channel,
   subtotal,
   feeMinor,
   total,
   products,
 }: {
   rows: ReadonlyArray<{ product: Product; quantity: number }>;
+  /** Basket shape — drives the address FORM and the "yalnızca Malatya" note. */
   mode: "route" | "cargo";
+  /** Address-aware fulfilment — drives the fee row's label and the free-cargo
+   *  note, so a flexible basket upgraded to hand-delivery by a Malatya address
+   *  never reads "ücretsiz kargo" while a 50 ₺ fee sits in the total. */
+  channel: "delivery" | "shipping";
   subtotal: number;
   feeMinor: number;
   total: number;
@@ -1008,7 +1017,7 @@ function OrderSummary({
         </div>
         <div className="mt-1 flex justify-between">
           <span className="text-muted-foreground">
-            {mode === "route" ? "Teslimat" : "Kargo"}
+            {channel === "delivery" ? "Teslimat" : "Kargo"}
           </span>
           <span className="tabular-nums">
             {feeMinor === 0 ? "Ücretsiz" : formatTRY(feeMinor)}
@@ -1025,8 +1034,10 @@ function OrderSummary({
           <strong className="font-bold text-foreground">
             {`Yumurta ve süt ürünleri yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`}
           </strong>
+        ) : channel === "delivery" ? (
+          DELIVERY_FEE_NOTICE
         ) : (
-          "Türkiye geneli ücretsiz kargo"
+          CARGO_FREE_SHIPPING_NOTICE
         )}
       </p>
     </div>

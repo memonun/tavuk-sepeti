@@ -6,13 +6,19 @@
  * money is minor units (kuruş), per CLAUDE.md §7.
  */
 
+import { formatTRY } from "@/shared/utils/money";
+
 /**
- * Flat delivery fee applied to every storefront order (kuruş). Launch default
- * is 0 (free delivery). To charge a flat fee, set this; for anything more
- * elaborate (free-over-threshold, distance-based) compute it server-side in
- * `place-order.ts` — never trust the client for money.
+ * Flat fee on a hand-delivered ("delivery" channel) order — the Malatya-içi
+ * eve servis run (kuruş). `place-order.ts` applies it server-side when the
+ * re-derived channel is "delivery"; `create_recurring_order` mirrors the same
+ * rule in-DB, so keep the two in sync (migration
+ * 20260908120000_recurring_order_delivery_fee).
+ *
+ * For anything more elaborate (free-over-threshold, distance-based) compute it
+ * server-side in `place-order.ts` — never trust the client for money.
  */
-export const DELIVERY_FEE_MINOR = 0;
+export const DELIVERY_FEE_MINOR = 5000;
 
 /**
  * Flat fee on a CARGO order (kuruş). Separate from DELIVERY_FEE_MINOR on
@@ -94,3 +100,9 @@ export const PAYMENT_METHOD_OPTIONS = [
  *  shipping be stated, not merely implied by a ₺0,00 line. */
 export const CARGO_FREE_SHIPPING_NOTICE =
   "Türkiye'nin her yerine ücretsiz kargo.";
+
+/** Symmetric counterpart for the hand-delivery channel — stated upfront (home
+ *  page, cart, checkout) so the fee is never a surprise at the total line. */
+export const DELIVERY_FEE_NOTICE = `${DELIVERY_PROVINCE} içi elden teslimat ücreti ${formatTRY(
+  DELIVERY_FEE_MINOR,
+)}.`;

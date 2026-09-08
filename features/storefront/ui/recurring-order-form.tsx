@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { createRecurringOrderRequestAction } from "@/features/storefront/application/recurring-order-request";
 import { WEEKDAY_NAMES_TR, WEEKDAYS_TR_ORDER } from "@/features/storefront/domain/delivery-window";
 import { paymentMethodsForChannel } from "@/features/storefront/domain/payment-options";
+import { DELIVERY_FEE_NOTICE } from "@/features/storefront/domain/storefront.config";
 import { RecurringOrderItemsPicker } from "@/features/storefront/ui/recurring-order-items-picker";
 
 import type { Product } from "@/features/products/application/list-products";
@@ -104,7 +105,8 @@ export function RecurringOrderForm({ products, homeDeliveryDays }: RecurringOrde
 
       <div className="mb-5 rounded-lg bg-amber-50 border border-amber-200 p-3">
         <p className="text-sm text-amber-900">
-          Eve teslimat hizmeti, 250 ₺ ve üzeri tutardaki siparişler için geçerlidir.
+          Eve teslimat hizmeti, 250 ₺ ve üzeri tutardaki siparişler için geçerlidir.{" "}
+          {DELIVERY_FEE_NOTICE} Bu ücret oluşturulan her siparişe eklenir.
         </p>
       </div>
 
