@@ -45,7 +45,7 @@ export default async function KargoPage({
     );
   }
 
-  const { orders, manifest } = queueResult.value;
+  const { orders, manifest, recipients } = queueResult.value;
 
   return (
     <div className="space-y-5">
@@ -57,7 +57,7 @@ export default async function KargoPage({
       </div>
 
       <CargoManifestPanel manifest={manifest} />
-      <CargoOrderTable orders={orders} />
+      <CargoOrderTable orders={orders} recipients={recipients} />
 
       <div className="pt-4">
         <h3 className="text-lg font-semibold tracking-tight">Kargolanan Siparişler</h3>

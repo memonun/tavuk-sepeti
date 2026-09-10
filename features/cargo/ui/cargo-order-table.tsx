@@ -20,8 +20,10 @@ import {
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
+import { CargoCardDialog } from "@/features/cargo/ui/cargo-card-dialog";
 import { MarkCargoShippedButton } from "@/features/cargo/ui/mark-cargo-shipped-button";
 
+import type { CargoRecipient } from "@/features/cargo/domain/cargo-recipient";
 import type { OrderListItem, PaymentStatus } from "@/features/orders/application/list-orders";
 
 /** Shared with cargo-shipped-order-table.tsx — same payment-status vocabulary
@@ -42,7 +44,13 @@ export const PAYMENT_STATUS_VARIANT: Record<PaymentStatus, "default" | "secondar
   refunded: "destructive",
 };
 
-export function CargoOrderTable({ orders }: { orders: OrderListItem[] }) {
+export function CargoOrderTable({
+  orders,
+  recipients,
+}: {
+  orders: OrderListItem[];
+  recipients: Record<string, CargoRecipient>;
+}) {
   if (orders.length === 0) {
     return (
       <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-12 text-center text-sm text-muted-foreground">
@@ -96,7 +104,11 @@ export function CargoOrderTable({ orders }: { orders: OrderListItem[] }) {
                 )}
               </TableCell>
               <TableCell>
-                <div className="flex items-center justify-end gap-1.5">
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  <CargoCardDialog
+                    orderNumber={order.order_number}
+                    recipient={recipients[order.id]}
+                  />
                   <MarkCargoShippedButton orderId={order.id} />
                   <Link
                     href={`/orders/${order.id}`}
