@@ -16,16 +16,27 @@ interface AppErrorOptions {
  *
  * Sub-classes are convenience constructors only; the runtime type to switch on
  * is the `code` field. Avoid `instanceof` for branching across module boundaries.
+ *
+ * Deliberately does NOT extend `Error`. A `Result<T, AppError>` returned from a
+ * `"use server"` action crosses the React Flight (RSC) boundary to the client —
+ * and React/Next.js sanitizes any `instanceof Error` value in that payload in
+ * production builds, replacing its message with a generic "Server Components
+ * render" digest message. A plain object carries `code`/`message`/`details`
+ * across that boundary untouched. Nothing in this codebase throws an AppError
+ * or relies on it being an Error (logging always destructures `.code`/`.message`
+ * into structured fields; `AppError.is` doesn't need `instanceof Error`).
  */
-export class AppError extends Error {
+export class AppError {
+  name: string;
+  message: string;
   readonly code: ErrorCode;
   readonly details?: unknown;
   readonly correlationId?: string;
-  override readonly cause?: unknown;
+  readonly cause?: unknown;
 
   constructor(code: ErrorCode, opts: AppErrorOptions = {}) {
-    super(opts.message ?? code);
     this.name = "AppError";
+    this.message = opts.message ?? code;
     this.code = code;
     if (opts.details !== undefined) this.details = opts.details;
     if (opts.correlationId !== undefined) this.correlationId = opts.correlationId;
@@ -34,7 +45,7 @@ export class AppError extends Error {
 
   /** Type guard usable across realms (where `instanceof` may fail). */
   static is(value: unknown): value is AppError {
-    if (!(value instanceof Error)) return false;
+    if (typeof value !== "object" || value === null) return false;
     const code = (value as { code?: unknown }).code;
     return typeof code === "string" && code in ErrorCode;
   }
