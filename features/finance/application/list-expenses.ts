@@ -10,8 +10,19 @@ import { err, type Result } from "@/shared/result";
 
 import type { ExpenseListFilter, ListExpensesResult } from "@/features/finance/infrastructure/expense.repository";
 
-export type { Expense, ExpensePaymentStatus, ExpenseUnit, ManualPaymentMethod } from "@/features/finance/domain/expense";
-export { EXPENSE_UNIT_LABELS, EXPENSE_PAYMENT_STATUS_LABELS, MANUAL_PAYMENT_METHOD_LABELS } from "@/features/finance/domain/expense";
+export type {
+  Expense,
+  ExpensePaymentStatus,
+  ExpenseSource,
+  ExpenseUnit,
+  ManualPaymentMethod,
+} from "@/features/finance/domain/expense";
+export {
+  EXPENSE_UNIT_LABELS,
+  EXPENSE_PAYMENT_STATUS_LABELS,
+  EXPENSE_SOURCE_LABELS,
+  MANUAL_PAYMENT_METHOD_LABELS,
+} from "@/features/finance/domain/expense";
 
 export async function listExpenses(
   rawQuery: unknown,

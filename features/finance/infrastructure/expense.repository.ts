@@ -14,7 +14,7 @@ import type { Expense } from "@/features/finance/domain/expense";
 import type { ExpenseListQuery } from "@/features/finance/domain/expense.schema";
 
 const EXPENSE_SELECT =
-  "id, category, category_id, amount_minor, expense_date, description, payment_status, payment_method, vendor, note, quantity, unit, created_at, updated_at, created_by" as const;
+  "id, category, category_id, amount_minor, expense_date, description, payment_status, payment_method, vendor, note, quantity, unit, source, recurring_template_id, created_at, updated_at, created_by" as const;
 
 type ExpenseRow = {
   id: string;
@@ -29,6 +29,8 @@ type ExpenseRow = {
   note: string | null;
   quantity: number | null;
   unit: Expense["unit"];
+  source: Expense["source"];
+  recurring_template_id: string | null;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -48,6 +50,8 @@ function rowToExpense(row: ExpenseRow): Expense {
     note: row.note,
     quantity: row.quantity,
     unit: row.unit,
+    source: row.source,
+    recurring_template_id: row.recurring_template_id,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     created_by: row.created_by,
@@ -86,6 +90,7 @@ export async function listExpenses(
     builder = builder.in("category_id", query.category_ids);
   }
   if (query.payment_status) builder = builder.eq("payment_status", query.payment_status);
+  if (query.source) builder = builder.eq("source", query.source);
   if (query.date_from) builder = builder.gte("expense_date", query.date_from);
   if (query.date_to) builder = builder.lte("expense_date", query.date_to);
   if (query.q) {

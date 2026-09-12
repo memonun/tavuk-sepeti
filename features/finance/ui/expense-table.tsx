@@ -20,6 +20,7 @@ import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 import {
   EXPENSE_PAYMENT_STATUS_LABELS,
+  EXPENSE_SOURCE_LABELS,
   EXPENSE_UNIT_LABELS,
   MANUAL_PAYMENT_METHOD_LABELS,
   calculateUnitCostMinor,
@@ -125,7 +126,16 @@ export function ExpenseTable({ items, total, page, pageSize, basePath, query, ca
                 <TableCell className="text-muted-foreground">
                   {formatDate(expense.expense_date)}
                 </TableCell>
-                <TableCell className="font-medium">{categoryLabel(expense)}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-1.5">
+                    {categoryLabel(expense)}
+                    {expense.source === "recurring_generated" ? (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        {EXPENSE_SOURCE_LABELS.recurring_generated}
+                      </Badge>
+                    ) : null}
+                  </div>
+                </TableCell>
                 <TableCell className="hidden max-w-64 truncate text-muted-foreground md:table-cell">
                   {expense.description ?? "—"}
                 </TableCell>

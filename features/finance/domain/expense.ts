@@ -15,6 +15,13 @@
 export type ExpensePaymentStatus = "paid" | "pending";
 export type ManualPaymentMethod = "cash" | "card" | "bank_transfer" | "other";
 export type ExpenseUnit = "kg" | "litre" | "adet" | "koli" | "paket" | "ton";
+/** manual = admin-entered; recurring_generated = materialized from a
+ *  recurring_expense_templates row (features/finance/domain/recurring-expense-template.ts).
+ *  A recurring_generated row is an ordinary expense once it exists — same
+ *  edit flow, same totals, this just flags where it came from (spec:
+ *  Giderler shows every expense in one list/total; Rutin Giderler is a
+ *  filtered view of the source, not a second ledger). */
+export type ExpenseSource = "manual" | "recurring_generated";
 
 export interface Expense {
   readonly id: string;
@@ -31,10 +38,18 @@ export interface Expense {
   /** Optional — only meaningful together with `unit` (Birim Maliyet, spec §7). */
   readonly quantity: number | null;
   readonly unit: ExpenseUnit | null;
+  readonly source: ExpenseSource;
+  /** Set iff source === "recurring_generated". */
+  readonly recurring_template_id: string | null;
   readonly created_at: Date;
   readonly updated_at: Date;
   readonly created_by: string | null;
 }
+
+export const EXPENSE_SOURCE_LABELS: Readonly<Record<ExpenseSource, string>> = {
+  manual: "Manuel",
+  recurring_generated: "Rutin",
+};
 
 export const EXPENSE_UNIT_LABELS: Readonly<Record<ExpenseUnit, string>> = {
   kg: "kg",

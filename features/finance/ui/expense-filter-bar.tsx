@@ -23,6 +23,12 @@ const STATUS_LABEL: Record<string, string> = {
   paid: "Ödendi",
 };
 
+const SOURCE_LABEL: Record<string, string> = {
+  all: "Tümü",
+  manual: "Manuel",
+  recurring_generated: "Rutin",
+};
+
 export function ExpenseFilterBar({
   categories,
 }: {
@@ -38,6 +44,7 @@ export function ExpenseFilterBar({
   const q = params.get("q") ?? "";
   const categoryId = params.get("category_id") ?? "all";
   const status = params.get("payment_status") ?? "all";
+  const source = params.get("source") ?? "all";
   const from = params.get("date_from") ?? "";
   const to = params.get("date_to") ?? "";
 
@@ -70,6 +77,14 @@ export function ExpenseFilterBar({
     update(next);
   };
 
+  const setSource = (value: string | null) => {
+    if (value === null) return;
+    const next = new URLSearchParams(params.toString());
+    if (value === "all") next.delete("source");
+    else next.set("source", value);
+    update(next);
+  };
+
   const setDate = (key: "date_from" | "date_to", value: string) => {
     const next = new URLSearchParams(params.toString());
     if (value) next.set(key, value);
@@ -86,7 +101,7 @@ export function ExpenseFilterBar({
   }
 
   return (
-    <div className="grid gap-3 border-b pb-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 border-b pb-4 sm:grid-cols-2 lg:grid-cols-5">
       <div className="flex flex-col gap-1.5">
         <Label className="text-xs">Ara</Label>
         <Input
@@ -134,6 +149,21 @@ export function ExpenseFilterBar({
           </SelectTrigger>
           <SelectContent>
             {Object.entries(STATUS_LABEL).map(([v, label]) => (
+              <SelectItem key={v} value={v}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-xs">Kaynak</Label>
+        <Select value={source} onValueChange={setSource} disabled={pending} items={SOURCE_LABEL}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(SOURCE_LABEL).map(([v, label]) => (
               <SelectItem key={v} value={v}>
                 {label}
               </SelectItem>
