@@ -53,10 +53,13 @@ import { RouteDriverMap } from "@/features/routing/ui/route-driver-map";
 import { RouteManifestPanel } from "@/features/routing/ui/route-manifest-panel";
 import { StopCard } from "@/features/routing/ui/stop-card";
 import { serializeExcludeDelivered } from "@/features/routing/domain/exclude-delivered-url";
+import { formatManualDestinationLabel } from "@/features/routing/domain/format-manual-destination-label";
 import { computeRouteManifest } from "@/features/routing/domain/route-manifest";
 import { useDriverState } from "@/features/routing/ui/use-driver-state";
 import { useGeolocation } from "@/features/routing/ui/use-geolocation";
 import { useRouteRealtime } from "@/features/routing/ui/hooks/use-route-realtime";
+import { AddressAutocomplete } from "@/components/address/address-autocomplete";
+import { AddressMapsProvider } from "@/components/address/address-maps-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -70,6 +73,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   DEST_LOC_PREFIX,
+  DEST_MANUAL,
   DEST_ORDER_PREFIX,
   DEST_ROUND_TRIP,
   DestinationPicker,
@@ -120,6 +124,7 @@ export function DriverMode({
   // The just-delivered stop to collect payment for (null = popup closed).
   const [paymentStop, setPaymentStop] = useState<RouteStop | null>(null);
   const [destOpen, setDestOpen] = useState(false);
+  const [destManualOpen, setDestManualOpen] = useState(false);
 
   // Delivered set = server truth + optimistic deliveries − optimistic reverts.
   // Drives the "done" flags, the manifest, and the current-stop derivation —
@@ -145,7 +150,9 @@ export function DriverMode({
     // Match the saved location by coordinate (robust to renames / duplicate
     // names); the URL carries the exact lat/lng this location was picked with.
     const match = savedLocations.find((l) => l.lat === d.lat && l.lng === d.lng);
-    return match ? `${DEST_LOC_PREFIX}${match.id}` : DEST_ROUND_TRIP;
+    if (match) return `${DEST_LOC_PREFIX}${match.id}`;
+    // A location destination that isn't a saved one = a one-off manual pick.
+    return DEST_MANUAL;
   })();
 
   const pushDestination = (mutate: (p: URLSearchParams) => void) => {
@@ -156,6 +163,7 @@ export function DriverMode({
     // marker rather than staying a waypoint.
     p.set("excludeDelivered", serializeExcludeDelivered(deliveredIds));
     setDestOpen(false);
+    setDestManualOpen(false);
     router.push(`/routes/drive?${p.toString()}`);
   };
   const destRoundTrip = () =>
@@ -178,6 +186,13 @@ export function DriverMode({
       p.delete("destLat");
       p.delete("destLng");
       p.delete("destName");
+    });
+  const destManual = (lat: number, lng: number, name: string) =>
+    pushDestination((p) => {
+      p.set("destLat", String(lat));
+      p.set("destLng", String(lng));
+      p.set("destName", name);
+      p.delete("destOrderId");
     });
 
   useEffect(() => {
@@ -676,24 +691,48 @@ export function DriverMode({
       />
 
       {/* Change destination (re-optimizes the remaining route) */}
-      <Dialog open={destOpen} onOpenChange={setDestOpen}>
+      <Dialog
+        open={destOpen}
+        onOpenChange={(open) => {
+          setDestOpen(open);
+          if (!open) setDestManualOpen(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Varış konumunu değiştir</DialogTitle>
             <DialogDescription>
               Kalan duraklar yeni varışa göre yeniden sıralanır. Teslim edilenler
-              korunur.
+              korunur. Malatya içinde çiftlik dışında bir işin varsa &quot;Elle
+              adres gir&quot; ile ona yakın bir yerde bitirebilirsin.
             </DialogDescription>
           </DialogHeader>
           <DestinationPicker
             savedLocations={savedLocations}
             orders={destinationOrders}
             value={destValue}
+            manualLabel={route.destination?.kind === "location" ? route.destination.name : undefined}
             className="h-9 w-full"
             onRoundTrip={destRoundTrip}
             onSavedLocation={destSavedLocation}
             onOrder={destOrder}
+            onManual={() => setDestManualOpen(true)}
           />
+          {destManualOpen ? (
+            <AddressMapsProvider apiKey={mapsBrowserKey}>
+              <AddressAutocomplete
+                placeholder="Adres veya yer adı ara…"
+                aria-label="Varış adresi ara"
+                onSelect={(addr) => {
+                  if (addr.lat === 0 && addr.lng === 0) {
+                    toast.error("Bu adres için konum bulunamadı.");
+                    return;
+                  }
+                  destManual(addr.lat, addr.lng, formatManualDestinationLabel(addr));
+                }}
+              />
+            </AddressMapsProvider>
+          ) : null}
         </DialogContent>
       </Dialog>
 
