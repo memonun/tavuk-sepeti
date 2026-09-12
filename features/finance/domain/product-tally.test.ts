@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildProductTallyRows } from "@/features/finance/domain/product-tally";
+import {
+  buildProductTallyRows,
+  groupGiftedByUnit,
+  groupSoldByUnit,
+  type ProductTallyRow,
+} from "@/features/finance/domain/product-tally";
 
 describe("buildProductTallyRows", () => {
   it("returns an empty list for no rows", () => {
@@ -54,5 +59,62 @@ describe("buildProductTallyRows", () => {
       { product_key: "a", display_name: "Ayran", kind: "sold", unit_label: "litre", quantity: 1 },
     ]);
     expect(rows.map((r) => r.display_name)).toEqual(["Ayran", "Süt"]);
+  });
+});
+
+const row = (
+  product_key: string,
+  display_name: string,
+  sold: ProductTallyRow["sold"],
+  gifted: ProductTallyRow["gifted"] = [],
+): ProductTallyRow => ({ product_key, display_name, sold, gifted });
+
+describe("groupSoldByUnit", () => {
+  it("returns nothing for rows with no sold quantity", () => {
+    expect(groupSoldByUnit([row("a", "A", null)])).toEqual([]);
+  });
+
+  it("never mixes two units in one group", () => {
+    const groups = groupSoldByUnit([
+      row("cheese", "Peynir", { unit_label: "kg", quantity: 9 }),
+      row("eggs", "Yumurta", { unit_label: "adet", quantity: 480 }),
+    ]);
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.unit_label).sort()).toEqual(["adet", "kg"]);
+  });
+
+  it("ranks rows within a group by quantity, descending", () => {
+    const groups = groupSoldByUnit([
+      row("a", "Az Satan", { unit_label: "kg", quantity: 3 }),
+      row("b", "Çok Satan", { unit_label: "kg", quantity: 30 }),
+    ]);
+    expect(groups[0]?.rows.map((r) => r.display_name)).toEqual(["Çok Satan", "Az Satan"]);
+  });
+
+  it("ignores gifted quantities entirely", () => {
+    const groups = groupSoldByUnit([
+      row("a", "A", { unit_label: "kg", quantity: 5 }, [{ unit_label: "gr", quantity: 9999 }]),
+    ]);
+    expect(groups).toEqual([{ unit_label: "kg", rows: [{ product_key: "a", display_name: "A", quantity: 5 }] }]);
+  });
+});
+
+describe("groupGiftedByUnit", () => {
+  it("returns nothing when nothing was gifted", () => {
+    expect(groupGiftedByUnit([row("a", "A", { unit_label: "kg", quantity: 1 })])).toEqual([]);
+  });
+
+  it("puts one product's two gift units into two separate groups, not summed", () => {
+    const groups = groupGiftedByUnit([
+      row("peynir", "Peynir", null, [
+        { unit_label: "gr", quantity: 50 },
+        { unit_label: "adet", quantity: 1 },
+      ]),
+    ]);
+    expect(groups).toHaveLength(2);
+    const grGroup = groups.find((g) => g.unit_label === "gr");
+    const adetGroup = groups.find((g) => g.unit_label === "adet");
+    expect(grGroup?.rows).toEqual([{ product_key: "peynir", display_name: "Peynir", quantity: 50 }]);
+    expect(adetGroup?.rows).toEqual([{ product_key: "peynir", display_name: "Peynir", quantity: 1 }]);
   });
 });

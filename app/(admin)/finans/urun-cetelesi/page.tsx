@@ -10,6 +10,7 @@ import {
 } from "@/features/finance/application/date-range-presets";
 import { getProductTally } from "@/features/finance/application/get-product-tally";
 import { FinancePeriodFilter } from "@/features/finance/ui/finance-period-filter";
+import { ProductTallyCharts } from "@/features/finance/ui/product-tally-charts";
 import { ProductTallyTable } from "@/features/finance/ui/product-tally-table";
 
 interface UrunCetelesiPageProps {
@@ -44,7 +45,10 @@ export default async function UrunCetelesiPage({ searchParams }: UrunCetelesiPag
       <FinancePeriodFilter />
 
       {tallyResult.ok ? (
-        <ProductTallyTable rows={tallyResult.value} />
+        <>
+          <ProductTallyCharts rows={tallyResult.value} />
+          <ProductTallyTable rows={tallyResult.value} />
+        </>
       ) : (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-6 text-sm text-destructive">
           Ürün çetelesi yüklenemedi: {tallyResult.error.message}
