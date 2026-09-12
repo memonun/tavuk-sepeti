@@ -55,6 +55,11 @@ export function OrderGiftItemsPanel({
   const [unitLabel, setUnitLabel] = useState<GiftUnitLabel>("gr");
   const [note, setNote] = useState("");
 
+  // base-ui's <SelectValue> falls back to the raw value string unless the
+  // Select root is told how to label it — product_key isn't human-readable
+  // (e.g. "dut-pekmezi"), so this is required, not cosmetic.
+  const productLabels = Object.fromEntries(products.map((p) => [p.key, p.display_name]));
+
   const onAdd = () => {
     if (!productKey) {
       toast.error("Önce bir ürün seç.");
@@ -142,7 +147,12 @@ export function OrderGiftItemsPanel({
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-40 flex-1 space-y-1">
           <Label className="text-xs">Ürün</Label>
-          <Select value={productKey} onValueChange={(v) => v && setProductKey(v)} disabled={pending}>
+          <Select
+            value={productKey}
+            onValueChange={(v) => v && setProductKey(v)}
+            disabled={pending}
+            items={productLabels}
+          >
             <SelectTrigger className="h-9 w-full" aria-label="Hediye ürünü seç">
               <SelectValue placeholder="Ürün seç…" />
             </SelectTrigger>
