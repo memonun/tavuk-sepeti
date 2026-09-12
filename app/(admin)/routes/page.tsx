@@ -297,7 +297,9 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
         orders={destinationOrders}
         destLat={destLat}
         destLng={destLng}
+        destName={destName}
         destOrderId={destOrderId}
+        mapsKey={mapsKey}
       />
 
       {savedLocations.length === 0 ? (

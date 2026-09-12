@@ -7,11 +7,13 @@
  * (originLat/Lng/Name) and flows into both the optimize fetch and the drive
  * view. Picking a new origin drops ?optimize so the route re-computes from it.
  */
-import { Loader2, MapPin, Navigation, Sparkles } from "lucide-react";
+import { Loader2, MapPin, Navigation, Sparkles, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { AddressAutocomplete } from "@/components/address/address-autocomplete";
+import { AddressMapsProvider } from "@/components/address/address-maps-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,12 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatManualDestinationLabel } from "@/features/routing/domain/format-manual-destination-label";
 import {
   clearedRouteStateCookieString,
   routeStateCookieString,
 } from "@/features/routing/domain/route-state-cookie";
 import {
   DEST_LOC_PREFIX,
+  DEST_MANUAL,
   DEST_ORDER_PREFIX,
   DEST_ROUND_TRIP,
   DestinationPicker,
@@ -53,7 +57,12 @@ interface RouteControlsProps {
   /** Current destination, carried in the URL (null = round trip). */
   destLat: number | null;
   destLng: number | null;
+  destName: string | null;
   destOrderId: string | null;
+  /** Browser Maps key for the manual-address search (Places autocomplete).
+   *  Undefined = the manual option still shows but degrades to a message
+   *  instead of a working search box (see AddressMapsProvider). */
+  mapsKey: string | undefined;
 }
 
 export function RouteControls({
@@ -67,13 +76,16 @@ export function RouteControls({
   orders,
   destLat,
   destLng,
+  destName,
   destOrderId,
+  mapsKey,
 }: RouteControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [locating, setLocating] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const replaceParams = (mutate: (p: URLSearchParams) => void) => {
     const updated = new URLSearchParams(params.toString());
@@ -147,7 +159,8 @@ export function RouteControls({
   };
 
   // ---- Destination (end point). Changing it re-computes, so drop ?optimize. ----
-  const clearDestination = () =>
+  const clearDestination = () => {
+    setManualOpen(false);
     replaceParams((p) => {
       p.delete("destLat");
       p.delete("destLng");
@@ -155,7 +168,9 @@ export function RouteControls({
       p.delete("destOrderId");
       p.delete("optimize");
     });
-  const setDestLocation = (lat: number, lng: number, name: string) =>
+  };
+  const setDestLocation = (lat: number, lng: number, name: string) => {
+    setManualOpen(false);
     replaceParams((p) => {
       p.set("destLat", String(lat));
       p.set("destLng", String(lng));
@@ -163,7 +178,9 @@ export function RouteControls({
       p.delete("destOrderId");
       p.delete("optimize");
     });
-  const setDestOrder = (orderId: string) =>
+  };
+  const setDestOrder = (orderId: string) => {
+    setManualOpen(false);
     replaceParams((p) => {
       p.set("destOrderId", orderId);
       p.delete("destLat");
@@ -171,6 +188,7 @@ export function RouteControls({
       p.delete("destName");
       p.delete("optimize");
     });
+  };
 
   const destValue = (() => {
     if (destOrderId) return `${DEST_ORDER_PREFIX}${destOrderId}`;
@@ -181,6 +199,8 @@ export function RouteControls({
         (l) => l.lat === destLat && l.lng === destLng,
       );
       if (match) return `${DEST_LOC_PREFIX}${match.id}`;
+      // A coordinate that isn't a saved location = a one-off manual pick.
+      return DEST_MANUAL;
     }
     return DEST_ROUND_TRIP;
   })();
@@ -278,12 +298,43 @@ export function RouteControls({
           savedLocations={savedLocations}
           orders={orders}
           value={destValue}
+          manualLabel={destName ?? undefined}
           disabled={busy}
           className="h-9 w-full sm:w-56"
           onRoundTrip={clearDestination}
           onSavedLocation={(loc) => setDestLocation(loc.lat, loc.lng, loc.name)}
           onOrder={setDestOrder}
+          onManual={() => setManualOpen(true)}
         />
+        {manualOpen ? (
+          <div className="flex items-start gap-1.5 sm:w-56">
+            <div className="flex-1">
+              <AddressMapsProvider apiKey={mapsKey}>
+                <AddressAutocomplete
+                  placeholder="Adres veya yer adı ara…"
+                  aria-label="Varış adresi ara"
+                  onSelect={(addr) => {
+                    if (addr.lat === 0 && addr.lng === 0) {
+                      toast.error("Bu adres için konum bulunamadı.");
+                      return;
+                    }
+                    setDestLocation(addr.lat, addr.lng, formatManualDestinationLabel(addr));
+                  }}
+                />
+              </AddressMapsProvider>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              onClick={() => setManualOpen(false)}
+              aria-label="Adres aramayı kapat"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       {optimized ? (
