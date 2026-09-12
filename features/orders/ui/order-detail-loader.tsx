@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 
 import { getOrderByIdAction } from "@/features/orders/application/get-order-action";
 import { listOrderEventsAction } from "@/features/orders/application/get-order-events-action";
+import { getOrderGiftsAction } from "@/features/orders/application/get-order-gifts-action";
 import { getOrderPaymentsAction } from "@/features/orders/application/payments";
 import { OrderDetailPanel } from "@/features/orders/ui/order-detail-panel";
 
 import type { Product } from "@/features/products/application/list-products";
 import type { Order, OrderStatusEvent } from "@/features/orders/domain/order";
+import type { OrderGiftItem } from "@/features/orders/domain/order-gift";
 import type { OrderPayment } from "@/features/orders/domain/payment";
 
 interface OrderDetailLoaderProps {
@@ -27,6 +29,7 @@ type LoadState =
       order: Order;
       events: OrderStatusEvent[];
       payments: OrderPayment[];
+      gifts: OrderGiftItem[];
     }
   | { kind: "error"; id: string; message: string };
 
@@ -57,19 +60,22 @@ export function OrderDetailLoader({
       getOrderByIdAction(id),
       listOrderEventsAction(id),
       getOrderPaymentsAction(id),
-    ]).then(([orderResult, eventsResult, payments]) => {
+      getOrderGiftsAction(id),
+    ]).then(([orderResult, eventsResult, payments, giftsResult]) => {
       if (!active) return;
       if (!orderResult.ok) {
         setState({ kind: "error", id, message: orderResult.error.message });
         return;
       }
-      // Events failing isn't fatal — render the panel with an empty timeline.
+      // Events/gifts failing isn't fatal — render the panel with an empty
+      // timeline / gift list rather than blocking the whole Sheet.
       setState({
         kind: "ok",
         id,
         order: orderResult.value,
         events: eventsResult.ok ? eventsResult.value : [],
         payments,
+        gifts: giftsResult.ok ? giftsResult.value : [],
       });
     });
     return () => {
@@ -91,6 +97,7 @@ export function OrderDetailLoader({
       customerName={customerName}
       events={state.events}
       payments={state.payments}
+      gifts={state.gifts}
       onMutated={() => setReloadKey((k) => k + 1)}
     />
   );
