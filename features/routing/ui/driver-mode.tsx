@@ -49,6 +49,7 @@ import { completeDeliveryAction } from "@/features/orders/application/complete-d
 import { revertDeliveryAction } from "@/features/orders/application/revert-delivery";
 import { ApproachPrompt } from "@/features/routing/ui/approach-prompt";
 import { DeliveryPaymentDialog } from "@/features/routing/ui/delivery-payment-dialog";
+import { DeliveryWhatsAppPrompt } from "@/features/routing/ui/delivery-whatsapp-prompt";
 import { RouteDriverMap } from "@/features/routing/ui/route-driver-map";
 import { RouteManifestPanel } from "@/features/routing/ui/route-manifest-panel";
 import { StopCard } from "@/features/routing/ui/stop-card";
@@ -124,6 +125,7 @@ export function DriverMode({
   const [manifestOpen, setManifestOpen] = useState(false);
   // The just-delivered stop to collect payment for (null = popup closed).
   const [paymentStop, setPaymentStop] = useState<RouteStop | null>(null);
+  const [whatsAppStop, setWhatsAppStop] = useState<RouteStop | null>(null);
   const [destOpen, setDestOpen] = useState(false);
   const [destManualOpen, setDestManualOpen] = useState(false);
 
@@ -685,10 +687,24 @@ export function DriverMode({
         pending={transitionPending}
       />
 
-      {/* Collect-on-delivery popup */}
+      {/* Collect-on-delivery popup — every close path (paid in full, partial,
+          or skipped) hands off to the WhatsApp prompt below, so the view
+          having already snapped to the next stop doesn't cost the driver a
+          trip back to send the delivered confirmation. */}
       <DeliveryPaymentDialog
         stop={paymentStop}
-        onClose={() => setPaymentStop(null)}
+        onClose={() => {
+          const stop = paymentStop;
+          setPaymentStop(null);
+          if (stop?.customer_phone) setWhatsAppStop(stop);
+        }}
+      />
+
+      {/* Send the "teslim edildi" WhatsApp message for the stop just closed
+          above before the route moves on. */}
+      <DeliveryWhatsAppPrompt
+        stop={whatsAppStop}
+        onContinue={() => setWhatsAppStop(null)}
       />
 
       {/* Change destination (re-optimizes the remaining route) */}
