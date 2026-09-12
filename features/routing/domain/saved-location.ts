@@ -24,3 +24,14 @@ export const savedLocationSchema = z.object({
 });
 
 export type SavedLocationRow = z.input<typeof savedLocationSchema>;
+
+/** Input for creating a saved location — no id (DB-generated) and never
+ *  is_default (a manually-entered one-off address is never the start point
+ *  by default; promoting one is a separate, deliberate admin action). */
+export const createSavedLocationSchema = z.object({
+  name: z.string().trim().min(1, "Konum adı gerekli.").max(120),
+  lat: z.number().gte(-90).lte(90),
+  lng: z.number().gte(-180).lte(180),
+});
+
+export type CreateSavedLocationInput = z.infer<typeof createSavedLocationSchema>;

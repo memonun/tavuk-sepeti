@@ -52,6 +52,7 @@ import { DeliveryPaymentDialog } from "@/features/routing/ui/delivery-payment-di
 import { RouteDriverMap } from "@/features/routing/ui/route-driver-map";
 import { RouteManifestPanel } from "@/features/routing/ui/route-manifest-panel";
 import { StopCard } from "@/features/routing/ui/stop-card";
+import { saveManualLocationAction } from "@/features/routing/application/save-manual-location";
 import { serializeExcludeDelivered } from "@/features/routing/domain/exclude-delivered-url";
 import { formatManualDestinationLabel } from "@/features/routing/domain/format-manual-destination-label";
 import { computeRouteManifest } from "@/features/routing/domain/route-manifest";
@@ -723,12 +724,23 @@ export function DriverMode({
               <AddressAutocomplete
                 placeholder="Adres veya yer adı ara…"
                 aria-label="Varış adresi ara"
-                onSelect={(addr) => {
+                onSelect={async (addr) => {
                   if (addr.lat === 0 && addr.lng === 0) {
                     toast.error("Bu adres için konum bulunamadı.");
                     return;
                   }
-                  destManual(addr.lat, addr.lng, formatManualDestinationLabel(addr));
+                  const name = formatManualDestinationLabel(addr);
+                  destManual(addr.lat, addr.lng, name);
+                  const saved = await saveManualLocationAction({
+                    name,
+                    lat: addr.lat,
+                    lng: addr.lng,
+                  });
+                  if (saved.ok) {
+                    toast.success(`"${name}" adres defterine kaydedildi.`);
+                  } else {
+                    toast.error(saved.error.message);
+                  }
                 }}
               />
             </AddressMapsProvider>

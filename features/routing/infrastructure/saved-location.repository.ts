@@ -7,6 +7,7 @@ import "server-only";
  */
 import {
   savedLocationSchema,
+  type CreateSavedLocationInput,
   type SavedLocation,
 } from "@/features/routing/domain/saved-location";
 import { ExternalApiError } from "@/shared/errors/app-error";
@@ -53,4 +54,54 @@ export async function getDefaultSavedLocation(): Promise<SavedLocation | null> {
   if (error || !data) return null;
   const parsed = savedLocationSchema.safeParse(data);
   return parsed.success ? parsed.data : null;
+}
+
+/**
+ * Exact-coordinate lookup — used to avoid re-inserting the same manually
+ * picked address every time it's chosen again as a route destination.
+ * Coordinates come from the same Google Places result each time the same
+ * place is re-picked, so exact equality is a reasonable dedupe key here
+ * (unlike geocoded-by-hand addresses, which can drift by a few decimals).
+ */
+export async function findSavedLocationByCoordinate(
+  lat: number,
+  lng: number,
+): Promise<SavedLocation | null> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("saved_locations")
+    .select("id, name, lat, lng, is_default")
+    .eq("lat", lat)
+    .eq("lng", lng)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const parsed = savedLocationSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Insert a new saved location (never as the default — see the schema doc). */
+export async function createSavedLocation(
+  input: CreateSavedLocationInput,
+): Promise<Result<SavedLocation, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("saved_locations")
+    .insert({ name: input.name, lat: input.lat, lng: input.lng, is_default: false })
+    .select("id, name, lat, lng, is_default")
+    .single();
+
+  if (error) {
+    logger.error({ code: error.code, message: error.message }, "create_saved_location_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+
+  const parsed = savedLocationSchema.safeParse(data);
+  if (!parsed.success) {
+    return err(new ExternalApiError({ message: "Kaydedilen konum okunamadı." }));
+  }
+  return ok(parsed.data);
 }
