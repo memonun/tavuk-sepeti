@@ -30,6 +30,7 @@ import {
   clearedRouteStateCookieString,
   routeStateCookieString,
 } from "@/features/routing/domain/route-state-cookie";
+import { saveManualLocationAction } from "@/features/routing/application/save-manual-location";
 import {
   DEST_LOC_PREFIX,
   DEST_MANUAL,
@@ -313,12 +314,23 @@ export function RouteControls({
                 <AddressAutocomplete
                   placeholder="Adres veya yer adı ara…"
                   aria-label="Varış adresi ara"
-                  onSelect={(addr) => {
+                  onSelect={async (addr) => {
                     if (addr.lat === 0 && addr.lng === 0) {
                       toast.error("Bu adres için konum bulunamadı.");
                       return;
                     }
-                    setDestLocation(addr.lat, addr.lng, formatManualDestinationLabel(addr));
+                    const name = formatManualDestinationLabel(addr);
+                    setDestLocation(addr.lat, addr.lng, name);
+                    const saved = await saveManualLocationAction({
+                      name,
+                      lat: addr.lat,
+                      lng: addr.lng,
+                    });
+                    if (saved.ok) {
+                      toast.success(`"${name}" adres defterine kaydedildi.`);
+                    } else {
+                      toast.error(saved.error.message);
+                    }
                   }}
                 />
               </AddressMapsProvider>
