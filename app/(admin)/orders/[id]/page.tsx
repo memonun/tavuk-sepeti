@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { loadCustomerProductPriceMap } from "@/features/customers/application/customer-prices";
 import { getCustomerById } from "@/features/customers/application/get-customer";
+import { getOrderGifts } from "@/features/orders/application/get-order-gifts";
 import {
   getOrderById,
   getOrderEvents,
@@ -17,18 +18,20 @@ interface OrderDetailPageProps {
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
   const { id } = await params;
 
-  const [orderResult, eventsResult, productsResult, payments] =
+  const [orderResult, eventsResult, productsResult, payments, giftsResult] =
     await Promise.all([
       getOrderById(id),
       getOrderEvents(id),
       listActiveProducts(),
       getOrderPaymentsAction(id),
+      getOrderGifts(id),
     ]);
 
   if (!orderResult.ok) notFound();
   const order = orderResult.value;
   const events = eventsResult.ok ? eventsResult.value : [];
   const products = productsResult.ok ? productsResult.value : [];
+  const gifts = giftsResult.ok ? giftsResult.value : [];
 
   const [customerResult, customerPriceMap] = await Promise.all([
     getCustomerById(order.customer_id),
@@ -46,6 +49,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       events={events}
       customerPrices={Object.fromEntries(customerPriceMap)}
       payments={payments}
+      gifts={gifts}
     />
   );
 }

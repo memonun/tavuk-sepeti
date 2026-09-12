@@ -56,6 +56,7 @@ const financeSubItems = [
   { href: "/finans/pazar-satislari", label: "Pazar Satışları" },
   { href: "/finans/giderler", label: "Giderler" },
   { href: "/finans/rutin-giderler", label: "Rutin Giderler" },
+  { href: "/finans/urun-cetelesi", label: "Ürün Çetelesi" },
 ] as const;
 
 interface AdminSidebarProps {

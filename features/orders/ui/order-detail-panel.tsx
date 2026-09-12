@@ -35,6 +35,7 @@ import {
 } from "@/features/orders/ui/product-picker";
 import { OrderStatusActions } from "@/features/orders/ui/order-status-actions";
 import { OrderCargoInfoForm } from "@/features/orders/ui/order-cargo-info-form";
+import { OrderGiftItemsPanel } from "@/features/orders/ui/order-gift-items-panel";
 import { OrderPayments } from "@/features/orders/ui/order-payments";
 import { priceOrderLine } from "@/features/products/application/pricing";
 import { formatDate, formatDateTime } from "@/shared/utils/date";
@@ -46,6 +47,7 @@ import {
 } from "@/features/orders/domain/payment";
 import type { Product } from "@/features/products/application/list-products";
 import { FULFILLMENT_CHANNEL_LABELS } from "@/features/orders/domain/order";
+import type { OrderGiftItem } from "@/features/orders/domain/order-gift";
 import type {
   Order,
   OrderStatus,
@@ -63,6 +65,7 @@ interface OrderDetailPanelProps {
   /** product_key → flat special price (kuruş) for this order's customer. */
   readonly customerPrices?: Record<string, number>;
   readonly payments: OrderPayment[];
+  readonly gifts: OrderGiftItem[];
   /** Sheet loaders pass this to refetch after a child mutation (no full
    *  reload); on the full page it's omitted and router.refresh() is used. */
   readonly onMutated?: () => void;
@@ -120,6 +123,7 @@ export function OrderDetailPanel({
   events,
   customerPrices = {},
   payments,
+  gifts,
   onMutated,
 }: OrderDetailPanelProps) {
   const router = useRouter();
@@ -226,6 +230,8 @@ export function OrderDetailPanel({
         payments={payments}
         {...(onMutated ? { onMutated } : {})}
       />
+
+      <OrderGiftItemsPanel orderId={initialOrder.id} products={products} gifts={gifts} />
 
       <DeliveryAddress order={order} />
 
