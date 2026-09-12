@@ -6,7 +6,12 @@
  */
 import { z } from "zod";
 
-import type { ExpensePaymentStatus, ExpenseUnit, ManualPaymentMethod } from "@/features/finance/domain/expense";
+import type {
+  ExpensePaymentStatus,
+  ExpenseSource,
+  ExpenseUnit,
+  ManualPaymentMethod,
+} from "@/features/finance/domain/expense";
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -20,6 +25,7 @@ const nullableText = (max: number, message: string) =>
     .transform((v) => (v && v.length > 0 ? v : null));
 
 export const expensePaymentStatusSchema = z.enum(["paid", "pending"]);
+export const expenseSourceSchema = z.enum(["manual", "recurring_generated"]);
 export const manualPaymentMethodSchema = z.enum([
   "cash",
   "card",
@@ -108,6 +114,9 @@ export const expenseListQuerySchema = z.object({
    *  see collectSelfAndDescendantIds. */
   category_id: z.string().uuid().optional(),
   payment_status: expensePaymentStatusSchema.optional(),
+  /** "Rutin Giderler" filter — Giderler shows every expense either way; this
+   *  narrows to just the recurring-generated (or just the manual) ones. */
+  source: expenseSourceSchema.optional(),
   date_from: z.string().regex(YMD_RE).optional(),
   date_to: z.string().regex(YMD_RE).optional(),
   sort: expenseSortFieldSchema.default("expense_date"),
@@ -117,4 +126,4 @@ export const expenseListQuerySchema = z.object({
 });
 export type ExpenseListQuery = z.output<typeof expenseListQuerySchema>;
 
-export type { ExpensePaymentStatus, ExpenseUnit, ManualPaymentMethod };
+export type { ExpensePaymentStatus, ExpenseSource, ExpenseUnit, ManualPaymentMethod };
