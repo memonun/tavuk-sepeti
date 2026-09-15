@@ -12,11 +12,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import type { ProductTallyRow, ProductTallyUnitQuantity } from "@/features/finance/domain/product-tally";
+import {
+  parsePiecesPerUnit,
+  type ProductTallyRow,
+  type ProductTallyUnitQuantity,
+} from "@/features/finance/domain/product-tally";
 
 function formatQuantity(q: ProductTallyUnitQuantity): string {
   const value = Number.isInteger(q.quantity) ? q.quantity : q.quantity.toFixed(2);
   return `${value} ${q.unit_label}`;
+}
+
+/** Sold-only: "240 paket (15 adet)" → "240 paket (15 adet) = 3.600 adet". */
+function formatSoldQuantity(sold: ProductTallyUnitQuantity): string {
+  const base = formatQuantity(sold);
+  const pieces = parsePiecesPerUnit(sold.unit_label);
+  if (!pieces) return base;
+  return `${base} = ${(sold.quantity * pieces).toLocaleString("tr-TR")} adet`;
 }
 
 export function ProductTallyTable({ rows }: { rows: readonly ProductTallyRow[] }) {
@@ -43,7 +55,7 @@ export function ProductTallyTable({ rows }: { rows: readonly ProductTallyRow[] }
             <TableRow key={row.product_key}>
               <TableCell className="font-medium">{row.display_name}</TableCell>
               <TableCell className="text-right tabular-nums">
-                {row.sold ? formatQuantity(row.sold) : "—"}
+                {row.sold ? formatSoldQuantity(row.sold) : "—"}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {row.gifted.length > 0 ? (
