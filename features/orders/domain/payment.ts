@@ -28,11 +28,20 @@ export interface OrderPayment {
 /**
  * Derive the payment status from the order total and the amount paid so far.
  * Single source of truth shared with the SQL `recompute_order_payment`.
+ *
+ * A zero (or negative — shouldn't happen, but never treat as owing) total is
+ * "paid" unconditionally: nothing is owed, so there is nothing to collect —
+ * this is what makes a free/complimentary order (e.g. an influencer gift,
+ * total_minor forced to 0 via a special price) settle immediately instead of
+ * sitting stuck on "Bekliyor" forever with no payment to record against it.
+ * Checked BEFORE the paidMinor<=0 branch on purpose: that branch used to
+ * catch (total=0, paid=0) too and return "pending" first.
  */
 export function derivePaymentStatus(
   totalMinor: number,
   paidMinor: number,
 ): PaymentDerivedStatus {
+  if (totalMinor <= 0) return "paid";
   if (paidMinor <= 0) return "pending";
   if (paidMinor < totalMinor) return "partial";
   return "paid";

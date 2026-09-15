@@ -20,6 +20,9 @@ describe("derivePaymentStatus", () => {
   it("treats a net-negative balance (refunds) as pending", () => {
     expect(derivePaymentStatus(25000, -5000)).toBe("pending");
   });
+  it("is paid unconditionally for a zero-total (free/gift) order, even with nothing paid", () => {
+    expect(derivePaymentStatus(0, 0)).toBe("paid");
+  });
 });
 
 describe("isAwaitingCardPayment", () => {

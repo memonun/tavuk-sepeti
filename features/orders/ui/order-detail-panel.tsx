@@ -157,6 +157,11 @@ export function OrderDetailPanel({
                 Abonelik
               </Badge>
             ) : null}
+            {order.total_minor <= 0 ? (
+              <Badge variant="secondary" className="text-xs">
+                Hediye
+              </Badge>
+            ) : null}
           </div>
           <p className="text-sm">
             <Link
