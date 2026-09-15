@@ -30,6 +30,27 @@ export interface ProductTallyRpcRow {
   readonly quantity: number;
 }
 
+/**
+ * Extracts a per-package piece count from a unit label written like
+ * "paket (15 adet)" — whoever set up that product's unit_label already
+ * annotated how many discrete pieces one sold unit bundles; this just
+ * automates the multiplication a reader would otherwise do by hand.
+ *
+ * Deliberately NOT products.package_size: that column means something
+ * different depending on the product (for cheese/yogurt, package_size=0.5
+ * is a kg ordering increment, not a piece count — multiplying by it would
+ * be wrong). The "(N adet)" text is the actual, unambiguous signal, and it
+ * naturally only matches products that were labeled this way (today just
+ * "eggs" — "paket (15 adet)"), so this never misfires on kg/litre/kavanoz
+ * labels.
+ */
+export function parsePiecesPerUnit(unitLabel: string): number | null {
+  const match = /\((\d+(?:[.,]\d+)?)\s*adet\)/i.exec(unitLabel);
+  if (!match) return null;
+  const n = Number(match[1]!.replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 /** Fold the RPC's flat (product, kind, unit_label) rows into one row per
  *  product, sorted by display_name. Pure — the repository does the I/O. */
 export function buildProductTallyRows(

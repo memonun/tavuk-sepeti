@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import {
   groupGiftedByUnit,
   groupSoldByUnit,
+  parsePiecesPerUnit,
   type ProductTallyChartGroup,
   type ProductTallyRow,
 } from "@/features/finance/domain/product-tally";
@@ -25,11 +26,16 @@ function formatQuantity(quantity: number): string {
 function UnitBarGroup({
   group,
   barClassName,
+  showPieces = false,
 }: {
   group: ProductTallyChartGroup;
   barClassName: string;
+  /** Sold-only: a group like "paket (15 adet)" also shows the multiplied
+   *  piece total per row (e.g. "240 paket (15 adet) = 3.600 adet"). */
+  showPieces?: boolean;
 }) {
   const maxQuantity = Math.max(1, ...group.rows.map((r) => r.quantity));
+  const pieces = showPieces ? parsePiecesPerUnit(group.unit_label) : null;
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -43,6 +49,7 @@ function UnitBarGroup({
               <span className="text-muted-foreground">{row.display_name}</span>
               <span className="font-medium tabular-nums">
                 {formatQuantity(row.quantity)} {group.unit_label}
+                {pieces ? ` = ${(row.quantity * pieces).toLocaleString("tr-TR")} adet` : ""}
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -70,7 +77,12 @@ export function ProductTallyCharts({ rows }: { rows: readonly ProductTallyRow[] 
         <h3 className="text-sm font-semibold">Satılan Ürünler</h3>
         {soldGroups.length > 0 ? (
           soldGroups.map((group) => (
-            <UnitBarGroup key={group.unit_label} group={group} barClassName="bg-primary" />
+            <UnitBarGroup
+              key={group.unit_label}
+              group={group}
+              barClassName="bg-primary"
+              showPieces
+            />
           ))
         ) : (
           <div className="rounded-lg border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">

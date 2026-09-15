@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus, Repeat } from "lucide-react";
 
 import { getFinanceDateRangeBounds } from "@/features/finance/application/date-range-presets";
 import { getExpenseSummary } from "@/features/finance/application/get-expense-summary";
@@ -10,6 +10,7 @@ import { ExpenseCategoryManager } from "@/features/finance/ui/expense-category-m
 import { ExpenseFilterBar } from "@/features/finance/ui/expense-filter-bar";
 import { ExpenseFormDialog } from "@/features/finance/ui/expense-form";
 import { ExpenseTable } from "@/features/finance/ui/expense-table";
+import { RecurringExpenseTemplateFormDialog } from "@/features/finance/ui/recurring-expense-template-form";
 import { StatCard } from "@/features/finance/ui/stat-card";
 import { Button } from "@/components/ui/button";
 import { formatTRY } from "@/shared/utils/money";
@@ -95,6 +96,15 @@ export default async function GiderlerPage({ searchParams }: GiderlerPageProps) 
         </div>
         <div className="flex gap-2">
           <ExpenseCategoryManager categories={categoryTree} />
+          <RecurringExpenseTemplateFormDialog
+            mode="create"
+            categories={activeCategories}
+            trigger={
+              <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                <Repeat className="h-4 w-4" /> Rutin Gider Ekle
+              </Button>
+            }
+          />
           <ExpenseFormDialog
             mode="create"
             categories={activeCategories}
