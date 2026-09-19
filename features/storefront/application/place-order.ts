@@ -99,7 +99,6 @@ import {
 import { isRouteUpgradeEligible } from "@/features/storefront/domain/route-capability";
 import {
   CARGO_FEE_MINOR,
-  DELIVERY_FEE_MINOR,
   DELIVERY_PROVINCE,
   MAX_DELIVERY_HORIZON_DAYS,
   MIN_DELIVERY_LEAD_DAYS,
@@ -445,7 +444,7 @@ export async function placeOrderAction(
   }
 
   const deliveryFeeMinor =
-    channel === "delivery" ? DELIVERY_FEE_MINOR : CARGO_FEE_MINOR;
+    channel === "delivery" ? settings.homeDeliveryFeeMinor : CARGO_FEE_MINOR;
   const isCard = parsed.data.payment_method === "credit_card";
   const emailTo = actor.email;
 

@@ -9,22 +9,14 @@
 import { formatTRY } from "@/shared/utils/money";
 
 /**
- * Flat fee on a hand-delivered ("delivery" channel) order — the Malatya-içi
- * eve servis run (kuruş). `place-order.ts` applies it server-side when the
- * re-derived channel is "delivery"; `create_recurring_order` mirrors the same
- * rule in-DB, so keep the two in sync (migration
- * 20260908120000_recurring_order_delivery_fee).
- *
- * For anything more elaborate (free-over-threshold, distance-based) compute it
- * server-side in `place-order.ts` — never trust the client for money.
- */
-export const DELIVERY_FEE_MINOR = 5000;
-
-/**
  * Flat fee on a CARGO order (kuruş). Separate from DELIVERY_FEE_MINOR on
  * purpose: shipping a parcel nationwide and driving a van across Malatya are
  * different costs, and conflating them would force one to change when the other
  * does. Launch default is 0 (free shipping).
+
+ * The hand-delivery (eve servis) fee is NOT here: it is owner-editable in
+ * /magaza-ayarlari (`homeDeliveryFeeMinor` in storefront-settings.ts). Never
+ * trust the client for money — `place-order.ts` reads it server-side.
  */
 export const CARGO_FEE_MINOR = 0;
 
@@ -102,7 +94,11 @@ export const CARGO_FREE_SHIPPING_NOTICE =
   "Türkiye'nin her yerine ücretsiz kargo.";
 
 /** Symmetric counterpart for the hand-delivery channel — stated upfront (home
- *  page, cart, checkout) so the fee is never a surprise at the total line. */
-export const DELIVERY_FEE_NOTICE = `${DELIVERY_PROVINCE} içi elden teslimat ücreti ${formatTRY(
-  DELIVERY_FEE_MINOR,
-)}.`;
+ *  page, cart, checkout) so the fee is never a surprise at the total line.
+ *  Takes the live fee (storefront_settings.home_delivery_fee_minor) because the
+ *  owner edits it in /magaza-ayarlari; a fixed string would go stale. */
+export function deliveryFeeNotice(feeMinor: number): string {
+  return feeMinor > 0
+    ? `${DELIVERY_PROVINCE} içi elden teslimat ücreti ${formatTRY(feeMinor)}.`
+    : `${DELIVERY_PROVINCE} içi elden teslimat ücretsiz.`;
+}

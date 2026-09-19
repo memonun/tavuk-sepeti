@@ -126,6 +126,7 @@ export default async function ShopLayout({
           <ShopHeader
             products={products}
             cargoMinOrderMinor={settings.cargoMinOrderMinor}
+            deliveryFeeMinor={settings.homeDeliveryFeeMinor}
             authed={authed}
             isAdmin={isAdmin}
           />
@@ -145,6 +146,7 @@ export default async function ShopLayout({
         <MobileBottomNav
           products={products}
           cargoMinOrderMinor={settings.cargoMinOrderMinor}
+          deliveryFeeMinor={settings.homeDeliveryFeeMinor}
           authed={authed}
         />
       </div>

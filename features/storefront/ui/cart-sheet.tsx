@@ -15,7 +15,7 @@ import {
   orderMinimumMessage,
 } from "@/features/storefront/domain/order-minimum";
 import {
-  DELIVERY_FEE_NOTICE,
+  deliveryFeeNotice,
   DELIVERY_PROVINCE,
 } from "@/features/storefront/domain/storefront.config";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -51,12 +51,15 @@ import type { Product } from "@/features/products/application/list-products";
 export function CartSheet({
   products,
   cargoMinOrderMinor,
+  deliveryFeeMinor,
   variant = "header",
 }: {
   products: readonly Product[];
   /** Cargo order floor in kuruş — stated here so a customer never carries a
    *  too-small basket all the way to checkout only to be refused. */
   cargoMinOrderMinor: number;
+  /** Live eve-servis fee in kuruş (0 = free), for the "ücret eklenir" note. */
+  deliveryFeeMinor: number;
   variant?: "header" | "tab";
 }) {
   const { lines, lineCount, hydrated, clear, retainOnly } = useCart();
@@ -254,7 +257,7 @@ export function CartSheet({
             </div>
             {mode === "route" ? (
               <p className="text-xs text-muted-foreground">
-                {DELIVERY_FEE_NOTICE} Ödeme adımında eklenir.
+                {deliveryFeeNotice(deliveryFeeMinor)} Ödeme adımında eklenir.
               </p>
             ) : null}
             {minimum.ok ? (

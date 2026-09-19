@@ -151,7 +151,11 @@ export default async function RecurringOrderPage() {
       <div className="flex flex-col gap-8">
         <Header />
         <MyRecurringOrders templates={templates} />
-        <RecurringOrderForm products={products} homeDeliveryDays={settings.homeDeliveryDays} />
+        <RecurringOrderForm
+          products={products}
+          homeDeliveryDays={settings.homeDeliveryDays}
+          deliveryFeeMinor={settings.homeDeliveryFeeMinor}
+        />
       </div>
     );
   })();

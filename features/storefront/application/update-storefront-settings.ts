@@ -37,6 +37,7 @@ export async function updateStorefrontSettingsAction(
     home_delivery_days: formData.getAll("home_delivery_days"),
     cargo_min_order_minor: formData.get("cargo_min_order_minor"),
     home_min_order_minor: formData.get("home_min_order_minor"),
+    home_delivery_fee_minor: formData.get("home_delivery_fee_minor"),
   });
 
   if (!parsed.success) {
@@ -61,6 +62,7 @@ export async function updateStorefrontSettingsAction(
       home_delivery_days: saved.value.homeDeliveryDays,
       cargo_min_order_minor: saved.value.cargoMinOrderMinor,
       home_min_order_minor: saved.value.homeMinOrderMinor,
+      home_delivery_fee_minor: saved.value.homeDeliveryFeeMinor,
     },
   });
 

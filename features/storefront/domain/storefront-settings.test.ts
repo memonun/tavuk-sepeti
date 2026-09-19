@@ -12,6 +12,7 @@ describe("storefrontSettingsSchema", () => {
       home_delivery_days: [6, 3, 3, 0],
       cargo_min_order_minor: 100_000,
       home_min_order_minor: 25_000,
+      home_delivery_fee_minor: 5_000,
     });
 
     expect(parsed.home_delivery_days).toEqual([3, 6, 0]);
@@ -70,12 +71,37 @@ describe("storefrontSettingsSchema", () => {
       home_delivery_days: ["3", "6"],
       cargo_min_order_minor: "100000",
       home_min_order_minor: "25000",
+      home_delivery_fee_minor: "5000",
     });
 
     expect(parsed.home_delivery_days).toEqual([3, 6]);
     expect(parsed.cargo_min_order_minor).toBe(100_000);
     expect(parsed.home_min_order_minor).toBe(25_000);
+    expect(parsed.home_delivery_fee_minor).toBe(5_000);
   });
+
+  const feeRow = (fee: unknown) => ({
+    home_delivery_days: [3],
+    cargo_min_order_minor: 0,
+    home_min_order_minor: 0,
+    home_delivery_fee_minor: fee,
+  });
+
+  it("accepts 0 as a free-delivery fee", () => {
+    expect(storefrontSettingsSchema.safeParse(feeRow(0)).success).toBe(true);
+  });
+
+  it("refuses a negative, fractional or absurd delivery fee", () => {
+    expect(storefrontSettingsSchema.safeParse(feeRow(-1)).success).toBe(false);
+    expect(storefrontSettingsSchema.safeParse(feeRow(50.5)).success).toBe(false);
+    expect(storefrontSettingsSchema.safeParse(feeRow(1_000_001)).success).toBe(false);
+  });
+
+  // A form field that never arrived must not become a silent 0 ₺ fee.
+  it("refuses a missing delivery fee rather than treating it as free", () => {
+    expect(storefrontSettingsSchema.safeParse(feeRow("")).success).toBe(false);
+    expect(storefrontSettingsSchema.safeParse(feeRow(null)).success).toBe(false);
+    expect(storefrontSettingsSchema.safeParse(feeRow(undefined)).success).toBe(false);  });
 });
 
 describe("toStorefrontSettings", () => {
@@ -85,6 +111,7 @@ describe("toStorefrontSettings", () => {
         home_delivery_days: [3, 6],
         cargo_min_order_minor: 100_000,
         home_min_order_minor: 25_000,
+        home_delivery_fee_minor: 5_000,
       }),
     );
 

@@ -11,7 +11,7 @@ import {
 import { formatHomeDeliveryDays } from "@/features/storefront/domain/delivery-window";
 import {
   CARGO_FREE_SHIPPING_NOTICE,
-  DELIVERY_FEE_NOTICE,
+  deliveryFeeNotice,
   FULFILLMENT_NOTICE,
 } from "@/features/storefront/domain/storefront.config";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
@@ -118,7 +118,7 @@ export default async function ShopHomePage({
               </strong>
               .{" "}
               <strong className="font-semibold text-foreground">
-                {DELIVERY_FEE_NOTICE}
+                {deliveryFeeNotice(settings.homeDeliveryFeeMinor)}
               </strong>
             </p>
           </div>

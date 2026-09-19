@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BulkOrderScreen } from "@/features/orders/ui/bulk-order-screen";
 import { listActiveProducts } from "@/features/products/application/list-products";
+import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { env } from "@/shared/env";
 import { toIstanbulDateString } from "@/shared/utils/date";
 
@@ -16,6 +17,10 @@ export default async function NewOrderPage() {
       </div>
     );
   }
+
+  // Cross-feature read goes through application/ (CLAUDE.md §2). Fallback to
+  // launch defaults on a blip is built in, so this never blocks order entry.
+  const settings = await getStorefrontSettings();
 
   const today = toIstanbulDateString(new Date());
   const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
@@ -37,6 +42,7 @@ export default async function NewOrderPage() {
       <BulkOrderScreen
         products={productsResult.value}
         today={today}
+        defaultDeliveryFeeMinor={settings.homeDeliveryFeeMinor}
         newCustomerSlot={
           mapsKey ? <NewCustomerAction mapsBrowserKey={mapsKey} /> : undefined
         }

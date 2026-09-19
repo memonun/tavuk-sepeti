@@ -87,6 +87,7 @@ export default async function CheckoutPage() {
         deliveryDaysLabel={formatHomeDeliveryDays(settings.homeDeliveryDays)}
         cargoMinOrderMinor={settings.cargoMinOrderMinor}
         homeMinOrderMinor={settings.homeMinOrderMinor}
+        homeDeliveryFeeMinor={settings.homeDeliveryFeeMinor}
         paytrEnabled={isPaytrEnabled()}
         mapsKey={env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY}
       />

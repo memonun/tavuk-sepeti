@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { createRecurringOrderRequestAction } from "@/features/storefront/application/recurring-order-request";
 import { WEEKDAY_NAMES_TR, WEEKDAYS_TR_ORDER } from "@/features/storefront/domain/delivery-window";
 import { paymentMethodsForChannel } from "@/features/storefront/domain/payment-options";
-import { DELIVERY_FEE_NOTICE } from "@/features/storefront/domain/storefront.config";
+import { deliveryFeeNotice } from "@/features/storefront/domain/storefront.config";
 import { RecurringOrderItemsPicker } from "@/features/storefront/ui/recurring-order-items-picker";
 
 import type { Product } from "@/features/products/application/list-products";
@@ -30,6 +30,8 @@ type Item = RecurringRequestInput["items"][number];
 interface RecurringOrderFormProps {
   readonly products: readonly Product[];
   readonly homeDeliveryDays: readonly number[];
+  /** Live eve-servis fee in kuruş — the generator charges it per order. */
+  readonly deliveryFeeMinor: number;
 }
 
 // Both channels are offered here — the server re-derives the actual channel
@@ -48,7 +50,11 @@ const PAYMENT_OPTIONS = [
     (option, index, all) => all.findIndex((o) => o.value === option.value) === index,
   );
 
-export function RecurringOrderForm({ products, homeDeliveryDays }: RecurringOrderFormProps) {
+export function RecurringOrderForm({
+  products,
+  homeDeliveryDays,
+  deliveryFeeMinor,
+}: RecurringOrderFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -106,7 +112,8 @@ export function RecurringOrderForm({ products, homeDeliveryDays }: RecurringOrde
       <div className="mb-5 rounded-lg bg-amber-50 border border-amber-200 p-3">
         <p className="text-sm text-amber-900">
           Eve teslimat hizmeti, 250 ₺ ve üzeri tutardaki siparişler için geçerlidir.{" "}
-          {DELIVERY_FEE_NOTICE} Bu ücret oluşturulan her siparişe eklenir.
+          {deliveryFeeNotice(deliveryFeeMinor)}
+          {deliveryFeeMinor > 0 ? " Bu ücret oluşturulan her siparişe eklenir." : ""}
         </p>
       </div>
 

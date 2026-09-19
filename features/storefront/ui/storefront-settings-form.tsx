@@ -3,8 +3,8 @@
 /**
  * The admin half of "eve servis günlerini değiştirebileyim".
  *
- * Two rules, one form: which weekdays the van goes out, and the floor for an
- * out-of-city (cargo) order. Both are read by the storefront on every checkout,
+ * Three rules, one form: which weekdays the van goes out, the order floors, and
+ * the flat fee on a hand-delivered order. Both are read by the storefront on every checkout,
  * so a save here changes what customers can pick on the next request — the
  * action invalidates the cached read.
  *
@@ -35,6 +35,7 @@ export interface StorefrontSettingsFormProps {
   homeDeliveryDays: readonly Weekday[];
   cargoMinOrderMinor: number;
   homeMinOrderMinor: number;
+  homeDeliveryFeeMinor: number;
 }
 
 /** Lira-string ↔ kuruş-number for one of the two floor fields. Both money
@@ -52,6 +53,7 @@ export function StorefrontSettingsForm({
   homeDeliveryDays,
   cargoMinOrderMinor,
   homeMinOrderMinor,
+  homeDeliveryFeeMinor,
 }: StorefrontSettingsFormProps) {
   const [state, formAction, pending] = useActionState(
     updateStorefrontSettingsAction,
@@ -62,7 +64,8 @@ export function StorefrontSettingsForm({
   const [days, setDays] = useState<readonly Weekday[]>(homeDeliveryDays);
   const cargoMin = useMoneyField(cargoMinOrderMinor);
   const homeMin = useMoneyField(homeMinOrderMinor);
-  const allValid = cargoMin.valid && homeMin.valid;
+  const deliveryFee = useMoneyField(homeDeliveryFeeMinor);
+  const allValid = cargoMin.valid && homeMin.valid && deliveryFee.valid;
 
   function toggleDay(day: Weekday) {
     setDays((previous) =>
@@ -150,6 +153,30 @@ export function StorefrontSettingsForm({
           type="hidden"
           name="cargo_min_order_minor"
           value={cargoMin.valid ? cargoMin.minor : ""}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="home-delivery-fee">Elden teslim ürünler için teslimat ücreti (₺)</Label>
+        <Input
+          id="home-delivery-fee"
+          value={deliveryFee.major}
+          onChange={(event) => deliveryFee.setMajor(event.target.value)}
+          inputMode="decimal"
+          disabled={pending}
+        />
+        <p className="text-xs text-muted-foreground">
+          {deliveryFee.valid
+            ? deliveryFee.minor === 0
+              ? "Eve servis siparişlerinde teslimat ücretsiz olur."
+              : `Eve servis (Malatya içi) siparişlerine ${formatTRY(deliveryFee.minor)} teslimat ücreti eklenir: mağaza, düzenli siparişler ve panelden girilen siparişler (panelde sipariş başına elle değiştirilebilir). Kargo siparişlerine eklenmez. Mevcut siparişler etkilenmez.`
+            : "Geçerli bir tutar girin (ör. 50)."}
+        </p>
+        {/* The action parses kuruş; the visible field is lira. */}
+        <input
+          type="hidden"
+          name="home_delivery_fee_minor"
+          value={deliveryFee.valid ? deliveryFee.minor : ""}
         />
       </div>
 

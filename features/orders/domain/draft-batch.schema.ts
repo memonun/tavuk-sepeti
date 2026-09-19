@@ -15,7 +15,6 @@ const storedBatchSchema = z.object({
   defaults: z.object({
     timeSlot: z.enum(["morning", "afternoon", "evening"]).nullable(),
     paymentMethod: z.enum(["cash_on_delivery", "bank_transfer"]),
-    deliveryFeeMinor: z.number().int().nonnegative(),
   }),
   assignments: z.record(z.string(), z.array(basketLineSchema)),
 });

@@ -11,7 +11,7 @@ import {
 
 const base = (): DraftBatch => ({
   scheduledFor: "2026-06-23",
-  defaults: { timeSlot: null, paymentMethod: "cash_on_delivery", deliveryFeeMinor: 0 },
+  defaults: { timeSlot: null, paymentMethod: "cash_on_delivery" },
   assignments: {
     a: [{ product_key: "eggs", quantity: 3 }, { product_key: "milk", quantity: 1 }],
     b: [{ product_key: "eggs", quantity: 3 }, { product_key: "milk", quantity: 1 }],
