@@ -3,6 +3,9 @@
  * period. Server Component, no interactivity of its own (the period filter
  * is FinancePeriodFilter, shared with the rest of Finans).
  */
+import Link from "next/link";
+
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -31,7 +34,15 @@ function formatSoldQuantity(sold: ProductTallyUnitQuantity): string {
   return `${base} = ${(sold.quantity * pieces).toLocaleString("tr-TR")} adet`;
 }
 
-export function ProductTallyTable({ rows }: { rows: readonly ProductTallyRow[] }) {
+interface ProductTallyTableProps {
+  rows: readonly ProductTallyRow[];
+  /** Product whose orders are open below the table, if any. */
+  selectedKey?: string | undefined;
+  /** Link that opens a product's order list (keeps the period in the URL). */
+  hrefForProduct: (row: ProductTallyRow) => string;
+}
+
+export function ProductTallyTable({ rows, selectedKey, hrefForProduct }: ProductTallyTableProps) {
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-12 text-center text-sm text-muted-foreground">
@@ -42,6 +53,9 @@ export function ProductTallyTable({ rows }: { rows: readonly ProductTallyRow[] }
 
   return (
     <div className="rounded-lg border overflow-x-auto">
+      <p className="border-b bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
+        Ürün adına basarak o ürünün satıldığı siparişleri aşağıda görün.
+      </p>
       <Table>
         <TableHeader>
           <TableRow>
@@ -52,8 +66,22 @@ export function ProductTallyTable({ rows }: { rows: readonly ProductTallyRow[] }
         </TableHeader>
         <TableBody>
           {rows.map((row) => (
-            <TableRow key={row.product_key}>
-              <TableCell className="font-medium">{row.display_name}</TableCell>
+            <TableRow
+              key={row.product_key}
+              data-state={row.product_key === selectedKey ? "selected" : undefined}
+            >
+              <TableCell className="font-medium">
+                <Link
+                  href={hrefForProduct(row)}
+                  aria-label={`${row.display_name} siparişlerini göster`}
+                  className={cn(
+                    "underline-offset-4 hover:underline",
+                    row.product_key === selectedKey && "text-primary underline",
+                  )}
+                >
+                  {row.display_name}
+                </Link>
+              </TableCell>
               <TableCell className="text-right tabular-nums">
                 {row.sold ? formatSoldQuantity(row.sold) : "—"}
               </TableCell>
