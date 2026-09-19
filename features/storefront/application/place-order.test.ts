@@ -250,6 +250,7 @@ beforeEach(() => {
     homeDeliveryDays: [3, 6], // Çarşamba + Cumartesi
     cargoMinOrderMinor: 100_000, // 1.000 ₺
     homeMinOrderMinor: 25_000, // 250 ₺
+    homeDeliveryFeeMinor: 5_000, // 50 ₺
   });
   resolveCheckoutSession.mockResolvedValue({
     ok: true,
@@ -529,6 +530,38 @@ describe("placeOrderAction — pricing and payment", () => {
     expect(call.items[0]?.line_total_minor).toBe(25000);
   });
 
+  // The owner edits the eve-servis fee in /magaza-ayarlari; the server must
+  // charge what the setting says, not a compiled-in number.
+  it("charges the hand-delivery fee from the live setting", async () => {
+    getStorefrontSettings.mockResolvedValue({
+      homeDeliveryDays: [3, 6],
+      cargoMinOrderMinor: 100_000,
+      homeMinOrderMinor: 25_000,
+      homeDeliveryFeeMinor: 7_500,
+    });
+
+    await placeOrderAction(idle, buildForm());
+
+    expect(placeWebOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ delivery_fee_minor: 7_500 }),
+    );
+  });
+
+  it("charges nothing when the owner sets the fee to 0", async () => {
+    getStorefrontSettings.mockResolvedValue({
+      homeDeliveryDays: [3, 6],
+      cargoMinOrderMinor: 100_000,
+      homeMinOrderMinor: 25_000,
+      homeDeliveryFeeMinor: 0,
+    });
+
+    await placeOrderAction(idle, buildForm());
+
+    expect(placeWebOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ delivery_fee_minor: 0 }),
+    );
+  });
+
   it("rejects a basket below the product's minimum quantity", async () => {
     const state = await placeOrderAction(
       idle,
@@ -602,6 +635,7 @@ describe("placeOrderAction — eve servis günleri", () => {
       homeDeliveryDays: [1], // Pazartesi only
       cargoMinOrderMinor: 100_000,
       homeMinOrderMinor: 25_000,
+      homeDeliveryFeeMinor: 5_000,
     });
 
     const state = await placeOrderAction(idle, buildForm());

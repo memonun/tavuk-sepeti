@@ -16,12 +16,17 @@ import { useDraftBatch } from "@/features/orders/ui/use-draft-batch";
 import { usePersistentState } from "@/features/orders/ui/use-persistent-state";
 import type { Product } from "@/features/products/application/list-products";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { parseTRYInput } from "@/shared/utils/money";
 import { Separator } from "@/components/ui/separator";
 
 interface Props {
   products: Product[];
   today: string;
+  /** Owner-set hand-delivery fee (kuruş) from /magaza-ayarlari — the amount the
+   *  fee box starts with. Editable here per batch. */
+  defaultDeliveryFeeMinor: number;
   // Forwarded to CustomerPickList as-is — see its own prop doc.
   newCustomerSlot?: ReactNode;
 }
@@ -33,7 +38,12 @@ const SLOTS: Array<{ value: string; label: string }> = [
   { value: "evening", label: "Akşam" },
 ];
 
-export function BulkOrderScreen({ products, today, newCustomerSlot }: Props) {
+export function BulkOrderScreen({
+  products,
+  today,
+  defaultDeliveryFeeMinor,
+  newCustomerSlot,
+}: Props) {
   const router = useRouter();
   const { batch, setDate, setDefaults, apply, remove, reset } = useDraftBatch(today);
   // Selection persists across navigation (go view a customer, come back) — the
@@ -44,6 +54,15 @@ export function BulkOrderScreen({ products, today, newCustomerSlot }: Props) {
     (s) => JSON.stringify([...s]),
     (raw) => new Set<string>(JSON.parse(raw) as string[]),
   );
+  // Deliberately NOT in the persisted draft: a stored amount would go stale the
+  // moment the owner changes the setting. Every visit starts ticked, at the
+  // current setting.
+  const [feeEnabled, setFeeEnabled] = useState(true);
+  const [feeText, setFeeText] = useState(() =>
+    (defaultDeliveryFeeMinor / 100).toFixed(2).replace(".", ","),
+  );
+  const parsedFeeMinor = parseTRYInput(feeText);
+  const feeValid = !feeEnabled || parsedFeeMinor !== null;
   const [missing, setMissing] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
@@ -73,6 +92,10 @@ export function BulkOrderScreen({ products, today, newCustomerSlot }: Props) {
       toast.error("En az bir müşteriye ürün ekle.");
       return;
     }
+    if (!feeValid) {
+      toast.error("Teslimat ücreti geçerli bir tutar olmalı (ör. 50,00).");
+      return;
+    }
 
     startTransition(async () => {
       // Pre-flight: check address-less customers before touching the DB.
@@ -90,7 +113,7 @@ export function BulkOrderScreen({ products, today, newCustomerSlot }: Props) {
         scheduled_for: batch.scheduledFor,
         time_slot: batch.defaults.timeSlot,
         payment_method: batch.defaults.paymentMethod,
-        delivery_fee_minor: batch.defaults.deliveryFeeMinor,
+        delivery_fee_minor: feeEnabled ? (parsedFeeMinor ?? 0) : 0,
         orders,
       };
       const fd = new FormData();
@@ -174,6 +197,29 @@ export function BulkOrderScreen({ products, today, newCustomerSlot }: Props) {
             <option value="bank_transfer">Havale / EFT</option>
           </select>
         </label>
+        <div className="flex items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <Checkbox
+              checked={feeEnabled}
+              onCheckedChange={(checked) => setFeeEnabled(checked === true)}
+              disabled={pending}
+            />
+            Teslimat ücreti
+          </label>
+          <Input
+            value={feeText}
+            onChange={(e) => setFeeText(e.target.value)}
+            inputMode="decimal"
+            disabled={!feeEnabled || pending}
+            aria-label="Teslimat ücreti tutarı (₺)"
+            aria-invalid={!feeValid}
+            className="h-8 w-24 text-right"
+          />
+          <span className="text-muted-foreground">₺</span>
+          <span className="text-xs text-muted-foreground">
+            Yalnızca elden teslim (Malatya içi) siparişlere eklenir; kargoya eklenmez.
+          </span>
+        </div>
       </div>
 
       {/* Body: left customer list | right basket panel */}
@@ -210,7 +256,7 @@ export function BulkOrderScreen({ products, today, newCustomerSlot }: Props) {
             </span>
           )}
         </span>
-        <Button type="button" onClick={commit} disabled={pending || orderCount === 0}>
+        <Button type="button" onClick={commit} disabled={pending || orderCount === 0 || !feeValid}>
           {pending ? "Oluşturuluyor…" : "Siparişleri Oluştur"}
         </Button>
       </div>

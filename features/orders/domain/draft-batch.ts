@@ -10,7 +10,6 @@ export interface DraftBatch {
   defaults: {
     timeSlot: TimeSlot | null;
     paymentMethod: PaymentMethod;
-    deliveryFeeMinor: number;
   };
   assignments: Record<string, BasketLine[]>;
 }
@@ -27,7 +26,7 @@ export interface CoverageLine {
 export function emptyBatch(scheduledFor: string): DraftBatch {
   return {
     scheduledFor,
-    defaults: { timeSlot: null, paymentMethod: "cash_on_delivery", deliveryFeeMinor: 0 },
+    defaults: { timeSlot: null, paymentMethod: "cash_on_delivery" },
     assignments: {},
   };
 }

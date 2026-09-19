@@ -31,6 +31,8 @@ import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 const TABLE = "storefront_settings";
 const SINGLETON_ID = true;
+const SETTINGS_COLUMNS =
+  "home_delivery_days, cargo_min_order_minor, home_min_order_minor, home_delivery_fee_minor";
 
 /**
  * `storefront_settings` post-dates the generated `Database` type, so the table
@@ -53,7 +55,7 @@ export async function fetchStorefrontSettings(): Promise<StorefrontSettingsRead>
 
   const { data, error } = await supabase
     .from(TABLE)
-    .select("home_delivery_days, cargo_min_order_minor, home_min_order_minor")
+    .select(SETTINGS_COLUMNS)
     .eq("id", SINGLETON_ID)
     .maybeSingle();
 
@@ -94,10 +96,11 @@ export async function saveStorefrontSettings(
       home_delivery_days: values.home_delivery_days,
       cargo_min_order_minor: values.cargo_min_order_minor,
       home_min_order_minor: values.home_min_order_minor,
+      home_delivery_fee_minor: values.home_delivery_fee_minor,
       updated_by: actorId,
     })
     .eq("id", SINGLETON_ID)
-    .select("home_delivery_days, cargo_min_order_minor, home_min_order_minor")
+    .select(SETTINGS_COLUMNS)
     .maybeSingle();
 
   if (error) {

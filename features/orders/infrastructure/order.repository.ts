@@ -658,6 +658,10 @@ export async function createOrdersBulk(
     payment_method: input.payment_method,
     delivery_notes: o.delivery_notes,
     delivery_fee_minor: input.delivery_fee_minor,
+    // The batch fee is the hand-delivery fee: the DB drops it on any order it
+    // resolves to the cargo channel (migration 20260919120000), which the
+    // client cannot know per customer.
+    delivery_fee_only_if_delivery: true,
     items: o.items,
   }));
 

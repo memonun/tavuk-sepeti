@@ -10,6 +10,9 @@
  *   - `homeMinOrderMinor` — the floor for a delivery-channel (eve servis)
  *     order, including a basket the address-aware channel resolution upgrades
  *     from shipping (migration 20260813130000). 250 ₺ at launch.
+ *   - `homeDeliveryFeeMinor` — the flat fee on a delivery-channel (eve servis)
+ *     order: storefront checkout, the recurring generator and, as the default,
+ *     staff-entered orders (migration 20260919120000). 50 ₺ at launch.
  *
  * They live in a single `storefront_settings` row rather than in this file
  * because a constant is only "changeable" by a developer. The DEFAULTS below
@@ -34,6 +37,8 @@ export interface StorefrontSettings {
   readonly cargoMinOrderMinor: number;
   /** Minimum subtotal (kuruş) for a delivery/eve-servis order. 0 disables the floor. */
   readonly homeMinOrderMinor: number;
+  /** Flat fee (kuruş) on a delivery/eve-servis order. 0 = free delivery. */
+  readonly homeDeliveryFeeMinor: number;
 }
 
 /** 1.000 ₺ — the out-of-city order floor the owner set (2026-08-13). */
@@ -41,15 +46,21 @@ export const DEFAULT_CARGO_MIN_ORDER_MINOR = 100_000;
 /** 250 ₺ — the eve-servis order floor the owner set (2026-08-13). */
 export const DEFAULT_HOME_MIN_ORDER_MINOR = 25_000;
 
+/** 50 ₺ — the eve-servis delivery fee the owner set (2026-09). */
+export const DEFAULT_HOME_DELIVERY_FEE_MINOR = 5_000;
+
 export const DEFAULT_STOREFRONT_SETTINGS: StorefrontSettings = {
   homeDeliveryDays: DEFAULT_HOME_DELIVERY_DAYS,
   cargoMinOrderMinor: DEFAULT_CARGO_MIN_ORDER_MINOR,
   homeMinOrderMinor: DEFAULT_HOME_MIN_ORDER_MINOR,
+  homeDeliveryFeeMinor: DEFAULT_HOME_DELIVERY_FEE_MINOR,
 };
 
 /** Guard rail on the admin form: 100.000 ₺ is far past any real basket. */
 const MAX_CARGO_MIN_ORDER_MINOR = 10_000_000;
 const MAX_HOME_MIN_ORDER_MINOR = 10_000_000;
+/** 10.000 ₺ — far past any real delivery fee; catches a stray extra zero. */
+const MAX_HOME_DELIVERY_FEE_MINOR = 1_000_000;
 
 const weekdaySchema = z
   .coerce.number()
@@ -84,6 +95,16 @@ export const storefrontSettingsSchema = z.object({
     .int("Alt limit kuruş cinsinden tam sayı olmalı.")
     .min(0, "Alt limit negatif olamaz.")
     .max(MAX_HOME_MIN_ORDER_MINOR, "Alt limit çok yüksek."),
+  // Missing/blank is refused, not coerced: `Number(null)` and `Number("")` are 0,
+  // so a form field that never arrived would silently make delivery free.
+  home_delivery_fee_minor: z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z.coerce
+      .number({ message: "Teslimat ücreti gerekli." })
+      .int("Teslimat ücreti kuruş cinsinden tam sayı olmalı.")
+      .min(0, "Teslimat ücreti negatif olamaz.")
+      .max(MAX_HOME_DELIVERY_FEE_MINOR, "Teslimat ücreti çok yüksek."),
+  ),
 });
 
 export type StorefrontSettingsInput = z.input<typeof storefrontSettingsSchema>;
@@ -97,5 +118,6 @@ export function toStorefrontSettings(
     homeDeliveryDays: parsed.home_delivery_days,
     cargoMinOrderMinor: parsed.cargo_min_order_minor,
     homeMinOrderMinor: parsed.home_min_order_minor,
+    homeDeliveryFeeMinor: parsed.home_delivery_fee_minor,
   };
 }

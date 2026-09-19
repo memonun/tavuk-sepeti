@@ -24,11 +24,13 @@ import type { Product } from "@/features/products/application/list-products";
 export function ShopHeader({
   products,
   cargoMinOrderMinor,
+  deliveryFeeMinor,
   authed,
   isAdmin,
 }: {
   products: readonly Product[];
   cargoMinOrderMinor: number;
+  deliveryFeeMinor: number;
   authed: boolean;
   isAdmin: boolean;
 }) {
@@ -81,7 +83,11 @@ export function ShopHeader({
           <div className="hidden sm:flex">
             <AccountNav authed={authed} isAdmin={isAdmin} />
           </div>
-          <CartSheet products={products} cargoMinOrderMinor={cargoMinOrderMinor} />
+          <CartSheet
+            products={products}
+            cargoMinOrderMinor={cargoMinOrderMinor}
+            deliveryFeeMinor={deliveryFeeMinor}
+          />
         </div>
       </div>
     </header>

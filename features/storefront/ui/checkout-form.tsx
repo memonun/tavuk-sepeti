@@ -87,8 +87,7 @@ import {
 import {
   CARGO_FEE_MINOR,
   CARGO_FREE_SHIPPING_NOTICE,
-  DELIVERY_FEE_MINOR,
-  DELIVERY_FEE_NOTICE,
+  deliveryFeeNotice,
   DELIVERY_PROVINCE,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
@@ -153,6 +152,9 @@ interface CheckoutFormProps {
   cargoMinOrderMinor: number;
   /** Eve servis (delivery-channel) order floor in kuruş (0 = none). */
   homeMinOrderMinor: number;
+  /** Live eve-servis fee from storefront_settings (display only — place-order
+   *  re-reads it server-side). */
+  homeDeliveryFeeMinor: number;
   paytrEnabled: boolean;
   mapsKey: string | undefined;
 }
@@ -165,6 +167,7 @@ export function CheckoutForm({
   deliveryDaysLabel,
   cargoMinOrderMinor,
   homeMinOrderMinor,
+  homeDeliveryFeeMinor,
   paytrEnabled,
   mapsKey,
 }: CheckoutFormProps) {
@@ -329,7 +332,7 @@ export function CheckoutForm({
 
   // Keyed on `channel`, not `mode`: an address-upgraded flexible-only basket
   // is a real delivery order even though it opened the cargo-shaped form.
-  const feeMinor = channel === "delivery" ? DELIVERY_FEE_MINOR : CARGO_FEE_MINOR;
+  const feeMinor = channel === "delivery" ? homeDeliveryFeeMinor : CARGO_FEE_MINOR;
   const subtotal = cartSubtotalMinor(
     rows.map((r) => lineTotalMinor(r.product, r.quantity)),
   );
@@ -1035,7 +1038,7 @@ function OrderSummary({
             {`Yumurta ve süt ürünleri yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`}
           </strong>
         ) : channel === "delivery" ? (
-          DELIVERY_FEE_NOTICE
+          deliveryFeeNotice(feeMinor)
         ) : (
           CARGO_FREE_SHIPPING_NOTICE
         )}

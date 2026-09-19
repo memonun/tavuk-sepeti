@@ -5,7 +5,7 @@ import { parseStoredBatch, pruneUnknownProducts } from "@/features/orders/domain
 const stored = {
   version: 1,
   scheduledFor: "2026-06-23",
-  defaults: { timeSlot: "morning", paymentMethod: "cash_on_delivery", deliveryFeeMinor: 0 },
+  defaults: { timeSlot: "morning", paymentMethod: "cash_on_delivery" },
   assignments: { a: [{ product_key: "eggs", quantity: 3 }] },
 };
 

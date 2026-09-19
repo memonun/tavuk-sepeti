@@ -14,7 +14,7 @@ export default async function StorefrontSettingsPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Mağaza ayarları</h2>
         <p className="text-sm text-muted-foreground">
-          Eve servis günleri ve şehir dışı sipariş alt limiti. Kaydedilen
+          Eve servis günleri, sipariş alt limitleri ve elden teslim ücreti. Kaydedilen
           değişiklik mağazada anında geçerli olur.
         </p>
       </div>
@@ -22,6 +22,7 @@ export default async function StorefrontSettingsPage() {
         homeDeliveryDays={settings.homeDeliveryDays}
         cargoMinOrderMinor={settings.cargoMinOrderMinor}
         homeMinOrderMinor={settings.homeMinOrderMinor}
+        homeDeliveryFeeMinor={settings.homeDeliveryFeeMinor}
       />
     </div>
   );

@@ -32,10 +32,12 @@ const itemClass =
 export function MobileBottomNav({
   products,
   cargoMinOrderMinor,
+  deliveryFeeMinor,
   authed,
 }: {
   products: readonly Product[];
   cargoMinOrderMinor: number;
+  deliveryFeeMinor: number;
   authed: boolean;
 }) {
   const pathname = usePathname();
@@ -55,6 +57,7 @@ export function MobileBottomNav({
         <CartSheet
           products={products}
           cargoMinOrderMinor={cargoMinOrderMinor}
+          deliveryFeeMinor={deliveryFeeMinor}
           variant="tab"
         />
         <NavLink href="/siparis-sorgula" active={isFindOrder} label="Sipariş Sorgula">
