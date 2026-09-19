@@ -4,6 +4,7 @@ import {
   buildProductTallyRows,
   groupGiftedByUnit,
   groupSoldByUnit,
+  parsePiecesPerUnit,
   type ProductTallyRow,
 } from "@/features/finance/domain/product-tally";
 
@@ -116,5 +117,28 @@ describe("groupGiftedByUnit", () => {
     const adetGroup = groups.find((g) => g.unit_label === "adet");
     expect(grGroup?.rows).toEqual([{ product_key: "peynir", display_name: "Peynir", quantity: 50 }]);
     expect(adetGroup?.rows).toEqual([{ product_key: "peynir", display_name: "Peynir", quantity: 1 }]);
+  });
+});
+
+describe("parsePiecesPerUnit", () => {
+  it("extracts the piece count from 'paket (15 adet)'", () => {
+    expect(parsePiecesPerUnit("paket (15 adet)")).toBe(15);
+  });
+
+  it("is case-insensitive", () => {
+    expect(parsePiecesPerUnit("Paket (24 ADET)")).toBe(24);
+  });
+
+  it("returns null for a plain kg/litre label", () => {
+    expect(parsePiecesPerUnit("kg")).toBeNull();
+    expect(parsePiecesPerUnit("litre")).toBeNull();
+  });
+
+  it("returns null for a parenthesized label that isn't a piece count (e.g. a jar's weight)", () => {
+    expect(parsePiecesPerUnit("Kavanoz (930gr)")).toBeNull();
+  });
+
+  it("returns null for a bare number label (data-quality artifact, not a real unit)", () => {
+    expect(parsePiecesPerUnit("1")).toBeNull();
   });
 });
