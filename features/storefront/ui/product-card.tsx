@@ -13,6 +13,7 @@ import {
   SHIPPING_BADGE,
 } from "@/features/storefront/domain/storefront.config";
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { trackProductAddedToCart } from "@/features/storefront/ui/meta-events";
 import {
   fromPriceMinor,
   halfUnitPriceMinor,
@@ -146,7 +147,11 @@ export function ProductCard({ product }: { product: Product }) {
             type="button"
             size="lg"
             className="h-12 w-full rounded-full text-base sm:w-auto sm:px-6"
-            onClick={() => addItem(product.key, product.min_qty)}
+            onClick={() => {
+              addItem(product.key, product.min_qty);
+              // Reported only after the basket really changed; no-op without a Pixel ID.
+              trackProductAddedToCart(product, product.min_qty);
+            }}
           >
             <PlusIcon className="size-5" /> Sepete ekle
           </Button>

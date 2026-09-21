@@ -103,6 +103,7 @@ import { formatTRY } from "@/shared/utils/money";
 
 import { productImagePublicUrl } from "@/features/products/application/product-image";
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { trackProductAddedToCart } from "@/features/storefront/ui/meta-events";
 import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
 import { fromPriceMinor, lineTotalMinor } from "@/features/storefront/ui/line-pricing";
@@ -1001,7 +1002,10 @@ function OrderSummary({
                       size="sm"
                       variant="outline"
                       className="rounded-full"
-                      onClick={() => addItem(product.key, product.min_qty)}
+                      onClick={() => {
+                        addItem(product.key, product.min_qty);
+                        trackProductAddedToCart(product, product.min_qty);
+                      }}
                     >
                       Ekle
                     </Button>
