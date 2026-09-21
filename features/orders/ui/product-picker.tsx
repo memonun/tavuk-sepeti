@@ -64,10 +64,27 @@ function LineRow({ product, draft, onQuantity, onSpecial, onRemove }: LineRowPro
   const unitApprox =
     Math.round(priced.unit_price_minor * draft.quantity) !== priced.line_total_minor;
 
+  const [specialInvalid, setSpecialInvalid] = useState(false);
+
   const onSpecialChange = (value: string) => {
     setSpecialText(value);
     const trimmed = value.trim();
-    onSpecial(trimmed === "" ? undefined : (parseTRYInput(trimmed) ?? undefined));
+    if (trimmed === "") {
+      setSpecialInvalid(false);
+      onSpecial(undefined); // cleared on purpose → back to automatic pricing
+      return;
+    }
+    const minor = parseTRYInput(trimmed);
+    if (minor === null) {
+      // Half-typed ("90,") or not an amount ("90 TL"): keep the last valid
+      // special instead of falling back to automatic pricing. Dropping it here
+      // made the total jump to the catalog price mid-typing — and saving that
+      // state deleted the customer's saved special price.
+      setSpecialInvalid(true);
+      return;
+    }
+    setSpecialInvalid(false);
+    onSpecial(minor);
   };
 
   return (
@@ -104,8 +121,12 @@ function LineRow({ product, draft, onQuantity, onSpecial, onRemove }: LineRowPro
             .toFixed(2)
             .replace(".", ",")}`}
           aria-label={`${product.display_name} özel fiyat`}
+          aria-invalid={specialInvalid}
           title="Bu müşteriye özel fiyat (boş = otomatik)"
         />
+        {specialInvalid ? (
+          <p className="mt-1 text-xs text-destructive">Geçerli tutar girin (ör. 90,00).</p>
+        ) : null}
       </div>
       <div className="flex items-center justify-between sm:col-span-3 sm:justify-end sm:gap-2">
         <p className="font-mono text-sm sm:text-right">
