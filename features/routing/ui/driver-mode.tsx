@@ -57,6 +57,12 @@ import { saveManualLocationAction } from "@/features/routing/application/save-ma
 import { serializeExcludeDelivered } from "@/features/routing/domain/exclude-delivered-url";
 import { formatManualDestinationLabel } from "@/features/routing/domain/format-manual-destination-label";
 import { computeRouteManifest } from "@/features/routing/domain/route-manifest";
+import {
+  queuedDeliveredIds,
+  queuedRevertedIds,
+} from "@/features/routing/domain/offline-delivery-queue";
+import { refreshDriveOfflineCopy } from "@/features/routing/ui/drive-offline-client";
+import { useOfflineDeliveryQueue } from "@/features/routing/ui/use-offline-delivery-queue";
 import { useDriverState } from "@/features/routing/ui/use-driver-state";
 import { useGeolocation } from "@/features/routing/ui/use-geolocation";
 import { useRouteRealtime } from "@/features/routing/ui/hooks/use-route-realtime";
@@ -86,6 +92,9 @@ import { formatTRY } from "@/shared/utils/money";
 
 import type { OptimizedRoute, RouteStop } from "@/features/routing/domain/route";
 import type { SavedLocation } from "@/features/routing/domain/saved-location";
+
+/** Give up on a server call after this long and treat the van as offline. */
+const SERVER_CALL_TIMEOUT_MS = 8000;
 
 interface DriverModeProps {
   route: OptimizedRoute;
@@ -129,15 +138,42 @@ export function DriverMode({
   const [destOpen, setDestOpen] = useState(false);
   const [destManualOpen, setDestManualOpen] = useState(false);
 
-  // Delivered set = server truth + optimistic deliveries − optimistic reverts.
+  // Deliveries made with no signal wait here (persisted, survives a reload) and
+  // are sent when the connection returns. Until then they count as done on
+  // screen, merged over the — possibly stale, cached — server state below.
+  const offlineQueue = useOfflineDeliveryQueue({
+    onOperationSynced: (op) => {
+      // Keep it counted as done/undone until the refresh below reconciles the
+      // server props, so the stop doesn't flicker back in between.
+      const setter = op.kind === "deliver" ? setOptimisticDelivered : setOptimisticReverted;
+      setter((prev) => new Set(prev).add(op.orderId));
+    },
+    onOperationRejected: (op, message) => {
+      toast.error(
+        op.kind === "deliver" ? "Bekleyen teslim kaydedilemedi" : "Bekleyen geri alma kaydedilemedi",
+        { description: message },
+      );
+    },
+    onFlushed: (sent) => {
+      toast.success(`${sent} bekleyen kayıt gönderildi`);
+      router.refresh();
+      refreshDriveOfflineCopy();
+    },
+  });
+  const queuedDelivered = queuedDeliveredIds(offlineQueue.queue);
+  const queuedReverted = queuedRevertedIds(offlineQueue.queue);
+
+  // Delivered set = server truth + optimistic + queued deliveries − reverts.
   // Drives the "done" flags, the manifest, and the current-stop derivation —
   // and the frozen exclude set written into the URL when the driver explicitly
   // re-optimizes (below), so freshly-delivered stops drop to map markers.
   const deliveredIds = new Set<string>([
     ...initialDeliveredOrderIds,
     ...optimisticDelivered,
+    ...queuedDelivered,
   ]);
   for (const id of optimisticReverted) deliveredIds.delete(id);
+  for (const id of queuedReverted) deliveredIds.delete(id);
 
   // ---- Final-destination (change mid-route → re-navigate → re-optimize) ----
   const destinationOrders = route.stops.map((s) => ({
@@ -159,6 +195,15 @@ export function DriverMode({
   })();
 
   const pushDestination = (mutate: (p: URLSearchParams) => void) => {
+    // Re-optimizing calls Google from the server. With no signal the navigation
+    // would just be answered with the stored copy of the OLD route, which looks
+    // like it worked — so say so instead.
+    if (!navigator.onLine) {
+      toast.error("İnternet yok", {
+        description: "Varışı değiştirmek için bağlantı gerekli. Mevcut rota çalışmaya devam ediyor.",
+      });
+      return;
+    }
     const p = new URLSearchParams(driveQuery);
     mutate(p);
     // Changing the destination re-optimizes, so re-freeze the exclude set to
@@ -244,6 +289,21 @@ export function DriverMode({
     };
   }, [geoSupported, geoRequest]);
 
+  /** Server call with a ceiling: on a stalled connection (bars but no data)
+   *  the request can hang for minutes and freeze the whole action bar. Resolves
+   *  to `null` when the server could not be reached in time or at all. */
+  const callServer = async <T,>(call: () => Promise<T>): Promise<T | null> => {
+    if (!navigator.onLine) return null;
+    try {
+      return await Promise.race([
+        call(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), SERVER_CALL_TIMEOUT_MS)),
+      ]);
+    } catch {
+      return null;
+    }
+  };
+
   const handleDelivered = (orderId: string) => {
     setActionError(null);
     markLocalWrite(); // our own write — don't let the realtime echo double-refresh
@@ -261,7 +321,23 @@ export function DriverMode({
       return next;
     });
     startTransition(async () => {
-      const result = await completeDeliveryAction({ order_id: orderId });
+      const result = await callServer(() => completeDeliveryAction({ order_id: orderId }));
+      if (result === null) {
+        // No signal: keep the delivery, send it later. The queue (not the
+        // optimistic set) now owns it, so it survives a reload.
+        offlineQueue.enqueue("deliver", orderId);
+        setOptimisticDelivered((prev) => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
+        toast.warning("İnternet yok — teslim kaydedildi", {
+          description:
+            "Bağlantı gelince otomatik gönderilecek. Tahsilatı sipariş detayından sonra girebilirsin.",
+        });
+        driverState.followCurrent();
+        return;
+      }
       if (result.status === "error") {
         // Roll back the optimistic delivery.
         setOptimisticDelivered((prev) => {
@@ -283,6 +359,7 @@ export function DriverMode({
       // one. Cheap: the full-day waypoint set is unchanged by a delivery, so
       // getDayRoute re-uses the cached geometry (no paid Maps call, no reshuffle).
       router.refresh();
+      refreshDriveOfflineCopy();
     });
   };
 
@@ -298,7 +375,19 @@ export function DriverMode({
       return next;
     });
     startTransition(async () => {
-      const result = await revertDeliveryAction({ order_id: orderId });
+      const result = await callServer(() => revertDeliveryAction({ order_id: orderId }));
+      if (result === null) {
+        offlineQueue.enqueue("revert", orderId);
+        setOptimisticReverted((prev) => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
+        toast.warning("İnternet yok — geri alma kaydedildi", {
+          description: "Bağlantı gelince otomatik gönderilecek.",
+        });
+        return;
+      }
       if (result.status === "error") {
         setOptimisticReverted((prev) => {
           const next = new Set(prev);
@@ -311,6 +400,7 @@ export function DriverMode({
       }
       toast.success("Teslimat geri alındı");
       router.refresh();
+      refreshDriveOfflineCopy();
     });
   };
 
@@ -324,6 +414,12 @@ export function DriverMode({
   // deliveries between taps still cost no Google call: the frozen set in the URL
   // keeps the waypoint set (and Directions cache key) stable until the next tap.
   const reoptimizeFromHere = () => {
+    if (!navigator.onLine) {
+      toast.error("İnternet yok", {
+        description: "Yeniden sıralamak için bağlantı gerekli. Mevcut rota çalışmaya devam ediyor.",
+      });
+      return;
+    }
     if (!geo.coords) {
       geo.request();
       toast.info("Konum alınıyor — geldiğinde tekrar dene.");
@@ -424,6 +520,25 @@ export function DriverMode({
           Çıkış
         </span>
       </header>
+
+      {/* Offline: what is still waiting to be sent. Stays until every queued
+          delivery has reached the server, so the driver can see nothing was lost. */}
+      {offlineQueue.queue.length > 0 ? (
+        <div
+          role="status"
+          className="flex items-center gap-2 border-b border-amber-500/40 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-900 dark:text-amber-200"
+        >
+          {offlineQueue.syncing ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+          ) : (
+            <WifiOff className="h-3.5 w-3.5 shrink-0" />
+          )}
+          <span>
+            {offlineQueue.queue.length} kayıt internet gelince gönderilecek
+            {offlineQueue.syncing ? " — gönderiliyor…" : ""}
+          </span>
+        </div>
+      ) : null}
 
       {/* Destination bar — shows the end point + a mid-route change control */}
       <div className="flex items-center justify-between gap-2 border-b bg-muted/20 px-4 py-1.5">
@@ -571,17 +686,27 @@ export function DriverMode({
 
       {/* Main scrollable area */}
       <main className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        <RouteDriverMap
-          apiKey={mapsBrowserKey}
-          origin={route.origin}
-          originName={new URLSearchParams(driveQuery).get("originName")}
-          destination={route.destination}
-          stops={route.stops}
-          completedMarkers={route.completed_markers}
-          stepPolylines={route.step_polylines}
-          currentStopId={view?.order_id ?? null}
-          driverCoords={geo.coords}
-        />
+        {online ? (
+          <RouteDriverMap
+            apiKey={mapsBrowserKey}
+            origin={route.origin}
+            originName={new URLSearchParams(driveQuery).get("originName")}
+            destination={route.destination}
+            stops={route.stops}
+            completedMarkers={route.completed_markers}
+            stepPolylines={route.step_polylines}
+            currentStopId={view?.order_id ?? null}
+            driverCoords={geo.coords}
+          />
+        ) : (
+          // The map tiles come from Google over the network — offline there is
+          // nothing to draw, and waiting on it would just show a blank box. The
+          // stop card below (address, phone, items) is all local.
+          <div className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/30 px-3 py-6 text-sm text-muted-foreground">
+            <WifiOff className="h-4 w-4 shrink-0" />
+            Harita çevrimdışı — durak bilgileri aşağıda. İnternet gelince harita geri döner.
+          </div>
+        )}
 
         {!viewingCurrent && current ? (
           <button

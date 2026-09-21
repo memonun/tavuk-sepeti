@@ -18,6 +18,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { signOutAction } from "@/features/auth/application/sign-out";
+import { clearDriveOfflineCache } from "@/features/routing/ui/drive-offline-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -154,7 +155,9 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
           ) : null}
           <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
             <ThemeToggle />
-            <form action={signOutAction}>
+            {/* Drop the offline route copies too — they hold customer names and
+                addresses and must not outlive the session on a shared phone. */}
+            <form action={signOutAction} onSubmit={clearDriveOfflineCache}>
               <Button type="submit" variant="ghost" size="sm" aria-label="Çıkış">
                 <LogOut className="h-4 w-4" />
               </Button>
