@@ -38,7 +38,15 @@ export function NewCustomerAction({ mapsBrowserKey, onCreated }: NewCustomerActi
         <UserPlus className="size-3.5" />
         Yeni Müşteri Ekle
       </SheetTrigger>
-      <SheetContent side="right" className="w-full gap-0 overflow-y-auto sm:max-w-2xl">
+      {/* The width classes carry the `data-[side=right]:` variant on purpose: the
+          Sheet primitive sets `data-[side=right]:w-3/4` and
+          `data-[side=right]:sm:max-w-sm`, and a plain `w-full sm:max-w-2xl`
+          loses to those (data-attribute selectors are more specific), which is
+          what kept this panel at 384px. */}
+      <SheetContent
+        side="right"
+        className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-4xl"
+      >
         <SheetHeader className="border-b">
           <SheetTitle>Yeni Müşteri Ekle</SheetTitle>
         </SheetHeader>
