@@ -34,6 +34,14 @@ export function parseTRYInput(input: string): number | null {
   return Math.round(major * 100);
 }
 
+/** Like `parseTRYInput`, but a blank field means "none" (0 kuruş) — the natural
+ *  reading of a cleared fee box. Non-blank text that does not parse is still
+ *  `null`, so a typo is reported instead of silently becoming 0. */
+export function parseOptionalTRYInput(input: string): number | null {
+  if (input.trim() === "") return 0;
+  return parseTRYInput(input);
+}
+
 /** Sum kuruş amounts with no float drift. */
 export function sumMinor(values: ReadonlyArray<number>): number {
   return values.reduce((acc, n) => acc + n, 0);

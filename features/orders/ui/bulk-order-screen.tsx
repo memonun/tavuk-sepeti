@@ -1,15 +1,19 @@
 // features/orders/ui/bulk-order-screen.tsx
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { getCustomersMissingPrimaryAddressAction } from "@/features/customers/application/customer-price-actions";
+import {
+  getCustomerProductPricesBatchAction,
+  getCustomersMissingPrimaryAddressAction,
+} from "@/features/customers/application/customer-price-actions";
 import {
   createOrdersBulkAction,
   type CreateOrdersBulkState,
 } from "@/features/orders/application/create-orders-bulk";
+import { groupOverridesByCustomer } from "@/features/orders/application/bulk-order-pricing";
 import { BasketPanel } from "@/features/orders/ui/basket-panel";
 import { CustomerPickList } from "@/features/orders/ui/customer-pick-list";
 import { useDraftBatch } from "@/features/orders/ui/use-draft-batch";
@@ -18,7 +22,7 @@ import type { Product } from "@/features/products/application/list-products";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { parseTRYInput } from "@/shared/utils/money";
+import { parseOptionalTRYInput } from "@/shared/utils/money";
 import { Separator } from "@/components/ui/separator";
 
 interface Props {
@@ -61,8 +65,12 @@ export function BulkOrderScreen({
   const [feeText, setFeeText] = useState(() =>
     (defaultDeliveryFeeMinor / 100).toFixed(2).replace(".", ","),
   );
-  const parsedFeeMinor = parseTRYInput(feeText);
+  // A cleared box means "no fee" (0), same as unticking it; only text that is
+  // not an amount is an error. (Treating blank as invalid used to leave the
+  // create button disabled with no explanation.)
+  const parsedFeeMinor = parseOptionalTRYInput(feeText);
   const feeValid = !feeEnabled || parsedFeeMinor !== null;
+  const effectiveFeeMinor = feeEnabled ? (parsedFeeMinor ?? 0) : 0;
   const [missing, setMissing] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
@@ -78,6 +86,31 @@ export function BulkOrderScreen({
   );
 
   const selectedArray = useMemo(() => Array.from(selectedIds), [selectedIds]);
+
+  // Each customer's saved special prices, so the basket estimate matches what
+  // the server will actually charge (it prices every order with them). Loaded
+  // lazily for whoever gets selected; a customer with none is remembered as
+  // loaded (empty) so they are not re-fetched on every selection change.
+  const [priceOverrides, setPriceOverrides] = useState<
+    ReadonlyMap<string, Record<string, number>>
+  >(() => new Map());
+  useEffect(() => {
+    const missing = selectedArray.filter((id) => !priceOverrides.has(id));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void getCustomerProductPricesBatchAction(missing).then((rows) => {
+      if (cancelled) return;
+      const grouped = groupOverridesByCustomer(rows);
+      setPriceOverrides((prev) => {
+        const next = new Map(prev);
+        for (const id of missing) next.set(id, grouped.get(id) ?? {});
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedArray, priceOverrides]);
 
   const commit = () => {
     // Build the bulkOrderSchema-shaped orders from non-empty assignments.
@@ -113,7 +146,7 @@ export function BulkOrderScreen({
         scheduled_for: batch.scheduledFor,
         time_slot: batch.defaults.timeSlot,
         payment_method: batch.defaults.paymentMethod,
-        delivery_fee_minor: feeEnabled ? (parsedFeeMinor ?? 0) : 0,
+        delivery_fee_minor: effectiveFeeMinor,
         orders,
       };
       const fd = new FormData();
@@ -217,7 +250,8 @@ export function BulkOrderScreen({
           />
           <span className="text-muted-foreground">₺</span>
           <span className="text-xs text-muted-foreground">
-            Yalnızca elden teslim (Malatya içi) siparişlere eklenir; kargoya eklenmez.
+            Yalnızca elden teslim (Malatya içi) siparişlere eklenir; kargoya eklenmez. Boş = ücret yok.
+            {!feeValid ? <span className="ml-1 text-destructive">Geçerli tutar girin (ör. 50,00).</span> : null}
           </span>
         </div>
       </div>
@@ -238,6 +272,8 @@ export function BulkOrderScreen({
             batch={batch}
             products={products}
             selectedIds={selectedArray}
+            priceOverrides={priceOverrides}
+            deliveryFeeMinor={effectiveFeeMinor}
             onApply={(line) => apply(selectedArray, line)}
             onRemove={(key) => remove(selectedArray, key)}
           />

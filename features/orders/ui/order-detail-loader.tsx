@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { getCustomerProductPricesAction } from "@/features/customers/application/customer-price-actions";
 import { getOrderByIdAction } from "@/features/orders/application/get-order-action";
 import { listOrderEventsAction } from "@/features/orders/application/get-order-events-action";
 import { getOrderGiftsAction } from "@/features/orders/application/get-order-gifts-action";
@@ -30,6 +31,9 @@ type LoadState =
       events: OrderStatusEvent[];
       payments: OrderPayment[];
       gifts: OrderGiftItem[];
+      /** The customer's saved special prices — the edit form pre-fills its
+       *  "Özel fiyat" fields from these. */
+      customerPrices: Record<string, number>;
     }
   | { kind: "error"; id: string; message: string };
 
@@ -56,17 +60,24 @@ export function OrderDetailLoader({
 
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      getOrderByIdAction(id),
-      listOrderEventsAction(id),
-      getOrderPaymentsAction(id),
-      getOrderGiftsAction(id),
-    ]).then(([orderResult, eventsResult, payments, giftsResult]) => {
+    void (async () => {
+      const [orderResult, eventsResult, payments, giftsResult] = await Promise.all([
+        getOrderByIdAction(id),
+        listOrderEventsAction(id),
+        getOrderPaymentsAction(id),
+        getOrderGiftsAction(id),
+      ]);
       if (!active) return;
       if (!orderResult.ok) {
         setState({ kind: "error", id, message: orderResult.error.message });
         return;
       }
+      // Needs the order's customer, hence the second round. Without this the
+      // edit form opens with EVERY special-price field blank, and saving then
+      // re-prices the order at catalog prices and deletes the customer's saved
+      // special prices (a cleared field means "remove" on the edit path).
+      const customerPrices = await getCustomerProductPricesAction(orderResult.value.customer_id);
+      if (!active) return;
       // Events/gifts failing isn't fatal — render the panel with an empty
       // timeline / gift list rather than blocking the whole Sheet.
       setState({
@@ -76,8 +87,9 @@ export function OrderDetailLoader({
         events: eventsResult.ok ? eventsResult.value : [],
         payments,
         gifts: giftsResult.ok ? giftsResult.value : [],
+        customerPrices,
       });
-    });
+    })();
     return () => {
       active = false;
     };
@@ -98,6 +110,7 @@ export function OrderDetailLoader({
       events={state.events}
       payments={state.payments}
       gifts={state.gifts}
+      customerPrices={state.customerPrices}
       onMutated={() => setReloadKey((k) => k + 1)}
     />
   );

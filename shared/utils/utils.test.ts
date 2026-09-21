@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { endOfMonthYmd, formatDate, toIstanbulDateString } from "@/shared/utils/date";
-import { formatTRY, parseTRYInput, sumMinor } from "@/shared/utils/money";
+import { formatTRY, parseOptionalTRYInput, parseTRYInput, sumMinor } from "@/shared/utils/money";
 import { formatTRPhone, isE164TR, normalizeTRPhone } from "@/shared/utils/phone";
 
 describe("money", () => {
@@ -28,6 +28,23 @@ describe("money", () => {
     // 0.1 + 0.2 in kuruş is 10 + 20 = 30 — exact, no 0.30000000004 trap.
     expect(sumMinor([10, 20])).toBe(30);
     expect(sumMinor([])).toBe(0);
+  });
+});
+
+describe("parseOptionalTRYInput", () => {
+  it("treats a blank or whitespace-only field as 0", () => {
+    expect(parseOptionalTRYInput("")).toBe(0);
+    expect(parseOptionalTRYInput("   ")).toBe(0);
+  });
+
+  it("parses amounts like parseTRYInput", () => {
+    expect(parseOptionalTRYInput("50")).toBe(5000);
+    expect(parseOptionalTRYInput("42,50")).toBe(4250);
+  });
+
+  it("still rejects text that is not an amount", () => {
+    expect(parseOptionalTRYInput("50 TL")).toBeNull();
+    expect(parseOptionalTRYInput("abc")).toBeNull();
   });
 });
 

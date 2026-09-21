@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 
+import { estimateBasket } from "@/features/orders/application/bulk-basket-estimate";
 import { isMultipleOfStep } from "@/features/orders/application/order-item-pricing";
 import {
   computeCoverage,
@@ -10,7 +11,6 @@ import {
   type CoverageLine,
   type DraftBatch,
 } from "@/features/orders/domain/draft-batch";
-import { priceOrderLine } from "@/features/products/application/pricing";
 import type { Product } from "@/features/products/application/list-products";
 import { formatTRY } from "@/shared/utils/money";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,10 @@ interface Props {
   batch: DraftBatch;
   products: Product[];
   selectedIds: string[];
+  /** customer_id → { product_key → special unit price (kuruş) }. */
+  priceOverrides: ReadonlyMap<string, Record<string, number>>;
+  /** Fee (kuruş) that will be added to each hand-delivered order; 0 = none. */
+  deliveryFeeMinor: number;
   onApply: (line: BasketLine) => void;
   onRemove: (productKey: string) => void;
 }
@@ -38,7 +42,15 @@ function badgeFor(line: CoverageLine): {
   return { label: `${line.presentCount}/${line.total} ◑`, variant: "outline" };
 }
 
-export function BasketPanel({ batch, products, selectedIds, onApply, onRemove }: Props) {
+export function BasketPanel({
+  batch,
+  products,
+  selectedIds,
+  priceOverrides,
+  deliveryFeeMinor,
+  onApply,
+  onRemove,
+}: Props) {
   const productsByKey = useMemo(
     () => new Map(products.map((p) => [p.key, p])),
     [products],
@@ -51,21 +63,12 @@ export function BasketPanel({ batch, products, selectedIds, onApply, onRemove }:
 
   const n = selectedIds.length;
 
-  // Live estimate: sum each selected customer's lines at catalog prices.
-  const estimateMinor = useMemo(() => {
-    let total = 0;
-    for (const id of selectedIds) {
-      for (const line of batch.assignments[id] ?? []) {
-        const p = productsByKey.get(line.product_key);
-        if (!p) continue;
-        total += priceOrderLine(line.quantity, {
-          tiers: p.price_tiers,
-          basePriceMinor: p.current_unit_price_minor,
-        }).line_total_minor;
-      }
-    }
-    return total;
-  }, [selectedIds, batch, productsByKey]);
+  // Live estimate, priced the way the server will price the orders (a customer's
+  // saved special price wins over tiers) — see bulk-basket-estimate.ts.
+  const { subtotalMinor: estimateMinor, orderCount, specialLineCount } = useMemo(
+    () => estimateBasket(selectedIds, batch, productsByKey, priceOverrides),
+    [selectedIds, batch, productsByKey, priceOverrides],
+  );
 
   if (n === 0) {
     return (
@@ -115,9 +118,21 @@ export function BasketPanel({ batch, products, selectedIds, onApply, onRemove }:
       <Separator />
       <AddProductRow products={products} onApply={onApply} count={n} />
 
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{n} sipariş · tahmini</span>
-        <span className="font-mono font-semibold">{formatTRY(estimateMinor)}</span>
+      <div className="space-y-0.5">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">
+            {n} sipariş · tahmini{specialLineCount > 0 ? ` (${specialLineCount} özel fiyatlı satır dahil)` : ""}
+          </span>
+          <span className="font-mono font-semibold">{formatTRY(estimateMinor)}</span>
+        </div>
+        {deliveryFeeMinor > 0 && orderCount > 0 ? (
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              + teslimat ücreti ({orderCount} × {formatTRY(deliveryFeeMinor)}, kargo hariç)
+            </span>
+            <span className="font-mono">{formatTRY(estimateMinor + orderCount * deliveryFeeMinor)}</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

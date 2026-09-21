@@ -39,7 +39,7 @@ import { OrderGiftItemsPanel } from "@/features/orders/ui/order-gift-items-panel
 import { OrderPayments } from "@/features/orders/ui/order-payments";
 import { priceOrderLine } from "@/features/products/application/pricing";
 import { formatDate, formatDateTime } from "@/shared/utils/date";
-import { formatTRY, parseTRYInput } from "@/shared/utils/money";
+import { formatTRY, parseOptionalTRYInput } from "@/shared/utils/money";
 
 import {
   isAwaitingCardPayment,
@@ -291,7 +291,11 @@ function OrderEditForm({
     [products],
   );
 
-  const deliveryFeeMinor = parseTRYInput(deliveryFeeText) ?? 0;
+  // Blank = no fee. Text that isn't an amount is an error, NOT a silent 0 —
+  // otherwise a typo like "50 TL" would save the order with free delivery.
+  const parsedFee = parseOptionalTRYInput(deliveryFeeText);
+  const feeInvalid = parsedFee === null;
+  const deliveryFeeMinor = parsedFee ?? 0;
   const subtotalMinor = items.reduce((acc, i) => {
     const p = productByKey.get(i.product_key);
     if (!p) return acc;
@@ -314,6 +318,10 @@ function OrderEditForm({
       setError("En az bir ürün ekle.");
       return;
     }
+    if (feeInvalid) {
+      setError("Teslimat ücreti geçerli bir tutar olmalı (ör. 50,00) ya da boş bırakılmalı.");
+      return;
+    }
 
     startSaving(async () => {
       const result = await updateOrderAction(order.id, {
@@ -326,11 +334,17 @@ function OrderEditForm({
       });
       if (result.ok) {
         const fresh = result.value;
-        setItems(
-          fresh.items.map((i) => ({
-            product_key: i.product_key,
-            quantity: i.quantity,
-          })),
+        // Re-seed from the saved order but KEEP each line's special price: the
+        // save just persisted it for the customer, and dropping it from the form
+        // made the next edit (e.g. changing only the delivery fee) re-price the
+        // order at catalog prices and delete the customer's saved price.
+        setItems((previous) =>
+          fresh.items.map((i) => {
+            const special = previous.find((p) => p.product_key === i.product_key)?.unit_price_minor;
+            return special != null
+              ? { product_key: i.product_key, quantity: i.quantity, unit_price_minor: special }
+              : { product_key: i.product_key, quantity: i.quantity };
+          }),
         );
         setSaved(true);
         onSaved(fresh);
@@ -416,7 +430,13 @@ function OrderEditForm({
             value={deliveryFeeText}
             onChange={(e) => setDeliveryFeeText(e.target.value)}
             placeholder="0,00"
+            aria-invalid={feeInvalid}
           />
+          {feeInvalid ? (
+            <p className="text-xs text-destructive">
+              Geçerli bir tutar girin (ör. 50,00) ya da boş bırakın.
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="delivery_notes">Teslimat notu</Label>
