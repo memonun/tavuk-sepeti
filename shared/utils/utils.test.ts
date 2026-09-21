@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDate, toIstanbulDateString } from "@/shared/utils/date";
+import { endOfMonthYmd, formatDate, toIstanbulDateString } from "@/shared/utils/date";
 import { formatTRY, parseTRYInput, sumMinor } from "@/shared/utils/money";
 import { formatTRPhone, isE164TR, normalizeTRPhone } from "@/shared/utils/phone";
 
@@ -66,5 +66,13 @@ describe("date", () => {
   it("toIstanbulDateString clamps to local calendar day", () => {
     // Same instant as above — UTC says May 5, Istanbul says May 6.
     expect(toIstanbulDateString("2026-05-05T22:00:00Z")).toBe("2026-05-06");
+  });
+
+  it("endOfMonthYmd returns the month's last day, leap years and year-end included", () => {
+    expect(endOfMonthYmd("2026-09-04")).toBe("2026-09-30");
+    expect(endOfMonthYmd("2026-01-31")).toBe("2026-01-31");
+    expect(endOfMonthYmd("2026-02-10")).toBe("2026-02-28");
+    expect(endOfMonthYmd("2028-02-10")).toBe("2028-02-29");
+    expect(endOfMonthYmd("2026-12-15")).toBe("2026-12-31");
   });
 });

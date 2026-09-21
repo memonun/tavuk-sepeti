@@ -65,6 +65,14 @@ export function addDaysToYmd(ymd: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Last calendar day of the month a YYYY-MM-DD falls in (`2026-09-04` →
+ *  `2026-09-30`). Pure calendar math, so it is timezone-independent. */
+export function endOfMonthYmd(ymd: string): string {
+  const [year, month] = ymd.split("-").map(Number) as [number, number];
+  // Day 0 of the NEXT month is the last day of this one.
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+}
+
 /** Today's date in Istanbul calendar, as YYYY-MM-DD. Convenience over
  *  `toIstanbulDateString(new Date())`. */
 export function todayInIstanbul(): string {

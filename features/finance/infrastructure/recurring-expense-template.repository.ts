@@ -308,3 +308,61 @@ export async function generateRecurringExpense(
   }
   return ok({ expense_id: String(data) });
 }
+
+// ---- unpaid generated occurrences (admin Panel) -----------------------------
+
+/** Hard ceiling on the Panel list — 100 is CLAUDE.md §9's max page size. A
+ *  business with more than 100 unpaid rutin giderler has a bigger problem
+ *  than this card, and the full list lives on Giderler. */
+const PENDING_RECURRING_LIMIT = 100;
+
+export interface PendingRecurringExpenseRow {
+  readonly expense_id: string;
+  readonly template_id: string;
+  readonly expense_date: string;
+  readonly amount_minor: number;
+  readonly payment_method: ManualPaymentMethod | null;
+  readonly vendor: string | null;
+}
+
+/** Generated-from-a-template expenses that are still unpaid, oldest due day
+ *  first (so overdue ones lead). One query, no per-template fan-out. */
+export async function listPendingRecurringExpenses(): Promise<
+  Result<PendingRecurringExpenseRow[], ExternalApiError>
+> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("expenses")
+    .select("id, recurring_template_id, expense_date, amount_minor, payment_method, vendor")
+    .eq("source", "recurring_generated")
+    .eq("payment_status", "pending")
+    .not("recurring_template_id", "is", null)
+    .order("expense_date", { ascending: true })
+    .limit(PENDING_RECURRING_LIMIT);
+
+  if (error) {
+    logger.error({ code: error.code }, "pending_recurring_expenses_list_failed");
+    return err(new ExternalApiError({ message: "Bekleyen rutin giderler alınamadı.", cause: error }));
+  }
+
+  return ok(
+    (
+      (data ?? []) as Array<{
+        id: string;
+        recurring_template_id: string;
+        expense_date: string;
+        amount_minor: number | string;
+        payment_method: ManualPaymentMethod | null;
+        vendor: string | null;
+      }>
+    ).map((r) => ({
+      expense_id: r.id,
+      template_id: r.recurring_template_id,
+      expense_date: r.expense_date,
+      amount_minor: Number(r.amount_minor),
+      payment_method: r.payment_method,
+      vendor: r.vendor,
+    })),
+  );
+}
