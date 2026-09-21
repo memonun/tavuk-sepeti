@@ -70,7 +70,17 @@ export function DeliveryPaymentDialog({ stop, onClose }: DeliveryPaymentDialogPr
 
   const run = (action: Promise<PaymentActionState>, okMsg: string) => {
     startTransition(async () => {
-      const r = await action;
+      let r: PaymentActionState;
+      try {
+        r = await action;
+      } catch {
+        // No signal: the payment was NOT recorded. Say so plainly rather than
+        // failing silently — the office can enter it from the order later.
+        toast.error("İnternet yok — tahsilat kaydedilemedi", {
+          description: "Bağlantı gelince tekrar dene ya da sipariş detayından gir.",
+        });
+        return;
+      }
       if (r.status === "error") {
         toast.error(r.message);
         return;
