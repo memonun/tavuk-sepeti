@@ -2,12 +2,12 @@
 
 /**
  * Route planning controls: start time + a REQUIRED start-location picker +
- * the Optimize action. The origin (saved location or the driver's live
- * position) must be chosen before optimizing — it's carried in the URL
+ * the Optimize action. The origin (saved location, a hand-typed address, or
+ * the driver's live position) must be chosen before optimizing — it's carried in the URL
  * (originLat/Lng/Name) and flows into both the optimize fetch and the drive
  * view. Picking a new origin drops ?optimize so the route re-computes from it.
  */
-import { Loader2, MapPin, Navigation, Sparkles, X } from "lucide-react";
+import { Loader2, MapPin, MapPinPlus, Navigation, Sparkles, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -43,6 +43,7 @@ import {
 import type { SavedLocation } from "@/features/routing/domain/saved-location";
 
 const USE_MY_LOCATION = "__myloc__";
+const ORIGIN_MANUAL = "__origin_manual__";
 const MY_LOCATION_NAME = "Konumum";
 
 interface RouteControlsProps {
@@ -66,6 +67,64 @@ interface RouteControlsProps {
   mapsKey: string | undefined;
 }
 
+/**
+ * Places search for a hand-typed route start or end point. Picking a result
+ * applies it right away (the caller's `onPicked` updates the URL), then saves
+ * it to the address book so the same place is a dropdown pick next time.
+ */
+function ManualAddressSearch({
+  mapsKey,
+  ariaLabel,
+  onPicked,
+  onClose,
+}: {
+  mapsKey: string | undefined;
+  ariaLabel: string;
+  onPicked: (lat: number, lng: number, name: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-start gap-1.5 sm:w-56">
+      <div className="flex-1">
+        <AddressMapsProvider apiKey={mapsKey}>
+          <AddressAutocomplete
+            placeholder="Adres veya yer adı ara…"
+            aria-label={ariaLabel}
+            onSelect={async (addr) => {
+              if (addr.lat === 0 && addr.lng === 0) {
+                toast.error("Bu adres için konum bulunamadı.");
+                return;
+              }
+              const name = formatManualDestinationLabel(addr);
+              onPicked(addr.lat, addr.lng, name);
+              const saved = await saveManualLocationAction({
+                name,
+                lat: addr.lat,
+                lng: addr.lng,
+              });
+              if (saved.ok) {
+                toast.success(`"${name}" adres defterine kaydedildi.`);
+              } else {
+                toast.error(saved.error.message);
+              }
+            }}
+          />
+        </AddressMapsProvider>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 shrink-0"
+        onClick={onClose}
+        aria-label="Adres aramayı kapat"
+      >
+        <X className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 export function RouteControls({
   date,
   startHHmm,
@@ -87,6 +146,7 @@ export function RouteControls({
   const [pending, startTransition] = useTransition();
   const [locating, setLocating] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [originManualOpen, setOriginManualOpen] = useState(false);
 
   const replaceParams = (mutate: (p: URLSearchParams) => void) => {
     const updated = new URLSearchParams(params.toString());
@@ -114,6 +174,7 @@ export function RouteControls({
 
   // Picking a new origin re-computes the route, so drop ?optimize.
   const setOrigin = (lat: number, lng: number, name: string) => {
+    setOriginManualOpen(false);
     replaceParams((p) => {
       p.set("originLat", String(lat));
       p.set("originLng", String(lng));
@@ -152,7 +213,12 @@ export function RouteControls({
   const onPick = (value: string) => {
     if (!value) return;
     if (value === USE_MY_LOCATION) {
+      setOriginManualOpen(false);
       pickMyLocation();
+      return;
+    }
+    if (value === ORIGIN_MANUAL) {
+      setOriginManualOpen(true);
       return;
     }
     const loc = savedLocations.find((l) => l.id === value);
@@ -220,7 +286,10 @@ export function RouteControls({
     if (!hasOrigin) return "";
     const match = savedLocations.find((l) => l.name === originName);
     if (match) return match.id;
-    return USE_MY_LOCATION;
+    if (originName === MY_LOCATION_NAME) return USE_MY_LOCATION;
+    // An origin that is neither a saved place nor the live position was typed
+    // in by hand (it may not be in the address book yet — the save is async).
+    return ORIGIN_MANUAL;
   })();
 
   const busy = pending || locating;
@@ -265,7 +334,7 @@ export function RouteControls({
             ) : (
               <SelectValue placeholder="Konum seç…">
                 {(v: unknown) =>
-                  v === USE_MY_LOCATION
+                  v === USE_MY_LOCATION || v === ORIGIN_MANUAL
                     ? (originName ?? MY_LOCATION_NAME)
                     : (savedLocations.find((l) => l.id === v)?.name ??
                       "Konum seç…")
@@ -283,6 +352,12 @@ export function RouteControls({
               </SelectItem>
             ))}
             {savedLocations.length > 0 ? <SelectSeparator /> : null}
+            <SelectItem value={ORIGIN_MANUAL}>
+              <span className="flex items-center gap-1.5">
+                <MapPinPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                Elle adres gir…
+              </span>
+            </SelectItem>
             <SelectItem value={USE_MY_LOCATION}>
               <span className="flex items-center gap-1.5">
                 <Navigation className="h-3.5 w-3.5 text-muted-foreground" />
@@ -291,6 +366,14 @@ export function RouteControls({
             </SelectItem>
           </SelectContent>
         </Select>
+        {originManualOpen ? (
+          <ManualAddressSearch
+            mapsKey={mapsKey}
+            ariaLabel="Başlangıç adresi ara"
+            onPicked={setOrigin}
+            onClose={() => setOriginManualOpen(false)}
+          />
+        ) : null}
       </div>
 
       <div className="flex w-full flex-col gap-1.5 sm:w-auto">
@@ -308,44 +391,12 @@ export function RouteControls({
           onManual={() => setManualOpen(true)}
         />
         {manualOpen ? (
-          <div className="flex items-start gap-1.5 sm:w-56">
-            <div className="flex-1">
-              <AddressMapsProvider apiKey={mapsKey}>
-                <AddressAutocomplete
-                  placeholder="Adres veya yer adı ara…"
-                  aria-label="Varış adresi ara"
-                  onSelect={async (addr) => {
-                    if (addr.lat === 0 && addr.lng === 0) {
-                      toast.error("Bu adres için konum bulunamadı.");
-                      return;
-                    }
-                    const name = formatManualDestinationLabel(addr);
-                    setDestLocation(addr.lat, addr.lng, name);
-                    const saved = await saveManualLocationAction({
-                      name,
-                      lat: addr.lat,
-                      lng: addr.lng,
-                    });
-                    if (saved.ok) {
-                      toast.success(`"${name}" adres defterine kaydedildi.`);
-                    } else {
-                      toast.error(saved.error.message);
-                    }
-                  }}
-                />
-              </AddressMapsProvider>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              onClick={() => setManualOpen(false)}
-              aria-label="Adres aramayı kapat"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <ManualAddressSearch
+            mapsKey={mapsKey}
+            ariaLabel="Varış adresi ara"
+            onPicked={setDestLocation}
+            onClose={() => setManualOpen(false)}
+          />
         ) : null}
       </div>
 

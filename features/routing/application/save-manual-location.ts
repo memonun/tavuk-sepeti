@@ -8,6 +8,8 @@
  * Idempotent by coordinate: re-saving the same picked place reuses the
  * existing row rather than growing duplicates every time it's chosen again.
  */
+import { revalidatePath } from "next/cache";
+
 import { assertAdmin } from "@/features/auth/application/assert-admin";
 import {
   createSavedLocationSchema,
@@ -41,5 +43,12 @@ export async function saveManualLocationAction(
   const existing = await findSavedLocationByCoordinate(parsed.data.lat, parsed.data.lng);
   if (existing) return ok(existing);
 
-  return createSavedLocation(parsed.data);
+  const created = await createSavedLocation(parsed.data);
+  // The pickers read the address book on the server; without this the place
+  // just saved stays missing from the dropdowns until something else refreshes.
+  if (created.ok) {
+    revalidatePath("/routes");
+    revalidatePath("/routes/drive");
+  }
+  return created;
 }
