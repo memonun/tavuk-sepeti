@@ -1,14 +1,26 @@
 import { PackageIcon, TruckIcon } from "lucide-react";
 
+import { getRecurringExpenseOverview } from "@/features/finance/application/get-recurring-expense-overview";
+import { materializeDueRecurringExpenses } from "@/features/finance/application/materialize-due-recurring-expenses";
+import { RecurringExpenseOverviewPanel } from "@/features/finance/ui/recurring-expense-overview-panel";
 import { countActiveCustomers } from "@/features/customers/application/count-active-customers";
 import { getDashboardOrderStats } from "@/features/orders/application/get-dashboard-order-stats";
 import { DashboardOrderListPanel } from "@/features/orders/ui/dashboard-order-list-panel";
 import { DashboardPrepPanel } from "@/features/orders/ui/dashboard-prep-panel";
+import { todayInIstanbul } from "@/shared/utils/date";
 
 export default async function DashboardHome() {
-  const [orderStats, activeCustomers] = await Promise.all([
+  // Lazy materialization, same as the Finans pages (no cron — spec §14): this
+  // is the landing page, so this month's rutin giderler are generated the
+  // first time anyone opens the panel in a new month. Must finish BEFORE the
+  // overview is read, so it isn't part of the Promise.all below.
+  const today = todayInIstanbul();
+  await materializeDueRecurringExpenses(today);
+
+  const [orderStats, activeCustomers, recurringOverview] = await Promise.all([
     getDashboardOrderStats(),
     countActiveCustomers(),
+    getRecurringExpenseOverview(today),
   ]);
 
   const cards = [
@@ -67,6 +79,14 @@ export default async function DashboardHome() {
         </div>
         <DashboardPrepPanel manifest={orderStats.prepManifest} />
       </div>
+
+      {recurringOverview.ok ? (
+        <RecurringExpenseOverviewPanel overview={recurringOverview.value} />
+      ) : (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-4 text-sm text-destructive">
+          Yaklaşan rutin giderler yüklenemedi: {recurringOverview.error.message}
+        </div>
+      )}
     </div>
   );
 }
