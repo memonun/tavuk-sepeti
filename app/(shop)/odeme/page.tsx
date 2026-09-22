@@ -18,6 +18,8 @@ import {
   CheckoutForm,
   type CheckoutIdentityDefaults,
 } from "@/features/storefront/ui/checkout-form";
+import { MetaCheckoutTracker } from "@/features/storefront/ui/meta-checkout-tracker";
+import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { env } from "@/shared/env";
 
 /** "Today" as a YYYY-MM-DD calendar day in Europe/Istanbul. */
@@ -78,6 +80,9 @@ export default async function CheckoutPage() {
         </Link>
         <h1 className="mt-2 font-display text-3xl">Siparişi tamamla</h1>
       </div>
+
+      {/* Meta Pixel InitiateCheckout — only mounted when a Pixel ID is set. */}
+      {isMetaPixelEnabled() ? <MetaCheckoutTracker products={products} /> : null}
 
       <CheckoutForm
         products={products}

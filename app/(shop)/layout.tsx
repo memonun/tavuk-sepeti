@@ -6,10 +6,12 @@ import { getStorefrontCatalog } from "@/features/storefront/application/get-cata
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { COMPANY } from "@/features/storefront/domain/legal";
 import { CartProvider } from "@/features/storefront/ui/cart-provider";
+import { MetaPixelTracker } from "@/features/storefront/ui/meta-pixel-tracker";
 import { MobileBottomNav } from "@/features/storefront/ui/mobile-bottom-nav";
 import { ShopFooter } from "@/features/storefront/ui/shop-footer";
 import { ShopHeader } from "@/features/storefront/ui/shop-header";
 import { WhatsAppSupportButton } from "@/features/storefront/ui/whatsapp-support-button";
+import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
 import "./theme.css";
@@ -122,6 +124,9 @@ export default async function ShopLayout({
       <div
         className={`${shopSerif.variable} shop-theme flex min-h-dvh flex-col bg-background text-foreground`}
       >
+        {/* Meta Pixel PageView. Rendered ONLY when NEXT_PUBLIC_META_PIXEL_ID is a
+            valid ID — otherwise this does not exist and nothing loads. */}
+        {isMetaPixelEnabled() ? <MetaPixelTracker /> : null}
         <CartProvider>
           <ShopHeader
             products={products}
