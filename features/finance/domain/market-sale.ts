@@ -11,6 +11,9 @@ export interface MarketSaleItem {
   readonly product_key: string;
   readonly product_name: string;
   readonly quantity: number;
+  /** products.unit_label / products.unit — for showing "20 paket". */
+  readonly unit_label: string;
+  readonly unit: string;
 }
 
 export interface MarketSale {
@@ -27,7 +30,8 @@ export interface MarketSale {
   readonly created_by: string | null;
 }
 
-/** List-view projection — drops line items for table display. */
+/** List-view projection — line items are kept (name/quantity/unit only) so the
+ *  table can show WHAT was sold without opening each sale. */
 export interface MarketSaleListItem {
   readonly id: string;
   readonly location_id: string;
@@ -35,6 +39,6 @@ export interface MarketSaleListItem {
   readonly sale_date: string;
   readonly total_amount_minor: number;
   readonly payment_method: ManualPaymentMethod;
-  readonly item_count: number;
+  readonly items: readonly MarketSaleItem[];
   readonly created_at: Date;
 }

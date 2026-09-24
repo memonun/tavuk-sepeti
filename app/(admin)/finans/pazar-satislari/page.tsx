@@ -7,6 +7,7 @@ import {
   listMarketLocations,
 } from "@/features/finance/application/list-market-locations";
 import { listMarketSales } from "@/features/finance/application/list-market-sales";
+import type { MarketProductOption } from "@/features/finance/domain/market-sale-products";
 import { MarketLocationManager } from "@/features/finance/ui/market-location-manager";
 import { MarketReport } from "@/features/finance/ui/market-report";
 import { MarketSaleFilterBar } from "@/features/finance/ui/market-sale-filter-bar";
@@ -58,8 +59,15 @@ export default async function PazarSatislariPage({ searchParams }: PazarSatislar
 
   const locations = locationsResult.ok ? locationsResult.value : [];
   const allLocations = allLocationsResult.ok ? allLocationsResult.value : [];
-  const products = productsResult.ok
-    ? productsResult.value.map((p) => ({ key: p.key, display_name: p.display_name }))
+  const products: MarketProductOption[] = productsResult.ok
+    ? productsResult.value.map((p) => ({
+        key: p.key,
+        display_name: p.display_name,
+        unit_label: p.unit_label,
+        unit: p.unit,
+        current_unit_price_minor: p.current_unit_price_minor,
+        price_tiers: p.price_tiers,
+      }))
     : [];
   const query = new URLSearchParams(
     Object.entries(params).filter(([, v]) => v !== undefined) as [string, string][],
@@ -94,6 +102,7 @@ export default async function PazarSatislariPage({ searchParams }: PazarSatislar
           totalRevenueMinor={reportResult.value.totalRevenueMinor}
           byLocation={reportResult.value.byLocation}
           topProducts={reportResult.value.topProducts}
+          products={products}
         />
       ) : null}
 

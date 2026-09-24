@@ -17,13 +17,10 @@ import { MANUAL_PAYMENT_METHOD_LABELS } from "@/features/finance/domain/expense"
 import { FinanceSortableHeader } from "@/features/finance/ui/finance-sortable-header";
 import { MarketSaleRowActions } from "@/features/finance/ui/market-sale-row-actions";
 
+import { summarizeSoldLines, type MarketProductOption } from "@/features/finance/domain/market-sale-products";
+
 import type { MarketSaleListItem } from "@/features/finance/domain/market-sale";
 import type { MarketLocation } from "@/features/finance/domain/market-location";
-
-interface ProductOption {
-  key: string;
-  display_name: string;
-}
 
 interface MarketSaleTableProps {
   items: MarketSaleListItem[];
@@ -33,7 +30,7 @@ interface MarketSaleTableProps {
   basePath: string;
   query: URLSearchParams;
   locations: MarketLocation[];
-  products: ProductOption[];
+  products: MarketProductOption[];
 }
 
 export function MarketSaleTable({
@@ -81,7 +78,7 @@ export function MarketSaleTable({
                 />
               </TableHead>
               <TableHead>Pazar / Lokasyon</TableHead>
-              <TableHead className="hidden sm:table-cell">Ürün sayısı</TableHead>
+              <TableHead className="hidden sm:table-cell">Satılan ürünler</TableHead>
               <TableHead className="text-right">
                 <FinanceSortableHeader
                   column="total_amount_minor"
@@ -100,8 +97,14 @@ export function MarketSaleTable({
               <TableRow key={sale.id}>
                 <TableCell className="text-muted-foreground">{formatDate(sale.sale_date)}</TableCell>
                 <TableCell className="font-medium">{sale.location_name}</TableCell>
-                <TableCell className="hidden text-muted-foreground sm:table-cell">
-                  {sale.item_count > 0 ? sale.item_count : "—"}
+                <TableCell className="hidden max-w-xs text-muted-foreground sm:table-cell">
+                  {sale.items.length > 0 ? (
+                    <span className="line-clamp-2 text-xs" title={summarizeSoldLines(sale.items)}>
+                      {summarizeSoldLines(sale.items)}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
                 <TableCell className="text-right font-medium tabular-nums">
                   {formatTRY(sale.total_amount_minor)}

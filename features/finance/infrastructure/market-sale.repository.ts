@@ -13,14 +13,32 @@ import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
-import type { MarketSale, MarketSaleListItem } from "@/features/finance/domain/market-sale";
+import type { MarketSale, MarketSaleItem, MarketSaleListItem } from "@/features/finance/domain/market-sale";
 import type { MarketSaleItemInput, MarketSaleListQuery } from "@/features/finance/domain/market-sale.schema";
 
 const SALE_LIST_SELECT =
-  "id, location_id, sale_date, total_amount_minor, payment_method, created_at, market_locations!inner(name), market_sale_items(id)" as const;
+  "id, location_id, sale_date, total_amount_minor, payment_method, created_at, market_locations!inner(name), market_sale_items(id, product_key, quantity, products(display_name, unit_label, unit))" as const;
 
 const SALE_DETAIL_SELECT =
-  "id, location_id, sale_date, total_amount_minor, payment_method, note, created_at, updated_at, created_by, market_locations!inner(name), market_sale_items(id, product_key, quantity, products(display_name))" as const;
+  "id, location_id, sale_date, total_amount_minor, payment_method, note, created_at, updated_at, created_by, market_locations!inner(name), market_sale_items(id, product_key, quantity, products(display_name, unit_label, unit))" as const;
+
+interface ItemRow {
+  id: string;
+  product_key: string;
+  quantity: number | string;
+  products: { display_name: string; unit_label: string; unit: string } | null;
+}
+
+function rowToItem(item: ItemRow): MarketSaleItem {
+  return {
+    id: item.id,
+    product_key: item.product_key,
+    product_name: item.products?.display_name ?? item.product_key,
+    quantity: Number(item.quantity),
+    unit_label: item.products?.unit_label ?? "",
+    unit: item.products?.unit ?? "",
+  };
+}
 
 interface SaleListRow {
   id: string;
@@ -30,7 +48,7 @@ interface SaleListRow {
   payment_method: MarketSaleListItem["payment_method"];
   created_at: string;
   market_locations: { name: string } | null;
-  market_sale_items: unknown[] | null;
+  market_sale_items: ItemRow[] | null;
 }
 
 interface SaleDetailRow {
@@ -44,12 +62,7 @@ interface SaleDetailRow {
   updated_at: string;
   created_by: string | null;
   market_locations: { name: string } | null;
-  market_sale_items: Array<{
-    id: string;
-    product_key: string;
-    quantity: number;
-    products: { display_name: string } | null;
-  }> | null;
+  market_sale_items: ItemRow[] | null;
 }
 
 function rowToListItem(row: SaleListRow): MarketSaleListItem {
@@ -60,7 +73,7 @@ function rowToListItem(row: SaleListRow): MarketSaleListItem {
     sale_date: row.sale_date,
     total_amount_minor: row.total_amount_minor,
     payment_method: row.payment_method,
-    item_count: Array.isArray(row.market_sale_items) ? row.market_sale_items.length : 0,
+    items: (row.market_sale_items ?? []).map(rowToItem),
     created_at: new Date(row.created_at),
   };
 }
@@ -74,12 +87,7 @@ function rowToSale(row: SaleDetailRow): MarketSale {
     total_amount_minor: row.total_amount_minor,
     payment_method: row.payment_method,
     note: row.note,
-    items: (row.market_sale_items ?? []).map((item) => ({
-      id: item.id,
-      product_key: item.product_key,
-      product_name: item.products?.display_name ?? item.product_key,
-      quantity: item.quantity,
-    })),
+    items: (row.market_sale_items ?? []).map(rowToItem),
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     created_by: row.created_by,

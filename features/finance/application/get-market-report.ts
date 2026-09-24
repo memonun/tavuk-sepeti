@@ -1,6 +1,6 @@
 import "server-only";
 
-/** Powers the Pazar Cirosu / Lokasyona Göre Satış / En Çok Satılan Ürünler
+/** Powers the Pazar Cirosu / Lokasyona Göre Satış / Satılan Ürünler
  *  section at the top of the Pazar Satışları page. */
 import {
   financeMarketRevenue,
@@ -11,6 +11,11 @@ import { err, ok, type Result } from "@/shared/result";
 
 import type { FinanceLocationRevenue } from "@/features/finance/domain/finance-summary";
 import type { MarketTopProductRow } from "@/features/finance/infrastructure/finance-reporting.repository";
+
+/** Every product sold at the stalls, not a top-10 — the catalog is small and
+ *  the owner wants to SEE what sold. RPC cap is by row count, so this is a
+ *  ceiling, not a target. */
+const SOLD_PRODUCTS_LIMIT = 100;
 
 export interface MarketReport {
   totalRevenueMinor: number;
@@ -29,7 +34,7 @@ export async function getMarketReport(
 ): Promise<Result<MarketReport, AppError>> {
   const [revenueRes, topProductsRes] = await Promise.all([
     financeMarketRevenue(from, to),
-    financeMarketTopProducts(from, to, 10),
+    financeMarketTopProducts(from, to, SOLD_PRODUCTS_LIMIT),
   ]);
   if (!revenueRes.ok) return err(revenueRes.error);
   if (!topProductsRes.ok) return err(topProductsRes.error);
