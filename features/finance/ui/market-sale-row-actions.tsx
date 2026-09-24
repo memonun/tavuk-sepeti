@@ -19,13 +19,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import type { MarketProductOption } from "@/features/finance/domain/market-sale-products";
 import type { MarketSale, MarketSaleListItem } from "@/features/finance/domain/market-sale";
 import type { MarketLocation } from "@/features/finance/domain/market-location";
-
-interface ProductOption {
-  key: string;
-  display_name: string;
-}
 
 export function MarketSaleRowActions({
   listItem,
@@ -34,7 +30,7 @@ export function MarketSaleRowActions({
 }: {
   listItem: MarketSaleListItem;
   locations: MarketLocation[];
-  products: ProductOption[];
+  products: MarketProductOption[];
 }) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -42,8 +38,11 @@ export function MarketSaleRowActions({
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [pending, startPending] = useTransition();
 
+  // Fetched fresh on EVERY open. A cached copy went stale after the first save:
+  // reopening showed the pre-edit values, and saving again silently reverted them.
   const loadDetail = async () => {
-    if (detail || loadingDetail) return;
+    if (loadingDetail) return;
+    setDetail(null);
     setLoadingDetail(true);
     const result = await getMarketSaleDetailAction(listItem.id);
     if (result.ok) setDetail(result.value);
