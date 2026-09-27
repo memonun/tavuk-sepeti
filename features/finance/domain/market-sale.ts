@@ -14,6 +14,10 @@ export interface MarketSaleItem {
   /** products.unit_label / products.unit — for showing "20 paket". */
   readonly unit_label: string;
   readonly unit: string;
+  /** Price (kuruş) this item actually sold at — 0 on a row recorded before
+   *  2026-09-27 (per-item pricing didn't exist yet). */
+  readonly unit_price_minor: number;
+  readonly line_total_minor: number;
 }
 
 export interface MarketSale {

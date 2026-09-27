@@ -59,6 +59,8 @@ export interface MarketTopProductRow {
   product_key: string;
   product_name: string;
   total_quantity: number;
+  /** 0 for a row predating 2026-09-27's per-item pricing (never captured). */
+  total_revenue_minor: number;
 }
 
 function rpcFailure(rpcName: string, error: { code?: string; message: string }) {
@@ -169,5 +171,16 @@ export async function financeMarketTopProducts(
     p_limit: limit,
   });
   if (error) return rpcFailure("finance_market_top_products", error);
-  return ok((data ?? []) as MarketTopProductRow[]);
+  // `total_revenue_minor` coalesced to 0: new app code can reach the OLD
+  // (pre-migration) function during the brief window before
+  // 20260927120000 lands, where the RPC doesn't return that field yet.
+  return ok(
+    ((data ?? []) as Array<Omit<MarketTopProductRow, "total_revenue_minor"> & {
+      total_revenue_minor?: number | string | null;
+    }>).map((row) => ({
+      ...row,
+      total_quantity: Number(row.total_quantity),
+      total_revenue_minor: Number(row.total_revenue_minor ?? 0),
+    })),
+  );
 }

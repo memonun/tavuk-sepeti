@@ -5,6 +5,7 @@ import {
   collectSoldItems,
   displayUnit,
   formatQuantity,
+  parsePriceText,
   parseQuantityText,
   summarizeSoldLines,
 } from "@/features/finance/domain/market-sale-products";
@@ -66,36 +67,107 @@ describe("parseQuantityText", () => {
   });
 });
 
+describe("parsePriceText", () => {
+  it("blank means 'not entered yet'", () => {
+    expect(parsePriceText("")).toEqual({ kind: "empty" });
+    expect(parsePriceText("   ")).toEqual({ kind: "empty" });
+  });
+
+  it("accepts an amount, including 0 (given away)", () => {
+    expect(parsePriceText("90")).toEqual({ kind: "ok", value: 9000 });
+    expect(parsePriceText("12,50")).toEqual({ kind: "ok", value: 1250 });
+    expect(parsePriceText("0")).toEqual({ kind: "ok", value: 0 });
+  });
+
+  it("rejects text that isn't an amount", () => {
+    for (const bad of ["-1", "abc", "90 TL", "1,2,3"]) {
+      expect(parsePriceText(bad)).toEqual({ kind: "invalid" });
+    }
+  });
+});
+
 describe("buildSaleItems", () => {
   const keys = ["eggs", "milk", "cheese"];
 
-  it("keeps only the filled boxes, in sheet order", () => {
-    const r = buildSaleItems({ cheese: "1,5", eggs: "20", milk: "" }, keys);
+  it("keeps only rows with a quantity, priced, in sheet order", () => {
+    const r = buildSaleItems(
+      { cheese: "1,5", eggs: "20", milk: "" },
+      { cheese: "400", eggs: "90" },
+      keys,
+    );
     expect(r).toEqual({
       ok: true,
       items: [
-        { product_key: "eggs", quantity: 20 },
-        { product_key: "cheese", quantity: 1.5 },
+        { product_key: "eggs", quantity: 20, unit_price_minor: 9000, line_total_minor: 180_000 },
+        { product_key: "cheese", quantity: 1.5, unit_price_minor: 40_000, line_total_minor: 60_000 },
       ],
     });
   });
 
-  it("names the first invalid box instead of guessing", () => {
-    expect(buildSaleItems({ eggs: "20", milk: "abc", cheese: "0" }, keys)).toEqual({
-      ok: false,
-      productKey: "milk",
+  it("rounds the line total once (fractional totals don't drift)", () => {
+    const r = buildSaleItems({ eggs: "3" }, { eggs: "33,33" }, ["eggs"]);
+    expect(r).toEqual({
+      ok: true,
+      items: [{ product_key: "eggs", quantity: 3, unit_price_minor: 3333, line_total_minor: 9999 }],
     });
   });
 
-  it("ignores quantities for products that are not on the sheet", () => {
-    expect(buildSaleItems({ ghost: "5" }, keys)).toEqual({ ok: true, items: [] });
+  it("accepts a free giveaway (price 0) once quantity is given", () => {
+    const r = buildSaleItems({ eggs: "1" }, { eggs: "0" }, ["eggs"]);
+    expect(r).toEqual({
+      ok: true,
+      items: [{ product_key: "eggs", quantity: 1, unit_price_minor: 0, line_total_minor: 0 }],
+    });
+  });
+
+  it("names the first invalid quantity", () => {
+    expect(buildSaleItems({ eggs: "20", milk: "abc" }, { eggs: "90", milk: "50" }, keys)).toEqual({
+      ok: false,
+      productKey: "milk",
+      field: "quantity",
+      kind: "invalid",
+    });
+  });
+
+  it("requires a price once a quantity is entered — missing", () => {
+    expect(buildSaleItems({ eggs: "20" }, {}, keys)).toEqual({
+      ok: false,
+      productKey: "eggs",
+      field: "price",
+      kind: "missing",
+    });
+  });
+
+  it("requires a price once a quantity is entered — invalid text", () => {
+    expect(buildSaleItems({ eggs: "20" }, { eggs: "abc" }, keys)).toEqual({
+      ok: false,
+      productKey: "eggs",
+      field: "price",
+      kind: "invalid",
+    });
+  });
+
+  it("ignores a price typed for a product with no quantity", () => {
+    expect(buildSaleItems({}, { eggs: "90" }, keys)).toEqual({ ok: true, items: [] });
+  });
+
+  it("ignores quantities/prices for products not on the sheet", () => {
+    expect(buildSaleItems({ ghost: "5" }, { ghost: "10" }, keys)).toEqual({ ok: true, items: [] });
   });
 });
 
 describe("collectSoldItems (live feedback while typing)", () => {
-  it("skips blank and half-typed boxes instead of discarding everything", () => {
-    expect(collectSoldItems({ eggs: "20", milk: "2,", cheese: "" }, ["eggs", "milk", "cheese"])).toEqual([
-      { product_key: "eggs", quantity: 20 },
-    ]);
+  it("skips a row whose quantity or price is blank/half-typed instead of erroring", () => {
+    expect(
+      collectSoldItems({ eggs: "20", milk: "2,", cheese: "1" }, { eggs: "90", cheese: "" }, [
+        "eggs",
+        "milk",
+        "cheese",
+      ]),
+    ).toEqual([{ product_key: "eggs", quantity: 20, unit_price_minor: 9000, line_total_minor: 180_000 }]);
+  });
+
+  it("is empty when nothing is both quantified and priced", () => {
+    expect(collectSoldItems({ eggs: "20" }, {}, ["eggs"])).toEqual([]);
   });
 });
