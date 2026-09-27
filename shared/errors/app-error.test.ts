@@ -33,4 +33,23 @@ describe("AppError", () => {
     expect(AppError.is(null)).toBe(false);
     expect(AppError.is("not an error")).toBe(false);
   });
+
+  it("reduces a raw Error cause to a plain, JSON-round-trippable summary", () => {
+    // Repositories pass infrastructure errors (e.g. `TypeError: fetch failed`
+    // when Supabase is unreachable) straight through as `cause`. Left as a
+    // class instance, React's Flight serializer rejects the whole payload
+    // ("Only plain objects... Classes or null prototypes are not supported"),
+    // crashing the page instead of surfacing a toast.
+    const cause = new TypeError("fetch failed");
+    const error = new AppError(ErrorCode.EXTERNAL_API_ERROR, { message: "x", cause });
+    expect(error.cause).toEqual({ name: "TypeError", message: "fetch failed" });
+    const json = JSON.parse(JSON.stringify(error));
+    expect(json.cause).toEqual({ name: "TypeError", message: "fetch failed" });
+  });
+
+  it("passes a plain-object cause (e.g. PostgrestError) through unchanged", () => {
+    const cause = { code: "PGRST116", message: "Row not found", details: null, hint: null };
+    const error = new AppError(ErrorCode.EXTERNAL_API_ERROR, { message: "x", cause });
+    expect(error.cause).toEqual(cause);
+  });
 });

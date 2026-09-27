@@ -1,5 +1,13 @@
 import { ErrorCode } from "@/shared/errors/error-codes";
 
+/** Reduces an Error instance to a plain, RSC-serializable summary; passes everything else through. */
+function sanitizeCause(cause: unknown): unknown {
+  if (cause instanceof Error) {
+    return { name: cause.name, message: cause.message };
+  }
+  return cause;
+}
+
 interface AppErrorOptions {
   message?: string;
   details?: unknown;
@@ -25,6 +33,15 @@ interface AppErrorOptions {
  * across that boundary untouched. Nothing in this codebase throws an AppError
  * or relies on it being an Error (logging always destructures `.code`/`.message`
  * into structured fields; `AppError.is` doesn't need `instanceof Error`).
+ *
+ * `cause` goes through the same sanitization: repositories routinely pass a raw
+ * infrastructure error (e.g. a `TypeError: fetch failed` when Supabase is
+ * unreachable) as `cause`. An `Error` instance nested under `cause` is just as
+ * unserializable across the RSC boundary as the top-level object would be, and
+ * React's Flight serializer rejects the whole payload ("Only plain objects...
+ * Classes or null prototypes are not supported"), crashing the page instead of
+ * surfacing a toast. Reduce it to a plain `{ name, message }` summary here so
+ * call sites don't each need to remember to do it.
  */
 export class AppError {
   name: string;
@@ -40,7 +57,7 @@ export class AppError {
     this.code = code;
     if (opts.details !== undefined) this.details = opts.details;
     if (opts.correlationId !== undefined) this.correlationId = opts.correlationId;
-    if (opts.cause !== undefined) this.cause = opts.cause;
+    if (opts.cause !== undefined) this.cause = sanitizeCause(opts.cause);
   }
 
   /** Type guard usable across realms (where `instanceof` may fail). */
