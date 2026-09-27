@@ -17,15 +17,17 @@ import type { MarketSale, MarketSaleItem, MarketSaleListItem } from "@/features/
 import type { MarketSaleItemInput, MarketSaleListQuery } from "@/features/finance/domain/market-sale.schema";
 
 const SALE_LIST_SELECT =
-  "id, location_id, sale_date, total_amount_minor, payment_method, created_at, market_locations!inner(name), market_sale_items(id, product_key, quantity, products(display_name, unit_label, unit))" as const;
+  "id, location_id, sale_date, total_amount_minor, payment_method, created_at, market_locations!inner(name), market_sale_items(id, product_key, quantity, unit_price_minor, line_total_minor, products(display_name, unit_label, unit))" as const;
 
 const SALE_DETAIL_SELECT =
-  "id, location_id, sale_date, total_amount_minor, payment_method, note, created_at, updated_at, created_by, market_locations!inner(name), market_sale_items(id, product_key, quantity, products(display_name, unit_label, unit))" as const;
+  "id, location_id, sale_date, total_amount_minor, payment_method, note, created_at, updated_at, created_by, market_locations!inner(name), market_sale_items(id, product_key, quantity, unit_price_minor, line_total_minor, products(display_name, unit_label, unit))" as const;
 
 interface ItemRow {
   id: string;
   product_key: string;
   quantity: number | string;
+  unit_price_minor: number | string;
+  line_total_minor: number | string;
   products: { display_name: string; unit_label: string; unit: string } | null;
 }
 
@@ -37,6 +39,8 @@ function rowToItem(item: ItemRow): MarketSaleItem {
     quantity: Number(item.quantity),
     unit_label: item.products?.unit_label ?? "",
     unit: item.products?.unit ?? "",
+    unit_price_minor: Number(item.unit_price_minor),
+    line_total_minor: Number(item.line_total_minor),
   };
 }
 
@@ -193,6 +197,8 @@ export async function createMarketSale(
         sale_id: saleId,
         product_key: item.product_key,
         quantity: item.quantity,
+        unit_price_minor: item.unit_price_minor,
+        line_total_minor: Math.round(item.quantity * item.unit_price_minor),
       })),
     );
     if (itemsError) {
@@ -255,6 +261,8 @@ export async function updateMarketSale(
         sale_id: id,
         product_key: item.product_key,
         quantity: item.quantity,
+        unit_price_minor: item.unit_price_minor,
+        line_total_minor: Math.round(item.quantity * item.unit_price_minor),
       })),
     );
     if (itemsError) {

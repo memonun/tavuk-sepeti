@@ -1,9 +1,11 @@
 /**
  * Pazar Cirosu / Lokasyona Göre Satış / Satılan Ürünler — sits above the Pazar
  * Satışları table, same period as the page's filter bar. "Satılan Ürünler" lists
- * every product sold at the stalls in the period (largest quantity first), with
- * its unit — quantities of different units (kg vs paket) share a list but never
- * a bar scale, so each bar is relative to its own unit.
+ * every product sold at the stalls in the period, ranked by revenue (what the
+ * RPC orders by) with its quantity+unit underneath. Revenue is 0 for a sale
+ * recorded before 2026-09-27, when per-item pricing didn't exist yet — those
+ * rows sort last, not missing, so an old, unpriced sale doesn't just vanish
+ * from the list.
  */
 import { formatTRY } from "@/shared/utils/money";
 import {
@@ -35,12 +37,9 @@ export function MarketReport({
     const p = productByKey.get(key);
     return p ? displayUnit(p.unit_label, p.unit) : "";
   };
-  // Bars compare like with like: scale each against the largest quantity IN ITS UNIT.
-  const maxByUnit = new Map<string, number>();
-  for (const p of topProducts) {
-    const unit = unitOf(p.product_key);
-    maxByUnit.set(unit, Math.max(maxByUnit.get(unit) ?? 1, Number(p.total_quantity)));
-  }
+  // Revenue is the same currency for every product, so — unlike quantity — one
+  // bar scale works across the whole list.
+  const maxRevenueMinor = Math.max(1, ...topProducts.map((p) => p.total_revenue_minor));
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -76,26 +75,24 @@ export function MarketReport({
             const quantity = Number(p.total_quantity);
             const unit = unitOf(p.product_key);
             const pieces = parsePiecesPerUnit(products.find((x) => x.key === p.product_key)?.unit_label ?? "");
-            const max = maxByUnit.get(unit) ?? 1;
             return (
               <div key={p.product_key} className="space-y-1">
                 <div className="flex items-baseline justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">{p.product_name}</span>
                   <span className="text-right font-medium tabular-nums">
-                    {formatQuantity(quantity)} {unit}
-                    {pieces ? (
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        = {(quantity * pieces).toLocaleString("tr-TR")} adet
-                      </span>
-                    ) : null}
+                    {p.total_revenue_minor > 0 ? formatTRY(p.total_revenue_minor) : "—"}
                   </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-primary"
-                    style={{ width: `${Math.round((quantity / max) * 100)}%` }}
+                    style={{ width: `${Math.round((p.total_revenue_minor / maxRevenueMinor) * 100)}%` }}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {formatQuantity(quantity)} {unit}
+                  {pieces ? ` = ${(quantity * pieces).toLocaleString("tr-TR")} adet` : ""}
+                </p>
               </div>
             );
           })}

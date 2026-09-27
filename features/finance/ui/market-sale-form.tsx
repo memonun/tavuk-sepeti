@@ -4,11 +4,18 @@
  * Create/edit market-sale form — same useState + useTransition + direct
  * Server Action pattern as expense-form.tsx / product-form.tsx.
  *
- * "Satılan ürünler" is a quantity sheet: every active product is listed with a
- * quantity box (blank = not sold), like a tally sheet at the stall. It is
- * informational — it feeds the sold-products views and need not add up to the
- * typed Toplam Tutar — but a catalog-price estimate can fill that box. An
- * inline "+ yeni lokasyon" makes a third stall a form submission, not code.
+ * "Satılan ürünler" is a quantity+price sheet: every active product is listed
+ * with a quantity box (blank = not sold) and, once a quantity is typed, a
+ * price box — the whole point of capturing a line is to know what it actually
+ * sold for, not just how many. The price box auto-fills from the catalog's
+ * tier-aware rate the moment a quantity lands (editable afterwards, since a
+ * market-stall price can differ from the online one), so typing is rarely
+ * needed for it. The sale's own Toplam Tutar stays a separately typed field —
+ * a stall day can go unitemized, and need not reconcile against the item
+ * lines even when some are entered — with a one-click sync from the items'
+ * real sum. Payment Yöntemi is recorded once, for the whole sale.
+ *
+ * An inline "+ yeni lokasyon" makes a third stall a form submission, not code.
  *
  * The form state lives in an inner component keyed by the sale, so it is seeded
  * from the sale AFTER the edit dialog has loaded it. (Seeding when the dialog
@@ -45,13 +52,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { estimateSoldItemsMinor } from "@/features/finance/application/market-sale-estimate";
 import {
   buildSaleItems,
   collectSoldItems,
   displayUnit,
+  parseQuantityText,
   type MarketProductOption,
 } from "@/features/finance/domain/market-sale-products";
+// Feature-ui may call another feature's application/ directly (cross-feature
+// public API — see eslint boundaries config), same as orders/ui/product-picker.tsx.
+import { rateForQuantity } from "@/features/products/application/pricing";
 import { todayInIstanbul } from "@/shared/utils/date";
 import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
@@ -66,17 +76,31 @@ interface FieldsState {
   note: string;
   /** product_key → typed quantity (blank = not sold). */
   quantities: Record<string, string>;
+  /** product_key → typed unit price, TRY (blank = not entered yet). */
+  prices: Record<string, string>;
+}
+
+function toTRYText(minor: number): string {
+  return (minor / 100).toFixed(2).replace(".", ",");
 }
 
 function initialFields(sale?: MarketSale, defaultLocationId?: string): FieldsState {
   return {
     location_id: sale?.location_id ?? defaultLocationId ?? "",
     sale_date: sale?.sale_date ?? todayInIstanbul(),
-    total_amount: sale ? (sale.total_amount_minor / 100).toFixed(2).replace(".", ",") : "",
+    total_amount: sale ? toTRYText(sale.total_amount_minor) : "",
     payment_method: sale?.payment_method ?? "cash",
     note: sale?.note ?? "",
     quantities: Object.fromEntries(
       (sale?.items ?? []).map((i) => [i.product_key, String(i.quantity).replace(".", ",")]),
+    ),
+    // 0 on a loaded item means "recorded before prices existed", not "given
+    // away" — leave it blank (shows the "oto …" placeholder) rather than a
+    // misleading "0,00".
+    prices: Object.fromEntries(
+      (sale?.items ?? [])
+        .filter((i) => i.unit_price_minor > 0)
+        .map((i) => [i.product_key, toTRYText(i.unit_price_minor)]),
     ),
   };
 }
@@ -162,8 +186,9 @@ function MarketSaleFormBody({
 
   const set = (patch: Partial<FieldsState>) => setFields((prev) => ({ ...prev, ...patch }));
 
-  // The quantity sheet: every active product, plus any product on this sale
-  // that has since been archived (so editing an old sale never drops a line).
+  // The quantity+price sheet: every active product, plus any product on this
+  // sale that has since been archived (so editing an old sale never drops a
+  // line). An archived entry has no catalog price to auto-fill from.
   const sheet: MarketProductOption[] = [
     ...products,
     ...(sale?.items ?? [])
@@ -177,14 +202,34 @@ function MarketSaleFormBody({
         price_tiers: [],
       })),
   ];
+  const sheetByKey = new Map(sheet.map((p) => [p.key, p]));
   const sheetKeys = sheet.map((p) => p.key);
 
-  const built = buildSaleItems(fields.quantities, sheetKeys);
-  const enteredItems = collectSoldItems(fields.quantities, sheetKeys);
-  const estimateMinor = estimateSoldItemsMinor(enteredItems, products);
+  const built = buildSaleItems(fields.quantities, fields.prices, sheetKeys);
+  const enteredItems = collectSoldItems(fields.quantities, fields.prices, sheetKeys);
+  const enteredTotalMinor = enteredItems.reduce((sum, i) => sum + i.line_total_minor, 0);
 
-  const setQuantity = (key: string, value: string) =>
-    set({ quantities: { ...fields.quantities, [key]: value } });
+  const setQuantity = (key: string, value: string) => {
+    setFields((prev) => {
+      const quantities = { ...prev.quantities, [key]: value };
+      // Prefill the price box the moment a valid quantity lands, if the admin
+      // hasn't typed one yet — the tier-aware catalog rate at THIS quantity,
+      // same math the storefront/order editor price a line with. Still fully
+      // editable; the stall's real price often differs from the online one.
+      const parsedQty = parseQuantityText(value);
+      const product = sheetByKey.get(key);
+      const priceUntouched = (prev.prices[key] ?? "").trim() === "";
+      if (parsedQty.kind === "ok" && priceUntouched && product && product.current_unit_price_minor > 0) {
+        const rate = rateForQuantity(parsedQty.value, {
+          tiers: product.price_tiers,
+          basePriceMinor: product.current_unit_price_minor,
+        });
+        return { ...prev, quantities, prices: { ...prev.prices, [key]: toTRYText(Math.round(rate)) } };
+      }
+      return { ...prev, quantities };
+    });
+  };
+  const setPrice = (key: string, value: string) => set({ prices: { ...fields.prices, [key]: value } });
 
   const addLocation = () => {
     const name = newLocationName.trim();
@@ -213,8 +258,14 @@ function MarketSaleFormBody({
       return;
     }
     if (!built.ok) {
-      const name = sheet.find((p) => p.key === built.productKey)?.display_name ?? "ürün";
-      toast.error(`${name}: geçersiz miktar (0'dan büyük bir sayı girin ya da boş bırakın).`);
+      const name = sheetByKey.get(built.productKey)?.display_name ?? "ürün";
+      if (built.field === "quantity") {
+        toast.error(`${name}: geçersiz miktar (0'dan büyük bir sayı girin ya da boş bırakın).`);
+      } else if (built.kind === "missing") {
+        toast.error(`${name}: fiyat gerekli (miktar girildiyse fiyat da girilmeli).`);
+      } else {
+        toast.error(`${name}: geçersiz fiyat.`);
+      }
       return;
     }
 
@@ -309,20 +360,18 @@ function MarketSaleFormBody({
             </div>
           </div>
 
-          {estimateMinor > 0 ? (
+          {enteredTotalMinor > 0 ? (
             <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2 text-xs">
               <span className="text-muted-foreground">
-                Katalog fiyatıyla ürünler ≈{" "}
-                <span className="font-medium text-foreground tabular-nums">{formatTRY(estimateMinor)}</span>
+                Girilen ürünler toplamı{" "}
+                <span className="font-medium text-foreground tabular-nums">{formatTRY(enteredTotalMinor)}</span>
               </span>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 className="h-7"
-                onClick={() =>
-                  set({ total_amount: (estimateMinor / 100).toFixed(2).replace(".", ",") })
-                }
+                onClick={() => set({ total_amount: toTRYText(enteredTotalMinor) })}
               >
                 Toplamı doldur
               </Button>
@@ -360,7 +409,7 @@ function MarketSaleFormBody({
           </div>
         </div>
 
-        {/* Right: what was sold — a quantity sheet. */}
+        {/* Right: what was sold — quantity + price per product. */}
         <div className="flex min-h-0 flex-col gap-1.5">
           <div className="flex items-baseline justify-between">
             <Label>Satılan ürünler — opsiyonel</Label>
@@ -369,25 +418,54 @@ function MarketSaleFormBody({
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Sadece satılanlara miktar yaz. Toplam tutarla eşleşmesi gerekmez.
+            Miktar girilen ürüne fiyat da gerekir (katalog fiyatı otomatik önerilir, değiştirilebilir).
+            Toplam tutarla eşleşmesi gerekmez.
           </p>
-          <ul className="max-h-72 divide-y overflow-y-auto rounded-md border">
+          <ul className="max-h-96 divide-y overflow-y-auto rounded-md border">
             {sheet.map((p) => {
-              const invalid = !built.ok && built.productKey === p.key;
+              const quantityInvalid = !built.ok && built.productKey === p.key && built.field === "quantity";
+              const priceInvalid = !built.ok && built.productKey === p.key && built.field === "price";
+              const q = parseQuantityText(fields.quantities[p.key] ?? "");
+              const rowTotal = enteredItems.find((i) => i.product_key === p.key)?.line_total_minor;
               return (
-                <li key={p.key} className="flex items-center gap-2 px-2.5 py-1.5">
-                  <span className="min-w-0 flex-1 truncate text-sm">{p.display_name}</span>
+                <li key={p.key} className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5">
+                  <span className="min-w-0 flex-1 basis-full truncate text-sm sm:basis-auto">
+                    {p.display_name}
+                  </span>
                   <Input
                     inputMode="decimal"
-                    className="h-8 w-20 text-right"
+                    className="h-8 w-16 text-right"
                     value={fields.quantities[p.key] ?? ""}
                     onChange={(e) => setQuantity(p.key, e.target.value)}
                     placeholder="0"
                     aria-label={`${p.display_name} satılan miktar`}
-                    aria-invalid={invalid}
+                    aria-invalid={quantityInvalid}
                   />
-                  <span className="w-16 shrink-0 truncate text-xs text-muted-foreground">
+                  <span className="w-10 shrink-0 truncate text-xs text-muted-foreground">
                     {displayUnit(p.unit_label, p.unit)}
+                  </span>
+                  <Input
+                    inputMode="decimal"
+                    className="h-8 w-20 text-right"
+                    value={fields.prices[p.key] ?? ""}
+                    onChange={(e) => setPrice(p.key, e.target.value)}
+                    placeholder={
+                      q.kind === "ok" && p.current_unit_price_minor > 0
+                        ? `oto ${toTRYText(
+                            Math.round(
+                              rateForQuantity(q.value, {
+                                tiers: p.price_tiers,
+                                basePriceMinor: p.current_unit_price_minor,
+                              }),
+                            ),
+                          )}`
+                        : "fiyat"
+                    }
+                    aria-label={`${p.display_name} satış fiyatı`}
+                    aria-invalid={priceInvalid}
+                  />
+                  <span className="w-20 shrink-0 truncate text-right text-xs font-medium tabular-nums text-muted-foreground">
+                    {rowTotal !== undefined ? formatTRY(rowTotal) : ""}
                   </span>
                 </li>
               );

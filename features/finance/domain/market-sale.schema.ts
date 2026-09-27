@@ -15,6 +15,10 @@ const nullableText = (max: number, message: string) =>
 export const marketSaleItemInputSchema = z.object({
   product_key: z.string().min(1, "Ürün seçin."),
   quantity: z.coerce.number().positive("Miktar 0'dan büyük olmalı."),
+  unit_price_minor: z.coerce
+    .number()
+    .int("Fiyat kuruş cinsinden tam sayı olmalı.")
+    .nonnegative("Fiyat negatif olamaz."),
 });
 export type MarketSaleItemInput = z.output<typeof marketSaleItemInputSchema>;
 

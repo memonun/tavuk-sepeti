@@ -1,10 +1,17 @@
 /**
  * Products sold at a market stall: the pure rules behind the sale form's
- * quantity sheet and the "what was sold" displays. No I/O, no framework.
+ * quantity+price sheet and the "what was sold" displays. No I/O, no framework
+ * (domain may only import `shared` + its own folder — the tier-aware catalog
+ * rate used to PREFILL a price box lives in the UI layer instead, which is
+ * allowed to call the products feature's pricing helpers directly).
  *
- * Line items are informational (see market-sale.ts) — they feed the
- * "Satılan Ürünler" views and need not add up to the sale's typed total.
+ * Line items are informational for the sale's own total (see market-sale.ts:
+ * `total_amount_minor` is still typed by the admin and need not equal the sum
+ * of item lines — a stall day can go unitemized) — but once a product IS put
+ * on the sheet with a quantity, its price is required: that is the whole point
+ * of capturing it ("kaça sattık", not just "kaç tane sattık").
  */
+import { parseTRYInput } from "@/shared/utils/money";
 
 /** A catalog product as the market-sale UI needs it (priced/labelled). */
 export interface MarketProductOption {
@@ -69,44 +76,100 @@ export function parseQuantityText(text: string): ParsedQuantity {
   return Number.isFinite(value) && value > 0 ? { kind: "ok", value } : { kind: "invalid" };
 }
 
-/**
- * The valid lines typed so far, silently skipping blank AND invalid boxes — for
- * live feedback (count, catalog estimate) while typing, where a half-typed
- * "2," must not blank the whole summary. Submitting uses the strict
- * `buildSaleItems`, which refuses to save with an invalid box.
- */
-export function collectSoldItems(
-  quantities: Readonly<Record<string, string>>,
-  orderedKeys: ReadonlyArray<string>,
-): Array<{ product_key: string; quantity: number }> {
-  const items: Array<{ product_key: string; quantity: number }> = [];
-  for (const key of orderedKeys) {
-    const parsed = parseQuantityText(quantities[key] ?? "");
-    if (parsed.kind === "ok") items.push({ product_key: key, quantity: parsed.value });
-  }
-  return items;
+export type ParsedAmount =
+  | { readonly kind: "empty" }
+  | { readonly kind: "ok"; readonly value: number }
+  | { readonly kind: "invalid" };
+
+/** A price box (₺): blank = "not entered yet", 0 or more = that price (0 =
+ *  given away), anything else is an error. */
+export function parsePriceText(text: string): ParsedAmount {
+  const trimmed = text.trim();
+  if (trimmed === "") return { kind: "empty" };
+  const minor = parseTRYInput(trimmed);
+  return minor === null ? { kind: "invalid" } : { kind: "ok", value: minor };
+}
+
+export interface SoldLineItem {
+  readonly product_key: string;
+  readonly quantity: number;
+  readonly unit_price_minor: number;
+  readonly line_total_minor: number;
 }
 
 export type BuildItemsResult =
-  | { readonly ok: true; readonly items: ReadonlyArray<{ product_key: string; quantity: number }> }
-  | { readonly ok: false; readonly productKey: string };
+  | { readonly ok: true; readonly items: ReadonlyArray<SoldLineItem> }
+  | {
+      readonly ok: false;
+      readonly productKey: string;
+      readonly field: "quantity" | "price";
+      /** "missing": the price box was left blank on a row that has a quantity.
+       *  "invalid": the typed text isn't a valid amount/quantity. */
+      readonly kind: "missing" | "invalid";
+    };
 
 /**
- * Turn the form's `product_key → typed quantity` sheet into line items: blank
- * boxes are dropped (and 0 counts as blank-equivalent invalid → reported, so a
- * stray "0" is not silently kept or silently lost), the first invalid box is
- * named so the form can point at it. Order follows `orderedKeys`.
+ * Turn the sheet's per-product quantity + price text into priced line items.
+ * A row only exists once a quantity is typed; once it does, its price is
+ * REQUIRED — the UI prefills it from the catalog rate the moment a quantity is
+ * entered, so this is rarely a manual step, but a since-cleared price box is
+ * refused rather than silently priced at ₺0. The first bad row (quantity OR
+ * price) is named so the form can point at it.
  */
 export function buildSaleItems(
   quantities: Readonly<Record<string, string>>,
+  prices: Readonly<Record<string, string>>,
   orderedKeys: ReadonlyArray<string>,
 ): BuildItemsResult {
-  const items: Array<{ product_key: string; quantity: number }> = [];
+  const items: SoldLineItem[] = [];
   for (const key of orderedKeys) {
-    const parsed = parseQuantityText(quantities[key] ?? "");
-    if (parsed.kind === "empty") continue;
-    if (parsed.kind === "invalid") return { ok: false, productKey: key };
-    items.push({ product_key: key, quantity: parsed.value });
+    const q = parseQuantityText(quantities[key] ?? "");
+    if (q.kind === "empty") continue;
+    if (q.kind === "invalid") {
+      return { ok: false, productKey: key, field: "quantity", kind: "invalid" };
+    }
+
+    const p = parsePriceText(prices[key] ?? "");
+    if (p.kind === "empty") {
+      return { ok: false, productKey: key, field: "price", kind: "missing" };
+    }
+    if (p.kind === "invalid") {
+      return { ok: false, productKey: key, field: "price", kind: "invalid" };
+    }
+
+    items.push({
+      product_key: key,
+      quantity: q.value,
+      unit_price_minor: p.value,
+      line_total_minor: Math.round(q.value * p.value),
+    });
   }
   return { ok: true, items };
+}
+
+/**
+ * Live/lenient variant for the running total while typing: silently skips a
+ * row whose quantity OR price is blank/invalid instead of erroring, so a
+ * half-typed "2," doesn't blank the whole summary mid-keystroke. Submitting
+ * always goes through the strict `buildSaleItems`.
+ */
+export function collectSoldItems(
+  quantities: Readonly<Record<string, string>>,
+  prices: Readonly<Record<string, string>>,
+  orderedKeys: ReadonlyArray<string>,
+): SoldLineItem[] {
+  const items: SoldLineItem[] = [];
+  for (const key of orderedKeys) {
+    const q = parseQuantityText(quantities[key] ?? "");
+    if (q.kind !== "ok") continue;
+    const p = parsePriceText(prices[key] ?? "");
+    if (p.kind !== "ok") continue;
+    items.push({
+      product_key: key,
+      quantity: q.value,
+      unit_price_minor: p.value,
+      line_total_minor: Math.round(q.value * p.value),
+    });
+  }
+  return items;
 }
