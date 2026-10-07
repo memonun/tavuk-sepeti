@@ -40,12 +40,33 @@ function formatQty(q: number): string {
   return Number.isInteger(q) ? String(q) : String(round1(q));
 }
 
+/**
+ * A delivery order for the day that the route did NOT pick up. The panel's route
+ * query takes pending, confirmed and delivered delivery-channel orders; what it
+ * leaves out is a card order whose payment has not arrived (an abandoned or
+ * declined checkout — see migration 20260808120100), so that is the one reason
+ * worth naming.
+ */
+export interface OffRouteOrder {
+  readonly order_number: string;
+  readonly customer_name: string;
+  readonly payment_method: string;
+  readonly payment_status: string;
+}
+
+export function describeOffRoute(order: OffRouteOrder): string {
+  const reason =
+    order.payment_method === "credit_card" && order.payment_status !== "paid"
+      ? "kart ödemesi gelmedi"
+      : "rotaya girmedi";
+  return `${order.order_number} (${order.customer_name}, ${reason})`;
+}
+
 export function buildRouteSummary(input: {
   date: string;
   route: SummaryRoute;
   manifest: SummaryManifest;
-  pendingOrderNumbers: readonly string[];
-  pendingTotal: number;
+  offRoute: readonly OffRouteOrder[];
 }) {
   const { route, manifest } = input;
 
@@ -67,11 +88,11 @@ export function buildRouteSummary(input: {
   if (outside.length > 0) warnings.push(`Teslimat bölgesi dışında görünen siparişler: ${outside.join(", ")}.`);
   const noAddress = route.stops.filter((s) => !s.address).map((s) => s.order_number);
   if (noAddress.length > 0) warnings.push(`Yazılı adresi olmayan siparişler: ${noAddress.join(", ")}.`);
-  if (input.pendingTotal > 0) {
-    const shown = input.pendingOrderNumbers.join(", ");
-    const more = input.pendingTotal > input.pendingOrderNumbers.length ? " …" : "";
+  if (input.offRoute.length > 0) {
     warnings.push(
-      `${input.pendingTotal} bekleyen (onaysız) sipariş rotaya DAHİL DEĞİL: ${shown}${more}. Dahil etmek için önce confirm_orders ile onaylayın.`,
+      `Bu güne ait ${input.offRoute.length} teslimat siparişi rotaya GİRMEDİ: ${input.offRoute
+        .map(describeOffRoute)
+        .join("; ")}.`,
     );
   }
 
@@ -91,20 +112,16 @@ export function buildRouteSummary(input: {
   };
 }
 
-/** The "nothing to route" answer — still reports what is waiting for confirmation. */
-export function buildEmptyRouteSummary(input: {
-  date: string;
-  pendingOrderNumbers: readonly string[];
-  pendingTotal: number;
-}) {
+/** The "nothing to route" answer — still reports orders the route left out. */
+export function buildEmptyRouteSummary(input: { date: string; offRoute: readonly OffRouteOrder[] }) {
   return {
     tarih: input.date,
     durak_sayisi: 0,
     mesaj:
-      input.pendingTotal > 0
-        ? `Bu gün için ONAYLI sipariş yok, ama ${input.pendingTotal} bekleyen sipariş var: ${input.pendingOrderNumbers.join(", ")}${
-            input.pendingTotal > input.pendingOrderNumbers.length ? " …" : ""
-          }. Rotaya girmeleri için önce confirm_orders ile onaylayın.`
-        : "Bu gün için rotaya girecek (onaylı, teslimat kanallı) sipariş yok.",
+      input.offRoute.length > 0
+        ? `Bu gün için rotaya girecek sipariş yok. Rotaya girmeyen ${input.offRoute.length} sipariş var: ${input.offRoute
+            .map(describeOffRoute)
+            .join("; ")}.`
+        : "Bu gün için rotaya girecek (teslimat kanallı) sipariş yok.",
   };
 }

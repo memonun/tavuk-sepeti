@@ -77,7 +77,7 @@ describe("get_route_summary", () => {
   });
 
   it("defaults to tomorrow, never persists ETAs, and returns a trimmed summary", async () => {
-    getDayOrders.mockResolvedValue(ok([{ order_id: "o1", total_minor: 100000, status: "confirmed" }]));
+    getDayOrders.mockResolvedValue(ok([{ order_id: "o1", order_number: "ORD-1", total_minor: 100000, status: "confirmed" }]));
     getDayRoute.mockResolvedValue(ok(oneStopRoute));
     buildDayLoadManifest.mockResolvedValue({
       loads: [{ label: "Dut Kurusu", unit_label: "kg", quantity: 1 }],
@@ -98,26 +98,66 @@ describe("get_route_summary", () => {
   });
 
   it("uses the date it is given", async () => {
-    getDayOrders.mockResolvedValue(ok([{ order_id: "o1", total_minor: 1, status: "confirmed" }]));
+    getDayOrders.mockResolvedValue(ok([{ order_id: "o1", order_number: "ORD-1", total_minor: 1, status: "confirmed" }]));
     getDayRoute.mockResolvedValue(ok(oneStopRoute));
     buildDayLoadManifest.mockResolvedValue({ loads: [], stopCount: 1, totalValueMinor: 1, collectedMinor: 0, toCollectMinor: 1 });
     await (await connect()).callTool({ name: "get_route_summary", arguments: { date: "2026-11-02" } });
     expect(getDayRoute).toHaveBeenCalledWith("2026-11-02", { persistEtas: false });
   });
 
-  it("does not call Google when there are no confirmed orders, and lists the pending ones", async () => {
+  it("does not call Google when nothing is on the route, and lists the orders left out", async () => {
     getDayOrders.mockResolvedValue(ok([]));
     listOrders.mockResolvedValue(
-      ok({ items: [{ order_number: "P-1" }, { order_number: "P-2" }], total: 2, page: 1, pageSize: 20 }),
+      ok({
+        items: [
+          { order_number: "P-1", customer_name: "Ayşe", payment_method: "credit_card", payment_status: "pending" },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 100,
+      }),
     );
     const out = body(await (await connect()).callTool({ name: "get_route_summary", arguments: {} }));
     expect(getDayRoute).not.toHaveBeenCalled();
     expect(out.durak_sayisi).toBe(0);
-    expect(String(out.mesaj)).toContain("P-1, P-2");
+    expect(String(out.mesaj)).toContain("P-1 (Ayşe, kart ödemesi gelmedi)");
+  });
+
+  it("does NOT report a pending order that is on the route as left out (pending orders ride the route)", async () => {
+    getDayOrders.mockResolvedValue(
+      ok([{ order_id: "o1", order_number: "ORD-1", total_minor: 100000, status: "pending" }]),
+    );
+    getDayRoute.mockResolvedValue(ok(oneStopRoute));
+    buildDayLoadManifest.mockResolvedValue({
+      loads: [],
+      stopCount: 1,
+      totalValueMinor: 100000,
+      collectedMinor: 0,
+      toCollectMinor: 100000,
+    });
+    listOrders.mockResolvedValue(
+      ok({
+        items: [
+          { order_number: "ORD-1", customer_name: "Ayşe", payment_method: "cash_on_delivery", payment_status: "pending" },
+          { order_number: "ORD-9", customer_name: "Mehmet", payment_method: "credit_card", payment_status: "pending" },
+        ],
+        total: 2,
+        page: 1,
+        pageSize: 100,
+      }),
+    );
+
+    const out = body(await (await connect()).callTool({ name: "get_route_summary", arguments: {} })) as {
+      uyarilar: string[];
+    };
+    const warning = out.uyarilar.join(" ");
+    expect(warning).toContain("ORD-9 (Mehmet, kart ödemesi gelmedi)");
+    expect(warning).not.toContain("ORD-1 (");
+    expect(warning).toContain("1 teslimat siparişi");
   });
 
   it("treats the optimiser's 'no confirmed orders' (NOT_FOUND) as an empty day, not an error", async () => {
-    getDayOrders.mockResolvedValue(ok([{ order_id: "o1", total_minor: 1, status: "delivered" }]));
+    getDayOrders.mockResolvedValue(ok([{ order_id: "o1", order_number: "ORD-1", total_minor: 1, status: "delivered" }]));
     getDayRoute.mockResolvedValue(err(new AppError(ErrorCode.NOT_FOUND, { message: "Bu gün için onaylı sipariş yok." })));
     const res = await (await connect()).callTool({ name: "get_route_summary", arguments: {} });
     expect(res.isError).toBeFalsy();
@@ -125,7 +165,7 @@ describe("get_route_summary", () => {
   });
 
   it("masks a Google/DB failure instead of leaking its message", async () => {
-    getDayOrders.mockResolvedValue(ok([{ order_id: "o1", total_minor: 1, status: "confirmed" }]));
+    getDayOrders.mockResolvedValue(ok([{ order_id: "o1", order_number: "ORD-1", total_minor: 1, status: "confirmed" }]));
     getDayRoute.mockResolvedValue(err(new ExternalApiError({ message: "GOOGLE_KEY_abc123 quota exceeded" })));
     const res = await (await connect()).callTool({ name: "get_route_summary", arguments: {} });
     expect(res.isError).toBe(true);
