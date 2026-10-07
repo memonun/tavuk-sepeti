@@ -124,6 +124,9 @@ vi.mock("@/features/finance/application/market-sale-actions", () => ({
 vi.mock("@/features/mcp/infrastructure/fetch-remote-image", () => ({ fetchRemoteImage: (...a: unknown[]) => m.fetchRemoteImage(...a) }));
 vi.mock("@/features/products/application/upload-product-image", () => ({ uploadProductImageAction: (...a: unknown[]) => m.uploadProductImageAction(...a) }));
 vi.mock("@/features/products/application/remove-product-image", () => ({ removeProductImageAction: (...a: unknown[]) => m.removeProductImageAction(...a) }));
+vi.mock("@/features/routing/application/get-day-load-manifest", () => ({ buildDayLoadManifest: vi.fn() }));
+vi.mock("@/features/routing/application/get-day-orders", () => ({ getDayOrders: vi.fn() }));
+vi.mock("@/features/routing/application/get-day-route", () => ({ getDayRoute: vi.fn() }));
 vi.mock("@/features/agenda/application/get-agenda-page", () => ({ getAgendaPage: vi.fn() }));
 vi.mock("@/features/orders/application/list-orders", () => ({ listOrders: vi.fn() }));
 vi.mock("@/features/orders/application/get-order", () => ({ getOrderById: vi.fn(), getOrderEvents: vi.fn() }));

@@ -86,3 +86,9 @@ export const confirmOrdersInput = {
     .max(100)
     .describe("Bekleyen (pending) siparişlerin id'leri; hepsi 'confirmed' olur."),
 };
+
+export const routeSummaryInput = {
+  date: ymd
+    .optional()
+    .describe("Rota günü (YYYY-AA-GG). Boşsa YARIN (Europe/Istanbul)."),
+};

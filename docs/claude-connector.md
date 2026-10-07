@@ -25,7 +25,7 @@ admin kontrolü hem consent sayfasında hem her MCP isteğinde yapılır.
 Okuma: `get_dashboard_summary`, `list_orders`, `get_order`, `get_order_payments`,
 `list_customers`, `get_customer`, `list_products`, `get_finance_summary`, `get_agenda`,
 `list_expense_categories`, `list_expenses`, `list_market_locations`, `list_market_sales`,
-`list_recurring_expense_templates`.
+`list_recurring_expense_templates`, `get_route_summary`.
 
 Yazma — hepsi panelin kendi Server Action'larını çağırır (aynı doğrulama, fiyat dondurma,
 durum kuralları, audit, cache revalidate); `shared/supabase/request-client.ts` isteği
@@ -63,6 +63,12 @@ metadata adresleri ve DNS rebinding reddedilir), her yönlendirme yeniden kontro
 10 sn / 5 MB sınırı, tür `Content-Type`'a değil dosyanın ilk baytlarına bakılarak belirlenir.
 
 Kapsam dışı: müşteriye özel fiyatlar, şifre/ayarlar.
+**Rota özeti** (`get_route_summary`, varsayılan YARIN): panelin kendi `getDayRoute` hesabını
+(Google Routes, ücretli, kısa süre önbelleklenir) `persistEtas: false` ile çalıştırır; yani
+müşteriye `/siparis-sorgula`'da gösterilen teslimat saatlerini **değiştirmez**. Sıralı duraklar,
+müşteri/adres/telefon, ürünler, tahsil edilecek tutar, toplam km/süre ve yüklenecekler döner;
+saat, çizgi (polyline) ve harita verisi dönmez. Sadece onaylı siparişler rotaya girer; bekleyenler
+uyarı olarak ayrıca listelenir. Şoför modu, canlı yeniden sıralama ve pin düzeltme kapsam dışıdır.
 Sayfalama: varsayılan 25, en çok 100.
 
 ## Kurulum (bir kez, prod)

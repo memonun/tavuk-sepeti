@@ -42,6 +42,7 @@ import { registerFinanceTools } from "./tools/finance-tools";
 import { registerCustomerWriteTools } from "./tools/customer-write-tools";
 import { registerOrderWriteTools } from "./tools/order-write-tools";
 import { registerProductWriteTools } from "./tools/product-write-tools";
+import { registerRouteTools } from "./tools/route-tools";
 import { toolError, toolJson, toolRefusal } from "./tool-result";
 
 export interface McpActor {
@@ -262,4 +263,5 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
   registerAgendaWriteTools(server);
   registerFinanceTools(server);
   registerFinanceAdminTools(server);
+  registerRouteTools(server);
 }

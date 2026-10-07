@@ -41,6 +41,9 @@ vi.mock("@/features/products/application/list-products", () => ({ listAllProduct
 vi.mock("@/features/finance/application/get-finance-summary", () => ({
   getFinanceSummary: vi.fn(),
 }));
+vi.mock("@/features/routing/application/get-day-load-manifest", () => ({ buildDayLoadManifest: vi.fn() }));
+vi.mock("@/features/routing/application/get-day-orders", () => ({ getDayOrders: vi.fn() }));
+vi.mock("@/features/routing/application/get-day-route", () => ({ getDayRoute: vi.fn() }));
 vi.mock("@/features/agenda/application/get-agenda-page", () => ({ getAgendaPage: vi.fn() }));
 vi.mock("@/features/orders/application/payments", () => ({
   addPaymentAction: vi.fn(),
@@ -146,6 +149,7 @@ describe("panel MCP tools", () => {
         "get_finance_summary",
         "get_order",
         "get_order_payments",
+        "get_route_summary",
         "list_customers",
         "list_expense_categories",
         "list_expenses",
