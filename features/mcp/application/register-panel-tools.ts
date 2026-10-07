@@ -36,12 +36,16 @@ import { transitionOrderAs } from "@/features/orders/application/transition-orde
 import { listAllProducts } from "@/features/products/application/list-products";
 import { logger } from "@/shared/logger";
 
+import { registerAdminMiscTools } from "./tools/admin-misc-tools";
 import { registerAgendaWriteTools } from "./tools/agenda-write-tools";
 import { registerFinanceAdminTools } from "./tools/finance-admin-tools";
 import { registerFinanceTools } from "./tools/finance-tools";
 import { registerCustomerWriteTools } from "./tools/customer-write-tools";
+import { registerOrderExtraTools } from "./tools/order-extra-tools";
 import { registerOrderWriteTools } from "./tools/order-write-tools";
+import { registerPlannerTools } from "./tools/planner-tools";
 import { registerProductWriteTools } from "./tools/product-write-tools";
+import { registerRecurringOrderTools } from "./tools/recurring-order-tools";
 import { registerRouteTools } from "./tools/route-tools";
 import { toolError, toolJson, toolRefusal } from "./tool-result";
 
@@ -264,4 +268,8 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
   registerFinanceTools(server);
   registerFinanceAdminTools(server);
   registerRouteTools(server);
+  registerOrderExtraTools(server);
+  registerRecurringOrderTools(server);
+  registerPlannerTools(server);
+  registerAdminMiscTools(server);
 }

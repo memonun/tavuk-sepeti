@@ -421,3 +421,157 @@ export const deleteMarketLocationInput = {
   id: uuid,
   confirm: confirmDelete,
 };
+
+// ---- Orders: delivery, cargo, gifts, bulk ---------------------------------
+
+export const completeDeliveryInput = {
+  order_id: uuid.describe("Bekleyen siparişse önce onaylanır, sonra teslim edildi yapılır."),
+};
+
+export const revertDeliveryInput = {
+  order_id: uuid.describe("Yanlışlıkla teslim edildi yapılan sipariş; delivered → confirmed."),
+};
+
+export const updateOrderCargoInfoInput = {
+  order_id: uuid,
+  cargo_carrier: z.string().max(200).nullish().describe("Kargo firması."),
+  cargo_tracking_number: z.string().max(200).nullish(),
+  cargo_tracking_url: z.string().max(2000).nullish(),
+};
+
+export const getOrderGiftsInput = { order_id: uuid };
+
+export const addOrderGiftInput = {
+  order_id: uuid,
+  product_key: z.string().min(1).describe("list_products çıktısındaki ürün anahtarı (key)."),
+  quantity: z.number().positive().max(100000),
+  unit_label: z.enum(["gr", "kg", "adet", "ml"]),
+  note: z.string().max(500).nullish(),
+};
+
+export const removeOrderGiftInput = {
+  order_id: uuid,
+  gift_id: uuid.describe("get_order_gifts çıktısındaki hediye id'si."),
+  confirm: confirmDelete,
+};
+
+export const createOrdersBulkInput = {
+  scheduled_for: ymd,
+  time_slot: z.enum(["morning", "afternoon", "evening"]).nullable().default(null),
+  payment_method: z.enum(["cash_on_delivery", "bank_transfer"]),
+  delivery_fee_minor: z.number().int().nonnegative().default(0).describe("Kuruş; her siparişe uygulanır."),
+  orders: z
+    .array(
+      z.object({
+        customer_id: uuid,
+        items: z
+          .array(z.object({ product_key: z.string().min(1), quantity: z.number().positive() }))
+          .min(1),
+      }),
+    )
+    .min(1)
+    .max(250)
+    .describe("Her müşteri için bir sipariş. Birincil adresi olmayan müşteri varsa hiçbiri oluşturulmaz."),
+};
+
+export const setProductSortOrderInput = {
+  product_key: z.string().min(1),
+  sort_order: z.number().int().min(0).max(9999).describe("Düşük değer önce gösterilir."),
+};
+
+export const getCustomerPricesInput = { customer_id: uuid };
+
+// ---- Customer recurring orders -------------------------------------------
+
+const recurringBody = {
+  customer_id: uuid,
+  cadence: z.enum(["weekly", "biweekly", "monthly"]),
+  day_of_week: z.number().int().min(0).max(6).nullish().describe("weekly/biweekly için zorunlu: 0 = Pazar … 6 = Cumartesi."),
+  day_of_month: z.number().int().min(1).max(31).nullish().describe("Sadece monthly için zorunlu (1-31)."),
+  items: z
+    .array(z.object({ product_key: z.string().min(1), quantity: z.number().positive() }))
+    .min(1),
+  payment_method: z.enum(["cash_on_delivery", "bank_transfer"]),
+  active: z.boolean().default(true),
+  first_run_at: ymd.optional().describe("İlk üretim için başlangıç tarihi; boşsa bugün."),
+};
+
+export const createRecurringOrderInput = recurringBody;
+
+export const updateRecurringOrderInput = {
+  id: uuid,
+  cadence: recurringBody.cadence.optional(),
+  day_of_week: recurringBody.day_of_week,
+  day_of_month: recurringBody.day_of_month,
+  items: recurringBody.items.optional().describe("Verilirse mevcut kalemlerin TAMAMININ yerine geçer."),
+  payment_method: recurringBody.payment_method.optional(),
+  first_run_at: recurringBody.first_run_at,
+};
+
+export const getRecurringOrderInput = { id: uuid };
+
+export const listRecurringOrdersInput = {
+  customer_id: uuid.optional().describe("Verilirse sadece o müşterinin şablonları."),
+};
+
+export const setRecurringOrderActiveInput = {
+  id: uuid,
+  active: z
+    .boolean()
+    .describe("true = aktif et. Mağazadan gelen ve onay bekleyen bir talepse bu ONAY anlamına gelir. false = duraklat."),
+};
+
+export const deleteRecurringOrderInput = { id: uuid, confirm: confirmDelete };
+
+// ---- Planner ---------------------------------------------------------------
+
+export const listPlannerTasksInput = {
+  week_start: ymd.describe("Haftanın PAZARTESİ günü (YYYY-AA-GG)."),
+};
+
+export const createPlannerTaskInput = {
+  title: z.string().min(1).max(200),
+  notes: z.string().max(2000).nullish(),
+  scheduled_date: ymd.nullish().describe("Boşsa tarihsiz (backlog)."),
+};
+
+export const updatePlannerTaskInput = {
+  id: uuid,
+  title: z.string().min(1).max(200).optional(),
+  notes: z.string().max(2000).nullish().describe("Verilmezse korunur; null/boş = temizle."),
+  scheduled_date: ymd.nullish().describe("Verilmezse korunur; null/boş = tarihsiz yap."),
+  status: z.enum(["open", "done"]).optional(),
+};
+
+export const deletePlannerTaskInput = { id: uuid, confirm: confirmDelete };
+
+// ---- Notifications, storefront settings, reports --------------------------
+
+export const markNotificationReadInput = { id: uuid };
+
+export const updateStorefrontSettingsInput = {
+  home_delivery_days: z
+    .array(z.number().int().min(0).max(6))
+    .min(1)
+    .max(7)
+    .optional()
+    .describe("Eve servis günleri: 0 = Pazar … 6 = Cumartesi. Verilirse mevcut günlerin yerine geçer."),
+  cargo_min_order_minor: z.number().int().min(0).optional().describe("Kargo siparişi alt limiti, kuruş. 0 = limit yok."),
+  home_min_order_minor: z.number().int().min(0).optional().describe("Eve servis alt limiti, kuruş. 0 = limit yok."),
+  home_delivery_fee_minor: z.number().int().min(0).optional().describe("Eve servis ücreti, kuruş. 0 = ücretsiz."),
+};
+
+export const dateRangeInput = {
+  from: ymd.describe("Başlangıç (dahil)."),
+  to: ymd.describe("Bitiş (dahil)."),
+};
+
+export const productTallyInput = {
+  from: ymd,
+  to: ymd,
+  dateBasis: z.enum(["scheduled_for", "created_at"]).default("scheduled_for"),
+};
+
+export const upcomingRecurringExpensesInput = {
+  limit: z.number().int().min(1).max(50).default(10),
+};
