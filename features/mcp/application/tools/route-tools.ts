@@ -26,7 +26,7 @@ export function registerRouteTools(server: McpServer): void {
     {
       title: "Rota özeti",
       description:
-        "Bir günün teslimat rotasının özetini verir (varsayılan: YARIN): optimum durak sırası, müşteri/adres/telefon, ürünler, tahsil edilecek tutar, toplam km ve süre, yüklenecek ürünler ve rotaya girmeyen bekleyen siparişler. Google Routes ile sıralar (ücretli çağrı, kısa süre önbelleklenir); müşteriye gösterilen teslimat saatlerini DEĞİŞTİRMEZ. Tutarlar kuruştur. Sadece onaylı siparişler rotaya girer.",
+        "Bir günün teslimat rotasının özetini verir (varsayılan: YARIN): optimum durak sırası, müşteri/adres/telefon, ürünler, tahsil edilecek tutar, toplam km ve süre, yüklenecek ürünler ve rotaya girmeyen bekleyen siparişler. Google Routes ile sıralar (ücretli çağrı, kısa süre önbelleklenir); müşteriye gösterilen teslimat saatlerini DEĞİŞTİRMEZ. Tutarlar kuruştur. Rota, o günün bekleyen, onaylı ve teslim edilmiş teslimat siparişlerini alır; ödemesi gelmemiş kart siparişleri girmez ve ayrıca uyarı olarak listelenir.",
       inputSchema: routeSummaryInput,
       // Reaches an external paid API, but changes nothing.
       annotations: { ...READ_ONLY, openWorldHint: true, title: "Rota özeti" },
@@ -34,29 +34,39 @@ export function registerRouteTools(server: McpServer): void {
     async ({ date }) => {
       const day = date ?? addDaysToYmd(todayInIstanbul(), 1);
       try {
-        // Pending orders never enter a route (the optimiser only takes confirmed
-        // ones), so surface them instead of letting the summary look complete.
+        // The route query leaves out unpaid card orders (and shipping ones). List the
+        // day's still-pending delivery orders so the summary can say which of them
+        // are NOT on the route — a stop count that quietly omits someone's order
+        // would look complete.
         const pending = await listOrders({
           status: "pending",
           fulfillment_channel: "delivery",
           scheduled_from: day,
           scheduled_to: day,
           page: 1,
-          pageSize: 20,
+          pageSize: 100,
         });
-        const pendingTotal = pending.ok ? pending.value.total : 0;
-        const pendingOrderNumbers = pending.ok ? pending.value.items.map((o) => o.order_number) : [];
+        const pendingOrders = pending.ok ? pending.value.items : [];
 
         const orders = await getDayOrders(day);
         if (!orders.ok) return toolError("get_route_summary", orders.error, { date: day });
+        const onRoute = new Set(orders.value.map((o) => o.order_number));
+        const offRoute = pendingOrders
+          .filter((o) => !onRoute.has(o.order_number))
+          .map((o) => ({
+            order_number: o.order_number,
+            customer_name: o.customer_name,
+            payment_method: o.payment_method,
+            payment_status: o.payment_status,
+          }));
         if (orders.value.length === 0) {
-          return toolJson(buildEmptyRouteSummary({ date: day, pendingOrderNumbers, pendingTotal }));
+          return toolJson(buildEmptyRouteSummary({ date: day, offRoute }));
         }
 
         const route = await getDayRoute(day, { persistEtas: false });
         if (!route.ok) {
           if (route.error.code === ErrorCode.NOT_FOUND) {
-            return toolJson(buildEmptyRouteSummary({ date: day, pendingOrderNumbers, pendingTotal }));
+            return toolJson(buildEmptyRouteSummary({ date: day, offRoute }));
           }
           return toolError("get_route_summary", route.error, { date: day });
         }
@@ -84,8 +94,7 @@ export function registerRouteTools(server: McpServer): void {
               total_duration_s: route.value.total_duration_s,
             },
             manifest,
-            pendingOrderNumbers,
-            pendingTotal,
+            offRoute,
           }),
         );
       } catch (cause) {

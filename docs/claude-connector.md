@@ -87,8 +87,9 @@ o müşteri için hatırlanıyor. Bu yüzden `create_order` / `update_order` / `
 (Google Routes, ücretli, kısa süre önbelleklenir) `persistEtas: false` ile çalıştırır; yani
 müşteriye `/siparis-sorgula`'da gösterilen teslimat saatlerini **değiştirmez**. Sıralı duraklar,
 müşteri/adres/telefon, ürünler, tahsil edilecek tutar, toplam km/süre ve yüklenecekler döner;
-saat, çizgi (polyline) ve harita verisi dönmez. Sadece onaylı siparişler rotaya girer; bekleyenler
-uyarı olarak ayrıca listelenir. Şoför modu, canlı yeniden sıralama ve pin düzeltme kapsam dışıdır.
+saat, çizgi (polyline) ve harita verisi dönmez. Rota o günün bekleyen, onaylı ve teslim edilmiş teslimat
+siparişlerini alır; ödemesi gelmemiş kart siparişleri ve kargo siparişleri girmez, rotaya girmeyen
+teslimat siparişleri uyarı olarak ayrıca listelenir. Şoför modu, canlı yeniden sıralama ve pin düzeltme kapsam dışıdır.
 Sayfalama: varsayılan 25, en çok 100.
 
 ## Kurulum (bir kez, prod)

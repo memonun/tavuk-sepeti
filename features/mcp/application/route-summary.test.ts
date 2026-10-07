@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildEmptyRouteSummary,
   buildRouteSummary,
+  type OffRouteOrder,
   type SummaryManifest,
   type SummaryRoute,
   type SummaryStop,
@@ -38,7 +39,7 @@ const route = (stops: SummaryStop[]): SummaryRoute => ({
   total_duration_s: 4_000,
 });
 
-const base = { date: "2026-10-08", manifest, pendingOrderNumbers: [] as string[], pendingTotal: 0 };
+const base = { date: "2026-10-08", manifest, offRoute: [] as OffRouteOrder[] };
 
 describe("buildRouteSummary", () => {
   it("reports stops in order with money, items and totals — and no times or geometry", () => {
@@ -85,17 +86,21 @@ describe("buildRouteSummary", () => {
     expect(out.duraklar[1]?.not).toBeNull();
   });
 
-  it("warns about pending orders left off the route, with a hint to confirm them", () => {
+  it("names the orders the route left out, with the reason for an unpaid card order", () => {
     const out = buildRouteSummary({
       ...base,
       route: route([stop({})]),
-      pendingOrderNumbers: ["P-1", "P-2"],
-      pendingTotal: 5,
+      offRoute: [
+        { order_number: "P-1", customer_name: "Ayşe", payment_method: "credit_card", payment_status: "pending" },
+        { order_number: "P-2", customer_name: "Mehmet", payment_method: "cash_on_delivery", payment_status: "pending" },
+      ],
     });
-    const warning = out.uyarilar.find((w) => w.includes("bekleyen"));
-    expect(warning).toContain("5 bekleyen");
-    expect(warning).toContain("P-1, P-2 …");
-    expect(warning).toContain("confirm_orders");
+    const warning = out.uyarilar.find((w) => w.includes("GİRMEDİ"));
+    expect(warning).toContain("2 teslimat siparişi");
+    expect(warning).toContain("P-1 (Ayşe, kart ödemesi gelmedi)");
+    expect(warning).toContain("P-2 (Mehmet, rotaya girmedi)");
+    // The old advice ("confirm them first") was wrong: pending orders ride the route.
+    expect(JSON.stringify(out)).not.toContain("confirm_orders");
   });
 
   it("flags stops outside the service area and stops with no written address", () => {
@@ -119,14 +124,17 @@ describe("buildRouteSummary", () => {
 
 describe("buildEmptyRouteSummary", () => {
   it("explains there is nothing to route", () => {
-    const out = buildEmptyRouteSummary({ date: "2026-10-08", pendingOrderNumbers: [], pendingTotal: 0 });
+    const out = buildEmptyRouteSummary({ date: "2026-10-08", offRoute: [] });
     expect(out.durak_sayisi).toBe(0);
     expect(out.mesaj).toContain("rotaya girecek");
   });
 
-  it("points at the pending orders when that is why the route is empty", () => {
-    const out = buildEmptyRouteSummary({ date: "2026-10-08", pendingOrderNumbers: ["P-1"], pendingTotal: 1 });
-    expect(out.mesaj).toContain("1 bekleyen");
-    expect(out.mesaj).toContain("confirm_orders");
+  it("still reports orders the route left out", () => {
+    const out = buildEmptyRouteSummary({
+      date: "2026-10-08",
+      offRoute: [{ order_number: "P-1", customer_name: "Ayşe", payment_method: "credit_card", payment_status: "pending" }],
+    });
+    expect(out.mesaj).toContain("P-1 (Ayşe, kart ödemesi gelmedi)");
+    expect(out.mesaj).not.toContain("confirm_orders");
   });
 });
