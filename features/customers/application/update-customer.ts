@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 
 import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
 import { customerFormSchema } from "@/features/customers/domain/customer.schema";
@@ -9,6 +9,7 @@ import {
   updateCustomer as repoUpdate,
 } from "@/features/customers/infrastructure/customer.repository";
 import { getCurrentUser } from "@/features/auth/application/get-session";
+import { invalidateCacheTag } from "@/shared/cache/invalidate-tag";
 import { logAudit } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
 import { composeFullAddress } from "@/shared/utils/address";
@@ -146,6 +147,6 @@ export async function updateCustomerAction(
   revalidatePath("/customers");
   revalidatePath(`/customers/${customerId}`);
   // Tag/city/segment may have changed → bust the cached filter dropdowns.
-  updateTag(CUSTOMER_FILTER_TAG);
+  invalidateCacheTag(CUSTOMER_FILTER_TAG);
   return { status: "success", customerId };
 }
