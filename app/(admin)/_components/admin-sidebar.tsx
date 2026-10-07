@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarCheck,
   CalendarRange,
   LayoutDashboard,
   LogOut,
@@ -39,6 +40,7 @@ import {
 
 const navItems = [
   { href: "/admin", label: "Panel", icon: LayoutDashboard, exact: true },
+  { href: "/ajanda", label: "Ajanda", icon: CalendarCheck, exact: false },
   { href: "/customers", label: "Müşteriler", icon: Users, exact: false },
   { href: "/orders", label: "Siparişler", icon: Package, exact: false },
   { href: "/recurring", label: "Tekrarlananlar", icon: Repeat, exact: false },

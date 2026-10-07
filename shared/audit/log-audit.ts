@@ -85,7 +85,13 @@ export type AuditAction =
   | "market_sale.deleted"
   | "market_location.created"
   | "market_location.updated"
-  | "market_location.deleted";
+  | "market_location.deleted"
+  // Ajanda — the owner's own work tracker (features/agenda).
+  | "agenda_task.created"
+  | "agenda_task.updated"
+  | "agenda_task.completed"
+  | "agenda_task.reopened"
+  | "agenda_task.deleted";
 
 export type AuditEntityType =
   | "customer"
@@ -98,7 +104,8 @@ export type AuditEntityType =
   | "expense_category"
   | "recurring_expense_template"
   | "market_sale"
-  | "market_location";
+  | "market_location"
+  | "agenda_task";
 
 /**
  * `audit_log.entity_id` is a uuid column, but a singleton config row has no
