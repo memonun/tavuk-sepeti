@@ -19,6 +19,8 @@ export default defineConfig({
       "features/**/*.test.ts",
       "shared/**/*.test.ts",
       "components/**/*.test.ts",
+      // Database-pipeline scripts (plain .mjs run by GitHub Actions).
+      "scripts/**/*.test.mjs",
     ],
     coverage: {
       provider: "v8",

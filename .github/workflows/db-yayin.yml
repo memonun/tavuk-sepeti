@@ -1,0 +1,257 @@
+name: DB Yayın
+
+# 2/2 of the database pipeline (the first half is db-kontrol.yml).
+#
+# Runs on EVERY push to main — including code-only changes — because it is also what ships the
+# site. Vercel's own auto-deploy of main is switched off in vercel.json; this workflow tells
+# Vercel to deploy only AFTER the database is ready:
+#
+#   durum → lint → tekrar-oynatma → on-deneme → uygula → dogrula → yayinla
+#
+# If any stage fails nothing after it runs, the site stays on the previous version (customers
+# are not affected), and a GitHub issue explains in plain Turkish what stopped and what to do.
+# That ordering is the whole point: on 2026-08-19 new code shipped before its migration and every
+# order failed.
+#
+# "Run workflow" (workflow_dispatch) simply tries again — safe to press: every stage is idempotent
+# (nothing pending = nothing to do, then the site is released).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: db-yayin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  deployments: read
+
+env:
+  SUPABASE_CLI_VERSION: 2.115.0
+  GH_TOKEN: ${{ github.token }}
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+  VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+
+jobs:
+  yayin:
+    name: Veritabanı + site yayını
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # "Run workflow" can be pointed at any branch; only main may touch production.
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Başlangıç zamanı ve aşama
+        run: |
+          echo "STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "STAGE=durum" >> "$GITHUB_ENV"
+
+      # ---- 0. settings ----------------------------------------------------------------------
+      # With auto-deploy off, a missing hook would mean the site silently never ships. Say so
+      # loudly BEFORE touching anything.
+      - name: Gerekli ayarlar var mı
+        run: |
+          echo "STAGE=durum" >> "$GITHUB_ENV"
+          missing=""
+          [ -z "$SUPABASE_DB_URL" ] && missing="$missing SUPABASE_DB_URL"
+          [ -z "$VERCEL_DEPLOY_HOOK_URL" ] && missing="$missing VERCEL_DEPLOY_HOOK_URL"
+          if [ -n "$missing" ]; then
+            msg="Eksik GitHub secret:$missing. Settings → Secrets and variables → Actions. VERCEL_DEPLOY_HOOK_URL, Vercel → Settings → Git → Deploy Hooks (branch: main) ile oluşturulur. Bu ayar olmadan site yayınlanamaz (vercel.json otomatik yayını kapatıyor)."
+            echo "$msg" | tee "$RUNNER_TEMP/err.txt"
+            exit 1
+          fi
+
+      # ---- 1. state --------------------------------------------------------------------------
+      - name: Hangi migration'lar bekliyor
+        id: durum
+        run: |
+          set -o pipefail
+          node scripts/db/status.mjs --out status.json 2>&1 | tee "$RUNNER_TEMP/err.txt"
+          pending=$(node -e "console.log(JSON.parse(require('fs').readFileSync('status.json','utf8')).pending.join(','))")
+          echo "pending=$pending" >> "$GITHUB_OUTPUT"
+          if [ -n "$pending" ]; then echo "has_pending=true" >> "$GITHUB_OUTPUT"; else echo "has_pending=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Bu commit hangi PR'dan geldi
+        id: prs
+        run: |
+          prs=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '[.[].number] | join(",")' || true)
+          echo "numbers=$prs" >> "$GITHUB_OUTPUT"
+
+      # ---- 2. lint (again, on what is ACTUALLY about to run) --------------------------------------
+      - name: Migration kontrolü (uygulanacaklar)
+        if: steps.durum.outputs.has_pending == 'true'
+        env:
+          PENDING: ${{ steps.durum.outputs.pending }}
+          PRS: ${{ steps.prs.outputs.numbers }}
+        run: |
+          echo "STAGE=lint" >> "$GITHUB_ENV"
+          set -o pipefail
+          approved=false
+          for n in $(echo "$PRS" | tr ',' ' '); do
+            if [ "$(gh pr view "$n" --json labels --jq '[.labels[].name] | index("db-onayli") != null')" = "true" ]; then approved=true; fi
+          done
+          node scripts/db/lint-migrations.mjs --files "$PENDING" --approved "$approved" 2>&1 | tee "$RUNNER_TEMP/err.txt"
+
+      # ---- 3. replay from scratch (merged main, not just this PR) -------------------------------
+      - uses: supabase/setup-cli@v1
+        if: steps.durum.outputs.has_pending == 'true'
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Sıfırdan kurulum testi
+        if: steps.durum.outputs.has_pending == 'true'
+        run: |
+          echo "STAGE=tekrar-oynatma" >> "$GITHUB_ENV"
+          set -o pipefail
+          EXCLUDES="studio,imgproxy,mailpit,edge-runtime,logflare,vector,postgres-meta,supavisor"
+          if ! supabase start -x "$EXCLUDES" 2> start.err; then
+            if grep -qiE "invalid|unknown|not a valid" start.err; then
+              supabase start 2>&1 | tee "$RUNNER_TEMP/err.txt"
+            else
+              cat start.err | tee "$RUNNER_TEMP/err.txt"
+              exit 1
+            fi
+          fi
+          node scripts/db/audit.mjs --local 2>&1 | tee -a "$RUNNER_TEMP/err.txt"
+
+      # ---- 4. dry run on the real schema, rolled back -------------------------------------------
+      - name: Canlı şemada ön-deneme (geri alınır)
+        if: steps.durum.outputs.has_pending == 'true'
+        run: |
+          echo "STAGE=on-deneme" >> "$GITHUB_ENV"
+          set -o pipefail
+          node scripts/db/preflight.mjs 2>&1 | tee "$RUNNER_TEMP/err.txt"
+
+      # ---- 5. apply ----------------------------------------------------------------------------
+      # `db push` applies pending files in version order, one transaction per file, and records
+      # each in supabase_migrations.schema_migrations. Pinned so a CLI release can never change
+      # what a deploy does.
+      - name: Canlı veritabanına uygula
+        if: steps.durum.outputs.has_pending == 'true'
+        run: |
+          echo "STAGE=uygula" >> "$GITHUB_ENV"
+          set -o pipefail
+          npx --yes supabase@${{ env.SUPABASE_CLI_VERSION }} db push --yes --db-url "$SUPABASE_DB_URL" 2>&1 | tee "$RUNNER_TEMP/err.txt"
+
+      # ---- 6. verify ---------------------------------------------------------------------------
+      - name: Doğrula
+        run: |
+          echo "STAGE=dogrula" >> "$GITHUB_ENV"
+          set -o pipefail
+          {
+            node scripts/db/status.mjs --require-clean
+            node scripts/db/audit.mjs --reload
+          } 2>&1 | tee "$RUNNER_TEMP/err.txt"
+
+      # ---- 7. release the site ---------------------------------------------------------------------
+      - name: Siteyi yayınla
+        id: release
+        run: |
+          echo "STAGE=yayinla" >> "$GITHUB_ENV"
+          set -o pipefail
+
+          # The hook deploys whatever main is at THIS moment. If another merge landed while this
+          # run was working, that newer code may need a migration this run never applied. Leave
+          # the release to the newer run, which applies its own migrations first and then ships.
+          git fetch --quiet origin main
+          head=$(git rev-parse origin/main)
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "main bu commit'ten ilerlemiş (${head::7}). Yayını, kendi migration'larını uygulayacak olan sonraki çalıştırma yapacak."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for attempt in 1 2 3; do
+            if out=$(curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL" 2>&1); then
+              echo "Vercel yayını tetiklendi."
+              ok=1
+              break
+            fi
+            # The hook URL is a credential: never let it reach a log or an issue.
+            echo "Deneme $attempt başarısız: ${out//"$VERCEL_DEPLOY_HOOK_URL"/***}" | tee -a "$RUNNER_TEMP/err.txt"
+            sleep $((attempt * 10))
+          done
+          [ "${ok:-0}" = "1" ] || exit 1
+
+      - name: Vercel yayını bitene kadar bekle
+        if: steps.release.outputs.skipped != 'true'
+        run: |
+          set -o pipefail
+          deadline=$(( $(date +%s) + 900 ))
+          seen=0
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            id=$(gh api "repos/${{ github.repository }}/deployments?sha=${{ github.sha }}&per_page=30" \
+                   --jq "[.[] | select((.environment|ascii_downcase) == \"production\") | select(.created_at >= \"$STARTED_AT\")][0].id // empty")
+            if [ -n "$id" ]; then
+              seen=1
+              state=$(gh api "repos/${{ github.repository }}/deployments/$id/statuses" --jq '.[0].state // "pending"')
+              echo "Vercel yayın durumu: $state"
+              case "$state" in
+                success) exit 0 ;;
+                failure|error) echo "Vercel yayını başarısız oldu ($state). Vercel panelinde 'Deployments' bölümüne bakın." | tee "$RUNNER_TEMP/err.txt"; exit 1 ;;
+              esac
+            elif [ "$(date +%s)" -gt $(( deadline - 600 )) ] && [ "$seen" = "0" ]; then
+              # Five minutes in and GitHub has never heard of a deployment: Vercel may simply
+              # not report hook builds back. The hook itself returned success, so do not raise
+              # a false alarm — Vercel e-mails the owner about a genuinely failed build.
+              echo "::warning::Vercel bu yayını GitHub'a bildirmedi; hook başarıyla tetiklendi. Sonucu Vercel panelinden doğrulayın."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Vercel yayını 15 dakikada tamamlanmadı." | tee "$RUNNER_TEMP/err.txt"
+          exit 1
+
+      # ---- 8. report -----------------------------------------------------------------------------------
+      - name: Başarı bildirimi
+        if: success() && steps.release.outputs.skipped != 'true'
+        env:
+          PENDING: ${{ steps.durum.outputs.pending }}
+          PRS: ${{ steps.prs.outputs.numbers }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/db/run-render.mjs success --applied "$PENDING" --sha "${{ github.sha }}" > ok.md
+          for n in $(echo "$PRS" | tr ',' ' '); do
+            gh pr comment "$n" --body-file ok.md || true
+          done
+          # A fixed problem closes its own alarm.
+          for i in $(gh issue list --label db-yayin-hata --state open --json number --jq '.[].number'); do
+            gh issue comment "$i" --body "✅ Sonraki yayın başarıyla tamamlandı (commit \`${GITHUB_SHA::7}\`). Bu uyarı kapatılıyor. [Kayıt]($RUN_URL)" || true
+            gh issue close "$i" || true
+          done
+
+      - name: Hata bildirimi
+        if: failure()
+        env:
+          PRS: ${{ steps.prs.outputs.numbers }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create db-yayin-hata --color B60205 --description "Yayın hattı bir aşamada durdu" 2>/dev/null || true
+          [ -f "$RUNNER_TEMP/err.txt" ] || echo "Ayrıntı için çalıştırma kaydına bakın." > "$RUNNER_TEMP/err.txt"
+          node scripts/db/run-render.mjs failure --stage "${STAGE:-durum}" --sha "${{ github.sha }}" \
+            --run-url "$RUN_URL" --message-file "$RUNNER_TEMP/err.txt" --prs "$PRS" > issue.md
+          open=$(gh issue list --label db-yayin-hata --state open --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file issue.md
+          else
+            gh issue create --title "🚨 Yayın durdu (${STAGE:-durum}) — ${GITHUB_SHA::7}" --label db-yayin-hata --body-file issue.md
+          fi

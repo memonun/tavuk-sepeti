@@ -1,0 +1,256 @@
+name: DB Kontrol
+
+# 1/2 of the database pipeline (the other half is db-yayin.yml).
+#
+# Runs on every pull request. It never touches production data: it reads, lints, and replays
+# the migrations on a throwaway local database, then explains the result in plain Turkish in
+# ONE PR comment that updates itself.
+#
+# What it catches:
+#   * project rules (RLS on, explicit grants, timestamptz, explicit ON DELETE, ...)
+#   * edits to migrations that were already published, duplicate / out-of-order versions
+#   * dangerous changes (drops, type changes, renames, ...) — blocked until a person approves
+#     by adding the `db-onayli` label (Claude does that after explaining it)
+#   * a migration chain that does not even run on an empty database
+#
+# NOTE: main has no branch protection, so this check is an early warning, not a lock. The real
+# lock is db-yayin.yml, which re-checks everything right before touching production and keeps
+# the site on the old version if anything is wrong.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: db-kontrol-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write # labels and comments go through the issues API
+
+env:
+  APPROVAL_LABEL: db-onayli
+  SUPABASE_CLI_VERSION: 2.115.0
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  lint:
+    name: Migration kontrolü
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.lint.outputs.changed }}
+      code: ${{ steps.lint.outputs.code }}
+      approved: ${{ steps.approval.outputs.approved }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Onay etiketini hazırla
+        id: approval
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          gh label create "$APPROVAL_LABEL" --color D93F0B \
+            --description "Tehlikeli veritabanı değişikliği okundu ve onaylandı" 2>/dev/null || true
+
+          # An approval belongs to the migration text that was read. New commits that touch
+          # migrations invalidate it, so the person has to look again.
+          if [ "$ACTION" = "synchronize" ] && git diff --name-only "$BEFORE" "$AFTER" -- supabase/migrations 2>/dev/null | grep -q .; then
+            gh pr edit "$PR" --remove-label "$APPROVAL_LABEL" || true
+            echo "Migration değiştiği için eski onay geri alındı."
+          fi
+
+          has=$(gh pr view "$PR" --json labels --jq "[.labels[].name] | index(\"$APPROVAL_LABEL\") != null")
+          echo "approved=$has" >> "$GITHUB_OUTPUT"
+
+      - name: Migration'ları kontrol et
+        id: lint
+        env:
+          APPROVED: ${{ steps.approval.outputs.approved }}
+        run: |
+          set +e
+          node scripts/db/lint-migrations.mjs --base origin/main --out lint.json --approved "$APPROVED"
+          code=$?
+          set -e
+          changed=$(node -e "console.log(JSON.parse(require('fs').readFileSync('lint.json','utf8')).changed)")
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          # The verdict is delivered by the `gate` job; this job only has to report.
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lint
+          path: lint.json
+
+  replay:
+    name: Sıfırdan kurulum testi
+    needs: lint
+    if: needs.lint.outputs.changed != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      # `supabase start` applies every file in supabase/migrations to an EMPTY database, in
+      # order — the same thing `supabase db reset` does (CLAUDE.md §15). If the chain cannot be
+      # replayed from scratch, a new developer, CI and disaster recovery are all broken.
+      - name: Boş veritabanına bütün migration'ları uygula
+        run: |
+          EXCLUDES="studio,imgproxy,mailpit,edge-runtime,logflare,vector,postgres-meta,supavisor"
+          if ! supabase start -x "$EXCLUDES" 2> start.err; then
+            # An unknown service name in the exclude list is a CLI-version matter, not a
+            # migration problem: retry plain. Anything else is a real failure.
+            if grep -qiE "invalid|unknown|not a valid" start.err; then
+              echo "::warning::Hariç tutma listesi bu CLI sürümünde kabul edilmedi, tam kurulumla deneniyor."
+              supabase start
+            else
+              cat start.err
+              exit 1
+            fi
+          fi
+
+      - name: Her tabloda satır güvenliği (RLS) açık mı
+        run: node scripts/db/audit.mjs --local
+
+      # Advisory for now: measures how noisy the function linter is on this codebase before
+      # it is allowed to block anything.
+      - name: Fonksiyon denetimi (bilgi amaçlı)
+        continue-on-error: true
+        run: supabase db lint --local --level error
+
+  prod-status:
+    name: Canlı veritabanı durumu
+    needs: lint
+    if: needs.lint.outputs.changed != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Read-only. Forks and dependabot get no secrets, so this degrades to "no report".
+      - name: Canlı geçmişi oku
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL yok (fork/dependabot) — canlı durum raporu atlandı."
+            exit 0
+          fi
+          node scripts/db/status.mjs --out status.json || echo "::warning::Canlı durum okunamadı; rapor eksik olacak."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: status
+          path: status.json
+          if-no-files-found: ignore
+
+  comment:
+    name: PR yorumu
+    needs: [lint, replay, prod-status]
+    if: always() && needs.lint.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: lint
+      - uses: actions/download-artifact@v4
+        with:
+          name: status
+        continue-on-error: true
+
+      - name: Yorumu yaz veya güncelle
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          REPLAY: ${{ needs.replay.result }}
+          APPROVED: ${{ needs.lint.outputs.approved }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node scripts/db/run-render.mjs pr-comment \
+            --lint lint.json --status status.json --replay "$REPLAY" \
+            --approved "$APPROVED" --pr "$PR" --run-url "$RUN_URL" > comment.md
+
+          id=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
+                 --jq '.[] | select(.body | contains("<!-- db-kontrol -->")) | .id' | head -n1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$id" -F body=@comment.md > /dev/null \
+              || echo "::warning::Yorum güncellenemedi (fork PR'larında izin yok)."
+          else
+            gh pr comment "$PR" --body-file comment.md \
+              || echo "::warning::Yorum yazılamadı (fork PR'larında izin yok)."
+          fi
+
+  # The one status other things (a future branch rule) should depend on.
+  gate:
+    name: DB Kontrol
+    needs: [lint, replay, prod-status, comment]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Sonuç
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          LINT_CODE: ${{ needs.lint.outputs.code }}
+          REPLAY: ${{ needs.replay.result }}
+        run: |
+          if [ "$LINT_RESULT" != "success" ]; then
+            echo "::error::Kontrol çalıştırılamadı ($LINT_RESULT). Çalıştırma kaydına bakın."
+            exit 1
+          fi
+          case "$LINT_CODE" in
+            0) ;;
+            1) echo "::error::Migration'larda düzeltilmesi gereken hatalar var. PR yorumuna bakın."; exit 1 ;;
+            3) echo "::error::Tehlikeli veritabanı değişikliği onay bekliyor. PR yorumundaki açıklamayı okuyun."; exit 1 ;;
+            *) echo "::error::Beklenmeyen sonuç ($LINT_CODE)."; exit 1 ;;
+          esac
+          if [ "$REPLAY" = "failure" ] || [ "$REPLAY" = "cancelled" ]; then
+            echo "::error::Migration zinciri boş veritabanında çalışmadı."
+            exit 1
+          fi
+          echo "Veritabanı kontrolü geçti."
