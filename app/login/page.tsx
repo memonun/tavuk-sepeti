@@ -1,6 +1,11 @@
 import { LoginForm } from "@/features/auth/ui/login-form";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>;
+}) {
+  const { next } = await searchParams;
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-8">
@@ -10,7 +15,7 @@ export default function LoginPage() {
             Yönetim paneline giriş.
           </p>
         </div>
-        <LoginForm />
+        <LoginForm {...(typeof next === "string" ? { next } : {})} />
       </div>
     </div>
   );

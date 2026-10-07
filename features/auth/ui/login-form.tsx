@@ -9,13 +9,14 @@ import { Label } from "@/components/ui/label";
 
 const initialState: SignInState = { status: "idle" };
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   // useActionState wires a Server Action to a form. Pending lights up while
   // the action is in flight; state carries any returned error.
   const [state, formAction, pending] = useActionState(signInAction, initialState);
 
   return (
     <form action={formAction} className="flex w-full max-w-sm flex-col gap-4">
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">E-posta</Label>
         <Input
