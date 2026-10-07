@@ -140,7 +140,8 @@ export async function listAllProducts(): Promise<
   Result<Product[], ExternalApiError>
 > {
   const supabase = await createSupabaseServerClient();
-  // Include total quantity sold from order_items
+  // The RPC returns the catalog already ordered (active first, sort_order,
+  // display_name) with total_quantity_sold attached.
   const { data, error } = await supabase.rpc("list_products_with_sales");
 
   if (error) {
@@ -149,14 +150,5 @@ export async function listAllProducts(): Promise<
   }
 
   const tiersByProduct = await loadTiersByProduct();
-  return ok(
-    ((data ?? []) as ProductRow[])
-      .sort((a, b) => {
-        // active first, then by sort_order, then by display_name
-        if (a.active !== b.active) return b.active ? 1 : -1;
-        const sortDiff = Number(a.sort_order) - Number(b.sort_order);
-        return sortDiff !== 0 ? sortDiff : a.display_name.localeCompare(b.display_name);
-      })
-      .map((row) => toProduct(row, tiersByProduct))
-  );
+  return ok((data ?? []).map((row) => toProduct(row as ProductRow, tiersByProduct)));
 }
