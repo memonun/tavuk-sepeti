@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   CalendarRange,
   LayoutDashboard,
+  ListTodo,
   LogOut,
   Map,
   Package,
@@ -49,6 +50,7 @@ const navItems = [
   { href: "/routes", label: "Rota", icon: CalendarRange, exact: false },
   { href: "/kargo", label: "Kargo", icon: Truck, exact: false },
   { href: "/magaza-ayarlari", label: "Mağaza ayarları", icon: Store, exact: false },
+  { href: "/planlayici", label: "Planlayıcı", icon: ListTodo, exact: false },
 ] as const;
 
 // Finans has sub-pages, so it's kept out of the flat navItems list above —
