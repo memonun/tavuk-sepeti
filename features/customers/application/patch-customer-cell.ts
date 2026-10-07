@@ -14,7 +14,6 @@
  * optimistic patch for the canonical row on success, or rolls back on
  * Err.
  */
-import { updateTag } from "next/cache";
 
 import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
 import {
@@ -27,6 +26,7 @@ import {
   patchCustomerCell as repoPatchCell,
 } from "@/features/customers/infrastructure/customer.repository";
 import { assertAdmin } from "@/features/auth/application/assert-admin";
+import { invalidateCacheTag } from "@/shared/cache/invalidate-tag";
 import { logAudit } from "@/shared/audit/log-audit";
 import {
   AppError,
@@ -90,7 +90,7 @@ export async function patchCustomerCellAction(
   // cooldown), instead of a full-table refetch per keystroke. The filter-options
   // tag is still busted — it's a separate, cheap cache that drives the dropdowns.
   if (field === "tag" || field === "legacy_segment" || field === "account_type" || field === "city") {
-    updateTag(CUSTOMER_FILTER_TAG);
+    invalidateCacheTag(CUSTOMER_FILTER_TAG);
   }
 
   return ok(result.value);
