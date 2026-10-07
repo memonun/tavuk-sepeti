@@ -1,7 +1,7 @@
 /**
  * Agenda task Zod schemas — single source of truth for the Ajanda form (UI)
  * and the agenda Server Actions (application). Mirrors the DB constraints in
- * supabase/migrations/20261007120000_agenda_tasks.sql so a bad payload fails
+ * supabase/migrations/20261007130000_agenda_tasks.sql so a bad payload fails
  * here with a Turkish message instead of as a Postgres check violation.
  */
 import { z } from "zod";

@@ -54,6 +54,25 @@ function localVersions() {
     .sort((a, b) => a.version.localeCompare(b.version));
 }
 
+// The history table keys on the version alone, so two files sharing one are a
+// single migration to it: once either is applied the other reads as applied
+// and is silently never run. 2026-10-07: 20261007120000_agenda_tasks.sql was
+// skipped exactly this way after 20261007120000_planner_tasks.sql (merged from
+// a parallel branch) was applied first — and this check reported green.
+const byVersion = new Map();
+for (const m of localVersions()) {
+  byVersion.set(m.version, [...(byVersion.get(m.version) ?? []), m.file]);
+}
+const duplicates = [...byVersion.values()].filter((files) => files.length > 1);
+if (duplicates.length > 0) {
+  process.stderr.write(
+    "Migration files share a version — only one of each group would ever run:\n\n" +
+      duplicates.map((files) => `  ${files.join("  ⇄  ")}`).join("\n") +
+      "\n\nRename the one that has NOT been applied yet to a new, later timestamp.\n",
+  );
+  process.exit(1);
+}
+
 const client = new pg.Client({
   connectionString: dbUrl,
   // Supabase terminates TLS at the pooler with a certificate chain the runner

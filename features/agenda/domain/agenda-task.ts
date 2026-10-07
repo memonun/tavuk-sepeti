@@ -2,7 +2,7 @@
  * Ajanda — the owner's own work tracker: dated chores on a weekly calendar,
  * undated to-dos, and recurring farm routines (aşı, parazit ilacı, kümes
  * temizliği). Persisted in `agenda_tasks`
- * (supabase/migrations/20261007120000_agenda_tasks.sql).
+ * (supabase/migrations/20261007130000_agenda_tasks.sql).
  *
  * A recurring task is an ordinary task that carries its repeat rule;
  * completing it spawns the next occurrence (features/agenda/domain/recurrence.ts).

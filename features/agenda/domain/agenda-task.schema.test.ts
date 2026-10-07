@@ -139,7 +139,7 @@ describe("describeRepeatRule", () => {
 
 describe("AGENDA_CATEGORIES", () => {
   it("matches the DB CHECK constraint list exactly", () => {
-    // supabase/migrations/20261007120000_agenda_tasks.sql — agenda_tasks_category_check.
+    // supabase/migrations/20261007130000_agenda_tasks.sql — agenda_tasks_category_check.
     expect(AGENDA_CATEGORIES).toEqual([
       "genel",
       "hayvan_sagligi",

@@ -1,4 +1,9 @@
--- 20261007120000_agenda_tasks
+-- 20261007130000_agenda_tasks
+--
+-- (First merged as 20261007120000_agenda_tasks.sql, which collided with
+-- 20261007120000_planner_tasks.sql: the history table keys on the version
+-- alone, so once the planner migration was recorded this one was treated as
+-- applied and never ran. Renumbered; it has never been applied anywhere.)
 --
 -- Ajanda — the owner's own work tracker inside the admin panel: a weekly
 -- calendar, to-dos, and animal-health chores (aşı, parazit ilacı, kümes
