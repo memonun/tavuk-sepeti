@@ -53,6 +53,22 @@ const m = {
   createExpenseCategoryAction: vi.fn(),
   updateExpenseCategoryAction: vi.fn(),
   deleteMarketLocationAction: vi.fn(),
+  getCustomerProductPricesAction: vi.fn(),
+  completeDeliveryAction: vi.fn(),
+  createOrdersBulkAction: vi.fn(),
+  addOrderGiftAction: vi.fn(),
+  removeOrderGiftAction: vi.fn(),
+  updateOrderCargoInfoAction: vi.fn(),
+  updateRecurringTemplateAction: vi.fn(),
+  deleteRecurringTemplateAction: vi.fn(),
+  getRecurringTemplateAction: vi.fn(),
+  updatePlannerTaskAction: vi.fn(),
+  deletePlannerTaskAction: vi.fn(),
+  getNotificationFeed: vi.fn(),
+  markNotificationReadAction: vi.fn(),
+  getStorefrontSettings: vi.fn(),
+  updateStorefrontSettingsAction: vi.fn(),
+  getOrderById: vi.fn(),
 };
 
 vi.mock("@/features/orders/application/create-order", () => ({ createOrderAction: (...a: unknown[]) => m.createOrderAction(...a) }));
@@ -76,6 +92,47 @@ vi.mock("@/features/products/application/delete-product", () => ({ deleteProduct
 vi.mock("@/features/products/application/set-product-active", () => ({ setProductActiveAction: vi.fn() }));
 vi.mock("@/features/products/application/set-product-flags", () => ({ updateProductFlagsAction: vi.fn() }));
 vi.mock("@/features/products/application/list-products", () => ({ listAllProducts: (...a: unknown[]) => m.listAllProducts(...a) }));
+vi.mock("@/features/customers/application/customer-price-actions", () => ({
+  getCustomerProductPricesAction: (...a: unknown[]) => m.getCustomerProductPricesAction(...a),
+  getCustomerProductPricesBatchAction: vi.fn(),
+  getCustomersMissingPrimaryAddressAction: vi.fn(),
+}));
+vi.mock("@/features/orders/application/complete-delivery", () => ({ completeDeliveryAction: (...a: unknown[]) => m.completeDeliveryAction(...a) }));
+vi.mock("@/features/orders/application/revert-delivery", () => ({ revertDeliveryAction: vi.fn() }));
+vi.mock("@/features/orders/application/create-orders-bulk", () => ({ createOrdersBulkAction: (...a: unknown[]) => m.createOrdersBulkAction(...a) }));
+vi.mock("@/features/orders/application/get-order-gifts", () => ({ getOrderGifts: vi.fn() }));
+vi.mock("@/features/orders/application/order-gift-actions", () => ({
+  addOrderGiftAction: (...a: unknown[]) => m.addOrderGiftAction(...a),
+  removeOrderGiftAction: (...a: unknown[]) => m.removeOrderGiftAction(...a),
+}));
+vi.mock("@/features/orders/application/update-order-cargo-info", () => ({ updateOrderCargoInfoAction: (...a: unknown[]) => m.updateOrderCargoInfoAction(...a) }));
+vi.mock("@/features/products/application/set-product-sort-order", () => ({ updateProductSortOrderAction: vi.fn() }));
+vi.mock("@/features/recurring/application/recurring-template-actions", () => ({
+  createRecurringTemplateAction: vi.fn(),
+  updateRecurringTemplateAction: (...a: unknown[]) => m.updateRecurringTemplateAction(...a),
+  setRecurringTemplateActiveAction: vi.fn(),
+  deleteRecurringTemplateAction: (...a: unknown[]) => m.deleteRecurringTemplateAction(...a),
+  getRecurringTemplateAction: (...a: unknown[]) => m.getRecurringTemplateAction(...a),
+  listAllRecurringTemplatesAction: vi.fn(),
+  listCustomerRecurringTemplatesAction: vi.fn(),
+}));
+vi.mock("@/features/planner/application/create-planner-task", () => ({ createPlannerTaskAction: vi.fn() }));
+vi.mock("@/features/planner/application/update-planner-task", () => ({ updatePlannerTaskAction: (...a: unknown[]) => m.updatePlannerTaskAction(...a) }));
+vi.mock("@/features/planner/application/delete-planner-task", () => ({ deletePlannerTaskAction: (...a: unknown[]) => m.deletePlannerTaskAction(...a) }));
+vi.mock("@/features/planner/application/list-planner-tasks", () => ({ listPlannerWeekTasks: vi.fn() }));
+vi.mock("@/features/admin-notifications/application/list-notifications", () => ({ getNotificationFeed: (...a: unknown[]) => m.getNotificationFeed(...a) }));
+vi.mock("@/features/admin-notifications/application/mark-notification-read", () => ({
+  markNotificationReadAction: (...a: unknown[]) => m.markNotificationReadAction(...a),
+  markAllNotificationsReadAction: vi.fn(),
+}));
+vi.mock("@/features/cargo/application/get-cargo-orders", () => ({ getCargoOrders: vi.fn() }));
+vi.mock("@/features/finance/application/get-expense-category-breakdown", () => ({ getExpenseCategoryBreakdown: vi.fn() }));
+vi.mock("@/features/finance/application/get-expense-summary", () => ({ getExpenseSummary: vi.fn() }));
+vi.mock("@/features/finance/application/get-market-report", () => ({ getMarketReport: vi.fn() }));
+vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductTally: vi.fn() }));
+vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
+vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: (...a: unknown[]) => m.getStorefrontSettings(...a) }));
+vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: (...a: unknown[]) => m.updateStorefrontSettingsAction(...a) }));
 vi.mock("@/features/agenda/application/agenda-task-actions", () => ({
   createAgendaTaskAction: (...a: unknown[]) => m.createAgendaTaskAction(...a),
   updateAgendaTaskAction: vi.fn(),
@@ -124,9 +181,12 @@ vi.mock("@/features/finance/application/market-sale-actions", () => ({
 vi.mock("@/features/mcp/infrastructure/fetch-remote-image", () => ({ fetchRemoteImage: (...a: unknown[]) => m.fetchRemoteImage(...a) }));
 vi.mock("@/features/products/application/upload-product-image", () => ({ uploadProductImageAction: (...a: unknown[]) => m.uploadProductImageAction(...a) }));
 vi.mock("@/features/products/application/remove-product-image", () => ({ removeProductImageAction: (...a: unknown[]) => m.removeProductImageAction(...a) }));
+vi.mock("@/features/routing/application/get-day-load-manifest", () => ({ buildDayLoadManifest: vi.fn() }));
+vi.mock("@/features/routing/application/get-day-orders", () => ({ getDayOrders: vi.fn() }));
+vi.mock("@/features/routing/application/get-day-route", () => ({ getDayRoute: vi.fn() }));
 vi.mock("@/features/agenda/application/get-agenda-page", () => ({ getAgendaPage: vi.fn() }));
 vi.mock("@/features/orders/application/list-orders", () => ({ listOrders: vi.fn() }));
-vi.mock("@/features/orders/application/get-order", () => ({ getOrderById: vi.fn(), getOrderEvents: vi.fn() }));
+vi.mock("@/features/orders/application/get-order", () => ({ getOrderById: (...a: unknown[]) => m.getOrderById(...a), getOrderEvents: vi.fn() }));
 vi.mock("@/features/orders/application/get-dashboard-order-stats", () => ({ getDashboardOrderStats: vi.fn() }));
 vi.mock("@/features/orders/application/transition-order-as", () => ({ transitionOrderAs: vi.fn() }));
 vi.mock("@/features/orders/application/confirm-orders-as", () => ({ confirmOrdersAs: vi.fn() }));
@@ -207,6 +267,9 @@ describe("write tool adapters", () => {
       ["remove_product_image", { product_key: "x" }],
       ["delete_recurring_expense_template", { id: UUID }],
       ["delete_market_location", { id: UUID }],
+      ["delete_recurring_order", { id: UUID }],
+      ["delete_planner_task", { id: UUID }],
+      ["remove_order_gift", { order_id: UUID, gift_id: UUID2 }],
     ] as const) {
       const res = await client.callTool({ name, arguments: args });
       expect(res.isError, name).toBe(true);
@@ -221,6 +284,9 @@ describe("write tool adapters", () => {
     expect(m.removeProductImageAction).not.toHaveBeenCalled();
     expect(m.deleteRecurringExpenseTemplateAction).not.toHaveBeenCalled();
     expect(m.deleteMarketLocationAction).not.toHaveBeenCalled();
+    expect(m.deleteRecurringTemplateAction).not.toHaveBeenCalled();
+    expect(m.deletePlannerTaskAction).not.toHaveBeenCalled();
+    expect(m.removeOrderGiftAction).not.toHaveBeenCalled();
   });
 
   it("delete_orders forwards the ids when confirmed", async () => {
@@ -478,5 +544,127 @@ describe("write tool adapters", () => {
     });
     expect(res.isError).toBe(true);
     expect(JSON.parse(text(res)).message).toContain("kayıtlı satış");
+  });
+
+  it("complete_delivery forwards the order id and relays the panel's refusal", async () => {
+    m.completeDeliveryAction.mockResolvedValue({ status: "error", message: "Bu sipariş teslim edilemez (durum: cancelled)." });
+    const res = await (await connect()).callTool({ name: "complete_delivery", arguments: { order_id: UUID } });
+    expect(m.completeDeliveryAction).toHaveBeenCalledWith({ order_id: UUID });
+    expect(res.isError).toBe(true);
+    expect(JSON.parse(text(res)).message).toContain("teslim edilemez");
+  });
+
+  it("update_order_cargo_info keeps stored cargo fields that were not mentioned", async () => {
+    m.getOrderById.mockResolvedValue(
+      ok({ cargo_carrier: "Yurtiçi", cargo_tracking_number: "123", cargo_tracking_url: "https://x.example/123" }),
+    );
+    m.updateOrderCargoInfoAction.mockResolvedValue({ status: "success", orderId: UUID });
+    await (await connect()).callTool({
+      name: "update_order_cargo_info",
+      arguments: { order_id: UUID, cargo_tracking_number: "999" },
+    });
+    expect(m.updateOrderCargoInfoAction).toHaveBeenCalledWith({
+      order_id: UUID,
+      cargo_carrier: "Yurtiçi",
+      cargo_tracking_number: "999",
+      cargo_tracking_url: "https://x.example/123",
+    });
+  });
+
+  it("create_orders_bulk sends the batch as JSON and reports customers without an address", async () => {
+    m.createOrdersBulkAction.mockResolvedValue({ status: "missing_address", customerIds: [UUID2] });
+    const args = {
+      scheduled_for: "2026-10-10",
+      payment_method: "cash_on_delivery",
+      orders: [{ customer_id: UUID2, items: [{ product_key: "dut_kurusu", quantity: 1 }] }],
+    };
+    const res = await (await connect()).callTool({ name: "create_orders_bulk", arguments: args });
+    const fd = m.createOrdersBulkAction.mock.calls[0]?.[1] as FormData;
+    expect(JSON.parse(String(fd.get("batch_json")))).toMatchObject({
+      scheduled_for: "2026-10-10",
+      time_slot: null,
+      delivery_fee_minor: 0,
+      orders: args.orders,
+    });
+    expect(res.isError).toBe(true);
+    expect(JSON.parse(text(res)).customer_ids_without_address).toEqual([UUID2]);
+  });
+
+  it("add_order_gift passes the payload straight through", async () => {
+    m.addOrderGiftAction.mockResolvedValue(ok({ id: UUID2 }));
+    const args = { order_id: UUID, product_key: "dut_kurusu", quantity: 200, unit_label: "gr" };
+    await (await connect()).callTool({ name: "add_order_gift", arguments: args });
+    expect(m.addOrderGiftAction).toHaveBeenCalledWith(args);
+  });
+
+  const RECURRING = {
+    id: UUID,
+    customer_id: UUID2,
+    cadence: "weekly",
+    day_of_week: 2,
+    day_of_month: null,
+    items: [{ product_key: "dut_kurusu", quantity: 1 }],
+    payment_method: "cash_on_delivery",
+    active: false,
+  };
+
+  it("update_recurring_order never re-activates a paused template", async () => {
+    m.getRecurringTemplateAction.mockResolvedValue(ok(RECURRING));
+    m.updateRecurringTemplateAction.mockResolvedValue(ok(RECURRING));
+    await (await connect()).callTool({
+      name: "update_recurring_order",
+      arguments: { id: UUID, payment_method: "bank_transfer" },
+    });
+    const [id, payload] = m.updateRecurringTemplateAction.mock.calls[0] as [string, Record<string, unknown>];
+    expect(id).toBe(UUID);
+    expect(payload).toMatchObject({ active: false, payment_method: "bank_transfer", customer_id: UUID2, cadence: "weekly", day_of_week: 2 });
+  });
+
+  it("update_planner_task forwards only the keys the model sent", async () => {
+    m.updatePlannerTaskAction.mockResolvedValue(ok({ id: UUID }));
+    await (await connect()).callTool({
+      name: "update_planner_task",
+      arguments: { id: UUID, status: "done" },
+    });
+    expect(m.updatePlannerTaskAction).toHaveBeenCalledWith({ id: UUID, status: "done" });
+
+    await (await connect()).callTool({
+      name: "update_planner_task",
+      arguments: { id: UUID, scheduled_date: null },
+    });
+    expect(m.updatePlannerTaskAction).toHaveBeenLastCalledWith({ id: UUID, scheduled_date: null });
+  });
+
+  it("update_storefront_settings changes only the given value and keeps the rest (a missing fee must not become free delivery)", async () => {
+    m.getStorefrontSettings.mockResolvedValue({
+      homeDeliveryDays: [1, 3, 5],
+      cargoMinOrderMinor: 100000,
+      homeMinOrderMinor: 25000,
+      homeDeliveryFeeMinor: 5000,
+    });
+    m.updateStorefrontSettingsAction.mockResolvedValue({ status: "success", savedAt: 1 });
+    await (await connect()).callTool({
+      name: "update_storefront_settings",
+      arguments: { home_min_order_minor: 30000 },
+    });
+    const fd = m.updateStorefrontSettingsAction.mock.calls[0]?.[1] as FormData;
+    expect(fd.getAll("home_delivery_days")).toEqual(["1", "3", "5"]);
+    expect(fd.get("cargo_min_order_minor")).toBe("100000");
+    expect(fd.get("home_min_order_minor")).toBe("30000");
+    expect(fd.get("home_delivery_fee_minor")).toBe("5000");
+  });
+
+  it("mark_notification_read reports the real unread count afterwards", async () => {
+    m.markNotificationReadAction.mockResolvedValue(undefined);
+    m.getNotificationFeed.mockResolvedValue({ notifications: [], unreadCount: 3 });
+    const res = await (await connect()).callTool({ name: "mark_notification_read", arguments: { id: UUID } });
+    expect(m.markNotificationReadAction).toHaveBeenCalledWith(UUID);
+    expect(JSON.parse(text(res))).toEqual({ ok: true, unreadCount: 3 });
+  });
+
+  it("get_customer_prices returns the stored special prices", async () => {
+    m.getCustomerProductPricesAction.mockResolvedValue({ dut_kurusu: 95000 });
+    const res = await (await connect()).callTool({ name: "get_customer_prices", arguments: { customer_id: UUID } });
+    expect(JSON.parse(text(res))).toEqual({ dut_kurusu: 95000 });
   });
 });

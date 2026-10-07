@@ -41,6 +41,9 @@ vi.mock("@/features/products/application/list-products", () => ({ listAllProduct
 vi.mock("@/features/finance/application/get-finance-summary", () => ({
   getFinanceSummary: vi.fn(),
 }));
+vi.mock("@/features/routing/application/get-day-load-manifest", () => ({ buildDayLoadManifest: vi.fn() }));
+vi.mock("@/features/routing/application/get-day-orders", () => ({ getDayOrders: vi.fn() }));
+vi.mock("@/features/routing/application/get-day-route", () => ({ getDayRoute: vi.fn() }));
 vi.mock("@/features/agenda/application/get-agenda-page", () => ({ getAgendaPage: vi.fn() }));
 vi.mock("@/features/orders/application/payments", () => ({
   addPaymentAction: vi.fn(),
@@ -98,6 +101,47 @@ vi.mock("@/features/finance/application/market-sale-actions", () => ({
   updateMarketSaleAction: vi.fn(),
   deleteMarketSaleAction: vi.fn(),
 }));
+vi.mock("@/features/customers/application/customer-price-actions", () => ({
+  getCustomerProductPricesAction: vi.fn(),
+  getCustomerProductPricesBatchAction: vi.fn(),
+  getCustomersMissingPrimaryAddressAction: vi.fn(),
+}));
+vi.mock("@/features/orders/application/complete-delivery", () => ({ completeDeliveryAction: vi.fn() }));
+vi.mock("@/features/orders/application/revert-delivery", () => ({ revertDeliveryAction: vi.fn() }));
+vi.mock("@/features/orders/application/create-orders-bulk", () => ({ createOrdersBulkAction: vi.fn() }));
+vi.mock("@/features/orders/application/get-order-gifts", () => ({ getOrderGifts: vi.fn() }));
+vi.mock("@/features/orders/application/order-gift-actions", () => ({
+  addOrderGiftAction: vi.fn(),
+  removeOrderGiftAction: vi.fn(),
+}));
+vi.mock("@/features/orders/application/update-order-cargo-info", () => ({ updateOrderCargoInfoAction: vi.fn() }));
+vi.mock("@/features/products/application/set-product-sort-order", () => ({ updateProductSortOrderAction: vi.fn() }));
+vi.mock("@/features/recurring/application/recurring-template-actions", () => ({
+  createRecurringTemplateAction: vi.fn(),
+  updateRecurringTemplateAction: vi.fn(),
+  setRecurringTemplateActiveAction: vi.fn(),
+  deleteRecurringTemplateAction: vi.fn(),
+  getRecurringTemplateAction: vi.fn(),
+  listAllRecurringTemplatesAction: vi.fn(),
+  listCustomerRecurringTemplatesAction: vi.fn(),
+}));
+vi.mock("@/features/planner/application/create-planner-task", () => ({ createPlannerTaskAction: vi.fn() }));
+vi.mock("@/features/planner/application/update-planner-task", () => ({ updatePlannerTaskAction: vi.fn() }));
+vi.mock("@/features/planner/application/delete-planner-task", () => ({ deletePlannerTaskAction: vi.fn() }));
+vi.mock("@/features/planner/application/list-planner-tasks", () => ({ listPlannerWeekTasks: vi.fn() }));
+vi.mock("@/features/admin-notifications/application/list-notifications", () => ({ getNotificationFeed: vi.fn() }));
+vi.mock("@/features/admin-notifications/application/mark-notification-read", () => ({
+  markNotificationReadAction: vi.fn(),
+  markAllNotificationsReadAction: vi.fn(),
+}));
+vi.mock("@/features/cargo/application/get-cargo-orders", () => ({ getCargoOrders: vi.fn() }));
+vi.mock("@/features/finance/application/get-expense-category-breakdown", () => ({ getExpenseCategoryBreakdown: vi.fn() }));
+vi.mock("@/features/finance/application/get-expense-summary", () => ({ getExpenseSummary: vi.fn() }));
+vi.mock("@/features/finance/application/get-market-report", () => ({ getMarketReport: vi.fn() }));
+vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductTally: vi.fn() }));
+vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
+vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: vi.fn() }));
+vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: vi.fn() }));
 vi.mock("@/features/agenda/application/agenda-task-actions", () => ({
   createAgendaTaskAction: vi.fn(),
   updateAgendaTaskAction: vi.fn(),
@@ -146,6 +190,7 @@ describe("panel MCP tools", () => {
         "get_finance_summary",
         "get_order",
         "get_order_payments",
+        "get_route_summary",
         "list_customers",
         "list_expense_categories",
         "list_expenses",
@@ -154,6 +199,19 @@ describe("panel MCP tools", () => {
         "list_orders",
         "list_products",
         "list_recurring_expense_templates",
+        "get_customer_prices",
+        "get_expense_category_breakdown",
+        "get_expense_summary",
+        "get_market_report",
+        "get_order_gifts",
+        "get_product_tally",
+        "get_recurring_order",
+        "get_storefront_settings",
+        "get_upcoming_recurring_expenses",
+        "list_cargo_orders",
+        "list_notifications",
+        "list_planner_tasks",
+        "list_recurring_orders",
       ].sort(),
     );
 
@@ -203,6 +261,23 @@ describe("panel MCP tools", () => {
         "update_order",
         "update_product",
         "update_recurring_expense_template",
+        "add_order_gift",
+        "complete_delivery",
+        "create_orders_bulk",
+        "create_planner_task",
+        "create_recurring_order",
+        "delete_planner_task",
+        "delete_recurring_order",
+        "mark_all_notifications_read",
+        "mark_notification_read",
+        "remove_order_gift",
+        "revert_delivery",
+        "set_product_sort_order",
+        "set_recurring_order_active",
+        "update_order_cargo_info",
+        "update_planner_task",
+        "update_recurring_order",
+        "update_storefront_settings",
       ].sort(),
     );
     // Nothing is unclassified.
@@ -211,8 +286,8 @@ describe("panel MCP tools", () => {
 
   it("flags every delete (and cancel) as destructive and requires confirm:true", async () => {
     const { tools } = await (await connect()).listTools();
-    const deletes = tools.filter((t) => t.name.startsWith("delete_") || t.name === "remove_product_image");
-    expect(deletes.length).toBe(10);
+    const deletes = tools.filter((t) => t.name.startsWith("delete_") || t.name.startsWith("remove_"));
+    expect(deletes.length).toBe(13);
     for (const tool of deletes) {
       expect(tool.annotations?.destructiveHint, tool.name).toBe(true);
       const schema = tool.inputSchema as { required?: string[]; properties?: Record<string, unknown> };
