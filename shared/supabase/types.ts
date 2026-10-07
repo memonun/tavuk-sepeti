@@ -101,6 +101,59 @@ export type Database = {
           },
         ]
       }
+      agenda_tasks: {
+        Row: {
+          category: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          id: string
+          notes: string | null
+          recurrence_parent_id: string | null
+          repeat_every: number | null
+          repeat_unit: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          recurrence_parent_id?: string | null
+          repeat_every?: number | null
+          repeat_unit?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          recurrence_parent_id?: string | null
+          repeat_every?: number | null
+          repeat_unit?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_tasks_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: true
+            referencedRelation: "agenda_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_users: {
         Row: {
           created_at: string
