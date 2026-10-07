@@ -45,6 +45,14 @@ const m = {
   fetchRemoteImage: vi.fn(),
   uploadProductImageAction: vi.fn(),
   removeProductImageAction: vi.fn(),
+  listRecurringExpenseTemplatesFull: vi.fn(),
+  updateRecurringExpenseTemplateAction: vi.fn(),
+  createRecurringExpenseTemplateAction: vi.fn(),
+  deleteRecurringExpenseTemplateAction: vi.fn(),
+  listExpenseCategoriesFlat: vi.fn(),
+  createExpenseCategoryAction: vi.fn(),
+  updateExpenseCategoryAction: vi.fn(),
+  deleteMarketLocationAction: vi.fn(),
 };
 
 vi.mock("@/features/orders/application/create-order", () => ({ createOrderAction: (...a: unknown[]) => m.createOrderAction(...a) }));
@@ -80,9 +88,30 @@ vi.mock("@/features/finance/application/expense-actions", () => ({
   updateExpenseAction: vi.fn(),
   markExpensePaidAction: vi.fn(),
 }));
-vi.mock("@/features/finance/application/list-expense-categories", () => ({ listExpenseCategoriesFlat: vi.fn() }));
+vi.mock("@/features/finance/application/list-expense-categories", () => ({ listExpenseCategoriesFlat: (...a: unknown[]) => m.listExpenseCategoriesFlat(...a) }));
 vi.mock("@/features/finance/application/list-expenses", () => ({ listExpenses: vi.fn() }));
-vi.mock("@/features/finance/application/list-market-locations", () => ({ listMarketLocations: vi.fn() }));
+vi.mock("@/features/finance/application/list-market-locations", () => ({ listMarketLocations: vi.fn(), listAllMarketLocations: vi.fn() }));
+vi.mock("@/features/finance/application/expense-category-actions", () => ({
+  createExpenseCategoryAction: (...a: unknown[]) => m.createExpenseCategoryAction(...a),
+  updateExpenseCategoryAction: (...a: unknown[]) => m.updateExpenseCategoryAction(...a),
+  setExpenseCategoryActiveAction: vi.fn(),
+}));
+vi.mock("@/features/finance/application/list-recurring-expense-templates", () => ({
+  listRecurringExpenseTemplates: vi.fn(),
+  listRecurringExpenseTemplatesFull: (...a: unknown[]) => m.listRecurringExpenseTemplatesFull(...a),
+}));
+vi.mock("@/features/finance/application/market-location-actions", () => ({
+  createMarketLocationAction: vi.fn(),
+  setMarketLocationActiveAction: vi.fn(),
+  deleteMarketLocationAction: (...a: unknown[]) => m.deleteMarketLocationAction(...a),
+}));
+vi.mock("@/features/finance/application/recurring-expense-template-actions", () => ({
+  createRecurringExpenseTemplateAction: (...a: unknown[]) => m.createRecurringExpenseTemplateAction(...a),
+  updateRecurringExpenseTemplateAction: (...a: unknown[]) => m.updateRecurringExpenseTemplateAction(...a),
+  setRecurringExpenseTemplateActiveAction: vi.fn(),
+  deleteRecurringExpenseTemplateAction: (...a: unknown[]) => m.deleteRecurringExpenseTemplateAction(...a),
+}));
+
 vi.mock("@/features/finance/application/list-market-sales", () => ({
   listMarketSales: vi.fn(),
   getMarketSaleById: (...a: unknown[]) => m.getMarketSaleById(...a),
@@ -176,6 +205,8 @@ describe("write tool adapters", () => {
       ["delete_expense", { id: UUID }],
       ["delete_market_sale", { id: UUID }],
       ["remove_product_image", { product_key: "x" }],
+      ["delete_recurring_expense_template", { id: UUID }],
+      ["delete_market_location", { id: UUID }],
     ] as const) {
       const res = await client.callTool({ name, arguments: args });
       expect(res.isError, name).toBe(true);
@@ -188,6 +219,8 @@ describe("write tool adapters", () => {
     expect(m.deleteExpenseAction).not.toHaveBeenCalled();
     expect(m.deleteMarketSaleAction).not.toHaveBeenCalled();
     expect(m.removeProductImageAction).not.toHaveBeenCalled();
+    expect(m.deleteRecurringExpenseTemplateAction).not.toHaveBeenCalled();
+    expect(m.deleteMarketLocationAction).not.toHaveBeenCalled();
   });
 
   it("delete_orders forwards the ids when confirmed", async () => {
@@ -368,5 +401,82 @@ describe("write tool adapters", () => {
     });
     expect(res.isError).toBe(true);
     expect(m.fetchRemoteImage).not.toHaveBeenCalled();
+  });
+
+  const TEMPLATE = {
+    id: UUID,
+    name: "Kira",
+    category_id: UUID2,
+    vendor: "Ev sahibi",
+    description: null,
+    amount_type: "fixed",
+    default_amount_minor: 1500000,
+    cadence: "monthly",
+    day_of_week: null,
+    day_of_month: 5,
+    start_date: "2026-01-05",
+    end_date: null,
+    payment_method: "bank_transfer",
+    note: null,
+  };
+
+  it("update_recurring_expense_template overlays only the given fields on the stored template", async () => {
+    m.listRecurringExpenseTemplatesFull.mockResolvedValue(ok([TEMPLATE]));
+    m.updateRecurringExpenseTemplateAction.mockResolvedValue(ok({ id: UUID }));
+    await (await connect()).callTool({
+      name: "update_recurring_expense_template",
+      arguments: { id: UUID, default_amount_minor: 1650000 },
+    });
+    const { id, ...rest } = TEMPLATE;
+    expect(m.updateRecurringExpenseTemplateAction).toHaveBeenCalledWith({
+      id,
+      ...rest,
+      default_amount_minor: 1650000,
+    });
+  });
+
+  it("update_recurring_expense_template reports an unknown id instead of writing", async () => {
+    m.listRecurringExpenseTemplatesFull.mockResolvedValue(ok([]));
+    const res = await (await connect()).callTool({
+      name: "update_recurring_expense_template",
+      arguments: { id: UUID, name: "x" },
+    });
+    expect(res.isError).toBe(true);
+    expect(m.updateRecurringExpenseTemplateAction).not.toHaveBeenCalled();
+  });
+
+  it("update_expense_category keeps the stored parent and order unless told otherwise", async () => {
+    m.listExpenseCategoriesFlat.mockResolvedValue(
+      ok([{ id: UUID, name: "Yem", parent_id: UUID2, sort_order: 3, active: true }]),
+    );
+    m.updateExpenseCategoryAction.mockResolvedValue(ok({ id: UUID }));
+    const client = await connect();
+    await client.callTool({ name: "update_expense_category", arguments: { id: UUID, name: "Yem ve saman" } });
+    expect(m.updateExpenseCategoryAction).toHaveBeenLastCalledWith({
+      id: UUID,
+      name: "Yem ve saman",
+      parent_id: UUID2,
+      sort_order: 3,
+    });
+    // An explicit null moves it to the top level.
+    await client.callTool({ name: "update_expense_category", arguments: { id: UUID, parent_id: null } });
+    expect(m.updateExpenseCategoryAction).toHaveBeenLastCalledWith({
+      id: UUID,
+      name: "Yem",
+      parent_id: null,
+      sort_order: 3,
+    });
+  });
+
+  it("delete_market_location relays the panel's 'has sales' refusal", async () => {
+    m.deleteMarketLocationAction.mockResolvedValue(
+      err(new ValidationError({ message: "Bu lokasyonda kayıtlı satış var, silinemez." })),
+    );
+    const res = await (await connect()).callTool({
+      name: "delete_market_location",
+      arguments: { id: UUID, confirm: true },
+    });
+    expect(res.isError).toBe(true);
+    expect(JSON.parse(text(res)).message).toContain("kayıtlı satış");
   });
 });

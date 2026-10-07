@@ -332,3 +332,92 @@ export const removeProductImageInput = {
   product_key: productKey,
   confirm: confirmDelete,
 };
+
+// ---- Finance admin: recurring templates, expense categories, market locations
+
+const templateBody = {
+  name: z.string().min(1).max(150).describe("Rutin giderin adı, ör. 'Kira'."),
+  category_id: uuid.describe("list_expense_categories ile bulunan kategori id'si."),
+  vendor: z.string().max(200).nullish(),
+  description: z.string().max(500).nullish(),
+  amount_type: z.enum(["fixed", "variable"]).describe("fixed = sabit tutar, variable = her dönem değişir (tahmini tutar)."),
+  default_amount_minor: z.number().int().positive().describe("Kuruş. Değişken giderde tahmini tutar."),
+  cadence: z.enum(["weekly", "monthly", "quarterly", "semiannual", "yearly"]),
+  day_of_week: z
+    .number()
+    .int()
+    .min(0)
+    .max(6)
+    .nullish()
+    .describe("Sadece weekly için zorunlu: 0 = Pazar, 1 = Pazartesi … 6 = Cumartesi."),
+  day_of_month: z.number().int().min(1).max(31).nullish().describe("weekly dışındaki tüm sıklıklar için zorunlu (1-31)."),
+  start_date: ymd,
+  end_date: ymd.nullish().describe("Boşsa süresiz."),
+  payment_method: paymentMethodManual.nullish(),
+  note: z.string().max(500).nullish(),
+};
+
+export const createRecurringExpenseTemplateInput = templateBody;
+
+export const updateRecurringExpenseTemplateInput = {
+  id: uuid,
+  name: templateBody.name.optional(),
+  category_id: templateBody.category_id.optional(),
+  vendor: templateBody.vendor,
+  description: templateBody.description,
+  amount_type: templateBody.amount_type.optional(),
+  default_amount_minor: templateBody.default_amount_minor.optional(),
+  cadence: templateBody.cadence.optional(),
+  day_of_week: templateBody.day_of_week,
+  day_of_month: templateBody.day_of_month,
+  start_date: templateBody.start_date.optional(),
+  end_date: templateBody.end_date,
+  payment_method: templateBody.payment_method,
+  note: templateBody.note,
+};
+
+export const setRecurringExpenseTemplateActiveInput = {
+  id: uuid,
+  active: z.boolean().describe("false = duraklat, true = devam ettir (sonraki çalışma bugünden hesaplanır, kaçan dönemler geriye dönük üretilmez)."),
+};
+
+export const deleteRecurringExpenseTemplateInput = {
+  id: uuid,
+  confirm: confirmDelete,
+};
+
+export const createExpenseCategoryInput = {
+  name: z.string().min(1).max(100),
+  parent_id: uuid.nullish().describe("Boşsa ana kategori. Doluysa bir ANA kategorinin id'si olmalı (iki seviye)."),
+  sort_order: z.number().int().min(0).default(0),
+};
+
+export const updateExpenseCategoryInput = {
+  id: uuid,
+  name: z.string().min(1).max(100).optional(),
+  parent_id: uuid.nullish().describe("Verilmezse mevcut üst kategori korunur; null = ana kategoriye taşı."),
+  sort_order: z.number().int().min(0).optional(),
+};
+
+export const setExpenseCategoryActiveInput = {
+  id: uuid,
+  active: z.boolean().describe("false = pasife al (yeni giderlerde seçilemez, eski kayıtlar korunur)."),
+};
+
+export const listMarketLocationsInput = {
+  include_inactive: z.boolean().default(false).describe("true = pasif lokasyonları da getir."),
+};
+
+export const createMarketLocationInput = {
+  name: z.string().min(1).max(100),
+};
+
+export const setMarketLocationActiveInput = {
+  id: uuid,
+  active: z.boolean(),
+};
+
+export const deleteMarketLocationInput = {
+  id: uuid,
+  confirm: confirmDelete,
+};

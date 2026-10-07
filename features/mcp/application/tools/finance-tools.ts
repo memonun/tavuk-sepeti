@@ -12,6 +12,7 @@ import {
   deleteExpenseInput,
   deleteMarketSaleInput,
   listExpensesInput,
+  listMarketLocationsInput,
   listMarketSalesInput,
   markExpensePaidInput,
   updateExpenseInput,
@@ -25,7 +26,7 @@ import {
 } from "@/features/finance/application/expense-actions";
 import { listExpenseCategoriesFlat } from "@/features/finance/application/list-expense-categories";
 import { listExpenses } from "@/features/finance/application/list-expenses";
-import { listMarketLocations } from "@/features/finance/application/list-market-locations";
+import { listAllMarketLocations, listMarketLocations } from "@/features/finance/application/list-market-locations";
 import { getMarketSaleById, listMarketSales } from "@/features/finance/application/list-market-sales";
 import {
   createMarketSaleAction,
@@ -74,11 +75,13 @@ export function registerFinanceTools(server: McpServer): void {
     "list_market_locations",
     {
       title: "Pazar lokasyonları",
-      description: "Pazar/tezgah lokasyonlarını (id, ad) listeler. create_market_sale için location_id buradan alınır.",
+      description:
+        "Pazar/tezgah lokasyonlarını (id, ad) listeler. create_market_sale için location_id buradan alınır. Varsayılan olarak yalnızca aktif olanlar; pasifleri görmek için include_inactive: true.",
+      inputSchema: listMarketLocationsInput,
       annotations: { ...READ_ONLY, title: "Pazar lokasyonları" },
     },
-    async () => {
-      const result = await listMarketLocations();
+    async ({ include_inactive }) => {
+      const result = include_inactive ? await listAllMarketLocations() : await listMarketLocations();
       return result.ok ? toolJson(result.value) : toolError("list_market_locations", result.error);
     },
   );
