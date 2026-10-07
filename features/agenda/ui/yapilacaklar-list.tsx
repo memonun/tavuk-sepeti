@@ -89,7 +89,7 @@ export function YapilacaklarList() {
       });
 
       if (response.ok) {
-        setNewTaskInputs((prev) => ({
+        setNewTaskInputs((prev: Record<string, string>) => ({
           ...prev,
           [category]: "",
         }));
@@ -134,7 +134,7 @@ export function YapilacaklarList() {
       </div>
 
       <div className="grid gap-6">
-        {categoryTasks.map(({ category, tasks }) => {
+        {categoryTasks.map(({ category, tasks }: CategoryTasks) => {
           const catInfo = CATEGORIES.find((c) => c.key === category);
           return (
             <div key={category} className="border rounded-lg p-4 bg-card">

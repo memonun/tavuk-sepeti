@@ -10,11 +10,25 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("agenda_tasks")
       .select("*")
-      .is("completed_at", completed === "true" ? null : null === completed ? null : !completed);
+      .order("created_at", { ascending: false });
 
-    const data = await query.order("created_at", { ascending: false });
+    // Filter by completion status if specified
+    if (completed === "true") {
+      query = query.not("completed_at", "is", null);
+    } else if (completed === "false") {
+      query = query.is("completed_at", null);
+    }
 
-    return NextResponse.json(data.data || []);
+    const { data, error } = await query;
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(data || []);
   } catch (error) {
     return NextResponse.json(
       { error: "Görevler yüklenemedi" },
