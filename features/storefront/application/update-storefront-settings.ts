@@ -9,12 +9,13 @@
  * write, then invalidate the cached read so the storefront picks the change up
  * on the next request instead of after a TTL.
  */
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 
 import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { STOREFRONT_SETTINGS_TAG } from "@/features/storefront/application/get-storefront-settings";
 import { storefrontSettingsSchema } from "@/features/storefront/domain/storefront-settings";
 import { saveStorefrontSettings } from "@/features/storefront/infrastructure/storefront-settings.repository";
+import { invalidateCacheTag } from "@/shared/cache/invalidate-tag";
 import { logAudit, SINGLETON_ENTITY_ID } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
 
@@ -67,7 +68,7 @@ export async function updateStorefrontSettingsAction(
   });
 
   // The cached read is what the storefront actually looks at.
-  updateTag(STOREFRONT_SETTINGS_TAG);
+  invalidateCacheTag(STOREFRONT_SETTINGS_TAG);
   revalidatePath("/magaza-ayarlari");
   revalidatePath("/odeme");
   revalidatePath("/");

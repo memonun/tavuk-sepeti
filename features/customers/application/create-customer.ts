@@ -11,12 +11,13 @@
  *
  * Returns a serializable result — UI uses this with useActionState.
  */
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 
 import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
 import { customerFormSchema } from "@/features/customers/domain/customer.schema";
 import { createCustomer as repoCreate } from "@/features/customers/infrastructure/customer.repository";
 import { getCurrentUser } from "@/features/auth/application/get-session";
+import { invalidateCacheTag } from "@/shared/cache/invalidate-tag";
 import { logAudit } from "@/shared/audit/log-audit";
 import { logger } from "@/shared/logger";
 import { composeFullAddress } from "@/shared/utils/address";
@@ -143,6 +144,6 @@ export async function createCustomerAction(
   // Drop the cached filter-dropdown options so a new tag / city appears
   // immediately the next time someone opens /customers. `updateTag` is
   // the Next 16 server-action-side primitive (read-your-own-writes).
-  updateTag(CUSTOMER_FILTER_TAG);
+  invalidateCacheTag(CUSTOMER_FILTER_TAG);
   return { status: "success", customerId: created.value.id };
 }
