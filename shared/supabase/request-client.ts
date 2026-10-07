@@ -21,15 +21,28 @@ import type { Database } from "@/shared/supabase/types";
 
 export type RequestSupabaseClient = SupabaseClient<Database>;
 
-const storage = new AsyncLocalStorage<RequestSupabaseClient>();
+/** Where a request came from; stamped onto audit rows so connector edits are traceable. */
+export type RequestSource = "mcp";
+
+interface RequestScope {
+  readonly client: RequestSupabaseClient;
+  readonly source: RequestSource | undefined;
+}
+
+const storage = new AsyncLocalStorage<RequestScope>();
 
 export function runWithSupabaseClient<T>(
   client: RequestSupabaseClient,
   fn: () => Promise<T>,
+  options: { readonly source?: RequestSource } = {},
 ): Promise<T> {
-  return storage.run(client, fn);
+  return storage.run({ client, source: options.source }, fn);
 }
 
 export function getRequestSupabaseClient(): RequestSupabaseClient | undefined {
-  return storage.getStore();
+  return storage.getStore()?.client;
+}
+
+export function getRequestSource(): RequestSource | undefined {
+  return storage.getStore()?.source;
 }

@@ -15,6 +15,7 @@ import "server-only";
 
 import { logger } from "@/shared/logger";
 import { getSupabaseAdminClient } from "@/shared/supabase/admin";
+import { getRequestSource } from "@/shared/supabase/request-client";
 
 import type { Json } from "@/shared/supabase/types";
 
@@ -139,6 +140,9 @@ export async function logBulkAudit(
   inputs: ReadonlyArray<LogAuditInput>,
 ): Promise<void> {
   if (inputs.length === 0) return;
+  // Requests from the Claude connector carry their origin in the request scope,
+  // so every audited action it triggers is tagged without each action knowing.
+  const source = getRequestSource();
   const supabase = getSupabaseAdminClient();
   const { error } = await supabase.from("audit_log").insert(
     inputs.map((input) => ({
@@ -153,7 +157,9 @@ export async function logBulkAudit(
       // Symbols, etc.) so the cast at the boundary is sound.
       before: (input.before ?? null) as Json,
       after: (input.after ?? null) as Json,
-      metadata: (input.metadata ?? null) as Json,
+      metadata: (source
+        ? { source, ...(input.metadata ?? {}) }
+        : (input.metadata ?? null)) as Json,
     })),
   );
   if (error) {

@@ -8,6 +8,7 @@
 import "server-only";
 
 import { AppError } from "@/shared/errors/app-error";
+import type { Result } from "@/shared/result";
 import { ErrorCode } from "@/shared/errors/error-codes";
 import { logger } from "@/shared/logger";
 
@@ -73,4 +74,47 @@ export function toolRefusal(message: string): CallToolResult {
     isError: true,
     content: [{ type: "text", text: JSON.stringify({ ok: false, message }) }],
   };
+}
+
+/** Adapts the panel's `Result<T, AppError>` actions: value → JSON, error → masked tool error. */
+export function toolFromResult<T>(
+  tool: string,
+  result: Result<T, AppError>,
+  context: Record<string, unknown> = {},
+): CallToolResult {
+  return result.ok ? toolJson({ ok: true, result: result.value ?? null }) : toolError(tool, result.error, context);
+}
+
+/**
+ * Adapts the panel's form-style `{ status }` actions. `success` → JSON with the
+ * remaining fields; `validation_error` → the field errors (the model can fix and
+ * retry); `error` → a refusal carrying the action's Turkish message.
+ */
+export function toolFromState(
+  state:
+    | { status: "success"; [key: string]: unknown }
+    | { status: "validation_error"; fieldErrors: Record<string, string[]> }
+    | { status: "error"; message: string }
+    | { status: "idle" },
+): CallToolResult {
+  switch (state.status) {
+    case "success": {
+      const { status: _status, ...rest } = state;
+      return toolJson({ ok: true, ...rest });
+    }
+    case "validation_error":
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ ok: false, message: "Geçersiz alanlar.", fieldErrors: state.fieldErrors }),
+          },
+        ],
+      };
+    case "error":
+      return toolRefusal(state.message);
+    default:
+      return toolRefusal("İşlem tamamlanamadı.");
+  }
 }

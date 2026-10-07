@@ -22,10 +22,40 @@ admin kontrolü hem consent sayfasında hem her MCP isteğinde yapılır.
 
 ## Tool'lar
 
-Okuma: `get_dashboard_summary`, `list_orders`, `get_order`, `list_customers`,
-`get_customer`, `list_products`, `get_finance_summary`, `get_agenda`.
-Yazma (yalnızca sipariş durumu): `transition_order`, `confirm_orders` — audit log'a
-`metadata.source = "mcp"` ile yazılır. Sipariş oluşturma/silme, ödeme kaydı yok.
+Okuma: `get_dashboard_summary`, `list_orders`, `get_order`, `get_order_payments`,
+`list_customers`, `get_customer`, `list_products`, `get_finance_summary`, `get_agenda`,
+`list_expense_categories`, `list_expenses`, `list_market_locations`, `list_market_sales`.
+
+Yazma — hepsi panelin kendi Server Action'larını çağırır (aynı doğrulama, fiyat dondurma,
+durum kuralları, audit, cache revalidate); `shared/supabase/request-client.ts` isteği
+`source: "mcp"` ile işaretler, her audit satırına otomatik yazılır:
+
+| Alan | Tool'lar |
+| --- | --- |
+| Sipariş | `create_order`, `update_order`, `transition_order`, `confirm_orders`, `delete_orders`* |
+| Ödeme | `add_order_payment`, `mark_order_fully_paid`, `delete_order_payment`* |
+| Müşteri | `create_customer`, `update_customer`, `delete_customers`* |
+| Ürün / fiyat | `create_product`, `update_product`, `set_product_pricing`, `set_product_active`, `set_product_flags`, `set_product_image`, `remove_product_image`*, `delete_product`* |
+| Gider | `create_expense`, `update_expense`, `mark_expense_paid`, `delete_expense`* |
+| Pazar satışı | `create_market_sale`, `update_market_sale`, `delete_market_sale`* |
+| Ajanda | `create_agenda_task`, `update_agenda_task`, `complete_agenda_task`, `delete_agenda_task`* |
+
+\* Silme tool'ları `confirm: true` ister ve `destructiveHint` taşır (claude.ai onay kartında görünür).
+`update_customer` / `update_product` yalnızca gönderilen alanları değiştirir (mevcut kaydı
+okuyup üzerine bindirir); `update_order` / `update_agenda_task` tüm alanları yeniden yazar.
+Müşteri adresi Google'da konumlandırılmaz: `lat/lng` verilmezse pinsiz kalır, pin panelden düzeltilir.
+`update_market_sale` mevcut kaydı okuyup üzerine bindirir (kalemler verilmezse korunur); `update_expense` tüm alanları yeniden yazar.
+
+**Ürün görseli:** sohbete eklenen dosyalar araçlara iletilemez, bu yüzden `set_product_image` bir
+**https bağlantısı** alır; sunucu görseli indirip panelin kendi yükleme action'ına verir
+(tip/boyut yeniden doğrulanır, eski dosya temizlenir, audit yazılır). İndirme SSRF'e karşı
+korunur (`features/mcp/domain/remote-image.ts`, `infrastructure/fetch-remote-image.ts`): yalnızca
+herkese açık https, DNS cevabı sunucuda çözülüp bağlantı o adrese sabitlenir (özel/loopback/
+metadata adresleri ve DNS rebinding reddedilir), her yönlendirme yeniden kontrol edilir (en çok 3),
+10 sn / 5 MB sınırı, tür `Content-Type`'a değil dosyanın ilk baytlarına bakılarak belirlenir.
+
+Kapsam dışı: müşteriye özel fiyatlar, rutin gider şablonları, gider kategorisi/pazar lokasyonu
+yönetimi, şifre/ayarlar.
 Sayfalama: varsayılan 25, en çok 100.
 
 ## Kurulum (bir kez, prod)

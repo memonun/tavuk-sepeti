@@ -28,6 +28,36 @@ import { err, ok, type Result } from "@/shared/result";
 import type { RequestSupabaseClient } from "@/shared/supabase/request-client";
 import type { Database } from "@/shared/supabase/types";
 
+/**
+ * The panel's application layer authenticates with `supabase.auth.getUser()`
+ * (no argument), which reads the session from cookies. A bearer-only client has
+ * no session, so that call would fail with "Auth session missing". Binding the
+ * token as the default argument lets `assertAdmin()` / `getCurrentUser()` — and
+ * therefore every existing Server Action — run unchanged for connector requests.
+ * Only `auth.getUser` is wrapped; everything else is the untouched client.
+ */
+function bindTokenToGetUser(
+  client: RequestSupabaseClient,
+  token: string,
+): RequestSupabaseClient {
+  const auth = new Proxy(client.auth, {
+    get(target, prop) {
+      if (prop === "getUser") {
+        return (jwt?: string) => target.getUser(jwt ?? token);
+      }
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  return new Proxy(client, {
+    get(target, prop) {
+      if (prop === "auth") return auth;
+      const value: unknown = Reflect.get(target, prop, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 export interface McpPrincipal {
   readonly userId: string;
   readonly client: RequestSupabaseClient;
@@ -75,5 +105,5 @@ export async function verifyMcpToken(
     return err(new ForbiddenError({ message: "Bu bağlantı için admin yetkisi gerekli." }));
   }
 
-  return ok({ userId: data.user.id, client });
+  return ok({ userId: data.user.id, client: bindTokenToGetUser(client, token) });
 }

@@ -73,7 +73,9 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
   await server.connect(transport);
 
   try {
-    return await runWithSupabaseClient(client, () => transport.handleRequest(request));
+    return await runWithSupabaseClient(client, () => transport.handleRequest(request), {
+      source: "mcp",
+    });
   } finally {
     // Response is fully materialised (JSON mode); release the per-request server.
     void server.close().catch((cause: unknown) => {
