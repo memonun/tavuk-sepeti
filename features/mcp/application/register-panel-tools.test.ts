@@ -71,7 +71,27 @@ vi.mock("@/features/finance/application/expense-actions", () => ({
 }));
 vi.mock("@/features/finance/application/list-expense-categories", () => ({ listExpenseCategoriesFlat: vi.fn() }));
 vi.mock("@/features/finance/application/list-expenses", () => ({ listExpenses: vi.fn() }));
-vi.mock("@/features/finance/application/list-market-locations", () => ({ listMarketLocations: vi.fn() }));
+vi.mock("@/features/finance/application/list-market-locations", () => ({ listMarketLocations: vi.fn(), listAllMarketLocations: vi.fn() }));
+vi.mock("@/features/finance/application/expense-category-actions", () => ({
+  createExpenseCategoryAction: vi.fn(),
+  updateExpenseCategoryAction: vi.fn(),
+  setExpenseCategoryActiveAction: vi.fn(),
+}));
+vi.mock("@/features/finance/application/list-recurring-expense-templates", () => ({
+  listRecurringExpenseTemplates: vi.fn(),
+  listRecurringExpenseTemplatesFull: vi.fn(),
+}));
+vi.mock("@/features/finance/application/market-location-actions", () => ({
+  createMarketLocationAction: vi.fn(),
+  setMarketLocationActiveAction: vi.fn(),
+  deleteMarketLocationAction: vi.fn(),
+}));
+vi.mock("@/features/finance/application/recurring-expense-template-actions", () => ({
+  createRecurringExpenseTemplateAction: vi.fn(),
+  updateRecurringExpenseTemplateAction: vi.fn(),
+  setRecurringExpenseTemplateActiveAction: vi.fn(),
+  deleteRecurringExpenseTemplateAction: vi.fn(),
+}));
 vi.mock("@/features/finance/application/list-market-sales", () => ({ listMarketSales: vi.fn(), getMarketSaleById: vi.fn() }));
 vi.mock("@/features/finance/application/market-sale-actions", () => ({
   createMarketSaleAction: vi.fn(),
@@ -133,6 +153,7 @@ describe("panel MCP tools", () => {
         "list_market_sales",
         "list_orders",
         "list_products",
+        "list_recurring_expense_templates",
       ].sort(),
     );
 
@@ -148,30 +169,40 @@ describe("panel MCP tools", () => {
         "create_agenda_task",
         "create_customer",
         "create_expense",
+        "create_expense_category",
+        "create_market_location",
         "create_market_sale",
         "create_order",
         "create_product",
+        "create_recurring_expense_template",
         "delete_agenda_task",
         "delete_customers",
         "delete_expense",
+        "delete_market_location",
         "delete_market_sale",
         "delete_order_payment",
         "delete_orders",
         "delete_product",
+        "delete_recurring_expense_template",
         "mark_expense_paid",
         "mark_order_fully_paid",
         "remove_product_image",
+        "set_expense_category_active",
+        "set_market_location_active",
         "set_product_active",
         "set_product_flags",
         "set_product_image",
         "set_product_pricing",
+        "set_recurring_expense_template_active",
         "transition_order",
         "update_agenda_task",
         "update_customer",
         "update_expense",
+        "update_expense_category",
         "update_market_sale",
         "update_order",
         "update_product",
+        "update_recurring_expense_template",
       ].sort(),
     );
     // Nothing is unclassified.
@@ -181,7 +212,7 @@ describe("panel MCP tools", () => {
   it("flags every delete (and cancel) as destructive and requires confirm:true", async () => {
     const { tools } = await (await connect()).listTools();
     const deletes = tools.filter((t) => t.name.startsWith("delete_") || t.name === "remove_product_image");
-    expect(deletes.length).toBe(8);
+    expect(deletes.length).toBe(10);
     for (const tool of deletes) {
       expect(tool.annotations?.destructiveHint, tool.name).toBe(true);
       const schema = tool.inputSchema as { required?: string[]; properties?: Record<string, unknown> };

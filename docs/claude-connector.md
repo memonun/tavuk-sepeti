@@ -24,7 +24,8 @@ admin kontrolü hem consent sayfasında hem her MCP isteğinde yapılır.
 
 Okuma: `get_dashboard_summary`, `list_orders`, `get_order`, `get_order_payments`,
 `list_customers`, `get_customer`, `list_products`, `get_finance_summary`, `get_agenda`,
-`list_expense_categories`, `list_expenses`, `list_market_locations`, `list_market_sales`.
+`list_expense_categories`, `list_expenses`, `list_market_locations`, `list_market_sales`,
+`list_recurring_expense_templates`.
 
 Yazma — hepsi panelin kendi Server Action'larını çağırır (aynı doğrulama, fiyat dondurma,
 durum kuralları, audit, cache revalidate); `shared/supabase/request-client.ts` isteği
@@ -38,13 +39,20 @@ durum kuralları, audit, cache revalidate); `shared/supabase/request-client.ts` 
 | Ürün / fiyat | `create_product`, `update_product`, `set_product_pricing`, `set_product_active`, `set_product_flags`, `set_product_image`, `remove_product_image`*, `delete_product`* |
 | Gider | `create_expense`, `update_expense`, `mark_expense_paid`, `delete_expense`* |
 | Pazar satışı | `create_market_sale`, `update_market_sale`, `delete_market_sale`* |
+| Rutin gider | `create_recurring_expense_template`, `update_recurring_expense_template`, `set_recurring_expense_template_active`, `delete_recurring_expense_template`* |
+| Gider kategorisi | `create_expense_category`, `update_expense_category`, `set_expense_category_active` |
+| Pazar lokasyonu | `create_market_location`, `set_market_location_active`, `delete_market_location`* |
 | Ajanda | `create_agenda_task`, `update_agenda_task`, `complete_agenda_task`, `delete_agenda_task`* |
 
 \* Silme tool'ları `confirm: true` ister ve `destructiveHint` taşır (claude.ai onay kartında görünür).
 `update_customer` / `update_product` yalnızca gönderilen alanları değiştirir (mevcut kaydı
 okuyup üzerine bindirir); `update_order` / `update_agenda_task` tüm alanları yeniden yazar.
 Müşteri adresi Google'da konumlandırılmaz: `lat/lng` verilmezse pinsiz kalır, pin panelden düzeltilir.
-`update_market_sale` mevcut kaydı okuyup üzerine bindirir (kalemler verilmezse korunur); `update_expense` tüm alanları yeniden yazar.
+`update_market_sale`, `update_recurring_expense_template` ve `update_expense_category` mevcut kaydı okuyup
+üzerine bindirir (kalemler/günler/üst kategori verilmezse korunur); rutin giderde sıklık değişince eski
+sıklığın günü (haftanın günü ↔ ayın günü) devralınmaz. `update_expense` tüm alanları yeniden yazar.
+Gider kategorisi silme tool'u yoktur (panelde de yok; pasife alınır). Dolu bir pazar lokasyonu silinemez,
+pasife alınır.
 
 **Ürün görseli:** sohbete eklenen dosyalar araçlara iletilemez, bu yüzden `set_product_image` bir
 **https bağlantısı** alır; sunucu görseli indirip panelin kendi yükleme action'ına verir
@@ -54,8 +62,7 @@ herkese açık https, DNS cevabı sunucuda çözülüp bağlantı o adrese sabit
 metadata adresleri ve DNS rebinding reddedilir), her yönlendirme yeniden kontrol edilir (en çok 3),
 10 sn / 5 MB sınırı, tür `Content-Type`'a değil dosyanın ilk baytlarına bakılarak belirlenir.
 
-Kapsam dışı: müşteriye özel fiyatlar, rutin gider şablonları, gider kategorisi/pazar lokasyonu
-yönetimi, şifre/ayarlar.
+Kapsam dışı: müşteriye özel fiyatlar, şifre/ayarlar.
 Sayfalama: varsayılan 25, en çok 100.
 
 ## Kurulum (bir kez, prod)
