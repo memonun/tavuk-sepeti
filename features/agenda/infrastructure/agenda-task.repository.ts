@@ -68,8 +68,7 @@ export async function listAgendaTasksInRange(
   category: AgendaCategory | undefined,
 ): Promise<Result<AgendaTaskList, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let builder = (supabase as any)
+  let builder = supabase
     .from("agenda_tasks")
     .select(AGENDA_TASK_SELECT, { count: "exact" })
     .gte("due_date", from)
@@ -98,8 +97,7 @@ export async function listAgendaBacklog(
   category: AgendaCategory | undefined,
 ): Promise<Result<AgendaTaskList, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let builder = (supabase as any)
+  let builder = supabase
     .from("agenda_tasks")
     .select(AGENDA_TASK_SELECT, { count: "exact" })
     .is("completed_at", null)
@@ -125,8 +123,7 @@ export async function findAgendaTaskById(
   id: string,
 ): Promise<Result<AgendaTask, ExternalApiError | NotFoundError>> {
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("agenda_tasks")
     .select(AGENDA_TASK_SELECT)
     .eq("id", id)
@@ -153,8 +150,7 @@ export async function createAgendaTask(
   input: AgendaTaskWriteInput & { created_by: string },
 ): Promise<Result<string, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("agenda_tasks")
     .insert({
       title: input.title,
@@ -180,8 +176,7 @@ export async function updateAgendaTask(
   input: AgendaTaskWriteInput,
 ): Promise<Result<void, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("agenda_tasks")
     .update({
       title: input.title,
@@ -205,8 +200,7 @@ export async function setAgendaTaskCompletedAt(
   completedAt: Date | null,
 ): Promise<Result<void, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("agenda_tasks")
     .update({ completed_at: completedAt === null ? null : completedAt.toISOString() })
     .eq("id", id);
@@ -231,8 +225,7 @@ export async function insertNextOccurrence(
 ): Promise<Result<{ inserted: boolean }, ExternalApiError>> {
   if (parent.repeat === null) return ok({ inserted: false });
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("agenda_tasks")
     .upsert(
       {
@@ -262,8 +255,7 @@ export async function insertNextOccurrence(
 
 export async function deleteAgendaTask(id: string): Promise<Result<void, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from("agenda_tasks").delete().eq("id", id);
+  const { error } = await supabase.from("agenda_tasks").delete().eq("id", id);
   if (error) {
     logger.error({ code: error.code, message: error.message }, "delete_agenda_task_failed");
     return err(new ExternalApiError({ message: "İş silinemedi.", cause: error }));
