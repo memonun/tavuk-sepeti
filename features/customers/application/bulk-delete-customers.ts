@@ -14,7 +14,7 @@
  * the error message is human-readable without reaching for a second
  * DB round-trip.
  */
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
@@ -25,6 +25,7 @@ import {
 } from "@/features/customers/infrastructure/customer.repository";
 import { countOrdersByCustomer } from "@/features/orders/application/count-orders-by-customer";
 import { assertAdmin } from "@/features/auth/application/assert-admin";
+import { invalidateCacheTag } from "@/shared/cache/invalidate-tag";
 import { logBulkAudit } from "@/shared/audit/log-audit";
 import { AppError, ValidationError } from "@/shared/errors/app-error";
 import { logger } from "@/shared/logger";
@@ -128,6 +129,6 @@ export async function bulkDeleteCustomersAction(
   );
 
   revalidatePath("/customers");
-  updateTag(CUSTOMER_FILTER_TAG);
+  invalidateCacheTag(CUSTOMER_FILTER_TAG);
   return ok(result.value);
 }

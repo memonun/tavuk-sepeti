@@ -83,6 +83,11 @@ export interface GetDayRouteOptions {
    *  URL so it stays stable across refreshes (see partition-delivered-orders.ts).
    *  Omitted = optimize every order for the day. */
   excludeOrderIds?: readonly string[];
+  /** Write each stop's ETA to `orders.estimated_delivery_at` (what the customer
+   *  sees on /siparis-sorgula). Default true — the panel's route page does.
+   *  Read-only callers (the Claude connector's route summary) pass false so a
+   *  "what would tomorrow look like" query never changes customer-facing times. */
+  persistEtas?: boolean;
 }
 
 export async function getDayRoute(
@@ -248,7 +253,9 @@ export async function getDayRoute(
   // so a write hiccup here never fails the admin's route view. Piggybacks on
   // this exact optimization call: zero new Google API usage, and the
   // customer-facing lookup (features/storefront) reads whatever landed here.
-  await persistStopEtas(stops.map((s) => ({ order_id: s.order_id, eta_iso: s.eta_iso })));
+  if (options.persistEtas !== false) {
+    await persistStopEtas(stops.map((s) => ({ order_id: s.order_id, eta_iso: s.eta_iso })));
+  }
 
   return ok({
     date: targetDate,
