@@ -76,6 +76,7 @@ interface ProductRow {
   image_path: string | null;
   image_alt: string | null;
   sort_order: number | string;
+  total_quantity_sold?: number | string;
 }
 
 function toProduct(
@@ -103,6 +104,7 @@ function toProduct(
     image_path: row.image_path ?? null,
     image_alt: row.image_alt ?? null,
     sort_order: Number(row.sort_order),
+    total_quantity_sold: Number(row.total_quantity_sold ?? 0),
   };
 }
 
@@ -138,12 +140,8 @@ export async function listAllProducts(): Promise<
   Result<Product[], ExternalApiError>
 > {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select(PRODUCT_COLUMNS)
-    .order("active", { ascending: false })
-    .order("sort_order")
-    .order("display_name");
+  // Include total quantity sold from order_items
+  const { data, error } = await supabase.rpc("list_products_with_sales");
 
   if (error) {
     logger.error({ code: error.code, message: error.message }, "list_all_products_failed");
@@ -151,5 +149,14 @@ export async function listAllProducts(): Promise<
   }
 
   const tiersByProduct = await loadTiersByProduct();
-  return ok((data ?? []).map((row) => toProduct(row as ProductRow, tiersByProduct)));
+  return ok(
+    ((data ?? []) as ProductRow[])
+      .sort((a, b) => {
+        // active first, then by sort_order, then by display_name
+        if (a.active !== b.active) return b.active ? 1 : -1;
+        const sortDiff = Number(a.sort_order) - Number(b.sort_order);
+        return sortDiff !== 0 ? sortDiff : a.display_name.localeCompare(b.display_name);
+      })
+      .map((row) => toProduct(row, tiersByProduct))
+  );
 }

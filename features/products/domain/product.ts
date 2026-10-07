@@ -43,4 +43,6 @@ export interface Product {
   readonly active: boolean;
   /** Display order on the homepage/admin list — lower shows first. */
   readonly sort_order: number;
+  /** Total quantity sold across all orders (admin stats). */
+  readonly total_quantity_sold: number;
 }
