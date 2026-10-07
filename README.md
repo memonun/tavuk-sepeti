@@ -129,6 +129,7 @@ tests/                  Integration tests (RLS smoke); unit tests live next to c
 - [`CLAUDE.md`](./CLAUDE.md) — repo rules (no `console.log`, RLS on every table,
   Zod at every boundary, kuruş-only money, etc.)
 - [`docs/maps/README.md`](./docs/maps/README.md) — Google Cloud Map Style setup
+- [`docs/claude-connector.md`](./docs/claude-connector.md) — claude.ai ↔ panel MCP connector (auth, tools, setup)
 
 ## License
 

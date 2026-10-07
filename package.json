@@ -24,6 +24,7 @@
     "@base-ui/react": "^1.4.1",
     "@googlemaps/markerclusterer": "^2.6.2",
     "@hookform/resolvers": "^5.2.2",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.3",
     "@tanstack/react-table": "^8.21.3",

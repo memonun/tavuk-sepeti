@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { safeInternalPath } from "@/features/auth/domain/safe-redirect";
 import { signInSchema } from "@/features/auth/domain/sign-in.schema";
 import { logger } from "@/shared/logger";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
@@ -49,5 +50,8 @@ export async function signInAction(
     };
   }
 
-  redirect("/admin");
+  // `next` lets a flow that needs a session (the Claude connector's consent
+  // page) send the admin back to where they were; anything but a same-site path
+  // falls back to the dashboard.
+  redirect(safeInternalPath(formData.get("next"), "/admin"));
 }

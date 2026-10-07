@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 
 import { env } from "@/shared/env";
+import { getRequestSupabaseClient } from "@/shared/supabase/request-client";
 
 import type { Database } from "@/shared/supabase/types";
 
@@ -38,6 +39,12 @@ import type { Database } from "@/shared/supabase/types";
  * so a Server Component should never be the one rotating the token.
  */
 export const createSupabaseServerClient = cache(async () => {
+  // Bearer-authenticated callers (the MCP connector) have no cookies; they
+  // install their own client for the duration of the request. See
+  // request-client.ts.
+  const requestClient = getRequestSupabaseClient();
+  if (requestClient) return requestClient;
+
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
