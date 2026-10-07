@@ -39,6 +39,10 @@ export function redact(text, secrets) {
 export const COMMENT_MARKER = "<!-- db-kontrol -->";
 export const APPROVAL_LABEL = "db-onayli";
 
+function tail(text, n) {
+  return text.split("\n").filter((l) => l.trim() !== "").slice(-n).join("\n");
+}
+
 function where(f) {
   return f.file ? `\`${f.file}\`${f.line ? `, satır ${f.line}` : ""}` : "";
 }
@@ -67,7 +71,7 @@ function dangerBlock(f) {
  * @param {boolean} p.approved                                          db-onayli label present
  * @param {string} [p.runUrl]
  */
-export function renderPrComment({ prNumber, lint, replay, prod, approved, runUrl }) {
+export function renderPrComment({ prNumber, lint, replay, prod, approved, runUrl, replayLog = "" }) {
   const touchesDb = lint.changed > 0;
   const hasErrors = lint.errors.length > 0 || replay === "failure";
   const needsApproval = lint.dangers.length > 0 && !approved;
@@ -128,12 +132,22 @@ export function renderPrComment({ prNumber, lint, replay, prod, approved, runUrl
       replay === "success"
         ? "✅ Bütün migration'lar boş bir veritabanına sorunsuz uygulandı ve her tabloda satır güvenliği (RLS) açık."
         : replay === "failure"
-          ? `❌ Migration zinciri boş veritabanında çalışmadı.${runUrl ? ` Ayrıntı: [çalıştırma kaydı](${runUrl}).` : ""}`
+          ? `❌ Migration zinciri boş veritabanında çalışmadı veya bir tabloda güvenlik (RLS) açık değil.${runUrl ? ` Tam kayıt: [çalıştırma kaydı](${runUrl}).` : ""}`
           : "⏭️ Atlandı.",
       "",
     );
+    if (replay === "failure" && replayLog.trim() !== "") {
+      lines.push("<details><summary>Hatanın son satırları</summary>", "", "```text", tail(replayLog, 25), "```", "", "</details>", "");
+    }
 
-    if (prod) {
+    if (prod && (hasErrors || needsApproval)) {
+      lines.push(
+        "### 🌐 Yayında ne olacak?",
+        "",
+        "Bu haliyle merge edilirse **“DB Yayın” migration kontrolünde durur**: veritabanı değişmez ve **site eski sürümde kalır** (müşteri etkilenmez), ama bu PR'ın yeni kodu da çıkmaz. Önce yukarıdakileri çöz.",
+        "",
+      );
+    } else if (prod) {
       lines.push("### 🌐 Yayında ne olacak?", "");
       const mine = prod.pending.filter((f) => lint.added.includes(f));
       if (mine.length > 0) {

@@ -23,6 +23,7 @@ if (kind === "pr-comment") {
       prod: json(arg("status")),
       approved: arg("approved") === "true",
       runUrl: arg("run-url") ?? undefined,
+      replayLog: arg("replay-log") && fs.existsSync(arg("replay-log")) ? fs.readFileSync(arg("replay-log"), "utf8") : "",
     }),
   );
 } else if (kind === "failure") {

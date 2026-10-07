@@ -124,27 +124,38 @@ jobs:
       # replayed from scratch, a new developer, CI and disaster recovery are all broken.
       - name: Boş veritabanına bütün migration'ları uygula
         run: |
+          set -o pipefail
           EXCLUDES="studio,imgproxy,mailpit,edge-runtime,logflare,vector,postgres-meta,supavisor"
           if ! supabase start -x "$EXCLUDES" 2> start.err; then
             # An unknown service name in the exclude list is a CLI-version matter, not a
             # migration problem: retry plain. Anything else is a real failure.
             if grep -qiE "invalid|unknown|not a valid" start.err; then
               echo "::warning::Hariç tutma listesi bu CLI sürümünde kabul edilmedi, tam kurulumla deneniyor."
-              supabase start
+              supabase start 2>&1 | tee replay.log
             else
-              cat start.err
+              tee replay.log < start.err
               exit 1
             fi
           fi
 
       - name: Her tabloda satır güvenliği (RLS) açık mı
-        run: node scripts/db/audit.mjs --local
+        run: |
+          set -o pipefail
+          node scripts/db/audit.mjs --local 2>&1 | tee -a replay.log
 
       # Advisory for now: measures how noisy the function linter is on this codebase before
       # it is allowed to block anything.
       - name: Fonksiyon denetimi (bilgi amaçlı)
         continue-on-error: true
         run: supabase db lint --local --level error
+
+      - name: Kaydı sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replay
+          path: replay.log
+          if-no-files-found: ignore
 
   prod-status:
     name: Canlı veritabanı durumu
@@ -203,6 +214,10 @@ jobs:
         with:
           name: status
         continue-on-error: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: replay
+        continue-on-error: true
 
       - name: Yorumu yaz veya güncelle
         env:
@@ -213,7 +228,7 @@ jobs:
         run: |
           node scripts/db/run-render.mjs pr-comment \
             --lint lint.json --status status.json --replay "$REPLAY" \
-            --approved "$APPROVED" --pr "$PR" --run-url "$RUN_URL" > comment.md
+            --approved "$APPROVED" --pr "$PR" --run-url "$RUN_URL" --replay-log replay.log > comment.md
 
           id=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
                  --jq '.[] | select(.body | contains("<!-- db-kontrol -->")) | .id' | head -n1)
