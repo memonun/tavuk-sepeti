@@ -46,6 +46,23 @@ describe("renderPrComment", () => {
     expect(md).toContain("boş veritabanında çalışmadı");
   });
 
+  it("shows the tail of the replay log when the fresh-database test fails", () => {
+    const lint = { ...clean, changed: 1, added: ["a.sql"] };
+    const log = ["noise", ...Array.from({ length: 40 }, (_, i) => `line ${i}`), "RLS kapalı tablolar:", "  - drill_bad"].join("\n");
+    const md = renderPrComment({ ...base, lint, replay: "failure", replayLog: log });
+    expect(md).toContain("RLS kapalı tablolar:");
+    expect(md).toContain("drill_bad");
+    expect(md).not.toContain("noise"); // only the last lines
+  });
+
+  it("does not promise a deploy while the PR is red or waiting for approval", () => {
+    const lint = { ...clean, changed: 1, added: ["a.sql"], errors: [{ level: "error", code: "no-rls", file: "a.sql", line: 1, detail: "x" }] };
+    const md = renderPrComment({ ...base, lint, replay: "success", prod: { pending: ["a.sql"], orphans: [] } });
+    expect(md).toContain("migration kontrolünde durur");
+    expect(md).toContain("site eski sürümde kalır");
+    expect(md).not.toContain("otomatik çalışıp bunları canlı veritabanına uygular");
+  });
+
   it("tells what will be applied on merge and warns about drift", () => {
     const lint = { ...clean, changed: 1, added: ["20261015093000_x.sql"] };
     const md = renderPrComment({

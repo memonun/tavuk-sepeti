@@ -13,6 +13,11 @@ name: DB Yayın
 # That ordering is the whole point: on 2026-08-19 new code shipped before its migration and every
 # order failed.
 #
+# PROVA: a pull request that touches the pipeline itself (scripts/db, this file, db-kontrol.yml)
+# also runs this workflow in rehearsal mode — status, lint, fresh replay and the rolled-back dry
+# run on the real schema — and then STOPS before applying anything or releasing the site. That
+# is how changes to the pipeline get tested against production without being able to hurt it.
+#
 # "Run workflow" (workflow_dispatch) simply tries again — safe to press: every stage is idempotent
 # (nothing pending = nothing to do, then the site is released).
 
@@ -20,9 +25,17 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/db/**"
+      - ".github/workflows/db-yayin.yml"
+      - ".github/workflows/db-kontrol.yml"
+      - "vercel.json"
 
 concurrency:
-  group: db-yayin
+  # Rehearsals must never queue behind (or block) a real release.
+  group: ${{ github.event_name == 'pull_request' && format('db-yayin-prova-{0}', github.event.pull_request.number) || 'db-yayin' }}
   cancel-in-progress: false
 
 permissions:
@@ -39,11 +52,14 @@ env:
 
 jobs:
   yayin:
-    name: Veritabanı + site yayını
+    name: ${{ github.event_name == 'pull_request' && 'Prova (canlıya hiçbir şey uygulanmaz)' || 'Veritabanı + site yayını' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # "Run workflow" can be pointed at any branch; only main may touch production.
-    if: github.ref == 'refs/heads/main'
+    # Only main may change production. Pull requests get the rehearsal (same-repo only: forks
+    # have no secrets). "Run workflow" pointed at another branch does nothing.
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -64,6 +80,12 @@ jobs:
         run: |
           echo "STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
           echo "STAGE=durum" >> "$GITHUB_ENV"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PROVA=true" >> "$GITHUB_ENV"
+            echo "Prova modu: canlıya hiçbir şey uygulanmaz, site yayınlanmaz."
+          else
+            echo "PROVA=false" >> "$GITHUB_ENV"
+          fi
 
       # ---- 0. settings ----------------------------------------------------------------------
       # With auto-deploy off, a missing hook would mean the site silently never ships. Say so
@@ -73,7 +95,8 @@ jobs:
           echo "STAGE=durum" >> "$GITHUB_ENV"
           missing=""
           [ -z "$SUPABASE_DB_URL" ] && missing="$missing SUPABASE_DB_URL"
-          [ -z "$VERCEL_DEPLOY_HOOK_URL" ] && missing="$missing VERCEL_DEPLOY_HOOK_URL"
+          # The rehearsal never releases, so it does not need the hook (it may not exist yet).
+          [ "$PROVA" != "true" ] && [ -z "$VERCEL_DEPLOY_HOOK_URL" ] && missing="$missing VERCEL_DEPLOY_HOOK_URL"
           if [ -n "$missing" ]; then
             msg="Eksik GitHub secret:$missing. Settings → Secrets and variables → Actions. VERCEL_DEPLOY_HOOK_URL, Vercel → Settings → Git → Deploy Hooks (branch: main) ile oluşturulur. Bu ayar olmadan site yayınlanamaz (vercel.json otomatik yayını kapatıyor)."
             echo "$msg" | tee "$RUNNER_TEMP/err.txt"
@@ -93,7 +116,11 @@ jobs:
       - name: Bu commit hangi PR'dan geldi
         id: prs
         run: |
-          prs=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '[.[].number] | join(",")' || true)
+          if [ "$PROVA" = "true" ]; then
+            prs="${{ github.event.pull_request.number }}"
+          else
+            prs=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '[.[].number] | join(",")' || true)
+          fi
           echo "numbers=$prs" >> "$GITHUB_OUTPUT"
 
       # ---- 2. lint (again, on what is ACTUALLY about to run) --------------------------------------
@@ -146,7 +173,7 @@ jobs:
       # each in supabase_migrations.schema_migrations. Pinned so a CLI release can never change
       # what a deploy does.
       - name: Canlı veritabanına uygula
-        if: steps.durum.outputs.has_pending == 'true'
+        if: steps.durum.outputs.has_pending == 'true' && env.PROVA != 'true'
         run: |
           echo "STAGE=uygula" >> "$GITHUB_ENV"
           set -o pipefail
@@ -154,6 +181,7 @@ jobs:
 
       # ---- 6. verify ---------------------------------------------------------------------------
       - name: Doğrula
+        if: env.PROVA != 'true'
         run: |
           echo "STAGE=dogrula" >> "$GITHUB_ENV"
           set -o pipefail
@@ -165,6 +193,7 @@ jobs:
       # ---- 7. release the site ---------------------------------------------------------------------
       - name: Siteyi yayınla
         id: release
+        if: env.PROVA != 'true'
         run: |
           echo "STAGE=yayinla" >> "$GITHUB_ENV"
           set -o pipefail
@@ -193,7 +222,7 @@ jobs:
           [ "${ok:-0}" = "1" ] || exit 1
 
       - name: Vercel yayını bitene kadar bekle
-        if: steps.release.outputs.skipped != 'true'
+        if: env.PROVA != 'true' && steps.release.outputs.skipped != 'true'
         run: |
           set -o pipefail
           deadline=$(( $(date +%s) + 900 ))
@@ -223,7 +252,7 @@ jobs:
 
       # ---- 8. report -----------------------------------------------------------------------------------
       - name: Başarı bildirimi
-        if: success() && steps.release.outputs.skipped != 'true'
+        if: success() && env.PROVA != 'true' && steps.release.outputs.skipped != 'true'
         env:
           PENDING: ${{ steps.durum.outputs.pending }}
           PRS: ${{ steps.prs.outputs.numbers }}
@@ -240,7 +269,8 @@ jobs:
           done
 
       - name: Hata bildirimi
-        if: failure()
+        # A rehearsal that fails already shows as a red check on its PR; no issue for those.
+        if: failure() && env.PROVA != 'true'
         env:
           PRS: ${{ steps.prs.outputs.numbers }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -255,3 +285,8 @@ jobs:
           else
             gh issue create --title "🚨 Yayın durdu (${STAGE:-durum}) — ${GITHUB_SHA::7}" --label db-yayin-hata --body-file issue.md
           fi
+
+      - name: Prova özeti
+        if: success() && env.PROVA == 'true'
+        run: |
+          echo "Prova tamamlandı: kontroller ve canlı şemada geri alınan ön-deneme geçti. Hiçbir şey uygulanmadı, site yayınlanmadı."
