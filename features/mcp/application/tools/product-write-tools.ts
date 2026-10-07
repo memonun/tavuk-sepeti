@@ -5,21 +5,26 @@
  */
 import "server-only";
 
+import { fetchRemoteImage } from "@/features/mcp/infrastructure/fetch-remote-image";
 import {
   createProductInput,
   deleteProductInput,
+  removeProductImageInput,
   setProductActiveInput,
   setProductFlagsInput,
+  setProductImageInput,
   setProductPricingInput,
   updateProductInput,
 } from "@/features/mcp/domain/mcp-write-inputs";
 import { createProductAction } from "@/features/products/application/create-product";
 import { deleteProductAction } from "@/features/products/application/delete-product";
 import { listAllProducts } from "@/features/products/application/list-products";
+import { removeProductImageAction } from "@/features/products/application/remove-product-image";
 import { saveProductPricingAction } from "@/features/products/application/save-product-pricing";
 import { setProductActiveAction } from "@/features/products/application/set-product-active";
 import { updateProductFlagsAction } from "@/features/products/application/set-product-flags";
 import { updateProductMetadataAction } from "@/features/products/application/update-product-metadata";
+import { uploadProductImageAction } from "@/features/products/application/upload-product-image";
 
 import { DESTRUCTIVE, WRITE } from "./annotations";
 import { toolError, toolFromResult, toolRefusal } from "../tool-result";
@@ -143,6 +148,54 @@ export function registerProductWriteTools(server: McpServer): void {
         );
       } catch (cause) {
         return toolError("set_product_flags", cause, { productKey: input.product_key });
+      }
+    },
+  );
+
+  server.registerTool(
+    "set_product_image",
+    {
+      title: "Ürün görseli yükle",
+      description:
+        "Ürünün kapak görselini bir https bağlantısından indirip yükler (mevcut görselin yerine geçer). Bağlantı herkese açık, doğrudan bir JPEG/PNG/WEBP dosyası olmalı ve 5 MB'yi geçmemeli. Sohbete eklenen dosyalar bu araca iletilemez; onlar için paneli kullan.",
+      inputSchema: setProductImageInput,
+      // openWorldHint: this tool makes the server fetch an external URL.
+      annotations: { ...WRITE, openWorldHint: true, title: "Ürün görseli yükle" },
+    },
+    async ({ product_key, image_url }) => {
+      try {
+        const image = await fetchRemoteImage(image_url);
+        if (!image.ok) return toolFromResult("set_product_image", image, { productKey: product_key });
+
+        // Hand the panel's own upload action exactly what the browser would send,
+        // so type/size re-validation, storage, cleanup and audit all stay in one place.
+        const fd = new FormData();
+        fd.set("product_key", product_key);
+        fd.set("file", new File([new Uint8Array(image.value.bytes)], "image", { type: image.value.type }));
+        return toolFromResult("set_product_image", await uploadProductImageAction(fd), {
+          productKey: product_key,
+        });
+      } catch (cause) {
+        return toolError("set_product_image", cause, { productKey: product_key });
+      }
+    },
+  );
+
+  server.registerTool(
+    "remove_product_image",
+    {
+      title: "Ürün görselini kaldır",
+      description: "Ürünün kapak görselini kaldırır (mağaza yer tutucuya döner). Dosya depodan silinir.",
+      inputSchema: removeProductImageInput,
+      annotations: { ...DESTRUCTIVE, title: "Ürün görselini kaldır" },
+    },
+    async ({ product_key }) => {
+      try {
+        return toolFromResult("remove_product_image", await removeProductImageAction({ product_key }), {
+          productKey: product_key,
+        });
+      } catch (cause) {
+        return toolError("remove_product_image", cause, { productKey: product_key });
       }
     },
   );

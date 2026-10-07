@@ -223,3 +223,112 @@ export const deleteAgendaTaskInput = {
 };
 
 export { ORDER_STATUSES };
+
+// ---- Finance: expenses + market sales -------------------------------------
+
+const paymentMethodManual = z.enum(["cash", "card", "bank_transfer", "other"]);
+const expenseUnit = z.enum(["kg", "litre", "adet", "koli", "paket", "ton"]);
+
+const expenseBody = {
+  category_id: uuid.describe("list_expense_categories ile bulunan kategori id'si."),
+  amount_minor: z.number().int().positive().describe("Kuruş."),
+  expense_date: ymd,
+  description: z.string().max(500).nullish(),
+  payment_status: z.enum(["paid", "pending"]).default("pending"),
+  payment_method: paymentMethodManual.nullish(),
+  vendor: z.string().max(200).nullish().describe("Tedarikçi / satıcı."),
+  note: z.string().max(500).nullish(),
+  quantity: z.number().positive().nullish().describe("unit ile birlikte verilmeli."),
+  unit: expenseUnit.nullish().describe("quantity ile birlikte verilmeli."),
+};
+
+export const createExpenseInput = expenseBody;
+
+export const updateExpenseInput = {
+  id: uuid,
+  ...expenseBody,
+};
+
+export const markExpensePaidInput = {
+  id: uuid,
+  payment_method: paymentMethodManual.nullish().describe("Boşsa giderin mevcut yöntemi, o da yoksa nakit."),
+};
+
+export const deleteExpenseInput = {
+  id: uuid,
+  confirm: confirmDelete,
+};
+
+export const listExpensesInput = {
+  q: z.string().trim().max(100).optional(),
+  category_id: uuid.optional().describe("Üst kategori verilirse alt kategorileri de kapsar."),
+  payment_status: z.enum(["paid", "pending"]).optional(),
+  date_from: ymd.optional(),
+  date_to: ymd.optional(),
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().positive().max(100).default(25),
+};
+
+const marketSaleItem = z.object({
+  product_key: z.string().min(1),
+  quantity: z.number().positive(),
+  unit_price_minor: z.number().int().nonnegative().describe("Kuruş."),
+});
+
+export const createMarketSaleInput = {
+  location_id: uuid.describe("list_market_locations ile bulunan pazar/lokasyon id'si."),
+  sale_date: ymd,
+  total_amount_minor: z.number().int().positive().describe("Günün toplam satışı, kuruş."),
+  payment_method: paymentMethodManual.default("cash"),
+  note: z.string().max(500).nullish(),
+  items: z
+    .array(marketSaleItem)
+    .max(50)
+    .default([])
+    .describe("Hangi ürünlerden satıldığı (raporlama içindir; toplamla eşleşmesi şart değil)."),
+};
+
+export const updateMarketSaleInput = {
+  id: uuid,
+  location_id: uuid.optional(),
+  sale_date: ymd.optional(),
+  total_amount_minor: z.number().int().positive().optional(),
+  payment_method: paymentMethodManual.optional(),
+  note: z.string().max(500).nullish(),
+  items: z
+    .array(marketSaleItem)
+    .max(50)
+    .optional()
+    .describe("Verilirse mevcut kalemlerin TAMAMININ yerine geçer; verilmezse kalemler korunur."),
+};
+
+export const deleteMarketSaleInput = {
+  id: uuid,
+  confirm: confirmDelete,
+};
+
+export const listMarketSalesInput = {
+  location_id: uuid.optional(),
+  date_from: ymd.optional(),
+  date_to: ymd.optional(),
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().positive().max(100).default(25),
+};
+
+// ---- Product image --------------------------------------------------------
+
+export const setProductImageInput = {
+  product_key: productKey,
+  image_url: z
+    .string()
+    .url()
+    .max(2000)
+    .describe(
+      "Görselin DOĞRUDAN https bağlantısı (JPEG/PNG/WEBP, en çok 5 MB). Sohbete eklenen dosyalar araçlara iletilemez; panelden yükle veya bir bağlantı ver.",
+    ),
+};
+
+export const removeProductImageInput = {
+  product_key: productKey,
+  confirm: confirmDelete,
+};

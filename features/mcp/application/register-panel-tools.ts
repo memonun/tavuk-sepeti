@@ -37,6 +37,7 @@ import { listAllProducts } from "@/features/products/application/list-products";
 import { logger } from "@/shared/logger";
 
 import { registerAgendaWriteTools } from "./tools/agenda-write-tools";
+import { registerFinanceTools } from "./tools/finance-tools";
 import { registerCustomerWriteTools } from "./tools/customer-write-tools";
 import { registerOrderWriteTools } from "./tools/order-write-tools";
 import { registerProductWriteTools } from "./tools/product-write-tools";
@@ -258,4 +259,5 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
   registerCustomerWriteTools(server);
   registerProductWriteTools(server);
   registerAgendaWriteTools(server);
+  registerFinanceTools(server);
 }

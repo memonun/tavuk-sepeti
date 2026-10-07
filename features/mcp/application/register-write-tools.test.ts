@@ -36,6 +36,15 @@ const m = {
   createAgendaTaskAction: vi.fn(),
   setAgendaTaskCompletedAction: vi.fn(),
   deleteAgendaTaskAction: vi.fn(),
+  createExpenseAction: vi.fn(),
+  deleteExpenseAction: vi.fn(),
+  getMarketSaleById: vi.fn(),
+  updateMarketSaleAction: vi.fn(),
+  createMarketSaleAction: vi.fn(),
+  deleteMarketSaleAction: vi.fn(),
+  fetchRemoteImage: vi.fn(),
+  uploadProductImageAction: vi.fn(),
+  removeProductImageAction: vi.fn(),
 };
 
 vi.mock("@/features/orders/application/create-order", () => ({ createOrderAction: (...a: unknown[]) => m.createOrderAction(...a) }));
@@ -65,6 +74,27 @@ vi.mock("@/features/agenda/application/agenda-task-actions", () => ({
   setAgendaTaskCompletedAction: (...a: unknown[]) => m.setAgendaTaskCompletedAction(...a),
   deleteAgendaTaskAction: (...a: unknown[]) => m.deleteAgendaTaskAction(...a),
 }));
+vi.mock("@/features/finance/application/expense-actions", () => ({
+  createExpenseAction: (...a: unknown[]) => m.createExpenseAction(...a),
+  deleteExpenseAction: (...a: unknown[]) => m.deleteExpenseAction(...a),
+  updateExpenseAction: vi.fn(),
+  markExpensePaidAction: vi.fn(),
+}));
+vi.mock("@/features/finance/application/list-expense-categories", () => ({ listExpenseCategoriesFlat: vi.fn() }));
+vi.mock("@/features/finance/application/list-expenses", () => ({ listExpenses: vi.fn() }));
+vi.mock("@/features/finance/application/list-market-locations", () => ({ listMarketLocations: vi.fn() }));
+vi.mock("@/features/finance/application/list-market-sales", () => ({
+  listMarketSales: vi.fn(),
+  getMarketSaleById: (...a: unknown[]) => m.getMarketSaleById(...a),
+}));
+vi.mock("@/features/finance/application/market-sale-actions", () => ({
+  createMarketSaleAction: (...a: unknown[]) => m.createMarketSaleAction(...a),
+  updateMarketSaleAction: (...a: unknown[]) => m.updateMarketSaleAction(...a),
+  deleteMarketSaleAction: (...a: unknown[]) => m.deleteMarketSaleAction(...a),
+}));
+vi.mock("@/features/mcp/infrastructure/fetch-remote-image", () => ({ fetchRemoteImage: (...a: unknown[]) => m.fetchRemoteImage(...a) }));
+vi.mock("@/features/products/application/upload-product-image", () => ({ uploadProductImageAction: (...a: unknown[]) => m.uploadProductImageAction(...a) }));
+vi.mock("@/features/products/application/remove-product-image", () => ({ removeProductImageAction: (...a: unknown[]) => m.removeProductImageAction(...a) }));
 vi.mock("@/features/agenda/application/get-agenda-page", () => ({ getAgendaPage: vi.fn() }));
 vi.mock("@/features/orders/application/list-orders", () => ({ listOrders: vi.fn() }));
 vi.mock("@/features/orders/application/get-order", () => ({ getOrderById: vi.fn(), getOrderEvents: vi.fn() }));
@@ -143,6 +173,9 @@ describe("write tool adapters", () => {
       ["delete_product", { product_key: "x" }],
       ["delete_agenda_task", { id: UUID }],
       ["delete_order_payment", { order_id: UUID, payment_id: UUID2 }],
+      ["delete_expense", { id: UUID }],
+      ["delete_market_sale", { id: UUID }],
+      ["remove_product_image", { product_key: "x" }],
     ] as const) {
       const res = await client.callTool({ name, arguments: args });
       expect(res.isError, name).toBe(true);
@@ -152,6 +185,9 @@ describe("write tool adapters", () => {
     expect(m.deleteProductAction).not.toHaveBeenCalled();
     expect(m.deleteAgendaTaskAction).not.toHaveBeenCalled();
     expect(m.deletePaymentAction).not.toHaveBeenCalled();
+    expect(m.deleteExpenseAction).not.toHaveBeenCalled();
+    expect(m.deleteMarketSaleAction).not.toHaveBeenCalled();
+    expect(m.removeProductImageAction).not.toHaveBeenCalled();
   });
 
   it("delete_orders forwards the ids when confirmed", async () => {
@@ -253,5 +289,84 @@ describe("write tool adapters", () => {
     };
     await (await connect()).callTool({ name: "set_product_pricing", arguments: args });
     expect(m.saveProductPricingAction).toHaveBeenCalledWith(args);
+  });
+
+  it("create_expense passes the payload straight to the panel action", async () => {
+    m.createExpenseAction.mockResolvedValue(ok({ id: UUID }));
+    const args = {
+      category_id: UUID,
+      amount_minor: 125000,
+      expense_date: "2026-10-07",
+      payment_status: "pending",
+    };
+    const res = await (await connect()).callTool({ name: "create_expense", arguments: args });
+    expect(m.createExpenseAction).toHaveBeenCalledWith(args);
+    expect(JSON.parse(text(res))).toEqual({ ok: true, result: { id: UUID } });
+  });
+
+  it("update_market_sale keeps the stored items when none are given", async () => {
+    m.getMarketSaleById.mockResolvedValue(
+      ok({
+        id: UUID,
+        location_id: UUID2,
+        sale_date: "2026-10-05",
+        total_amount_minor: 90000,
+        payment_method: "cash",
+        note: "eski",
+        items: [{ product_key: "dut_kurusu", quantity: 2, unit_price_minor: 45000 }],
+      }),
+    );
+    m.updateMarketSaleAction.mockResolvedValue(ok({ id: UUID }));
+    await (await connect()).callTool({
+      name: "update_market_sale",
+      arguments: { id: UUID, total_amount_minor: 95000 },
+    });
+    expect(m.updateMarketSaleAction).toHaveBeenCalledWith({
+      id: UUID,
+      location_id: UUID2,
+      sale_date: "2026-10-05",
+      total_amount_minor: 95000,
+      payment_method: "cash",
+      note: "eski",
+      items: [{ product_key: "dut_kurusu", quantity: 2, unit_price_minor: 45000 }],
+    });
+  });
+
+  it("set_product_image downloads first, then hands the panel's upload action a File", async () => {
+    m.fetchRemoteImage.mockResolvedValue(
+      ok({ bytes: Uint8Array.from([0xff, 0xd8, 0xff, 0xe0]), type: "image/jpeg" }),
+    );
+    m.uploadProductImageAction.mockResolvedValue(ok({ imagePath: "dut/abc.jpg" }));
+    const res = await (await connect()).callTool({
+      name: "set_product_image",
+      arguments: { product_key: "dut_kurusu", image_url: "https://cdn.example.com/dut.jpg" },
+    });
+    expect(m.fetchRemoteImage).toHaveBeenCalledWith("https://cdn.example.com/dut.jpg");
+    const fd = m.uploadProductImageAction.mock.calls[0]?.[0] as FormData;
+    expect(fd.get("product_key")).toBe("dut_kurusu");
+    const file = fd.get("file") as File;
+    expect(file.type).toBe("image/jpeg");
+    expect(file.size).toBe(4);
+    expect(JSON.parse(text(res))).toEqual({ ok: true, result: { imagePath: "dut/abc.jpg" } });
+  });
+
+  it("set_product_image never reaches the upload action when the download is refused", async () => {
+    m.fetchRemoteImage.mockResolvedValue(err(new ValidationError({ message: "Bu bağlantıdan görsel indirilemez." })));
+    const res = await (await connect()).callTool({
+      name: "set_product_image",
+      arguments: { product_key: "dut_kurusu", image_url: "https://169.254.169.254/x.jpg" },
+    });
+    expect(res.isError).toBe(true);
+    expect(JSON.parse(text(res)).message).toContain("indirilemez");
+    expect(m.uploadProductImageAction).not.toHaveBeenCalled();
+  });
+
+  it("set_product_image rejects a non-URL before any fetch", async () => {
+    const res = await (await connect()).callTool({
+      name: "set_product_image",
+      arguments: { product_key: "dut_kurusu", image_url: "not a url" },
+    });
+    expect(res.isError).toBe(true);
+    expect(m.fetchRemoteImage).not.toHaveBeenCalled();
   });
 });
