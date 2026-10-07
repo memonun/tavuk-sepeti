@@ -36,18 +36,17 @@ import { transitionOrderAs } from "@/features/orders/application/transition-orde
 import { listAllProducts } from "@/features/products/application/list-products";
 import { logger } from "@/shared/logger";
 
+import { registerAgendaWriteTools } from "./tools/agenda-write-tools";
+import { registerCustomerWriteTools } from "./tools/customer-write-tools";
+import { registerOrderWriteTools } from "./tools/order-write-tools";
+import { registerProductWriteTools } from "./tools/product-write-tools";
 import { toolError, toolJson, toolRefusal } from "./tool-result";
 
 export interface McpActor {
   readonly id: string;
 }
 
-const READ_ONLY = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const;
+import { READ_ONLY } from "./tools/annotations";
 
 export function registerPanelTools(server: McpServer, actor: McpActor): void {
   server.registerTool(
@@ -254,4 +253,9 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
       }
     },
   );
+
+  registerOrderWriteTools(server);
+  registerCustomerWriteTools(server);
+  registerProductWriteTools(server);
+  registerAgendaWriteTools(server);
 }

@@ -22,10 +22,26 @@ admin kontrolü hem consent sayfasında hem her MCP isteğinde yapılır.
 
 ## Tool'lar
 
-Okuma: `get_dashboard_summary`, `list_orders`, `get_order`, `list_customers`,
-`get_customer`, `list_products`, `get_finance_summary`, `get_agenda`.
-Yazma (yalnızca sipariş durumu): `transition_order`, `confirm_orders` — audit log'a
-`metadata.source = "mcp"` ile yazılır. Sipariş oluşturma/silme, ödeme kaydı yok.
+Okuma: `get_dashboard_summary`, `list_orders`, `get_order`, `get_order_payments`,
+`list_customers`, `get_customer`, `list_products`, `get_finance_summary`, `get_agenda`.
+
+Yazma — hepsi panelin kendi Server Action'larını çağırır (aynı doğrulama, fiyat dondurma,
+durum kuralları, audit, cache revalidate); `shared/supabase/request-client.ts` isteği
+`source: "mcp"` ile işaretler, her audit satırına otomatik yazılır:
+
+| Alan | Tool'lar |
+| --- | --- |
+| Sipariş | `create_order`, `update_order`, `transition_order`, `confirm_orders`, `delete_orders`* |
+| Ödeme | `add_order_payment`, `mark_order_fully_paid`, `delete_order_payment`* |
+| Müşteri | `create_customer`, `update_customer`, `delete_customers`* |
+| Ürün / fiyat | `create_product`, `update_product`, `set_product_pricing`, `set_product_active`, `set_product_flags`, `delete_product`* |
+| Ajanda | `create_agenda_task`, `update_agenda_task`, `complete_agenda_task`, `delete_agenda_task`* |
+
+\* Silme tool'ları `confirm: true` ister ve `destructiveHint` taşır (claude.ai onay kartında görünür).
+`update_customer` / `update_product` yalnızca gönderilen alanları değiştirir (mevcut kaydı
+okuyup üzerine bindirir); `update_order` / `update_agenda_task` tüm alanları yeniden yazar.
+Müşteri adresi Google'da konumlandırılmaz: `lat/lng` verilmezse pinsiz kalır, pin panelden düzeltilir.
+Kapsam dışı: ürün görseli yükleme, müşteriye özel fiyatlar, gider/pazar satışı, şifre/ayarlar.
 Sayfalama: varsayılan 25, en çok 100.
 
 ## Kurulum (bir kez, prod)

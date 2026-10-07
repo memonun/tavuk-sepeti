@@ -15,7 +15,10 @@ vi.mock("@/shared/logger", () => ({
 
 const getUser = vi.fn();
 const rpc = vi.fn();
-const createClient = vi.fn((..._args: unknown[]) => ({ auth: { getUser }, rpc }));
+const from = vi.fn(function (this: unknown, table: string) {
+  return { table, self: this };
+});
+const createClient = vi.fn((..._args: unknown[]) => ({ auth: { getUser, other: () => "kept" }, rpc, from }));
 vi.mock("@supabase/supabase-js", () => ({
   createClient: (...args: unknown[]) => createClient(...args),
 }));
@@ -89,5 +92,32 @@ describe("verifyMcpToken", () => {
     rpc.mockResolvedValue({ data: null, error: { code: "XX000" } });
     const result = await verifyMcpToken("tok");
     expect(!result.ok && result.error.code).toBe(ErrorCode.FORBIDDEN);
+  });
+
+  it("binds the token as getUser's default so existing Server Actions work without cookies", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    rpc.mockResolvedValue({ data: true, error: null });
+    const result = await verifyMcpToken("tok");
+    if (!result.ok) throw new Error("expected ok");
+
+    getUser.mockClear();
+    await result.value.client.auth.getUser();
+    expect(getUser).toHaveBeenCalledWith("tok");
+
+    getUser.mockClear();
+    await result.value.client.auth.getUser("explicit");
+    expect(getUser).toHaveBeenCalledWith("explicit");
+  });
+
+  it("leaves the rest of the client untouched (methods stay bound to the real client)", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    rpc.mockResolvedValue({ data: true, error: null });
+    const result = await verifyMcpToken("tok");
+    if (!result.ok) throw new Error("expected ok");
+
+    const query = result.value.client.from("orders" as never) as unknown as { table: string; self: unknown };
+    expect(query.table).toBe("orders");
+    expect(query.self).not.toBe(result.value.client);
+    expect((result.value.client.auth as unknown as { other: () => string }).other()).toBe("kept");
   });
 });
