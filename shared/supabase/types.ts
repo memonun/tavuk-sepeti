@@ -1597,6 +1597,28 @@ export type Database = {
         }
         Returns: string
       }
+      list_products_with_sales: {
+        Args: { p_active_only?: boolean }
+        Returns: {
+          active: boolean
+          current_unit_price_minor: number
+          display_name: string
+          fulfillment_type: string
+          image_alt: string | null
+          image_path: string | null
+          is_featured: boolean
+          is_web_visible: boolean
+          key: string
+          min_qty: number
+          package_size: number
+          sort_order: number
+          step: number
+          total_quantity_sold: number
+          unit: string
+          unit_label: string
+          web_description: string | null
+        }[]
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       lookup_guest_order: {
         Args: { p_order_number: string; p_phone: string }
