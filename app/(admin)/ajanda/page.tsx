@@ -4,6 +4,7 @@ import { AgendaSummary } from "@/features/agenda/ui/agenda-summary";
 import { AgendaAddTaskButton } from "@/features/agenda/ui/agenda-task-form";
 import { AgendaCategoryFilter, AgendaWeekNav } from "@/features/agenda/ui/agenda-toolbar";
 import { AgendaWeekCalendar } from "@/features/agenda/ui/agenda-week-calendar";
+import { YapilacaklarList } from "@/features/agenda/ui/yapilacaklar-list";
 
 interface AjandaPageProps {
   searchParams: Promise<{ hafta?: string; kategori?: string }>;
@@ -75,6 +76,10 @@ export default async function AjandaPage({ searchParams }: AjandaPageProps) {
       />
 
       <AgendaUndatedList tasks={data.backlog.undated} category={data.category} />
+
+      <div className="border-t pt-6 mt-8">
+        <YapilacaklarList />
+      </div>
     </div>
   );
 }
