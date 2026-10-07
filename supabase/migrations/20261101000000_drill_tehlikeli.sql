@@ -11,4 +11,3 @@ grant select on table public.drill_notes to authenticated;
 
 -- Tehlikeli kısım: bir kolonu siliyor.
 alter table drill_notes drop column if exists legacy;
--- (tatbikat: dosya değişti, onay düşmeli)
