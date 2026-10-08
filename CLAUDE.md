@@ -40,7 +40,24 @@ Bu sistem **1000 eşzamanlı kullanıcıya** dayanacak şekilde tasarlanır. Şu
 - Foreign key'ler `on delete` davranışı **explicit** belirtilir (cascade/restrict/set null).
 - Money: minor units (kuruş), `numeric` veya `bigint`. Float yasak.
 - Tarih/saat: `timestamptz` zorunlu. App layer Europe/Istanbul'a çevirir.
-- **Migration'lar geriye dönük uyumlu yazılır.** Vercel merge'de deploy eder, migration CI gate'i (`.github/workflows/migrations.yml`) ise ayrı çalışır — aralarında bir pencere var. Bir RPC'nin imzasını değiştiriyorsan (`drop function` + yeni zorunlu parametreyle `create function`), eski kod o pencerede hâlâ eski imzayı çağırıyor olabilir. Bunun yerine: yeni parametreyi `default null` ile ekle (overload değil, aynı fonksiyonu genişlet) ve eski imzayı ancak yeni kod deploy olduktan sonraki bir PR'da düşür. 2026-08-19'da tam olarak bu yüzden — `place_web_order`'a zorunlu `p_legal_acceptance` eklenip eski imza aynı anda düşürülünce — her ödeme yöntemiyle sipariş alımı durdu.
+- **Migration'lar geriye dönük uyumlu yazılır.** Veritabanı yayını (`DB Yayın`) kodu bekletir ve önce şemayı uygular, ama şema uygulandıktan sonra kod yayınlanana kadar birkaç dakika eski kod yeni şemada çalışır. Bu yüzden bir RPC'nin imzasını değiştiriyorsan (`drop function` + yeni zorunlu parametreyle `create function`) eski kod o pencerede eski imzayı çağırıyor olabilir. Bunun yerine: yeni parametreyi `default null` ile ekle (overload değil, aynı fonksiyonu genişlet) ve eski imzayı ancak yeni kod yayınlandıktan sonraki bir PR'da düşür. 2026-08-19'da tam olarak bu yüzden — `place_web_order`'a zorunlu `p_legal_acceptance` eklenip eski imza aynı anda düşürülünce — her ödeme yöntemiyle sipariş alımı durdu. `DB Kontrol` bu tür değişiklikleri (drop, tip değiştirme, rename, zorunlu kolon) yakalar ve onay ister.
+
+### 7.1 Migration yazarken ve veritabanı yayını (Claude için talimat)
+
+Veritabanı değişiklikleri **otomatik** yayınlanır; ama bir insanın gözünden geçmeden tehlikeli değişiklik gitmez.
+
+- **Yeni migration'ı elle adlandırma:** `pnpm db:new <kisa_isim>` kullan. Sürüm numarasını kendisi üretir (paralel branch'lerde aynı numaranın seçilip migration'ın sessizce atlanması kazasını engeller) ve RLS/grant şablonunu koyar.
+- **Yayınlanmış migration dosyasını asla değiştirme veya silme.** Düzeltme gerekiyorsa yeni migration yaz.
+- Her yeni tabloda aynı dosyada: `enable row level security`, politika, **`grant ... to authenticated`** (bu projede yeni tablolara otomatik yetki yok), `timestamptz`, açık `on delete`.
+- **PR açınca `DB Kontrol` çalışır** ve PR'a tek, kendini güncelleyen bir Türkçe yorum yazar. Merge edilince **`DB Yayın`** çalışır: önce canlı şemada ön-deneme (geri alınır), sonra migration'ı uygular, **ondan sonra** siteyi yayınlar. Hata olursa site eski sürümde kalır ve `db-yayin-hata` etiketli bir Issue açılır.
+- **Kullanıcı "DB Kontrol hatalarını düzelt" derse:** PR yorumunu oku (`gh pr view <N> --comments`), düzelt, push et.
+- **Tehlikeli değişiklik** (yorumda ⚠️ var): kullanıcı teknik bilmeyebilir (Hamit Bey bilmiyor). Yapman gereken:
+  1. Yorumdaki açıklamayı hiç SQL bilmeyen birine anlatır gibi **sade Türkçe** ile anlat: tam olarak ne silinir/değişir, geri döner mi, canlı siteyi nasıl etkiler.
+  2. Daha güvenli bir yol varsa (önce ekle → kodu geçir → eskiyi **sonraki PR'da** kaldır) bunu öner ve istenirse uygula.
+  3. Kullanıcı **açıkça "onaylıyorum"/"evet"** demeden `db-onayli` etiketini **ekleme** (`gh pr edit <N> --add-label db-onayli`). "Tamam", "devam" gibi belirsiz cevaplar onay değildir; netleştir.
+  4. Migration dosyasına yeni commit atılırsa etiket otomatik düşer; yeniden anlat ve onay al.
+- **`DB Yayın` Issue'su açıldıysa:** önce `Veritabanı değişti mi?` ve `Site şu an` satırlarını doğrula (canlı geçmiş: `node scripts/db/status.mjs`), sonra düzelt. Kullanıcı onayı olmadan canlı veritabanında elle değişiklik yapma.
+- Ayrıntı ve sık sorulanlar: `docs/veritabani-yayini.md`.
 
 ## 8. Geocoding & Maps
 - Adres → koordinat dönüşümü **her zaman cache'ten kontrol** edilir.
