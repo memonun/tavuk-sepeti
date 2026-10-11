@@ -6,6 +6,7 @@ import { getStorefrontCatalog } from "@/features/storefront/application/get-cata
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { COMPANY } from "@/features/storefront/domain/legal";
 import { CartProvider } from "@/features/storefront/ui/cart-provider";
+import { HOME_INTRO_SKIP_SCRIPT } from "@/features/storefront/ui/home-hero-intro";
 import { MetaPixelTracker } from "@/features/storefront/ui/meta-pixel-tracker";
 import { MobileBottomNav } from "@/features/storefront/ui/mobile-bottom-nav";
 import { ShopFooter } from "@/features/storefront/ui/shop-footer";
@@ -144,6 +145,9 @@ export default async function ShopLayout({
         }}
       />
       <style dangerouslySetInnerHTML={{ __html: rootFontVars }} />
+      {/* Before first paint: has this session already seen the home page's
+          opening picture? See home-hero-intro.ts. */}
+      <script dangerouslySetInnerHTML={{ __html: HOME_INTRO_SKIP_SCRIPT }} />
       {/* `min-h-dvh`, not `min-h-screen`: on mobile Safari/Chrome `100vh` is
           the LARGE viewport (toolbars collapsed), so a `100vh` shell is always
           taller than what is actually on screen and the page picks up a

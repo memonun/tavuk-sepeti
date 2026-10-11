@@ -1,0 +1,44 @@
+import Image from "next/image";
+
+import heroImage from "@/public/brand/apuhan-acilis.webp";
+import { cn } from "@/lib/utils";
+
+import { HomeHeroIntroMarker } from "@/features/storefront/ui/home-hero-intro-marker";
+
+/**
+ * The home page's opening picture — a short band, not a full-screen hero, so
+ * the products still start on the first screen.
+ *
+ * It is the one staged moment in the shop: on the first visit of a session
+ * the picture settles into place (a half-second fade and a 4% ease back to
+ * size — see `.shop-hero-media` in theme.css). It covers nothing and blocks
+ * nothing; the customer can scroll and shop while it plays. It does not
+ * replay when they come back to the home page, and with "reduce motion" on it
+ * never plays at all. The "already seen" check is an inline script in the
+ * shop layout (`HOME_INTRO_SKIP_SCRIPT`); the marker below records the visit.
+ *
+ * The frame is cropped tighter than the photograph on phones and tablets;
+ * the sign sits in the middle 60% of the picture's height, which every crop
+ * here keeps.
+ */
+export function HomeHero({ className }: { className?: string | undefined }) {
+  return (
+    <div
+      className={cn(
+        "relative aspect-[2/1] overflow-hidden rounded-3xl bg-secondary shadow-(--shop-shadow-sm) sm:aspect-[5/2] lg:aspect-[3/2]",
+        className,
+      )}
+    >
+      <Image
+        src={heroImage}
+        alt="Kayısı ağacının altında, üzerinde apuhanciftligi.com yazan ahşap tabela ve taze kayısılar"
+        fill
+        priority
+        placeholder="blur"
+        sizes="(max-width: 1023px) 100vw, 480px"
+        className="shop-hero-media object-cover object-[50%_49%]"
+      />
+      <HomeHeroIntroMarker />
+    </div>
+  );
+}

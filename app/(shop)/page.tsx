@@ -16,6 +16,7 @@ import {
 } from "@/features/storefront/domain/storefront.config";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
 import { CatalogScopeControls } from "@/features/storefront/ui/catalog-scope-controls";
+import { HomeHero } from "@/features/storefront/ui/home-hero";
 // "Öne Çıkan Ürünler" vitrini şimdilik UI'dan gizlendi (owner isteği — şu an
 // yeterince ürün yok). Bileşen ve veri akışı ileride geri açmak için korunuyor;
 // geri açmak için bu importu ve aşağıdaki <ProductShowcase /> bloğunu tekrar aç.
@@ -72,12 +73,21 @@ export default async function ShopHomePage({
         <StorefrontScopeSync />
       </Suspense>
 
-      <h1 className="max-w-3xl font-display text-[2.125rem] leading-[1.05] text-foreground sm:text-5xl">
-        Çiftlikten sofranıza
-      </h1>
-      <p className="mt-2.5 max-w-xl text-lg leading-relaxed text-muted-foreground">
-        Malatya&apos;daki çiftliğimizden. Seçin, sepete ekleyin, biz getirelim.
-      </p>
+      {/* Phone and tablet: the picture, then the line of text. Desktop: text
+          on the left, picture on the right, so the block is no taller than
+          the picture and the products below still start on the first
+          screen. DOM order keeps the heading first for a screen reader. */}
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_30rem] lg:items-center lg:gap-10">
+        <div className="order-2 lg:order-1">
+          <h1 className="max-w-3xl font-display text-[2.125rem] leading-[1.05] text-foreground sm:text-5xl">
+            Çiftlikten sofranıza
+          </h1>
+          <p className="mt-2.5 max-w-xl text-lg leading-relaxed text-muted-foreground">
+            Malatya&apos;daki çiftliğimizden. Seçin, sepete ekleyin, biz getirelim.
+          </p>
+        </div>
+        <HomeHero className="order-1 lg:order-2" />
+      </div>
 
       {/* `#urunler` is the target of both scope links, so after choosing, the
           page lands with the choice itself (now marked) at the top and the
