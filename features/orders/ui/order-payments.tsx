@@ -129,35 +129,35 @@ export function OrderPayments({
   };
 
   return (
-    <section className="space-y-4 rounded-lg border bg-card p-4">
+    <section className="space-y-4 rounded-2xl border bg-card p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Tahsilat</h3>
+        <h3 className="text-base font-semibold">Tahsilat</h3>
         <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
       </div>
 
       <dl className="grid grid-cols-3 gap-2 text-sm">
-        <div className="rounded-md bg-muted/40 p-2 text-center">
-          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="@container rounded-xl bg-muted/50 p-2 text-center">
+          <dt className="text-xs text-muted-foreground">
             Toplam
           </dt>
-          <dd className="font-mono">{formatTRY(totalMinor)}</dd>
+          <dd className="text-[clamp(0.6875rem,calc(100cqw/6.6),0.875rem)] whitespace-nowrap font-medium tabular-nums">{formatTRY(totalMinor)}</dd>
         </div>
-        <div className="rounded-md bg-muted/40 p-2 text-center">
-          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="@container rounded-xl bg-muted/50 p-2 text-center">
+          <dt className="text-xs text-muted-foreground">
             Ödenen
           </dt>
-          <dd className="font-mono">{formatTRY(amountPaidMinor)}</dd>
+          <dd className="text-[clamp(0.6875rem,calc(100cqw/6.6),0.875rem)] whitespace-nowrap font-medium tabular-nums">{formatTRY(amountPaidMinor)}</dd>
         </div>
         <div
           className={cn(
-            "rounded-md p-2 text-center",
+            "@container rounded-xl p-2 text-center",
             balance > 0 ? "bg-amber-500/10" : "bg-emerald-500/10",
           )}
         >
-          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <dt className="text-xs text-muted-foreground">
             Kalan
           </dt>
-          <dd className="font-mono font-semibold">{formatTRY(balance)}</dd>
+          <dd className="text-[clamp(0.6875rem,calc(100cqw/6.6),0.875rem)] whitespace-nowrap font-semibold tabular-nums">{formatTRY(balance)}</dd>
         </div>
       </dl>
 

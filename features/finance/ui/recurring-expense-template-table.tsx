@@ -17,6 +17,7 @@ import {
   RECURRING_EXPENSE_CADENCE_LABELS,
 } from "@/features/finance/domain/recurring-expense-template";
 import { formatCategoryPath } from "@/features/finance/domain/expense-category";
+import { PhoneCard, PhoneCardHeading } from "@/features/finance/ui/finance-phone-list";
 import { RecurringExpenseTemplateRowActions } from "@/features/finance/ui/recurring-expense-template-row-actions";
 
 import type { ExpenseCategoryNode } from "@/features/finance/domain/expense-category";
@@ -53,7 +54,46 @@ export function RecurringExpenseTemplateTable({
   }
 
   return (
-    <div className="rounded-lg border overflow-x-auto">
+    <>
+      {/* Phone: one card per template (see finance-phone-list.tsx). */}
+      <ul className="flex flex-col gap-2.5 md:hidden">
+        {items.map((item) => {
+          const template = templatesById.get(item.id);
+          return (
+            <PhoneCard
+              key={item.id}
+              footer={
+                <>
+                  <Badge variant={item.active ? "default" : "secondary"}>
+                    {item.active ? "Aktif" : "Durduruldu"}
+                  </Badge>
+                  {template ? (
+                    <RecurringExpenseTemplateRowActions template={template} categories={categories} />
+                  ) : null}
+                </>
+              }
+            >
+              <PhoneCardHeading
+                title={<span>{item.name}</span>}
+                amount={`${item.amount_type === "variable" ? "~ " : ""}${formatTRY(item.default_amount_minor)}`}
+              />
+              <p className="text-sm text-muted-foreground">
+                {[formatCategoryPath(item.category_name, item.category_parent_name), item.vendor]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+              <p className="text-sm">
+                {cadenceLabel(item)}, {RECURRING_EXPENSE_AMOUNT_TYPE_LABELS[item.amount_type].toLocaleLowerCase("tr-TR")}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Sonraki tarih: {formatDate(item.next_run_at)}
+              </p>
+            </PhoneCard>
+          );
+        })}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
       <Table>
         <TableHeader>
           <TableRow>
@@ -104,6 +144,7 @@ export function RecurringExpenseTemplateTable({
           })}
         </TableBody>
       </Table>
-    </div>
+      </div>
+    </>
   );
 }

@@ -87,14 +87,14 @@ export default async function GiderlerPage({ searchParams }: GiderlerPageProps) 
 
   return (
     <div className="space-y-5">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Giderler</h2>
           <p className="text-sm text-muted-foreground">
             Yakıt, ambalaj, bakım gibi işletme giderlerini kaydet ve takip et.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ExpenseCategoryManager categories={categoryTree} />
           <RecurringExpenseTemplateFormDialog
             mode="create"
@@ -118,7 +118,7 @@ export default async function GiderlerPage({ searchParams }: GiderlerPageProps) 
       </div>
 
       {summaryResult.ok ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <StatCard title="Toplam Gider" value={formatTRY(summaryResult.value.total_minor)} />
           <StatCard title="Bekleyen Giderler" value={formatTRY(summaryResult.value.pending_minor)} />
         </div>

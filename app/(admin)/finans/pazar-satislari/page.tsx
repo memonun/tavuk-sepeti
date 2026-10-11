@@ -75,14 +75,14 @@ export default async function PazarSatislariPage({ searchParams }: PazarSatislar
 
   return (
     <div className="space-y-5">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Pazar Satışları</h2>
           <p className="text-sm text-muted-foreground">
             Pazar tezgahlarındaki nakit satışları kaydet ve raporla.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <MarketLocationManager locations={allLocations} />
           <MarketSaleFormDialog
             mode="create"

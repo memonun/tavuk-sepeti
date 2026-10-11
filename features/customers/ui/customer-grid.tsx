@@ -15,11 +15,13 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner";
 
 import { DataGrid } from "@/components/data-grid/data-grid";
+import { PhoneViewToggle, usePhoneView } from "@/components/data-grid/phone-view-toggle";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { CustomerCardList } from "@/features/customers/ui/customer-card-list";
 import { CustomerDetailLoader } from "@/features/customers/ui/customer-detail-loader";
 import { FilterBuilder } from "@/components/data-grid/filters/filter-builder";
 import {
@@ -42,6 +44,7 @@ import {
 } from "@/features/customers/domain/customer.schema";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 import type { CustomerListItem } from "@/features/customers/domain/customer";
@@ -119,6 +122,13 @@ export function CustomerGrid({
   const params = useSearchParams();
   const [, startTransition] = useTransition();
 
+  // Phone: cards by default, the grid one tap away (and remembered). Before
+  // hydration `isMobile` is false, so the grid is what the server renders; the
+  // `max-md:hidden` wrapper below keeps it from flashing on a phone.
+  const isMobile = useIsMobile();
+  const [phoneView, changePhoneView] = usePhoneView("customers:phone-view");
+  const showCards = isMobile && phoneView === "cards";
+
   // Row click → open the shared detail panel in a right-side Sheet.
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -179,46 +189,66 @@ export function CustomerGrid({
     [],
   );
 
+  const toolbar = (
+    <CustomerToolbar
+      currentFilters={currentFilters}
+      onFiltersChange={onFiltersChange}
+      phone={showCards}
+      viewToggle={
+        isMobile ? <PhoneViewToggle value={phoneView} onChange={changePhoneView} /> : null
+      }
+    />
+  );
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <DataGrid<CustomerListItem, CustomerCellPatch>
-        data={items}
-        columns={columns}
-        rowId={(row) => row.id}
-        tableId="customers"
-        totalCount={total}
-        page={page}
-        pageSize={pageSize}
-        mutations={{
-          onCellCommit,
-          onAddRow: async () => {
-            const result = await addCustomerRowAction();
-            if (result.ok) {
-              toast.success("Yeni satır eklendi.");
-            }
-            return result;
-          },
-          onBulkDelete: async (ids) => {
-            const result = await bulkDeleteCustomersAction(ids);
-            if (result.ok) {
-              toast.success(`${result.value.deleted} müşteri silindi.`);
-            }
-            return result;
-          },
-        }}
-        buildPatch={buildPatch}
-        toOptimisticPatch={toOptimisticPatch}
-        renderRowExpand={(row) => <CustomerRowExpand customer={row} />}
-        columnLabels={CUSTOMER_COLUMN_LABELS}
-        toolbar={
-          <CustomerToolbar
-            currentFilters={currentFilters}
-            onFiltersChange={onFiltersChange}
+      {showCards ? (
+        <>
+          <div className="pb-2">{toolbar}</div>
+          <CustomerCardList items={items} onOpen={setOpenId} />
+        </>
+      ) : (
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col",
+            phoneView === "cards" && "max-md:hidden",
+          )}
+        >
+          <DataGrid<CustomerListItem, CustomerCellPatch>
+            data={items}
+            columns={columns}
+            rowId={(row) => row.id}
+            tableId="customers"
+            totalCount={total}
+            page={page}
+            pageSize={pageSize}
+            mutations={{
+              onCellCommit,
+              onAddRow: async () => {
+                const result = await addCustomerRowAction();
+                if (result.ok) {
+                  toast.success("Yeni satır eklendi.");
+                }
+                return result;
+              },
+              onBulkDelete: async (ids) => {
+                const result = await bulkDeleteCustomersAction(ids);
+                if (result.ok) {
+                  toast.success(`${result.value.deleted} müşteri silindi.`);
+                }
+                return result;
+              },
+            }}
+            buildPatch={buildPatch}
+            toOptimisticPatch={toOptimisticPatch}
+            renderRowExpand={(row) => <CustomerRowExpand customer={row} />}
+            columnLabels={CUSTOMER_COLUMN_LABELS}
+            toolbar={toolbar}
+            onCellError={(message) => toast.error(message)}
+            onCellSuccess={markLocalWrite}
           />
-        }
-        onCellError={(message) => toast.error(message)}
-        onCellSuccess={markLocalWrite}
-      />
+        </div>
+      )}
 
       <Sheet
         open={openId !== null}
@@ -228,7 +258,7 @@ export function CustomerGrid({
       >
         <SheetContent
           side="right"
-          className="w-full overflow-y-auto p-6 pt-12 data-[side=right]:sm:max-w-2xl"
+          className="overflow-y-auto overscroll-contain p-4 pt-12 data-[side=right]:w-full sm:p-6 sm:pt-12 data-[side=right]:sm:max-w-2xl"
         >
           {/* Visually-hidden title: base-ui Dialog requires a labelled title
               for a11y; the panel renders its own visible heading. */}
@@ -262,9 +292,17 @@ export function CustomerGrid({
 interface CustomerToolbarProps {
   readonly currentFilters: ReadonlyArray<FilterRule>;
   readonly onFiltersChange: (next: ReadonlyArray<FilterRule>) => void;
+  /** Phone card layout: the search box takes the row, "Yeni Müşteri" gets its own. */
+  readonly phone: boolean;
+  readonly viewToggle: React.ReactNode;
 }
 
-function CustomerToolbar({ currentFilters, onFiltersChange }: CustomerToolbarProps) {
+function CustomerToolbar({
+  currentFilters,
+  onFiltersChange,
+  phone,
+  viewToggle,
+}: CustomerToolbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -289,9 +327,9 @@ function CustomerToolbar({ currentFilters, onFiltersChange }: CustomerToolbarPro
   }, [text]);
 
   return (
-    <div className="flex flex-1 flex-wrap items-center gap-1.5">
+    <div className={cn("flex flex-1 flex-wrap items-center", phone ? "gap-2" : "gap-1.5")}>
       {/* Debounced full-text search */}
-      <div className="relative w-52">
+      <div className={cn("relative", phone ? "min-w-0 flex-1" : "w-52")}>
         <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={text}
@@ -320,11 +358,13 @@ function CustomerToolbar({ currentFilters, onFiltersChange }: CustomerToolbarPro
         onChange={onFiltersChange}
       />
 
+      {viewToggle}
+
       <Link
         href="/customers/new"
         className={cn(
-          buttonVariants({ size: "sm", variant: "outline" }),
-          "ml-auto h-7 gap-1 px-2 text-xs",
+          buttonVariants({ size: "sm", variant: phone ? "default" : "outline" }),
+          phone ? "w-full gap-1.5" : "ml-auto h-7 gap-1 px-2 text-xs",
         )}
       >
         <Plus className="h-3 w-3" />

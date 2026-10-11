@@ -52,7 +52,45 @@ export function ProductTallyTable({ rows, selectedKey, hrefForProduct }: Product
   }
 
   return (
-    <div className="rounded-lg border overflow-x-auto">
+    <>
+      {/* Phone: one tappable row per product instead of a three-column table. */}
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-(--admin-shadow-sm) md:hidden">
+        <p className="border-b bg-muted/30 px-4 py-2 text-sm text-muted-foreground">
+          Bir ürüne dokunarak satıldığı siparişleri aşağıda görün.
+        </p>
+        <ul className="divide-y">
+          {rows.map((row) => {
+            const selected = row.product_key === selectedKey;
+            return (
+              <li key={row.product_key}>
+                <Link
+                  href={hrefForProduct(row)}
+                  aria-label={`${row.display_name} siparişlerini göster`}
+                  aria-current={selected ? "true" : undefined}
+                  className={cn(
+                    "admin-menu-row flex min-h-16 flex-col justify-center gap-0.5 px-4 py-3",
+                    selected && "bg-(--admin-green-soft)",
+                  )}
+                >
+                  <span className={cn("text-base font-semibold", selected && "text-primary")}>
+                    {row.display_name}
+                  </span>
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    Satılan: {row.sold ? formatSoldQuantity(row.sold) : "yok"}
+                  </span>
+                  {row.gifted.length > 0 ? (
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      Hediye: {row.gifted.map(formatQuantity).join(", ")}
+                    </span>
+                  ) : null}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
       <p className="border-b bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
         Ürün adına basarak o ürünün satıldığı siparişleri aşağıda görün.
       </p>
@@ -100,6 +138,7 @@ export function ProductTallyTable({ rows, selectedKey, hrefForProduct }: Product
           ))}
         </TableBody>
       </Table>
-    </div>
+      </div>
+    </>
   );
 }

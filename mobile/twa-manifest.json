@@ -1,0 +1,42 @@
+{
+  "packageId": "com.apuhanciftligi.app",
+  "host": "apuhanciftligi.com",
+  "name": "Apuhan Çiftliği",
+  "launcherName": "Apuhan",
+  "display": "standalone",
+  "orientation": "default",
+  "themeColor": "#1b4a26",
+  "themeColorDark": "#1b4a26",
+  "navigationColor": "#fffdf9",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#fffdf9",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#fffdf9",
+  "enableNotifications": true,
+  "startUrl": "/admin",
+  "iconUrl": "https://apuhanciftligi.com/brand/apuhan-ciftligi-logo.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./release.keystore",
+    "alias": "apuhan"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://apuhanciftligi.com/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://apuhanciftligi.com/",
+  "minSdkVersion": 24,
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1.0.0"
+}

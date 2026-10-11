@@ -51,11 +51,11 @@ export function MarketSaleFilterBar({ locations }: { locations: MarketLocation[]
   };
 
   return (
-    <div className="grid gap-3 border-b pb-4 sm:grid-cols-3">
-      <div className="flex flex-col gap-1.5">
+    <div className="grid grid-cols-2 gap-3 border-b pb-4 sm:grid-cols-3">
+      <div className="col-span-2 flex min-w-0 flex-col gap-1.5 sm:col-span-1">
         <Label className="text-xs">Pazar / Lokasyon</Label>
         <Select value={locationId} onValueChange={setLocation} disabled={pending} items={locationItems}>
-          <SelectTrigger>
+          <SelectTrigger className="max-md:w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -68,19 +68,21 @@ export function MarketSaleFilterBar({ locations }: { locations: MarketLocation[]
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-xs">Başlangıç</Label>
         <Input
           type="date"
+          className="min-w-0"
           value={from}
           disabled={pending}
           onChange={(e) => setDate("date_from", e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-xs">Bitiş</Label>
         <Input
           type="date"
+          className="min-w-0"
           value={to}
           disabled={pending}
           onChange={(e) => setDate("date_to", e.target.value)}

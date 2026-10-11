@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner";
 
 import { DataGrid } from "@/components/data-grid/data-grid";
+import { PhoneViewToggle, usePhoneView } from "@/components/data-grid/phone-view-toggle";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,6 +25,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { OrderCardList } from "@/features/orders/ui/order-card-list";
 import { OrderDetailLoader } from "@/features/orders/ui/order-detail-loader";
 import { FilterBuilder } from "@/components/data-grid/filters/filter-builder";
 import {
@@ -39,6 +41,7 @@ import { bulkDeleteOrdersAction } from "@/features/orders/application/bulk-delet
 import { getOrderRowBackground } from "@/features/orders/ui/order-row-color";
 import { patchOrderCellAction } from "@/features/orders/application/patch-order-cell";
 import { useOrdersRealtime } from "@/features/orders/ui/hooks/use-orders-realtime";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   type OrderCellField,
   type OrderCellPatch,
@@ -137,6 +140,13 @@ export function OrderGrid({
   const pathname = usePathname();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
+
+  // Phone: cards by default, the grid one tap away (and remembered). Before
+  // hydration `isMobile` is false, so the grid is what the server renders; the
+  // `max-md:hidden` wrapper below keeps it from flashing on a phone.
+  const isMobile = useIsMobile();
+  const [phoneView, setPhoneView] = usePhoneView("orders:phone-view");
+  const showCards = isMobile && phoneView === "cards";
 
   // Row click → open the shared editable detail panel in a right-side Sheet.
   const [openRow, setOpenRow] = useState<OrderListItem | null>(null);
@@ -267,62 +277,94 @@ export function OrderGrid({
     [],
   );
 
+  const searchField = (
+    <div className={cn("relative", showCards ? "min-w-0 flex-1" : "w-52")}>
+      <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        placeholder="Sipariş no, müşteri…"
+        className="h-7 pl-7 text-xs"
+      />
+      {searchText ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 px-0"
+          onClick={() => setSearchText("")}
+          aria-label="Aramayı temizle"
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      ) : null}
+    </div>
+  );
+  const filterBuilder = (
+    <FilterBuilder
+      columns={FILTERABLE_COLUMNS}
+      rules={currentFilters}
+      onChange={onFiltersChange}
+    />
+  );
+  const viewToggle = isMobile ? (
+    <PhoneViewToggle value={phoneView} onChange={setPhoneView} />
+  ) : null;
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <DataGrid<OrderListItem, OrderCellPatch>
-        data={items}
-        columns={columns}
-        rowId={(row) => row.id}
-        tableId="orders"
-        totalCount={total}
-        page={page}
-        pageSize={pageSize}
-        mutations={{
-          onCellCommit,
-          onBulkDelete: async (ids) => {
-            const result = await bulkDeleteOrdersAction(ids);
-            if (result.ok) toast.success(`${result.value.deleted} sipariş silindi.`);
-            return result;
-          },
-        }}
-        buildPatch={buildPatch}
-        toOptimisticPatch={toOptimisticPatch}
-        getRowBackground={getOrderRowBackground}
-        columnLabels={ORDER_COLUMN_LABELS}
-        toolbar={
-          <div className="flex flex-1 flex-wrap items-center gap-1.5">
-            <div className="relative w-52">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Sipariş no, müşteri…"
-                className="h-7 pl-7 text-xs"
-              />
-              {searchText ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 px-0"
-                  onClick={() => setSearchText("")}
-                  aria-label="Aramayı temizle"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              ) : null}
+      {showCards ? (
+        <>
+          <div className="flex flex-col gap-2 pb-2">
+            <div className="flex items-center gap-2">
+              {searchField}
+              {filterBuilder}
+              {viewToggle}
             </div>
             {toolbarExtra}
-            <FilterBuilder
-              columns={FILTERABLE_COLUMNS}
-              rules={currentFilters}
-              onChange={onFiltersChange}
-            />
           </div>
-        }
-        onCellError={(message) => toast.error(message)}
-        onCellSuccess={markLocalWrite}
-      />
+          <OrderCardList items={items} onOpen={setOpenRow} />
+        </>
+      ) : (
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col",
+            phoneView === "cards" && "max-md:hidden",
+          )}
+        >
+          <DataGrid<OrderListItem, OrderCellPatch>
+            data={items}
+            columns={columns}
+            rowId={(row) => row.id}
+            tableId="orders"
+            totalCount={total}
+            page={page}
+            pageSize={pageSize}
+            mutations={{
+              onCellCommit,
+              onBulkDelete: async (ids) => {
+                const result = await bulkDeleteOrdersAction(ids);
+                if (result.ok) toast.success(`${result.value.deleted} sipariş silindi.`);
+                return result;
+              },
+            }}
+            buildPatch={buildPatch}
+            toOptimisticPatch={toOptimisticPatch}
+            getRowBackground={getOrderRowBackground}
+            columnLabels={ORDER_COLUMN_LABELS}
+            toolbar={
+              <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                {searchField}
+                {toolbarExtra}
+                {filterBuilder}
+                {viewToggle}
+              </div>
+            }
+            onCellError={(message) => toast.error(message)}
+            onCellSuccess={markLocalWrite}
+          />
+        </div>
+      )}
 
       <Sheet
         open={openRow !== null}
@@ -332,7 +374,9 @@ export function OrderGrid({
       >
         <SheetContent
           side="right"
-          className="w-full overflow-y-auto p-6 pt-12 data-[side=right]:sm:max-w-2xl"
+          // The sheet covers the phone tab bar, so the panel's sticky save
+          // bar must sit at the very bottom here: zero the tab-bar height.
+          className="overflow-y-auto overscroll-contain p-4 pt-12 [--admin-tabbar-h:0px] data-[side=right]:w-full sm:p-6 sm:pt-12 data-[side=right]:sm:max-w-2xl"
         >
           {/* Visually-hidden title: base-ui Dialog requires a labelled title
               for a11y; the panel renders its own visible heading. */}

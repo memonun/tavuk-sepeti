@@ -51,7 +51,7 @@ export default async function RutinGiderlerPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Rutin Giderler</h2>
           <p className="text-sm text-muted-foreground">

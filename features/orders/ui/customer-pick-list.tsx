@@ -261,7 +261,8 @@ export function CustomerPickList({
 
   return (
     <div className="flex h-full flex-col gap-2">
-      <div className="flex items-center gap-2">
+      {/* Phone: the search box takes its own line so it isn't squeezed by the buttons. */}
+      <div className="flex flex-wrap items-center gap-2 md:flex-nowrap">
         <Input
           value={q}
           onChange={(e) => {
@@ -269,7 +270,7 @@ export function CustomerPickList({
             setPage(1);
           }}
           placeholder="Müşteri ara (isim / telefon)…"
-          className="h-8"
+          className="h-8 max-md:basis-full"
         />
         {newCustomerAction}
         <Button
@@ -296,7 +297,8 @@ export function CustomerPickList({
         )}
       </div>
 
-      <p className="px-0.5 text-[11px] text-muted-foreground">
+      {/* Mouse and keyboard shortcuts — meaningless on a touch screen. */}
+      <p className="px-0.5 text-[11px] text-muted-foreground [@media(pointer:coarse)]:hidden">
         Hızlı seçim: tık = aç/kapat · shift+tık = aralık · sürükle = boya · ↑/↓ + shift = klavyeyle aralık · boşluk = aç/kapat
       </p>
 

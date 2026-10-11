@@ -70,7 +70,8 @@ export function OrderStatusActions({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      {/* Phone: the next step is the biggest thing on the screen. */}
+      <div className="flex flex-wrap gap-2 max-sm:*:h-12 max-sm:*:flex-1 max-sm:*:text-base">
         {canConfirm ? (
           <Button
             type="button"

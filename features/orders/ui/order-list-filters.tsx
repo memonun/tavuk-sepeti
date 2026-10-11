@@ -88,11 +88,11 @@ export function OrderListFilters() {
 
   return (
     <div className="space-y-3 border-b pb-4">
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Durum</Label>
           <Select value={status} onValueChange={setStatus} disabled={pending} items={STATUS_LABEL}>
-            <SelectTrigger>
+            <SelectTrigger className="max-md:w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -107,7 +107,7 @@ export function OrderListFilters() {
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Tarih</Label>
           <Select value={range} onValueChange={setRange} disabled={pending} items={RANGE_LABEL}>
-            <SelectTrigger>
+            <SelectTrigger className="max-md:w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -122,7 +122,7 @@ export function OrderListFilters() {
       </div>
 
       {range === "custom" ? (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Başlangıç</Label>
             <Input

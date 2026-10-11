@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -86,13 +86,37 @@ export function RemindersSidebar({
   counts: ReminderCounts;
   view: ReminderView;
 }) {
-  const router = useRouter();
-  const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<ReminderList | null>(null);
-
   return (
     <nav aria-label="Anımsatıcı listeleri" className="flex flex-col gap-4">
-      <ul className="grid grid-cols-2 gap-2">
+      {/* Phone: every list as one swipeable row of pills, so the reminders
+          themselves start right underneath instead of a screen further down.
+          Editing and adding lists moves below the reminders (see the page). */}
+      <ul className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+        {SMART_TILES.map(({ id, icon, color }) => (
+          <ListPill
+            key={id}
+            href={`/animsaticilar?liste=${id}`}
+            label={SMART_LIST_LABELS[id]}
+            icon={icon}
+            color={color}
+            count={smartCount(id, counts)}
+            selected={view.kind === "smart" && view.id === id}
+          />
+        ))}
+        {lists.map((list) => (
+          <ListPill
+            key={list.id}
+            href={`/animsaticilar?liste=${list.id}`}
+            label={list.name}
+            icon={List}
+            color={ACCENT_COLOR_HEX[list.color]}
+            count={counts.byList[list.id] ?? 0}
+            selected={view.kind === "list" && view.id === list.id}
+          />
+        ))}
+      </ul>
+
+      <ul className="hidden grid-cols-2 gap-2 md:grid">
         {SMART_TILES.map(({ id, icon: Icon, color }) => {
           const selected = view.kind === "smart" && view.id === id;
           const count = smartCount(id, counts);
@@ -137,8 +161,86 @@ export function RemindersSidebar({
         })}
       </ul>
 
+      <ReminderListsSection lists={lists} counts={counts} view={view} className="hidden md:block" />
+    </nav>
+  );
+}
+
+function ListPill({
+  href,
+  label,
+  icon: Icon,
+  color,
+  count,
+  selected,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  color: string;
+  count: number | null;
+  selected: boolean;
+}) {
+  // The selected pill may sit off-screen in the scrolling row — bring it in.
+  const ref = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (selected) ref.current?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [selected]);
+
+  return (
+    <li ref={ref} className="shrink-0">
+      <Link
+        href={href}
+        aria-current={selected ? "page" : undefined}
+        className={cn(
+          "flex h-11 items-center gap-2 rounded-full border pr-3.5 pl-1.5 text-sm font-semibold outline-none",
+          "transition-transform duration-100 ease-out active:scale-[0.97]",
+          "focus-visible:ring-2 focus-visible:ring-ring",
+          selected ? "border-transparent text-white" : "bg-card",
+        )}
+        style={selected ? { backgroundColor: color } : undefined}
+      >
+        <span
+          className={cn(
+            "flex size-8 items-center justify-center rounded-full",
+            selected ? "bg-white" : "text-white",
+          )}
+          style={selected ? { color } : { backgroundColor: color }}
+        >
+          <Icon aria-hidden className="size-4" strokeWidth={2.5} />
+        </span>
+        <span className="max-w-40 truncate">{label}</span>
+        {count !== null ? (
+          <span className={cn("tabular-nums", selected ? "text-white/90" : "text-muted-foreground")}>
+            {count}
+          </span>
+        ) : null}
+      </Link>
+    </li>
+  );
+}
+
+/** "Listelerim": the user's own lists with rename/recolour/delete and "Liste
+ *  Ekle". In the sidebar on desktop; below the reminders on a phone. */
+export function ReminderListsSection({
+  lists,
+  counts,
+  view,
+  className,
+}: {
+  lists: readonly ReminderList[];
+  counts: ReminderCounts;
+  view: ReminderView;
+  className?: string;
+}) {
+  const router = useRouter();
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<ReminderList | null>(null);
+
+  return (
+    <div className={className}>
       <div>
-        <h3 className="px-2 pb-1 text-xs font-semibold text-muted-foreground">Listelerim</h3>
+        <h3 className="px-2 pb-1 text-sm font-semibold text-muted-foreground md:text-xs">Listelerim</h3>
         <ul className="flex flex-col">
           {lists.map((list) => {
             const selected = view.kind === "list" && view.id === list.id;
@@ -148,7 +250,7 @@ export function RemindersSidebar({
                   href={`/animsaticilar?liste=${list.id}`}
                   aria-current={selected ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-2 py-1.5 pr-9 text-sm outline-none",
+                    "flex items-center gap-2 rounded-lg px-2 py-1.5 pr-9 text-sm outline-none max-md:min-h-12 max-md:pr-12 max-md:text-base",
                     "focus-visible:ring-2 focus-visible:ring-ring",
                     selected ? "bg-muted font-medium" : "hover:bg-muted/60",
                   )}
@@ -168,7 +270,7 @@ export function RemindersSidebar({
                   type="button"
                   aria-label={`${list.name} listesini düzenle`}
                   onClick={() => setEditing(list)}
-                  className="absolute top-1/2 right-1 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/list:opacity-100 pointer-coarse:opacity-100"
+                  className="absolute top-1/2 right-1 flex size-7 -translate-y-1/2 max-md:size-11 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/list:opacity-100 pointer-coarse:opacity-100"
                 >
                   <Pencil className="size-3.5" />
                 </button>
@@ -179,7 +281,7 @@ export function RemindersSidebar({
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="mt-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground max-md:min-h-12 max-md:text-base outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="flex size-6 items-center justify-center">
             <Plus aria-hidden className="size-4" />
@@ -231,6 +333,6 @@ export function RemindersSidebar({
           return true;
         }}
       />
-    </nav>
+    </div>
   );
 }

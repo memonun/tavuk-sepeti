@@ -18,6 +18,8 @@ interface FinanceSortableHeaderProps {
   align?: "left" | "right";
   defaultOrder?: "asc" | "desc";
   defaultSort: string;
+  /** "chip" is the phone sort row: a thumb-sized pill instead of a column head. */
+  variant?: "header" | "chip";
 }
 
 export function FinanceSortableHeader({
@@ -26,6 +28,7 @@ export function FinanceSortableHeader({
   align = "left",
   defaultOrder = "asc",
   defaultSort,
+  variant = "header",
 }: FinanceSortableHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -63,9 +66,13 @@ export function FinanceSortableHeader({
       onClick={cycle}
       disabled={pending}
       className={cn(
-        "inline-flex items-center gap-1.5 text-left text-xs font-medium uppercase tracking-wider transition-colors",
+        "inline-flex items-center gap-1.5 text-left font-medium transition-colors",
+        variant === "chip"
+          ? "h-10 shrink-0 rounded-full border bg-card px-3.5 text-sm"
+          : "text-xs uppercase tracking-wider",
         align === "right" && "justify-end",
         isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+        variant === "chip" && isActive && "border-primary",
       )}
     >
       <span>{label}</span>

@@ -116,6 +116,9 @@ const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
 /** Sentinel select value for "no time slot" — base-ui Select can't bind "". */
 const NO_TIME_SLOT = "none";
 
+const SECTION_CARD = "rounded-2xl border bg-card p-4";
+const SECTION_TITLE = "mb-3 text-base font-semibold";
+
 export function OrderDetailPanel({
   order: initialOrder,
   products,
@@ -132,72 +135,81 @@ export function OrderDetailPanel({
   const editable = order.status === "pending" || order.status === "confirmed";
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b pb-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h2 className="font-mono text-xl font-semibold tracking-tight">
-              {order.order_number}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Who and when first — that is what the person holding the phone at the
+          door needs; the order number is a reference, so it sits underneath. */}
+      <header className="space-y-3 border-b pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0 space-y-1">
+            <h2 className="text-2xl leading-tight font-semibold tracking-tight [overflow-wrap:anywhere]">
+              <Link
+                href={`/customers/${order.customer_id}`}
+                className="underline-offset-4 hover:underline"
+              >
+                {customerName}
+              </Link>
             </h2>
-            <Badge
-              variant={
-                order.fulfillment_channel === "shipping" ? "outline" : "secondary"
-              }
-              className="text-xs"
-            >
-              {FULFILLMENT_CHANNEL_LABELS[order.fulfillment_channel]}
-            </Badge>
-            {order.source === "customer_web" ? (
-              <Badge variant="outline" className="text-xs">
-                Web
-              </Badge>
-            ) : null}
-            {order.source === "recurring_generated" ? (
-              <Badge variant="outline" className="text-xs">
-                Abonelik
-              </Badge>
-            ) : null}
-            {order.total_minor <= 0 ? (
-              <Badge variant="secondary" className="text-xs">
-                Hediye
-              </Badge>
-            ) : null}
+            <p className="text-sm text-muted-foreground">
+              {formatDate(order.scheduled_for)}
+              {order.time_slot ? `, ${TIME_SLOT_LABEL[order.time_slot]}` : null}
+              <span className="ml-2 font-mono text-xs">{order.order_number}</span>
+            </p>
           </div>
-          <p className="text-sm">
+          <Badge variant={STATUS_VARIANT[order.status]} className="h-7 px-3 text-sm">
+            {STATUS_LABEL[order.status]}
+          </Badge>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge
+            variant={
+              order.fulfillment_channel === "shipping" ? "outline" : "secondary"
+            }
+            className="text-xs"
+          >
+            {FULFILLMENT_CHANNEL_LABELS[order.fulfillment_channel]}
+          </Badge>
+          {order.source === "customer_web" ? (
+            <Badge variant="outline" className="text-xs">
+              Web
+            </Badge>
+          ) : null}
+          {order.source === "recurring_generated" ? (
+            <Badge variant="outline" className="text-xs">
+              Abonelik
+            </Badge>
+          ) : null}
+          {order.total_minor <= 0 ? (
+            <Badge variant="secondary" className="text-xs">
+              Hediye
+            </Badge>
+          ) : null}
+          <Badge variant="outline" className="text-xs">
+            {PAYMENT_METHOD_LABEL[order.payment_method]}
+          </Badge>
+        </div>
+        {order.source === "recurring_generated" ? (
+          <p className="text-xs text-muted-foreground">
             <Link
-              href={`/customers/${order.customer_id}`}
+              href={`/customers/${order.customer_id}#recurring`}
               className="underline-offset-2 hover:underline"
             >
-              {customerName}
+              Bu sipariş bir abonelikten oluştu →
             </Link>
-            {" · "}
-            {formatDate(order.scheduled_for)}
-            {order.time_slot ? ` · ${TIME_SLOT_LABEL[order.time_slot]}` : null}
           </p>
-          {order.source === "recurring_generated" ? (
-            <p className="text-xs text-muted-foreground">
-              <Link
-                href={`/customers/${order.customer_id}#recurring`}
-                className="underline-offset-2 hover:underline"
-              >
-                Bu sipariş bir abonelikten oluştu →
-              </Link>
-            </p>
-          ) : null}
-        </div>
-        <Badge variant={STATUS_VARIANT[order.status]} className="text-sm">
-          {STATUS_LABEL[order.status]}
-        </Badge>
+        ) : null}
       </header>
 
-      <section className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-semibold">Eylemler</h3>
+      <section className={SECTION_CARD}>
+        <h3 className={SECTION_TITLE}>Eylemler</h3>
         <OrderStatusActions
           orderId={order.id}
           currentStatus={order.status}
           fulfillmentChannel={order.fulfillment_channel}
         />
       </section>
+
+      {/* Where it goes, before what is in it. */}
+      <DeliveryAddress order={order} />
 
       {editable ? (
         <OrderEditForm
@@ -217,15 +229,6 @@ export function OrderDetailPanel({
           be stale against unsaved changes, so only show it for closed orders. */}
       {editable ? null : <TotalsBlock order={order} />}
 
-      {order.fulfillment_channel === "shipping" ? (
-        <OrderCargoInfoForm
-          orderId={initialOrder.id}
-          cargoCarrier={order.cargo_carrier}
-          cargoTrackingNumber={order.cargo_tracking_number}
-          cargoTrackingUrl={order.cargo_tracking_url}
-        />
-      ) : null}
-
       <OrderPayments
         orderId={initialOrder.id}
         totalMinor={initialOrder.total_minor}
@@ -236,9 +239,16 @@ export function OrderDetailPanel({
         {...(onMutated ? { onMutated } : {})}
       />
 
-      <OrderGiftItemsPanel orderId={initialOrder.id} products={products} gifts={gifts} />
+      {order.fulfillment_channel === "shipping" ? (
+        <OrderCargoInfoForm
+          orderId={initialOrder.id}
+          cargoCarrier={order.cargo_carrier}
+          cargoTrackingNumber={order.cargo_tracking_number}
+          cargoTrackingUrl={order.cargo_tracking_url}
+        />
+      ) : null}
 
-      <DeliveryAddress order={order} />
+      <OrderGiftItemsPanel orderId={initialOrder.id} products={products} gifts={gifts} />
 
       <StatusTimeline events={events} />
     </div>
@@ -356,8 +366,8 @@ function OrderEditForm({
 
   return (
     <section className="space-y-4">
-      <div className="space-y-2">
-        <Label>Ürünler</Label>
+      <div className={SECTION_CARD}>
+        <h3 className={SECTION_TITLE}>Ürünler</h3>
         <ProductPicker
           products={products}
           items={items}
@@ -366,101 +376,104 @@ function OrderEditForm({
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="scheduled_for">Teslim tarihi</Label>
-          <Input
-            id="scheduled_for"
-            type="date"
-            value={scheduledFor}
-            onChange={(e) => setScheduledFor(e.target.value)}
-            required
-          />
+      <div className={`${SECTION_CARD} space-y-4`}>
+        <h3 className="text-base font-semibold">Teslim ve ödeme</h3>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+          <div className="col-span-2 flex flex-col gap-1.5 md:col-span-1">
+            <Label htmlFor="scheduled_for">Teslim tarihi</Label>
+            <Input
+              id="scheduled_for"
+              type="date"
+              value={scheduledFor}
+              onChange={(e) => setScheduledFor(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Zaman dilimi</Label>
+            <Select
+              value={timeSlot}
+              onValueChange={(v) => v && setTimeSlot(v)}
+              items={{ [NO_TIME_SLOT]: "—", ...TIME_SLOT_LABEL }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_TIME_SLOT}>—</SelectItem>
+                <SelectItem value="morning">Sabah</SelectItem>
+                <SelectItem value="afternoon">Öğleden sonra</SelectItem>
+                <SelectItem value="evening">Akşam</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Ödeme</Label>
+            <Select
+              value={paymentMethod}
+              onValueChange={(v) => v && setPaymentMethod(v)}
+              items={PAYMENT_METHOD_LABEL}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash_on_delivery">Kapıda</SelectItem>
+                <SelectItem value="bank_transfer">Havale</SelectItem>
+                {/* Only offered when the order ALREADY is a card payment (i.e. it
+                    came from the storefront's PayTR flow). An admin can't open a
+                    card session at the door, so this is a round-trip affordance,
+                    not a choice — without it, saving any edit to a card order
+                    would silently rewrite its payment method. */}
+                {order.payment_method === "credit_card" ? (
+                  <SelectItem value="credit_card">Kredi kartı</SelectItem>
+                ) : null}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>Zaman dilimi</Label>
-          <Select
-            value={timeSlot}
-            onValueChange={(v) => v && setTimeSlot(v)}
-            items={{ [NO_TIME_SLOT]: "—", ...TIME_SLOT_LABEL }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_TIME_SLOT}>—</SelectItem>
-              <SelectItem value="morning">Sabah</SelectItem>
-              <SelectItem value="afternoon">Öğleden sonra</SelectItem>
-              <SelectItem value="evening">Akşam</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>Ödeme</Label>
-          <Select
-            value={paymentMethod}
-            onValueChange={(v) => v && setPaymentMethod(v)}
-            items={PAYMENT_METHOD_LABEL}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cash_on_delivery">Kapıda</SelectItem>
-              <SelectItem value="bank_transfer">Havale</SelectItem>
-              {/* Only offered when the order ALREADY is a card payment (i.e. it
-                  came from the storefront's PayTR flow). An admin can't open a
-                  card session at the door, so this is a round-trip affordance,
-                  not a choice — without it, saving any edit to a card order
-                  would silently rewrite its payment method. */}
-              {order.payment_method === "credit_card" ? (
-                <SelectItem value="credit_card">Kredi kartı</SelectItem>
-              ) : null}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="delivery_fee">Teslimat ücreti (₺)</Label>
-          <Input
-            id="delivery_fee"
-            inputMode="decimal"
-            value={deliveryFeeText}
-            onChange={(e) => setDeliveryFeeText(e.target.value)}
-            placeholder="0,00"
-            aria-invalid={feeInvalid}
-          />
-          {feeInvalid ? (
-            <p className="text-xs text-destructive">
-              Geçerli bir tutar girin (ör. 50,00) ya da boş bırakın.
-            </p>
-          ) : null}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="delivery_fee">Teslimat ücreti (₺)</Label>
+            <Input
+              id="delivery_fee"
+              inputMode="decimal"
+              value={deliveryFeeText}
+              onChange={(e) => setDeliveryFeeText(e.target.value)}
+              placeholder="0,00"
+              aria-invalid={feeInvalid}
+            />
+            {feeInvalid ? (
+              <p className="text-xs text-destructive">
+                Geçerli bir tutar girin (ör. 50,00) ya da boş bırakın.
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="delivery_notes">Teslimat notu</Label>
+            <textarea
+              id="delivery_notes"
+              rows={2}
+              value={deliveryNotes}
+              onChange={(e) => setDeliveryNotes(e.target.value)}
+              placeholder="Kapı kodu vb."
+              className="flex w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none"
+            />
+          </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="delivery_notes">Teslimat notu</Label>
-          <textarea
-            id="delivery_notes"
-            rows={2}
-            value={deliveryNotes}
-            onChange={(e) => setDeliveryNotes(e.target.value)}
-            placeholder="Kapı kodu vb."
-            className="flex w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none"
-          />
-        </div>
-      </div>
 
-      <dl className="grid grid-cols-2 gap-1 rounded-lg border bg-card p-4 text-sm">
-        <dt className="text-muted-foreground">Ara toplam</dt>
-        <dd className="text-right font-mono">{formatTRY(subtotalMinor)}</dd>
-        <dt className="text-muted-foreground">Teslimat</dt>
-        <dd className="text-right font-mono">{formatTRY(deliveryFeeMinor)}</dd>
-        <dt className="font-medium">Toplam</dt>
-        <dd className="text-right font-mono font-semibold">
-          {formatTRY(previewTotalMinor)}
-        </dd>
-      </dl>
+        <dl className="grid grid-cols-2 gap-1 border-t pt-3 text-sm">
+          <dt className="text-muted-foreground">Ara toplam</dt>
+          <dd className="text-right tabular-nums">{formatTRY(subtotalMinor)}</dd>
+          <dt className="text-muted-foreground">Teslimat</dt>
+          <dd className="text-right tabular-nums">{formatTRY(deliveryFeeMinor)}</dd>
+          <dt className="text-base font-semibold">Toplam</dt>
+          <dd className="text-right text-base font-semibold tabular-nums">
+            {formatTRY(previewTotalMinor)}
+          </dd>
+        </dl>
+      </div>
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">
@@ -468,13 +481,28 @@ function OrderEditForm({
         </p>
       ) : null}
       {saved && !error ? (
-        <p className="text-sm text-emerald-600" role="status">
+        <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">
           Kaydedildi.
         </p>
       ) : null}
 
-      <div className="flex justify-end">
-        <Button type="button" onClick={onSave} disabled={saving}>
+      {/* Phone: the total and the save button ride along at the bottom of the
+          screen for as long as this form is in view, so a change made at the
+          top never needs a scroll to save. From `sm` up it is the plain
+          right-aligned button it always was. */}
+      <div className="sticky bottom-[calc(var(--admin-tabbar-h,0px)+0.5rem)] z-10 flex items-center justify-between gap-3 rounded-2xl border bg-card px-4 py-3 shadow-lg sm:static sm:justify-end sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+        <div className="sm:hidden">
+          <p className="text-xs text-muted-foreground">Toplam</p>
+          <p className="text-lg leading-tight font-semibold tabular-nums">
+            {formatTRY(previewTotalMinor)}
+          </p>
+        </div>
+        <Button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="max-sm:h-12 max-sm:px-6 max-sm:text-base"
+        >
           {saving ? "Kaydediliyor…" : "Kaydet"}
         </Button>
       </div>
@@ -486,8 +514,8 @@ function OrderEditForm({
  *  orders — lifted from the retired order-detail.tsx. */
 function ReadonlyItems({ order }: { order: Order }) {
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <h3 className="mb-3 text-sm font-semibold">Ürünler</h3>
+    <section className={SECTION_CARD}>
+      <h3 className={SECTION_TITLE}>Ürünler</h3>
       <ul className="divide-y">
         {order.items.map((item) => (
           <li
@@ -500,7 +528,7 @@ function ReadonlyItems({ order }: { order: Order }) {
             <span className="col-span-3 text-muted-foreground">
               {item.quantity} {item.product_snapshot.unit_label}
             </span>
-            <span className="col-span-3 text-right font-mono">
+            <span className="col-span-3 text-right tabular-nums">
               {formatTRY(item.line_total_minor)}
             </span>
           </li>
@@ -514,16 +542,16 @@ function ReadonlyItems({ order }: { order: Order }) {
  *  order aggregate so it reflects the server-recomputed figures. */
 function TotalsBlock({ order }: { order: Order }) {
   return (
-    <section className="rounded-lg border bg-card p-4">
+    <section className={SECTION_CARD}>
       <dl className="grid grid-cols-2 gap-1 text-sm">
         <dt className="text-muted-foreground">Ara toplam</dt>
-        <dd className="text-right font-mono">{formatTRY(order.subtotal_minor)}</dd>
+        <dd className="text-right tabular-nums">{formatTRY(order.subtotal_minor)}</dd>
         <dt className="text-muted-foreground">Teslimat</dt>
-        <dd className="text-right font-mono">
+        <dd className="text-right tabular-nums">
           {formatTRY(order.delivery_fee_minor)}
         </dd>
-        <dt className="font-medium">Toplam</dt>
-        <dd className="text-right font-mono font-semibold">
+        <dt className="text-base font-semibold">Toplam</dt>
+        <dd className="text-right text-base font-semibold tabular-nums">
           {formatTRY(order.total_minor)}
         </dd>
       </dl>
@@ -547,13 +575,13 @@ function DeliveryAddress({ order }: { order: Order }) {
   const hasPin = !(snapshot.lat === 0 && snapshot.lng === 0);
 
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <h3 className="mb-2 text-sm font-semibold">Teslimat adresi</h3>
-      <p className="text-sm">{snapshot.raw_text}</p>
+    <section className={SECTION_CARD}>
+      <h3 className="mb-2 text-base font-semibold">Teslimat adresi</h3>
+      <p className="text-base leading-snug font-medium">{snapshot.raw_text}</p>
       {snapshot.description ? (
-        <p className="text-xs text-muted-foreground">{snapshot.description}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{snapshot.description}</p>
       ) : null}
-      <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
         {detailRows.map(([label, value]) =>
           value ? (
             <Fragment key={label}>
@@ -594,8 +622,8 @@ function DeliveryAddress({ order }: { order: Order }) {
 /** Status timeline (audit log) — read-only, lifted from order-detail.tsx. */
 function StatusTimeline({ events }: { events: OrderStatusEvent[] }) {
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <h3 className="mb-3 text-sm font-semibold">Durum geçmişi</h3>
+    <section className={SECTION_CARD}>
+      <h3 className={SECTION_TITLE}>Durum geçmişi</h3>
       {events.length === 0 ? (
         <p className="text-sm text-muted-foreground">Olay yok.</p>
       ) : (

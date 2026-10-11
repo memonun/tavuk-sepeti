@@ -30,7 +30,7 @@ import {
 
 import { z } from "zod";
 
-const TIME_SLOT_OPTIONS = [
+export const TIME_SLOT_OPTIONS = [
   { value: "morning", label: "Sabah" },
   { value: "afternoon", label: "Öğlen" },
   { value: "evening", label: "Akşam" },
