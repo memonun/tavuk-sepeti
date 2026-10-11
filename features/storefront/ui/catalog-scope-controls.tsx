@@ -29,7 +29,7 @@ export function CatalogScopeControls({ scope }: { scope: DeliveryScope | null })
       <div
         role="group"
         aria-labelledby="teslimat-secim"
-        className="mt-3 grid grid-cols-2 gap-2.5 sm:max-w-xl sm:gap-3"
+        className="mt-2 grid grid-cols-2 gap-2.5 sm:mt-3 sm:max-w-xl sm:gap-3"
       >
         <ScopeOption
           href="/?teslimat=malatya#urunler"
@@ -64,7 +64,7 @@ function ScopeOption({
       href={href}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "shop-press shop-focus flex min-h-16 items-center justify-center gap-2 rounded-2xl border-2 px-3 text-center text-lg leading-tight font-bold [&_svg]:size-6 [&_svg]:shrink-0",
+        "shop-press shop-focus flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 px-3 text-center text-lg leading-tight font-bold sm:min-h-16 [&_svg]:size-6 [&_svg]:shrink-0",
         active
           ? "border-primary bg-primary text-primary-foreground"
           : "border-primary bg-card text-primary",

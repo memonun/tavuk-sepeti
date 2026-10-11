@@ -68,7 +68,7 @@ export default async function ShopHomePage({
         : "Tüm ürünlerimiz";
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-6 pb-16 sm:px-6 sm:pt-10">
+    <main className="mx-auto max-w-6xl px-4 pt-4 pb-16 sm:px-6 sm:pt-10">
       <Suspense fallback={null}>
         <StorefrontScopeSync />
       </Suspense>
@@ -77,12 +77,17 @@ export default async function ShopHomePage({
           on the left, picture on the right, so the block is no taller than
           the picture and the products below still start on the first
           screen. DOM order keeps the heading first for a screen reader. */}
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_30rem] lg:items-center lg:gap-10">
+      <div className="flex flex-col gap-3.5 sm:gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_30rem] lg:items-center lg:gap-10">
         <div className="order-2 lg:order-1">
-          <h1 className="max-w-3xl font-display text-[2.125rem] leading-[1.05] text-foreground sm:text-5xl">
+          {/* On a phone every line above the products costs a row of the
+              first screen, and with the picture and the standing-order row
+              in place the products had slipped below it. So here the
+              heading is one smaller line and the sentence under it waits for
+              wider screens. */}
+          <h1 className="max-w-3xl font-display text-[1.75rem] leading-[1.1] text-foreground sm:text-5xl sm:leading-[1.05]">
             Çiftlikten sofranıza
           </h1>
-          <p className="mt-2.5 max-w-xl text-lg leading-relaxed text-muted-foreground">
+          <p className="mt-2.5 hidden max-w-xl text-lg leading-relaxed text-muted-foreground sm:block">
             Malatya&apos;daki çiftliğimizden. Seçin, sepete ekleyin, biz getirelim.
           </p>
         </div>
@@ -95,13 +100,13 @@ export default async function ShopHomePage({
       <section
         id="urunler"
         aria-labelledby="catalog-heading"
-        className="mt-6 scroll-mt-24 sm:mt-8"
+        className="mt-4 scroll-mt-24 sm:mt-8"
       >
         {/* The two things decided before looking at products: where it goes,
             and whether it should simply come every week. Stacked on a phone;
             on desktop the standing-order row fills the space beside the two
             delivery buttons and lines up with them. */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-6">
+        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-end lg:gap-6">
           <div className="lg:w-[36rem] lg:shrink-0">
             <CatalogScopeControls scope={scope} />
           </div>
@@ -109,11 +114,11 @@ export default async function ShopHomePage({
         </div>
         <h2
           id="catalog-heading"
-          className="mt-7 font-display text-[1.75rem] leading-tight text-foreground sm:mt-9 sm:text-4xl"
+          className="mt-5 font-display text-[1.75rem] leading-tight text-foreground sm:mt-9 sm:text-4xl"
         >
           {catalogHeading}
         </h2>
-        <div className="mt-4 sm:mt-5">
+        <div className="mt-3 sm:mt-5">
           <CatalogGrid products={catalogProducts} unavailable={!catalog.ok} />
         </div>
       </section>

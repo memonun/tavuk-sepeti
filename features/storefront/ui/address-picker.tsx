@@ -15,9 +15,9 @@
 import { useState } from "react";
 import { CheckIcon, MapPinIcon, PencilIcon, PlusIcon, TruckIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AddressForm } from "@/features/storefront/ui/address-form";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
 import {
   routeBlockReason,
@@ -79,7 +79,7 @@ export function AddressPicker({
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-3">
       {addresses.map((address) => {
         const blockReason = mode === "cargo" ? null : routeBlockReason(address);
         const usable = blockReason === null;
@@ -88,8 +88,10 @@ export function AddressPicker({
           <div
             key={address.id}
             className={cn(
-              "flex items-start gap-2 rounded-xl border p-3 text-sm transition-colors",
-              selected ? "border-primary bg-secondary/50" : "border-input",
+              "flex flex-wrap items-center gap-3 rounded-2xl border-2 p-3 text-base transition-colors",
+              selected
+                ? "border-primary bg-(--shop-green-soft)"
+                : "border-(--shop-field-border) bg-card",
             )}
           >
             <button
@@ -98,35 +100,37 @@ export function AddressPicker({
               disabled={disabled || !usable}
               aria-pressed={selected}
               className={cn(
-                "flex min-w-0 flex-1 items-start gap-3 text-left",
-                usable ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                "shop-focus flex min-h-12 min-w-40 flex-1 items-start gap-3 rounded-xl text-left",
+                // A blocked address stays fully readable — its reason is the
+                // red line below — instead of being faded to 60%.
+                usable ? "cursor-pointer" : "cursor-not-allowed",
               )}
             >
               <span className="mt-0.5 shrink-0 text-primary" aria-hidden>
                 {selected ? (
-                  <CheckIcon className="size-4" />
+                  <CheckIcon className="size-6" strokeWidth={3} />
                 ) : mode === "cargo" ? (
-                  <TruckIcon className="size-4" />
+                  <TruckIcon className="size-6" />
                 ) : (
-                  <MapPinIcon className="size-4" />
+                  <MapPinIcon className="size-6" />
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">
+                <span className="block text-lg leading-snug font-bold break-words">
                   {address.label?.trim() || address.raw_text || "Adres"}
                   {address.is_primary ? (
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    <span className="ml-2 text-base font-normal text-muted-foreground">
                       varsayılan
                     </span>
                   ) : null}
                 </span>
                 {address.label ? (
-                  <span className="block text-xs text-muted-foreground">
+                  <span className="block text-base leading-snug break-words text-muted-foreground">
                     {address.raw_text}
                   </span>
                 ) : null}
                 {blockReason ? (
-                  <span className="mt-1 block text-xs font-bold text-destructive">
+                  <span className="mt-1 block text-base font-bold text-destructive">
                     {BLOCK_MESSAGE[blockReason]}
                   </span>
                 ) : null}
@@ -136,31 +140,28 @@ export function AddressPicker({
                 checkout for /hesap — so customers added a duplicate instead.
                 A cargo-saved address has no pin by design, which makes it
                 permanently unusable for fresh products until it is edited. */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
+            <ShopButton
+              variant="quiet"
               className="shrink-0"
               onClick={() => setEditing({ kind: "existing", address })}
               disabled={disabled}
             >
-              <PencilIcon className="size-3.5" />
+              <PencilIcon aria-hidden />
               Düzenle
-            </Button>
+            </ShopButton>
           </div>
         );
       })}
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full justify-center rounded-xl"
+      <ShopButton
+        variant="secondary"
+        block
         onClick={() => setEditing({ kind: "new" })}
         disabled={disabled}
       >
-        <PlusIcon className="size-4" />
+        <PlusIcon aria-hidden />
         Yeni adres ekle
-      </Button>
+      </ShopButton>
     </div>
   );
 }
