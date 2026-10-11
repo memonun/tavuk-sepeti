@@ -39,14 +39,13 @@ import {
   type GuestOrderType,
 } from "@/features/storefront/domain/guest-order-lookup.schema";
 import { formatDeliveryDateLabel } from "@/features/storefront/domain/delivery-window";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatDate, formatHHmm } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 
 import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-button";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
+import { ShopInput } from "@/features/storefront/ui/kit/shop-field";
 
 import type { GuestOrderView } from "@/features/storefront/application/lookup-guest-order";
 
@@ -107,10 +106,8 @@ function ModeTab({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex-1 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "text-muted-foreground hover:text-foreground",
+        "shop-press shop-focus flex min-h-12 flex-1 items-center justify-center rounded-full px-3 text-center text-base leading-tight font-bold",
+        active ? "bg-primary text-primary-foreground" : "text-foreground",
       )}
     >
       {children}
@@ -134,9 +131,9 @@ function PhoneLookup() {
   return (
     <div className="flex flex-col gap-6">
       <form action={formAction} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="phone">Siparişteki telefon</Label>
-          <Input
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground" htmlFor="phone">Siparişteki telefon</label>
+          <ShopInput
             id="phone"
             name="phone"
             type="tel"
@@ -148,17 +145,17 @@ function PhoneLookup() {
           />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label>Sipariş türü</Label>
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground">Sipariş türü</label>
           <div className="grid grid-cols-3 gap-2">
             {GUEST_ORDER_TYPE_OPTIONS.map((option) => (
               <label
                 key={option.value}
                 className={cn(
-                  "flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-center transition-colors",
+                  "shop-press-soft flex min-h-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-3 text-center has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
                   orderType === option.value
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-card hover:border-primary/50 hover:bg-secondary/40",
+                    ? "border-primary bg-(--shop-green-soft)"
+                    : "border-(--shop-field-border) bg-card",
                 )}
               >
                 <input
@@ -173,7 +170,7 @@ function PhoneLookup() {
                 <span className="text-xl" aria-hidden>
                   {option.emoji}
                 </span>
-                <span className="text-xs font-medium leading-tight text-foreground">
+                <span className="text-base font-bold leading-tight text-foreground">
                   {option.label}
                 </span>
               </label>
@@ -182,52 +179,54 @@ function PhoneLookup() {
         </div>
 
         {state.status === "not_found" ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-base text-destructive" role="alert">
             Girdiğiniz bilgilerle eşleşen bir sipariş bulamadık. Telefon
             numaranızı ve sipariş türünü kontrol edip tekrar deneyin.
           </p>
         ) : null}
         {state.status === "rate_limited" ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-base text-destructive" role="alert">
             Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar
             deneyin.
           </p>
         ) : null}
         {state.status === "error" ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-base text-destructive" role="alert">
             {state.message}
           </p>
         ) : null}
 
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full rounded-full"
+        <ShopButton
+          type="submit" size="lg" block
           disabled={pending}
         >
           {pending ? "Sorgulanıyor…" : "Siparişimi bul"}
-        </Button>
+        </ShopButton>
       </form>
 
+      {/* The answer arrives under the button that asked for it; without the
+          entrance it simply is there on the next frame. */}
       {state.status === "found_one" ? (
-        <OrderCard order={state.order} phone={state.phone} allowResume />
+        <div className="shop-enter">
+          <OrderCard order={state.order} phone={state.phone} allowResume />
+        </div>
       ) : null}
 
       {state.status === "found_many" ? (
         selectedOrder ? (
-          <div className="flex flex-col gap-2">
+          <div className="shop-enter flex flex-col gap-2">
             <button
               type="button"
               onClick={() => setSelectedOrder(null)}
-              className="self-start text-sm text-muted-foreground underline underline-offset-2"
+              className="self-start text-base text-muted-foreground underline underline-offset-4"
             >
               ← Başka sipariş seç
             </button>
             <OrderCard order={selectedOrder} phone={phoneForCard} allowResume />
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">
+          <div className="shop-enter flex flex-col gap-3">
+            <p className="text-base text-muted-foreground">
               Bu bilgilerle {state.orders.length} sipariş bulduk. Görmek
               istediğinizi seçin.
             </p>
@@ -237,18 +236,18 @@ function PhoneLookup() {
                   key={order.orderId}
                   type="button"
                   onClick={() => setSelectedOrder(order)}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-card p-4 text-left shadow-sm transition-colors hover:border-primary/50"
+                  className="shop-press-soft shop-focus flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-(--shop-shadow-sm) hover:border-primary/50"
                 >
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-mono text-sm font-medium">
+                    <span className="shop-money text-base font-bold">
                       {order.orderNumber}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-base text-muted-foreground">
                       {formatDate(order.createdAt)} ·{" "}
                       {STATUS_LABELS[order.status] ?? order.status}
                     </span>
                   </div>
-                  <span className="font-semibold tabular-nums">
+                  <span className="font-semibold shop-money">
                     {formatTRY(order.totalMinor)}
                   </span>
                 </button>
@@ -270,9 +269,9 @@ function OrderNumberLookup() {
   return (
     <div className="flex flex-col gap-6">
       <form action={formAction} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="order_number">Sipariş numarası</Label>
-          <Input
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground" htmlFor="order_number">Sipariş numarası</label>
+          <ShopInput
             id="order_number"
             name="order_number"
             placeholder="Sipariş numaranızı girin"
@@ -283,35 +282,35 @@ function OrderNumberLookup() {
         </div>
 
         {state.status === "not_found" ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-base text-destructive" role="alert">
             Bu numarayla eşleşen bir sipariş bulamadık. Sipariş numaranızı
             kontrol edip tekrar deneyin.
           </p>
         ) : null}
         {state.status === "rate_limited" ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-base text-destructive" role="alert">
             Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar
             deneyin.
           </p>
         ) : null}
         {state.status === "error" ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-base text-destructive" role="alert">
             {state.message}
           </p>
         ) : null}
 
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full rounded-full"
+        <ShopButton
+          type="submit" size="lg" block
           disabled={pending}
         >
           {pending ? "Sorgulanıyor…" : "Siparişimi bul"}
-        </Button>
+        </ShopButton>
       </form>
 
       {state.status === "found" ? (
-        <OrderCard order={state.order} phone="" allowResume={false} />
+        <div className="shop-enter">
+          <OrderCard order={state.order} phone="" allowResume={false} />
+        </div>
       ) : null}
     </div>
   );
@@ -361,13 +360,13 @@ function OrderCard({
     order.paymentMethod === "credit_card";
 
   return (
-    <div className="flex flex-col gap-3 rounded-3xl border border-border/70 bg-card p-6 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-3xl border border-border bg-card p-6 shadow-(--shop-shadow-sm)">
       <div className="flex items-center gap-2">
         <PackageSearchIcon className="size-5 text-primary" aria-hidden />
-        <p className="font-mono font-medium">{order.orderNumber}</p>
+        <p className="shop-money font-bold">{order.orderNumber}</p>
       </div>
 
-      <dl className="flex flex-col gap-1.5 text-sm">
+      <dl className="flex min-w-0 flex-col gap-2 text-base">
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Durum</dt>
           <dd>{STATUS_LABELS[order.status] ?? order.status}</dd>
@@ -406,13 +405,13 @@ function OrderCard({
         ) : null}
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Tutar</dt>
-          <dd className="font-semibold tabular-nums">
+          <dd className="font-semibold shop-money">
             {formatTRY(order.totalMinor)}
           </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Ödenen Tutar</dt>
-          <dd className="tabular-nums">{formatTRY(order.amountPaidMinor)}</dd>
+          <dd className="shop-money">{formatTRY(order.amountPaidMinor)}</dd>
         </div>
         {order.channel === "shipping" &&
         (order.cargoCarrier || order.cargoTrackingNumber || order.cargoTrackingUrl) ? (
@@ -429,7 +428,7 @@ function OrderCard({
                     href={order.cargoTrackingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline underline-offset-2"
+                    className="underline underline-offset-4"
                   >
                     Takip et
                   </a>
@@ -441,16 +440,16 @@ function OrderCard({
       </dl>
 
       {order.items.length > 0 ? (
-        <div className="border-t border-border/60 pt-3">
-          <p className="mb-2 text-sm font-medium text-foreground">Ürünler</p>
-          <ul className="flex flex-col gap-1.5 text-sm">
+        <div className="border-t border-border pt-3">
+          <p className="mb-2 text-base font-bold text-foreground">Ürünler</p>
+          <ul className="flex min-w-0 flex-col gap-2 text-base">
             {order.items.map((item, index) => (
               <li key={index} className="flex items-start justify-between gap-4">
                 <span className="text-muted-foreground">
                   {item.quantity.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
                   {item.unitLabel ? ` ${item.unitLabel}` : ""} · {item.displayName}
                 </span>
-                <span className="shrink-0 tabular-nums">
+                <span className="shrink-0 shop-money">
                   {formatTRY(item.lineTotalMinor)}
                 </span>
               </li>
@@ -470,7 +469,7 @@ function OrderCard({
       ) : null}
 
       {paymentNeedsPhone ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           Kart ile ödemeyi tamamlamak için &quot;Telefon ile bul&quot;
           sekmesinden siparişinizi tekrar sorgulayın.
         </p>

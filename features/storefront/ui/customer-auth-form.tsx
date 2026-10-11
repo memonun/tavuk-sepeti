@@ -8,9 +8,8 @@ import {
   customerSignUpAction,
   type CustomerAuthState,
 } from "@/features/storefront/application/customer-auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
+import { ShopInput } from "@/features/storefront/ui/kit/shop-field";
 
 const initialState: CustomerAuthState = { status: "idle" };
 
@@ -39,20 +38,20 @@ export function CustomerAuthForm({
 
   if (state.status === "email_taken") {
     return (
-      <div className="rounded-3xl border border-border/70 bg-card p-6 text-center shadow-sm">
-        <h2 className="font-display text-xl">Bu e-posta zaten kayıtlı</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <div className="rounded-3xl border border-border bg-card p-6 text-center shadow-(--shop-shadow-sm)">
+        <h2 className="font-display text-2xl leading-tight">Bu e-posta zaten kayıtlı</h2>
+        <p className="mt-2 text-base text-muted-foreground">
           <strong>{state.email}</strong> için bir hesabınız var. Şifrenizle giriş
           yapabilirsiniz.
         </p>
         <Link
           href={withNext("/giris")}
-          className="mt-4 inline-block text-primary hover:underline"
+          className="mt-4 inline-flex min-h-11 items-center font-bold text-primary underline underline-offset-4"
         >
           Giriş yap
         </Link>
-        <p className="mt-2 text-xs text-muted-foreground">
-          <Link href="/sifremi-unuttum" className="hover:underline">
+        <p className="mt-2 text-base text-muted-foreground">
+          <Link href="/sifremi-unuttum" className="inline-flex min-h-11 items-center underline underline-offset-4">
             Şifrenizi mi unuttunuz?
           </Link>
         </p>
@@ -62,9 +61,9 @@ export function CustomerAuthForm({
 
   if (state.status === "verify_email") {
     return (
-      <div className="rounded-3xl border border-border/70 bg-card p-6 text-center shadow-sm">
-        <h2 className="font-display text-xl">E-postanızı doğrulayın</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <div className="rounded-3xl border border-border bg-card p-6 text-center shadow-(--shop-shadow-sm)">
+        <h2 className="font-display text-2xl leading-tight">E-postanızı doğrulayın</h2>
+        <p className="mt-2 text-base text-muted-foreground">
           <strong>{state.email}</strong> adresine bir doğrulama bağlantısı
           gönderdik. Hesabınızı etkinleştirmek için e-postadaki bağlantıya
           tıklayın.
@@ -78,9 +77,9 @@ export function CustomerAuthForm({
       {next ? <input type="hidden" name="next" value={next} /> : null}
       {mode === "signup" ? (
         <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="first_name">Ad</Label>
-            <Input
+          <div className="flex min-w-0 flex-col gap-2">
+            <label className="text-base font-bold text-foreground" htmlFor="first_name">Ad</label>
+            <ShopInput
               id="first_name"
               name="first_name"
               autoComplete="given-name"
@@ -88,9 +87,9 @@ export function CustomerAuthForm({
               disabled={pending}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="last_name">Soyad</Label>
-            <Input
+          <div className="flex min-w-0 flex-col gap-2">
+            <label className="text-base font-bold text-foreground" htmlFor="last_name">Soyad</label>
+            <ShopInput
               id="last_name"
               name="last_name"
               autoComplete="family-name"
@@ -102,9 +101,9 @@ export function CustomerAuthForm({
       ) : null}
 
       {mode === "signup" ? (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="phone">Telefon</Label>
-          <Input
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground" htmlFor="phone">Telefon</label>
+          <ShopInput
             id="phone"
             name="phone"
             type="tel"
@@ -114,15 +113,15 @@ export function CustomerAuthForm({
             required
             disabled={pending}
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Teslimat sırasında size ulaşabilmemiz için gerekli.
           </p>
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="email">E-posta</Label>
-        <Input
+      <div className="flex min-w-0 flex-col gap-2">
+        <label className="text-base font-bold text-foreground" htmlFor="email">E-posta</label>
+        <ShopInput
           id="email"
           name="email"
           type="email"
@@ -134,9 +133,9 @@ export function CustomerAuthForm({
         />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="password">Şifre</Label>
-        <Input
+      <div className="flex min-w-0 flex-col gap-2">
+        <label className="text-base font-bold text-foreground" htmlFor="password">Şifre</label>
+        <ShopInput
           id="password"
           name="password"
           type="password"
@@ -146,7 +145,7 @@ export function CustomerAuthForm({
           {...(mode === "signup" ? { minLength: 8 } : {})}
         />
         {mode === "signup" ? (
-          <p className="text-xs text-muted-foreground">En az 8 karakter.</p>
+          <p className="text-base text-muted-foreground">En az 8 karakter.</p>
         ) : null}
       </div>
 
@@ -154,7 +153,7 @@ export function CustomerAuthForm({
         <div className="-mt-2 text-right">
           <Link
             href="/sifremi-unuttum"
-            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            className="inline-flex min-h-11 items-center text-base font-bold text-foreground underline underline-offset-4"
           >
             Şifremi unuttum?
           </Link>
@@ -162,15 +161,13 @@ export function CustomerAuthForm({
       ) : null}
 
       {state.status === "error" ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-base text-destructive" role="alert">
           {state.message}
         </p>
       ) : null}
 
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full rounded-full"
+      <ShopButton
+        type="submit" size="lg" block
         disabled={pending}
       >
         {pending
@@ -178,14 +175,14 @@ export function CustomerAuthForm({
           : mode === "signin"
             ? "Giriş yap"
             : "Hesap oluştur"}
-      </Button>
+      </ShopButton>
 
       {mode === "signup" ? (
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-base text-muted-foreground">
           Hesap bilgilerinizin nasıl işlendiğine ilişkin ayrıntılar için{" "}
           <Link
             href="/gizlilik-politikasi"
-            className="underline underline-offset-2"
+            className="inline-flex min-h-11 items-center underline underline-offset-4"
             target="_blank"
           >
             Gizlilik Politikamızı
@@ -194,18 +191,18 @@ export function CustomerAuthForm({
         </p>
       ) : null}
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-base text-muted-foreground">
         {mode === "signin" ? (
           <>
             Hesabınız yok mu?{" "}
-            <Link href={withNext("/kayit")} className="text-primary hover:underline">
+            <Link href={withNext("/kayit")} className="inline-flex min-h-11 items-center font-bold text-primary underline underline-offset-4">
               Kayıt olun
             </Link>
           </>
         ) : (
           <>
             Zaten hesabınız var mı?{" "}
-            <Link href={withNext("/giris")} className="text-primary hover:underline">
+            <Link href={withNext("/giris")} className="inline-flex min-h-11 items-center font-bold text-primary underline underline-offset-4">
               Giriş yapın
             </Link>
           </>

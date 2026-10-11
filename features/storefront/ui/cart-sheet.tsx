@@ -171,9 +171,19 @@ export function CartSheet({
         </SheetTrigger>
       )}
 
+      {/* A panel arrives from the control that summoned it. On a phone the
+          basket is opened from the dock at the bottom of the screen (the
+          basket bar or the "Sepetim" tab), so it rises from there and leaves
+          a strip of the page showing above it; the desktop header button
+          sits top-right, so there it slides in from the right. Closed with
+          "Kapat" or a tap on the dimmed page — never a drag, which this
+          audience should not have to perform. */}
       <SheetContent
+        side={variant === "header" ? "right" : "bottom"}
         showCloseButton={false}
-        className={shopSheetClass("data-[side=right]:w-full data-[side=right]:sm:max-w-md")}
+        className={shopSheetClass(
+          "data-[side=right]:w-full data-[side=right]:sm:max-w-md data-[side=bottom]:max-h-[92dvh] data-[side=bottom]:rounded-t-3xl",
+        )}
       >
         <SheetHeader className="flex-row items-center justify-between border-b border-border px-4 py-3">
           <SheetTitle className="font-display text-2xl">Sepetiniz</SheetTitle>
@@ -181,7 +191,7 @@ export function CartSheet({
         </SheetHeader>
 
         {rows.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] text-center">
             <ShoppingBasketIcon className="size-14 text-muted-foreground" aria-hidden />
             <p className="text-xl font-bold text-foreground">Sepetiniz boş</p>
             <p className="text-lg text-muted-foreground">
@@ -190,7 +200,7 @@ export function CartSheet({
             <SheetClose render={<ShopButton size="lg" />}>Ürünlere dön</SheetClose>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto overscroll-contain p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             <ul className="flex flex-col gap-3">
               {rows.map(({ product, quantity }) => {
                 const imageUrl = productImagePublicUrl(
@@ -220,13 +230,17 @@ export function CartSheet({
                       </div>
                       {/* Name wraps instead of truncating: "Gün Kurusu Kayısı
                           Çeki…" tells nobody which of two apricot products
-                          this line is. */}
-                      <p className="min-w-0 flex-1 text-lg leading-snug font-bold break-words">
-                        {product.display_name}
-                      </p>
-                      <p className="shop-money shrink-0 text-lg font-bold">
-                        {formatTRY(lineTotalMinor(product, quantity))}
-                      </p>
+                          this line is. The price sits UNDER the name, not
+                          beside it: side by side, a long price squeezed the
+                          name down to one letter per line on a narrow phone. */}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-lg leading-snug font-bold break-words">
+                          {product.display_name}
+                        </p>
+                        <p className="shop-money text-lg font-bold text-primary">
+                          {formatTRY(lineTotalMinor(product, quantity))}
+                        </p>
+                      </div>
                     </div>
                     <QuantityStepper product={product} block />
                   </li>

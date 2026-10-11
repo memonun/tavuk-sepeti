@@ -19,8 +19,8 @@ export default async function CustomerLoginPage({
   return (
     <main className="mx-auto flex max-w-sm flex-col gap-6 px-4 py-16">
       <div className="text-center">
-        <h1 className="font-display text-3xl">Giriş yap</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="font-display text-[2rem] leading-tight sm:text-4xl">Giriş yap</h1>
+        <p className="mt-1 text-base text-muted-foreground">
           Bilgileriniz hazır gelsin, siparişlerinizi takip edin.
         </p>
       </div>

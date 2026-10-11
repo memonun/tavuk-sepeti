@@ -12,10 +12,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cancelMyRecurringOrderAction } from "@/features/storefront/application/recurring-order-request";
 import { isWeekday, WEEKDAY_NAMES_TR } from "@/features/storefront/domain/delivery-window";
 import { formatDate } from "@/shared/utils/date";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 
 import type { MyRecurringTemplateView } from "@/features/storefront/application/recurring-order-request";
 
@@ -66,38 +66,36 @@ export function MyRecurringOrders({
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-      <p className="text-sm font-semibold text-foreground">Düzenli siparişlerim</p>
+      <p className="text-base font-semibold text-foreground">Düzenli siparişlerim</p>
       <ul className="mt-4 flex flex-col gap-3">
         {templates.map((t) => {
           const status = statusLabel(t);
           return (
             <li
               key={t.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-4 py-3 text-sm"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-base"
             >
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={status.variant}>{status.text}</Badge>
-                  <span className="font-medium text-foreground">
+                  <Badge variant={status.variant} className="h-auto px-2.5 py-0.5 text-base">
+                    {status.text}
+                  </Badge>
+                  <span className="font-bold text-foreground">
                     {CADENCE_LABELS[t.cadence] ?? t.cadence}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-base text-muted-foreground">
                   {dayLabel(t)} · {t.item_count} ürün
                   {t.active && !t.cancelled_at ? ` · sıradaki: ${formatDate(t.next_run_at)}` : ""}
                 </p>
               </div>
               {!t.cancelled_at ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
+                <ShopButton variant="secondary"
                   disabled={pending}
                   onClick={() => cancel(t.id)}
                 >
                   Vazgeç
-                </Button>
+                </ShopButton>
               ) : null}
             </li>
           );

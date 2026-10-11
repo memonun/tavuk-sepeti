@@ -87,22 +87,57 @@
   --font-heading: var(--font-shop-display, var(--font-sans));
 }
 
+/* No grey flash on tap — every control has its own pressed state. Inherited,
+   and set on the root as well because the basket and menu are portalled to
+   <body>, outside `.shop-theme`; without it their rows still flashed. */
+:root:has(.shop-theme) {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .shop-theme {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  /* No grey flash on tap — every control below has its own pressed state. */
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
 }
 
-/* Display type. Tracking is size-specific: tight on headings, zero on body. */
+/* Display type. Tracking is size-specific, not one value for every heading:
+   a small fixed positive term plus a negative `em` term gives roughly
+   -0.016em at 20px, -0.019em at 24px, -0.023em at 34px and -0.025em at 48px —
+   tighter as the letters grow, which is what large type needs. `rem` for the
+   fixed term so it follows the visitor's text-size setting. The display face
+   is loaded with its optical-size axis (see the shop layout), so
+   `font-optical-sizing: auto` also gives big headings the display cut and
+   small ones the sturdier text cut. */
 :root:has(.shop-theme) :is(h1, h2, .font-display),
 .shop-theme :is(h1, h2, .font-display) {
   font-family: var(--font-heading);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: calc(0.02rem - 0.032em);
   font-optical-sizing: auto;
+}
+
+/* Dim to focus. The shared sheet/dialog backdrop is a 10% black wash, tuned
+   for the admin; over the shop it left the page behind a basket or a
+   "delete this address?" question looking fully live. A warm 42% says
+   plainly that the panel is the only thing in play. Unlayered so it outranks
+   the primitive's own utility, and scoped to storefront pages. */
+:root:has(.shop-theme) :is([data-slot="sheet-overlay"], [data-slot="dialog-overlay"]) {
+  background-color: rgb(42 28 18 / 0.42);
+}
+
+/* Increased contrast (an OS accessibility setting): every edge that carries
+   meaning goes to full ink, and secondary text stops being lighter than body
+   text. Colour only — no sizes or layout change. */
+@media (prefers-contrast: more) {
+  :root:has(.shop-theme),
+  .shop-theme {
+    --border: #5c4c3d;
+    --input: #2a1c12;
+    --shop-field-border: #2a1c12;
+    --muted-foreground: #2a1c12;
+  }
 }
 
 @layer theme, base, components, utilities;
@@ -120,8 +155,11 @@
    * order is restated so it holds even if this sheet loads before globals.css.
    * ------------------------------------------------------------------------- */
 
-  /* Pressed feedback on pointer-DOWN, not on release. */
-  .shop-press {
+  /* Pressed feedback on pointer-DOWN, not on release. `-soft` is the same
+     answer for a large surface (a full-width option row): 3% of a 340px card
+     is a visible lurch, 1.5% reads as a press. */
+  .shop-press,
+  .shop-press-soft {
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
@@ -133,6 +171,9 @@
   }
   .shop-press:active:not(:disabled, [aria-disabled="true"]) {
     transform: scale(0.97);
+  }
+  .shop-press-soft:active:not(:disabled, [aria-disabled="true"]) {
+    transform: scale(0.985);
   }
 
   .shop-focus:focus-visible {
@@ -319,7 +360,8 @@
      global rule in app/globals.css already collapses durations; this removes
      the scale itself so nothing jumps.) */
   @media (prefers-reduced-motion: reduce) {
-    .shop-press:active:not(:disabled, [aria-disabled="true"]) {
+    .shop-press:active:not(:disabled, [aria-disabled="true"]),
+    .shop-press-soft:active:not(:disabled, [aria-disabled="true"]) {
       transform: none;
     }
   }
@@ -351,10 +393,25 @@
       transform: translateY(100%);
     }
   }
+  /* The one "delight" entrance: the check mark on "Siparişiniz alındı" /
+     "Ödemeniz alındı" — rare, and the moment the whole visit was for. It
+     arrives rather than is simply there; no overshoot (nothing was thrown). */
+  .shop-enter-pop {
+    transition:
+      opacity 320ms var(--shop-ease-out),
+      transform 320ms var(--shop-ease-out);
+  }
+  @starting-style {
+    .shop-enter-pop {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     @starting-style {
       .shop-enter,
-      .shop-enter-up {
+      .shop-enter-up,
+      .shop-enter-pop {
         transform: none;
       }
     }

@@ -12,18 +12,17 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { updateProfileAction } from "@/features/storefront/application/update-profile";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatTRPhone } from "@/shared/utils/phone";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
+import { ShopInput } from "@/features/storefront/ui/kit/shop-field";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+      <dt className="text-base uppercase tracking-wide text-muted-foreground">
         {label}
       </dt>
-      <dd className="mt-1 font-medium">{value}</dd>
+      <dd className="mt-1 font-bold">{value}</dd>
     </div>
   );
 }
@@ -62,26 +61,22 @@ export function AccountProfileForm({
 
   if (!editing) {
     return (
-      <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm sm:p-6">
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-(--shop-shadow-sm) sm:p-6">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="font-display text-lg">Bilgilerim</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full"
+          <h2 className="font-display text-2xl leading-tight">Bilgilerim</h2>
+          <ShopButton variant="secondary"
             onClick={() => setEditing(true)}
           >
             Düzenle
-          </Button>
+          </ShopButton>
         </div>
-        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+        <dl className="mt-4 grid gap-4 text-base sm:grid-cols-2">
           <Field label="Ad Soyad" value={fullName || "—"} />
           <Field label="E-posta" value={email || "—"} />
           <Field label="Telefon" value={phone ? formatTRPhone(phone) : "—"} />
         </dl>
         {!phone || !fullName ? (
-          <p className="mt-4 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
+          <p className="mt-4 rounded-xl bg-muted px-3 py-2 text-base text-muted-foreground">
             Daha hızlı teslimat için eksik bilgilerinizi “Düzenle” ile ekleyin.
           </p>
         ) : null}
@@ -90,13 +85,13 @@ export function AccountProfileForm({
   }
 
   return (
-    <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm sm:p-6">
-      <h2 className="font-display text-lg">Bilgilerimi düzenle</h2>
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-(--shop-shadow-sm) sm:p-6">
+      <h2 className="font-display text-2xl leading-tight">Bilgilerimi düzenle</h2>
       <form action={onSubmit} className="mt-4 flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ap-first">Ad</Label>
-            <Input
+          <div className="flex min-w-0 flex-col gap-2">
+            <label className="text-base font-bold text-foreground" htmlFor="ap-first">Ad</label>
+            <ShopInput
               id="ap-first"
               name="first_name"
               defaultValue={firstName}
@@ -104,9 +99,9 @@ export function AccountProfileForm({
               disabled={pending}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ap-last">Soyad</Label>
-            <Input
+          <div className="flex min-w-0 flex-col gap-2">
+            <label className="text-base font-bold text-foreground" htmlFor="ap-last">Soyad</label>
+            <ShopInput
               id="ap-last"
               name="last_name"
               defaultValue={lastName}
@@ -115,9 +110,9 @@ export function AccountProfileForm({
             />
           </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="ap-phone">Telefon</Label>
-          <Input
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground" htmlFor="ap-phone">Telefon</label>
+          <ShopInput
             id="ap-phone"
             name="phone"
             type="tel"
@@ -127,32 +122,26 @@ export function AccountProfileForm({
             disabled={pending}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="ap-email">E-posta</Label>
-          <Input id="ap-email" value={email} disabled readOnly />
-          <p className="text-xs text-muted-foreground">E-posta değiştirilemez.</p>
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground" htmlFor="ap-email">E-posta</label>
+          <ShopInput id="ap-email" value={email} disabled readOnly />
+          <p className="text-base text-muted-foreground">E-posta değiştirilemez.</p>
         </div>
 
         {error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-base text-destructive" role="alert">
             {error}
           </p>
         ) : null}
 
         <div className="flex items-center gap-2">
-          <Button
-            type="submit"
-            size="lg"
-            className="rounded-full"
+          <ShopButton
+            type="submit" size="lg"
             disabled={pending}
           >
             {pending ? "Kaydediliyor…" : "Kaydet"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className="rounded-full"
+          </ShopButton>
+          <ShopButton variant="secondary" size="lg"
             disabled={pending}
             onClick={() => {
               setError(null);
@@ -160,7 +149,7 @@ export function AccountProfileForm({
             }}
           >
             Vazgeç
-          </Button>
+          </ShopButton>
         </div>
       </form>
     </section>

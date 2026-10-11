@@ -30,6 +30,9 @@ const shopDisplay = Bricolage_Grotesque({
   variable: "--font-shop-display",
   subsets: ["latin", "latin-ext"],
   display: "swap",
+  // Optical size: the face redraws itself between a sturdy text cut and a
+  // tighter display cut, and the browser picks by rendered size.
+  axes: ["opsz"],
 });
 
 // The `variable` classes above only reach the `.shop-theme` subtree, but the
@@ -192,7 +195,15 @@ export default async function ShopLayout({
           closeButton
           toastOptions={{
             duration: 7000,
-            classNames: { toast: "cn-toast" },
+            // Sonner's injected styles win the cascade, hence the `!`.
+            // The action ("Geri al") is the reason these toasts exist, so it
+            // is a real 44px button, not Sonner's 24px chip.
+            classNames: {
+              toast: "cn-toast",
+              actionButton:
+                "!h-11 !rounded-full !bg-primary !px-4 !text-base !font-bold !text-primary-foreground",
+              closeButton: "!size-7 [&_svg]:!size-4",
+            },
             style: { fontSize: "1.0625rem", lineHeight: 1.35 },
           }}
         />

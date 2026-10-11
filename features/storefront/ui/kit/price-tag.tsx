@@ -23,7 +23,7 @@ export function PriceTag({
   return (
     <p className={cn("shop-price-tag max-w-full flex-wrap", className)}>
       {prefix ? <span className="text-base font-semibold">{prefix}</span> : null}
-      <span className="shop-money text-[1.625rem] leading-tight font-extrabold">
+      <span className="shop-money text-[1.625rem] leading-tight font-extrabold whitespace-nowrap">
         {amount}
       </span>
       <span className="text-base font-semibold">/ {unit}</span>
