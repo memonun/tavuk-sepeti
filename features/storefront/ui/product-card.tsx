@@ -13,6 +13,7 @@ import {
   SHIPPING_BADGE,
 } from "@/features/storefront/domain/storefront.config";
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { hapticTick } from "@/features/storefront/ui/kit/haptic";
 import { PriceTag } from "@/features/storefront/ui/kit/price-tag";
 import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 import { trackProductAddedToCart } from "@/features/storefront/ui/meta-events";
@@ -158,6 +159,7 @@ export function ProductCard({ product }: { product: Product }) {
                 block
                 onClick={() => {
                   addItem(product.key, product.min_qty);
+                  hapticTick();
                   // Reported only after the basket really changed; no-op without a Pixel ID.
                   trackProductAddedToCart(product, product.min_qty);
                 }}

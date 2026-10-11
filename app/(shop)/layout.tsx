@@ -30,6 +30,9 @@ const shopDisplay = Bricolage_Grotesque({
   variable: "--font-shop-display",
   subsets: ["latin", "latin-ext"],
   display: "swap",
+  // Optical size: the face redraws itself between a sturdy text cut and a
+  // tighter display cut, and the browser picks by rendered size.
+  axes: ["opsz"],
 });
 
 // The `variable` classes above only reach the `.shop-theme` subtree, but the

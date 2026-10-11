@@ -18,6 +18,12 @@ import { MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { deleteAddressAction } from "@/features/storefront/application/delete-address";
 import { saveAddressAction } from "@/features/storefront/application/save-address";
 import { AddressForm } from "@/features/storefront/ui/address-form";
@@ -37,6 +43,13 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
+  // Deleting an address cannot be undone (there is no "Geri al" — the row is
+  // gone server-side), so this one action asks first. Nothing else in the
+  // shop does; a question on every tap teaches people to stop reading them.
+  // Target and open flag are separate so the address stays on screen while
+  // the dialog fades out, instead of the text blanking a frame early.
+  const [confirmingDelete, setConfirmingDelete] = useState<SavedAddress | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   function remove(addressId: string) {
     startTransition(async () => {
@@ -199,7 +212,10 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
                     </ShopButton>
                     <ShopButton
                       variant="danger"
-                      onClick={() => remove(address.id)}
+                      onClick={() => {
+                        setConfirmingDelete(address);
+                        setConfirmOpen(true);
+                      }}
                       disabled={pending}
                     >
                       Sil
@@ -211,6 +227,49 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
           );
         })}
       </ul>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent
+          showCloseButton={false}
+          className="gap-5 rounded-3xl bg-background p-5 text-base text-foreground sm:max-w-md sm:p-6"
+        >
+          <DialogTitle className="font-display text-2xl leading-tight font-bold">
+            Bu adres silinsin mi?
+          </DialogTitle>
+          <DialogDescription className="text-lg leading-relaxed text-foreground">
+            <strong className="font-bold">
+              {confirmingDelete?.label?.trim() || "Adres"}
+            </strong>
+            <br />
+            {confirmingDelete?.raw_text}
+            <br />
+            Silinen adres geri getirilemez.
+          </DialogDescription>
+          {/* The safe answer comes first and the destructive one is spelled
+              out ("Evet, sil"), so neither can be chosen by reflex. */}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <ShopButton
+              variant="secondary"
+              size="lg"
+              block
+              onClick={() => setConfirmOpen(false)}
+            >
+              Vazgeç
+            </ShopButton>
+            <ShopButton
+              variant="danger"
+              size="lg"
+              block
+              onClick={() => {
+                setConfirmOpen(false);
+                if (confirmingDelete) remove(confirmingDelete.id);
+              }}
+            >
+              Evet, sil
+            </ShopButton>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

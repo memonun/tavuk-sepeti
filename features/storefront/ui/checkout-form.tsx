@@ -103,6 +103,7 @@ import { useCart } from "@/features/storefront/ui/cart-provider";
 import { trackProductAddedToCart } from "@/features/storefront/ui/meta-events";
 import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
+import { hapticTick } from "@/features/storefront/ui/kit/haptic";
 import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 import { ShopInput, shopFieldClass } from "@/features/storefront/ui/kit/shop-field";
 import { ShopNotice } from "@/features/storefront/ui/kit/shop-notice";
@@ -994,6 +995,7 @@ function OrderSummary({
                       variant="quiet"
                       onClick={() => {
                         addItem(product.key, product.min_qty);
+                        hapticTick();
                         trackProductAddedToCart(product, product.min_qty);
                       }}
                     >
