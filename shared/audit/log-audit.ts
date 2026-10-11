@@ -87,14 +87,9 @@ export type AuditAction =
   | "market_location.created"
   | "market_location.updated"
   | "market_location.deleted"
-  // Ajanda — the owner's old work tracker (removed 2026-10; see below).
-  | "agenda_task.created"
-  | "agenda_task.updated"
-  | "agenda_task.completed"
-  | "agenda_task.reopened"
-  | "agenda_task.deleted"
-  // Anımsatıcılar (features/reminders) — replaced Ajanda; the agenda_task.*
-  // actions above stay because audit rows written under them still exist.
+  // Anımsatıcılar (features/reminders). A few audit rows written by the Ajanda
+  // page it replaced still carry "agenda_task.*" actions; nothing writes them
+  // any more, so they are no longer part of this union.
   | "reminder.created"
   | "reminder.updated"
   | "reminder.completed"
@@ -124,7 +119,6 @@ export type AuditEntityType =
   | "recurring_expense_template"
   | "market_sale"
   | "market_location"
-  | "agenda_task"
   | "reminder"
   | "reminder_list"
   | "calendar"

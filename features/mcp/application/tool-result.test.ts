@@ -16,7 +16,7 @@ function text(result: { content: Array<{ type: string; text?: string }> }): stri
 }
 
 describe("toolJson", () => {
-  it("serialises Maps and Sets (the agenda groups tasks in a Map)", () => {
+  it("serialises Maps and Sets", () => {
     const out = text(toolJson({ m: new Map([["2026-10-07", [1]]]), s: new Set([1, 2]) }) as never);
     expect(JSON.parse(out)).toEqual({ m: { "2026-10-07": [1] }, s: [1, 2] });
   });
