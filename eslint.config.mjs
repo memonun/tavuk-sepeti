@@ -153,6 +153,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "node_modules/**",
     "coverage/**",
+    "mobile/android-build/**",
   ]),
 ]);
 

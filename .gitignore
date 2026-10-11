@@ -59,3 +59,6 @@ customers*.csv
 Upcoming Orders.csv
 *orders*.csv
 /scripts/data/
+
+# Generated Android (TWA) project + built APK — rebuilt by `pnpm android:apk`.
+/mobile/android-build/
