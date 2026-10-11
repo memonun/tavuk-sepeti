@@ -23,10 +23,10 @@ admin kontrolü hem consent sayfasında hem her MCP isteğinde yapılır.
 ## Tool'lar
 
 Okuma: `get_dashboard_summary`, `list_orders`, `get_order`, `get_order_payments`,
-`list_customers`, `get_customer`, `list_products`, `get_finance_summary`, `get_agenda`,
+`list_customers`, `get_customer`, `list_products`, `get_finance_summary`, `get_calendar`,
 `list_expense_categories`, `list_expenses`, `list_market_locations`, `list_market_sales`,
 `list_recurring_expense_templates`, `get_route_summary`, `get_order_gifts`, `get_customer_prices`,
-`list_recurring_orders`, `get_recurring_order`, `list_planner_tasks`, `list_notifications`,
+`list_recurring_orders`, `get_recurring_order`, `get_reminders`, `list_notifications`,
 `get_storefront_settings`, `list_cargo_orders`, `get_market_report`, `get_product_tally`,
 `get_expense_summary`, `get_expense_category_breakdown`, `get_upcoming_recurring_expenses`.
 
@@ -48,14 +48,14 @@ durum kuralları, audit, cache revalidate); `shared/supabase/request-client.ts` 
 | Teslimat / kargo | `complete_delivery`, `revert_delivery`, `update_order_cargo_info` |
 | Sipariş ekstraları | `add_order_gift`, `remove_order_gift`*, `create_orders_bulk`, `set_product_sort_order` |
 | Tekrarlayan sipariş | `create_recurring_order`, `update_recurring_order`, `set_recurring_order_active` (mağaza talebini onaylar), `delete_recurring_order`* |
-| Planlayıcı | `create_planner_task`, `update_planner_task`, `delete_planner_task`* |
+| Takvim | `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`* (`occurrence_date` verilirse tekrarlayan etkinliğin yalnızca o günü) |
 | Bildirim | `mark_notification_read`, `mark_all_notifications_read` |
 | Mağaza ayarları | `update_storefront_settings` (CANLI kurallar: eve servis günleri, alt limitler, ücret) |
-| Ajanda | `create_agenda_task`, `update_agenda_task`, `complete_agenda_task`, `delete_agenda_task`* |
+| Anımsatıcılar | `create_reminder`, `update_reminder`, `complete_reminder`, `delete_reminder`* |
 
 \* Silme tool'ları `confirm: true` ister ve `destructiveHint` taşır (claude.ai onay kartında görünür).
-`update_customer` / `update_product` yalnızca gönderilen alanları değiştirir (mevcut kaydı
-okuyup üzerine bindirir); `update_order` / `update_agenda_task` tüm alanları yeniden yazar.
+`update_customer` / `update_product` / `update_reminder` yalnızca gönderilen alanları değiştirir
+(mevcut kaydı okuyup üzerine bindirir); `update_order` / `update_calendar_event` tüm alanları yeniden yazar.
 Müşteri adresi Google'da konumlandırılmaz: `lat/lng` verilmezse pinsiz kalır, pin panelden düzeltilir.
 `update_market_sale`, `update_recurring_expense_template` ve `update_expense_category` mevcut kaydı okuyup
 üzerine bindirir (kalemler/günler/üst kategori verilmezse korunur); rutin giderde sıklık değişince eski

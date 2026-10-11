@@ -78,3 +78,44 @@ export function endOfMonthYmd(ymd: string): string {
 export function todayInIstanbul(): string {
   return toIstanbulDateString(new Date());
 }
+
+/** Adds calendar months to a YYYY-MM-DD, clamping the day to the target
+ *  month's last day (`2026-01-31` + 1 → `2026-02-28`). */
+export function addMonthsToYmd(ymd: string, months: number): string {
+  const [year, month, day] = ymd.split("-").map(Number) as [number, number, number];
+  const monthIndex = year * 12 + (month - 1) + months;
+  const targetYear = Math.floor(monthIndex / 12);
+  const targetMonth = monthIndex - targetYear * 12; // 0-based
+  // Day 0 of the following month is the last day of the target month.
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const pad = (n: number, width: number) => String(n).padStart(width, "0");
+  return `${pad(targetYear, 4)}-${pad(targetMonth + 1, 2)}-${pad(Math.min(day, lastDay), 2)}`;
+}
+
+/** The instant whose Istanbul wall-clock is `ymd` at `hhmm` (default midnight).
+ *  Istanbul is a fixed UTC+3, so the offset is a constant. */
+export function istanbulInstant(ymd: string, hhmm = "00:00"): Date {
+  return new Date(`${ymd}T${hhmm}:00+03:00`);
+}
+
+/** Minutes since Istanbul midnight (0..1439) of an instant. */
+export function istanbulMinutesOfDay(input: Date | string): number {
+  const [hours, minutes] = formatHHmm(input).split(":").map(Number) as [number, number];
+  return hours * 60 + minutes;
+}
+
+/** Day of week of a YYYY-MM-DD with Monday = 0 … Sunday = 6 (the week starts
+ *  on Monday in Türkiye). */
+export function mondayIndexOfYmd(ymd: string): number {
+  return (new Date(`${ymd}T00:00:00Z`).getUTCDay() + 6) % 7;
+}
+
+/** The Monday of the week a YYYY-MM-DD falls in. */
+export function startOfWeekYmd(ymd: string): string {
+  return addDaysToYmd(ymd, -mondayIndexOfYmd(ymd));
+}
+
+/** `2026-10-11` → `2026-10-01`. */
+export function startOfMonthYmd(ymd: string): string {
+  return `${ymd.slice(0, 8)}01`;
+}

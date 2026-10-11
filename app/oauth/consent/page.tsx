@@ -81,7 +81,7 @@ export default async function ConnectorConsentPage({ searchParams }: PageProps) 
           hesabıyla paneline erişmek istiyor.
         </p>
         <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-          <li>Siparişleri, müşterileri, ürünleri, finans özetini ve ajandayı okuyabilir.</li>
+          <li>Siparişleri, müşterileri, ürünleri, finans özetini, takvimi ve anımsatıcıları okuyabilir.</li>
           <li>Sipariş durumlarını değiştirebilir ve siparişleri onaylayabilir.</li>
           <li>Sipariş oluşturamaz, silemez; ödeme kaydı ekleyemez.</li>
         </ul>

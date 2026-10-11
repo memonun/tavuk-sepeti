@@ -1,0 +1,35 @@
+{
+  "alindi": "2026-10-10T21:56:09Z",
+  "kaynak": {
+    "veritabani": "canlı (Supabase mdbavwtpxbnhxjsizwng)",
+    "kod_commit": "7c24cd569015865ca579a6da79658484c90d613e",
+    "kod_etiketi": "yedek/planlayici-ajanda-2026-10-11"
+  },
+  "planlayici": {
+    "tablo": "planner_tasks",
+    "satir_sayisi": 0,
+    "satirlar": [],
+    "not": "Tabloya bugüne kadar hiç satır yazılmamış (insert/update/delete sayaçları 0)."
+  },
+  "ajanda": {
+    "tablo": "agenda_tasks",
+    "satir_sayisi": 0,
+    "satirlar": [],
+    "not": "Tabloda 2026-10-07'de 6 satır oluşturulup aynı gün silinmiş; oluşturma/silme kayıtları audit_log'da yok (uygulama dışından yapılmış), içerikleri geri getirilemiyor. audit_log'da yalnızca 5 'reopened' + 5 'completed' kaydı var (16:12 UTC, başlık içermiyor).",
+    "kategoriler": [
+      { "kod": "genel", "etiket": "Genel", "renk": "slate" },
+      { "kod": "hayvan_sagligi", "etiket": "Hayvan Sağlığı", "renk": "rose" },
+      { "kod": "kumes_bakimi", "etiket": "Kümes Bakımı", "renk": "amber" },
+      { "kod": "satis_teslimat", "etiket": "Satış / Teslimat", "renk": "sky" },
+      { "kod": "alisveris", "etiket": "Alışveriş", "renk": "emerald" }
+    ],
+    "tekrar_birimleri": ["day", "week", "month"],
+    "silinen_test_satirlari_id": [
+      "6a7726b0-ef60-4aa2-9cc0-18b4914b7587",
+      "79e669d4-8c37-451c-ba27-61961a01b3ac",
+      "b97aa34c-586b-4f28-b8ef-a1f2f4ec551f",
+      "4f27ee10-5871-411d-b533-00de3882be34",
+      "e992650c-b11e-4ba5-99bb-6e9de22a07b7"
+    ]
+  }
+}

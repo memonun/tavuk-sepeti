@@ -87,12 +87,30 @@ export type AuditAction =
   | "market_location.created"
   | "market_location.updated"
   | "market_location.deleted"
-  // Ajanda — the owner's own work tracker (features/agenda).
+  // Ajanda — the owner's old work tracker (removed 2026-10; see below).
   | "agenda_task.created"
   | "agenda_task.updated"
   | "agenda_task.completed"
   | "agenda_task.reopened"
-  | "agenda_task.deleted";
+  | "agenda_task.deleted"
+  // Anımsatıcılar (features/reminders) — replaced Ajanda; the agenda_task.*
+  // actions above stay because audit rows written under them still exist.
+  | "reminder.created"
+  | "reminder.updated"
+  | "reminder.completed"
+  | "reminder.reopened"
+  | "reminder.deleted"
+  | "reminder_list.created"
+  | "reminder_list.updated"
+  | "reminder_list.deleted"
+  // Takvim (features/calendar).
+  | "calendar.created"
+  | "calendar.updated"
+  | "calendar.deleted"
+  | "calendar_event.created"
+  | "calendar_event.updated"
+  | "calendar_event.deleted"
+  | "calendar_event.occurrence_deleted";
 
 export type AuditEntityType =
   | "customer"
@@ -106,7 +124,11 @@ export type AuditEntityType =
   | "recurring_expense_template"
   | "market_sale"
   | "market_location"
-  | "agenda_task";
+  | "agenda_task"
+  | "reminder"
+  | "reminder_list"
+  | "calendar"
+  | "calendar_event";
 
 /**
  * `audit_log.entity_id` is a uuid column, but a singleton config row has no

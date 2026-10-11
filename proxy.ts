@@ -16,7 +16,8 @@ const ADMIN_PREFIXES = [
   "/map",
   "/routes",
   "/recurring",
-  "/ajanda",
+  "/takvim",
+  "/animsaticilar",
 ];
 
 function isAdminPath(pathname: string): boolean {

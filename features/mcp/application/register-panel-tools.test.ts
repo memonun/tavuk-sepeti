@@ -44,7 +44,8 @@ vi.mock("@/features/finance/application/get-finance-summary", () => ({
 vi.mock("@/features/routing/application/get-day-load-manifest", () => ({ buildDayLoadManifest: vi.fn() }));
 vi.mock("@/features/routing/application/get-day-orders", () => ({ getDayOrders: vi.fn() }));
 vi.mock("@/features/routing/application/get-day-route", () => ({ getDayRoute: vi.fn() }));
-vi.mock("@/features/agenda/application/get-agenda-page", () => ({ getAgendaPage: vi.fn() }));
+vi.mock("@/features/calendar/application/get-calendar-range", () => ({ getCalendarForDays: vi.fn() }));
+vi.mock("@/features/reminders/application/get-reminders-page", () => ({ getRemindersPage: vi.fn() }));
 vi.mock("@/features/orders/application/payments", () => ({
   addPaymentAction: vi.fn(),
   deletePaymentAction: vi.fn(),
@@ -125,10 +126,6 @@ vi.mock("@/features/recurring/application/recurring-template-actions", () => ({
   listAllRecurringTemplatesAction: vi.fn(),
   listCustomerRecurringTemplatesAction: vi.fn(),
 }));
-vi.mock("@/features/planner/application/create-planner-task", () => ({ createPlannerTaskAction: vi.fn() }));
-vi.mock("@/features/planner/application/update-planner-task", () => ({ updatePlannerTaskAction: vi.fn() }));
-vi.mock("@/features/planner/application/delete-planner-task", () => ({ deletePlannerTaskAction: vi.fn() }));
-vi.mock("@/features/planner/application/list-planner-tasks", () => ({ listPlannerWeekTasks: vi.fn() }));
 vi.mock("@/features/admin-notifications/application/list-notifications", () => ({ getNotificationFeed: vi.fn() }));
 vi.mock("@/features/admin-notifications/application/mark-notification-read", () => ({
   markNotificationReadAction: vi.fn(),
@@ -142,11 +139,17 @@ vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductT
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: vi.fn() }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: vi.fn() }));
-vi.mock("@/features/agenda/application/agenda-task-actions", () => ({
-  createAgendaTaskAction: vi.fn(),
-  updateAgendaTaskAction: vi.fn(),
-  setAgendaTaskCompletedAction: vi.fn(),
-  deleteAgendaTaskAction: vi.fn(),
+vi.mock("@/features/reminders/application/reminder-actions", () => ({
+  createReminderAction: vi.fn(),
+  updateReminderAction: vi.fn(),
+  setReminderCompletedAction: vi.fn(),
+  deleteReminderAction: vi.fn(),
+}));
+vi.mock("@/features/calendar/application/calendar-event-actions", () => ({
+  createEventAction: vi.fn(),
+  updateEventAction: vi.fn(),
+  deleteEventAction: vi.fn(),
+  deleteEventOccurrenceAction: vi.fn(),
 }));
 
 const { registerPanelTools } = await import("@/features/mcp/application/register-panel-tools");
@@ -184,7 +187,7 @@ describe("panel MCP tools", () => {
       .sort();
     expect(readers).toEqual(
       [
-        "get_agenda",
+        "get_calendar",
         "get_customer",
         "get_dashboard_summary",
         "get_finance_summary",
@@ -210,7 +213,7 @@ describe("panel MCP tools", () => {
         "get_upcoming_recurring_expenses",
         "list_cargo_orders",
         "list_notifications",
-        "list_planner_tasks",
+        "get_reminders",
         "list_recurring_orders",
       ].sort(),
     );
@@ -222,9 +225,9 @@ describe("panel MCP tools", () => {
     expect(writers).toEqual(
       [
         "add_order_payment",
-        "complete_agenda_task",
+        "complete_reminder",
         "confirm_orders",
-        "create_agenda_task",
+        "create_reminder",
         "create_customer",
         "create_expense",
         "create_expense_category",
@@ -233,7 +236,7 @@ describe("panel MCP tools", () => {
         "create_order",
         "create_product",
         "create_recurring_expense_template",
-        "delete_agenda_task",
+        "delete_reminder",
         "delete_customers",
         "delete_expense",
         "delete_market_location",
@@ -253,7 +256,7 @@ describe("panel MCP tools", () => {
         "set_product_pricing",
         "set_recurring_expense_template_active",
         "transition_order",
-        "update_agenda_task",
+        "update_reminder",
         "update_customer",
         "update_expense",
         "update_expense_category",
@@ -264,9 +267,9 @@ describe("panel MCP tools", () => {
         "add_order_gift",
         "complete_delivery",
         "create_orders_bulk",
-        "create_planner_task",
+        "create_calendar_event",
         "create_recurring_order",
-        "delete_planner_task",
+        "delete_calendar_event",
         "delete_recurring_order",
         "mark_all_notifications_read",
         "mark_notification_read",
@@ -275,7 +278,7 @@ describe("panel MCP tools", () => {
         "set_product_sort_order",
         "set_recurring_order_active",
         "update_order_cargo_info",
-        "update_planner_task",
+        "update_calendar_event",
         "update_recurring_order",
         "update_storefront_settings",
       ].sort(),
