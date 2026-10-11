@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -17,6 +18,8 @@ import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-but
 import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
 import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
+
+export const metadata: Metadata = { title: "Hesabım" };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",

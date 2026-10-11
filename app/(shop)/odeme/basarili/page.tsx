@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { getReturnPaymentState } from "@/features/storefront/application/get-order-payment-status";
 import { PaymentSuccess } from "@/features/storefront/ui/payment-success";
+
+export const metadata: Metadata = { title: "Ödeme sonucu" };
 
 export default async function PaymentSuccessPage({
   searchParams,

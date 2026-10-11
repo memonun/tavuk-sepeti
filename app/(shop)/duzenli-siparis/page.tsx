@@ -13,7 +13,8 @@ import { MyRecurringOrders } from "@/features/storefront/ui/my-recurring-orders"
 import { RecurringOrderForm } from "@/features/storefront/ui/recurring-order-form";
 
 export const metadata: Metadata = {
-  title: "Düzenli Sipariş — Apuhan Çiftliği",
+  // The shop layout's template appends "| Apuhan Çiftliği".
+  title: "Düzenli Sipariş",
   description:
     "Her hafta düzenli aldığınız ürünleri tekrar tekrar sipariş vermeden planlayın. Teslimat alt limiti: 250 ₺",
 };
@@ -37,7 +38,7 @@ function Header() {
   return (
     <div>
       <h1 className="font-display text-[2rem] leading-tight sm:text-4xl tracking-[-0.01em] text-foreground">
-        🔄 Düzenli Sipariş
+        Düzenli Sipariş
       </h1>
       <p className="mt-2 max-w-lg text-base leading-relaxed text-muted-foreground">
         Her hafta düzenli aldığınız ürünleri tekrar tekrar sipariş vermeden
@@ -55,10 +56,13 @@ function StepsExplainer() {
     <ol className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       {STEPS.map((step, index) => (
         <li key={step.title} className="rounded-2xl border border-border bg-card p-4">
-          <span className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary">
+          <span
+            className="font-display flex size-10 items-center justify-center rounded-full bg-primary text-xl text-primary-foreground"
+            aria-hidden
+          >
             {index + 1}
           </span>
-          <p className="mt-3 font-semibold text-foreground">{step.title}</p>
+          <p className="mt-3 text-lg font-bold text-foreground">{step.title}</p>
           <p className="mt-1 text-base leading-relaxed text-muted-foreground">
             {step.description}
           </p>

@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { PasswordResetRequestForm } from "@/features/storefront/ui/password-reset-request-form";
+
+export const metadata: Metadata = { title: "Şifremi unuttum" };
 
 export default function ForgotPasswordPage() {
   return (

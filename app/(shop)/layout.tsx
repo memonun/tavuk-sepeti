@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible_Next, Bricolage_Grotesque } from "next/font/google";
 
 import { getViewer } from "@/features/auth/application/get-viewer";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
@@ -16,27 +15,10 @@ import { Toaster } from "@/components/ui/sonner";
 import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
+import { shopBody, shopDisplay } from "./fonts";
 import "./theme.css";
 
-// Body: Atkinson Hyperlegible Next — drawn for low-vision readers (I / l / 1
-// and O / 0 never collapse into each other), which is the storefront's actual
-// audience. Display: Bricolage Grotesque — a warm, sign-painter grotesque for
-// headings only. latin-ext covers Turkish diacritics (ğ, İ/ı, ş, ç, ü, ö).
-const shopBody = Atkinson_Hyperlegible_Next({
-  variable: "--font-shop-body",
-  subsets: ["latin", "latin-ext"],
-  display: "swap",
-});
-const shopDisplay = Bricolage_Grotesque({
-  variable: "--font-shop-display",
-  subsets: ["latin", "latin-ext"],
-  display: "swap",
-  // Optical size: the face redraws itself between a sturdy text cut and a
-  // tighter display cut, and the browser picks by rendered size.
-  axes: ["opsz"],
-});
-
-// The `variable` classes above only reach the `.shop-theme` subtree, but the
+// The fonts' `variable` classes only reach the `.shop-theme` subtree, but the
 // basket, the menu and every dialog are portalled to <body>. Publishing the
 // same two families on the root (only while a storefront page is mounted)
 // lets theme.css use them there too.

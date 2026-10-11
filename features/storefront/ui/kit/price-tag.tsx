@@ -16,17 +16,25 @@ export function PriceTag({
   amount: string;
   /** What the price buys, e.g. "kg" or "paket (15 adet)". */
   unit: string;
-  /** Optional lead-in, e.g. "başlangıç" for a volume-discounted product. */
+  /** Optional lead-in shown above the tag, e.g. "Başlangıç fiyatı" for a
+   *  volume-discounted product. */
   prefix?: string | undefined;
   className?: string | undefined;
 }) {
   return (
-    <p className={cn("shop-price-tag max-w-full flex-wrap", className)}>
-      {prefix ? <span className="text-base font-semibold">{prefix}</span> : null}
-      <span className="shop-money text-[1.625rem] leading-tight font-extrabold whitespace-nowrap">
-        {amount}
-      </span>
-      <span className="text-base font-semibold">/ {unit}</span>
-    </p>
+    <div className={cn("flex max-w-full flex-col items-start gap-1", className)}>
+      {/* Above the tag, not inside it: inside, "başlangıç 125,00 ₺ / paket
+          (15 adet)" no longer fitted one line and the tag broke into a
+          two-line block. */}
+      {prefix ? (
+        <p className="text-base font-semibold text-muted-foreground">{prefix}</p>
+      ) : null}
+      <p className="shop-price-tag max-w-full flex-wrap">
+        <span className="shop-money text-[1.625rem] leading-tight font-extrabold whitespace-nowrap">
+          {amount}
+        </span>
+        <span className="text-base font-semibold">/ {unit}</span>
+      </p>
+    </div>
   );
 }
