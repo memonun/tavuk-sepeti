@@ -30,10 +30,10 @@ import { formatTRY } from "@/shared/utils/money";
 /**
  * Storefront home. Products first: the header already says who this is, so
  * the page opens on one short line, the single filter the shop has ("where
- * should we deliver"), and — on the same first screen — the things for sale.
- * Everything a first-time older shopper might ask next (a weekly standing
- * order, when the van comes, what shipping costs, how to just phone instead)
- * follows underneath, in that order.
+ * should we deliver") with the weekly standing order beside it, and — on the
+ * same first screen — the things for sale. Everything a first-time older
+ * shopper might ask next (when the van comes, what shipping costs, how to
+ * just phone instead) follows underneath, in that order.
  *
  * Admins see the shop too (the header shows a "Yönetim" button → /admin); they
  * are not auto-redirected away, so they can preview the storefront.
@@ -97,7 +97,16 @@ export default async function ShopHomePage({
         aria-labelledby="catalog-heading"
         className="mt-6 scroll-mt-24 sm:mt-8"
       >
-        <CatalogScopeControls scope={scope} />
+        {/* The two things decided before looking at products: where it goes,
+            and whether it should simply come every week. Stacked on a phone;
+            on desktop the standing-order row fills the space beside the two
+            delivery buttons and lines up with them. */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-6">
+          <div className="lg:w-[36rem] lg:shrink-0">
+            <CatalogScopeControls scope={scope} />
+          </div>
+          <RecurringOrderTeaser className="lg:flex-1" />
+        </div>
         <h2
           id="catalog-heading"
           className="mt-7 font-display text-[1.75rem] leading-tight text-foreground sm:mt-9 sm:text-4xl"
@@ -117,8 +126,6 @@ export default async function ShopHomePage({
             <ProductShowcase products={catalogProducts} />
           </div>
       */}
-
-      <RecurringOrderTeaser />
 
       {/* Both fulfilment stories, in the owner's own words — when the van
           comes, and what shipping costs. Both are rules the owner edits in
