@@ -20,7 +20,7 @@
  *                 tab never collects.
  */
 import { useActionState, useState } from "react";
-import { PackageSearchIcon } from "lucide-react";
+import { MapPinIcon, PackageIcon, PackageSearchIcon, RepeatIcon } from "lucide-react";
 
 import {
   findGuestOrdersAction,
@@ -115,6 +115,14 @@ function ModeTab({
   );
 }
 
+/** Line icons in the shop's green, like every other icon on the site — the
+ *  option list's emoji (📍📦🔄) rendered as three differently coloured
+ *  stickers that belonged to no palette. */
+function OrderTypeIcon({ type }: { type: GuestOrderType }) {
+  const Icon = type === "delivery" ? MapPinIcon : type === "shipping" ? PackageIcon : RepeatIcon;
+  return <Icon className="size-7 text-primary" aria-hidden />;
+}
+
 function PhoneLookup() {
   const [state, formAction, pending] = useActionState(
     findGuestOrdersAction,
@@ -167,9 +175,7 @@ function PhoneLookup() {
                   disabled={pending}
                   className="sr-only"
                 />
-                <span className="text-xl" aria-hidden>
-                  {option.emoji}
-                </span>
+                <OrderTypeIcon type={option.value} />
                 <span className="text-base font-bold leading-tight text-foreground">
                   {option.label}
                 </span>

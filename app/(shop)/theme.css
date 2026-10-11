@@ -393,6 +393,33 @@
       transform: translateY(100%);
     }
   }
+  /* The home page's opening picture (HomeHero). The shop's one staged
+     page-load moment, and deliberately a quiet one: it fades up and eases back
+     4% to its real size. Nothing waits on it. The starting style is skipped
+     when <html> carries `data-shop-intro-seen` — set before paint by an inline
+     script when this session has already seen it — so it plays once per
+     visit, not on every return to the home page. Longer than the 300ms UI
+     budget on purpose: it answers no press, it is the shop opening. */
+  .shop-hero-media {
+    transition:
+      opacity 500ms var(--shop-ease-out),
+      transform 800ms var(--shop-ease-out);
+  }
+  @starting-style {
+    :root:not([data-shop-intro-seen]) .shop-hero-media {
+      opacity: 0;
+      transform: scale(1.04);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @starting-style {
+      :root:not([data-shop-intro-seen]) .shop-hero-media {
+        opacity: 1;
+        transform: none;
+      }
+    }
+  }
+
   /* The one "delight" entrance: the check mark on "Siparişiniz alındı" /
      "Ödemeniz alındı" — rare, and the moment the whole visit was for. It
      arrives rather than is simply there; no overshoot (nothing was thrown). */

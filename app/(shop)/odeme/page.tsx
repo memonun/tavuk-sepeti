@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { isPaytrEnabled } from "@/features/payments/application/paytr";
@@ -22,6 +23,8 @@ import { ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 import { MetaCheckoutTracker } from "@/features/storefront/ui/meta-checkout-tracker";
 import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { env } from "@/shared/env";
+
+export const metadata: Metadata = { title: "Siparişi tamamla" };
 
 /** "Today" as a YYYY-MM-DD calendar day in Europe/Istanbul. */
 function todayInIstanbul(): string {

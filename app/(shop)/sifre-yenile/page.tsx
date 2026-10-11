@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { PasswordUpdateForm } from "@/features/storefront/ui/password-update-form";
+
+export const metadata: Metadata = { title: "Yeni şifre belirle" };
 
 /**
  * Set-new-password page. Reached via the recovery link, which lands on

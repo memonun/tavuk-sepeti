@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { XCircleIcon } from "lucide-react";
 
 import { ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
+
+export const metadata: Metadata = { title: "Ödeme tamamlanamadı" };
 
 export default async function PaymentFailedPage({
   searchParams,

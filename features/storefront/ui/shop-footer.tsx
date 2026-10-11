@@ -27,7 +27,7 @@ export function ShopFooter() {
             <address className="mt-4 space-y-1 text-base leading-relaxed text-muted-foreground not-italic">
               <p>{COMPANY.tradeName}</p>
               <p>{COMPANY.address}</p>
-              <p>{COMPANY.phone}</p>
+              <p className="shop-money">{COMPANY.phone}</p>
               <p className="break-all">{COMPANY.email}</p>
               {COMPANY.mersisNo ? <p>MERSİS: {COMPANY.mersisNo}</p> : null}
             </address>

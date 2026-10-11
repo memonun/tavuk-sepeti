@@ -16,6 +16,7 @@ import {
 } from "@/features/storefront/domain/storefront.config";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
 import { CatalogScopeControls } from "@/features/storefront/ui/catalog-scope-controls";
+import { HomeHero } from "@/features/storefront/ui/home-hero";
 // "Öne Çıkan Ürünler" vitrini şimdilik UI'dan gizlendi (owner isteği — şu an
 // yeterince ürün yok). Bileşen ve veri akışı ileride geri açmak için korunuyor;
 // geri açmak için bu importu ve aşağıdaki <ProductShowcase /> bloğunu tekrar aç.
@@ -29,10 +30,10 @@ import { formatTRY } from "@/shared/utils/money";
 /**
  * Storefront home. Products first: the header already says who this is, so
  * the page opens on one short line, the single filter the shop has ("where
- * should we deliver"), and — on the same first screen — the things for sale.
- * Everything a first-time older shopper might ask next (a weekly standing
- * order, when the van comes, what shipping costs, how to just phone instead)
- * follows underneath, in that order.
+ * should we deliver") with the weekly standing order beside it, and — on the
+ * same first screen — the things for sale. Everything a first-time older
+ * shopper might ask next (when the van comes, what shipping costs, how to
+ * just phone instead) follows underneath, in that order.
  *
  * Admins see the shop too (the header shows a "Yönetim" button → /admin); they
  * are not auto-redirected away, so they can preview the storefront.
@@ -72,12 +73,21 @@ export default async function ShopHomePage({
         <StorefrontScopeSync />
       </Suspense>
 
-      <h1 className="max-w-3xl font-display text-[2.125rem] leading-[1.05] text-foreground sm:text-5xl">
-        Çiftlikten sofranıza
-      </h1>
-      <p className="mt-2.5 max-w-xl text-lg leading-relaxed text-muted-foreground">
-        Malatya&apos;daki çiftliğimizden. Seçin, sepete ekleyin, biz getirelim.
-      </p>
+      {/* Phone and tablet: the picture, then the line of text. Desktop: text
+          on the left, picture on the right, so the block is no taller than
+          the picture and the products below still start on the first
+          screen. DOM order keeps the heading first for a screen reader. */}
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_30rem] lg:items-center lg:gap-10">
+        <div className="order-2 lg:order-1">
+          <h1 className="max-w-3xl font-display text-[2.125rem] leading-[1.05] text-foreground sm:text-5xl">
+            Çiftlikten sofranıza
+          </h1>
+          <p className="mt-2.5 max-w-xl text-lg leading-relaxed text-muted-foreground">
+            Malatya&apos;daki çiftliğimizden. Seçin, sepete ekleyin, biz getirelim.
+          </p>
+        </div>
+        <HomeHero className="order-1 lg:order-2" />
+      </div>
 
       {/* `#urunler` is the target of both scope links, so after choosing, the
           page lands with the choice itself (now marked) at the top and the
@@ -87,7 +97,16 @@ export default async function ShopHomePage({
         aria-labelledby="catalog-heading"
         className="mt-6 scroll-mt-24 sm:mt-8"
       >
-        <CatalogScopeControls scope={scope} />
+        {/* The two things decided before looking at products: where it goes,
+            and whether it should simply come every week. Stacked on a phone;
+            on desktop the standing-order row fills the space beside the two
+            delivery buttons and lines up with them. */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-6">
+          <div className="lg:w-[36rem] lg:shrink-0">
+            <CatalogScopeControls scope={scope} />
+          </div>
+          <RecurringOrderTeaser className="lg:flex-1" />
+        </div>
         <h2
           id="catalog-heading"
           className="mt-7 font-display text-[1.75rem] leading-tight text-foreground sm:mt-9 sm:text-4xl"
@@ -107,8 +126,6 @@ export default async function ShopHomePage({
             <ProductShowcase products={catalogProducts} />
           </div>
       */}
-
-      <RecurringOrderTeaser />
 
       {/* Both fulfilment stories, in the owner's own words — when the van
           comes, and what shipping costs. Both are rules the owner edits in

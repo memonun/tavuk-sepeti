@@ -102,7 +102,7 @@ export function ProductCard({ product }: { product: Product }) {
           className="mt-3 self-start"
           amount={formatTRY(fromPriceMinor(product))}
           unit={product.unit_label}
-          prefix={hasVolumeDiscount(product) ? "başlangıç" : undefined}
+          prefix={hasVolumeDiscount(product) ? "Başlangıç fiyatı" : undefined}
         />
         {hasHalfUnitOption(product) ? (
           <p className="mt-2 text-base text-muted-foreground">

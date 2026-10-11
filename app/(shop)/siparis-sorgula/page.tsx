@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { FindOrderForm } from "@/features/storefront/ui/find-order-form";
 
 export const metadata: Metadata = {
-  title: "Sipariş sorgula — Apuhan Çiftliği",
+  // The shop layout's template appends "| Apuhan Çiftliği".
+  title: "Sipariş sorgula",
   description:
     "Sipariş numaranız ve telefonunuzla siparişinizin durumunu görün, ödemesini tamamlayın.",
 };
@@ -14,10 +15,9 @@ export default function FindOrderPage() {
       <div className="text-center">
         <h1 className="font-display text-[2rem] leading-tight sm:text-4xl">Sipariş sorgula</h1>
         <p className="mt-1 text-base text-muted-foreground">
-          Hesabınız varsa yukarıdan &quot;Hesabım&quot; tuşuna basarak aktif
-          siparişlerinizi takip edebilirsiniz. Hesabınız
-          olmadan verdiğiniz siparişlerin durumunu da buradan görebilir, ödemesi
-          yarım kaldıysa tamamlayabilirsiniz.
+          Hesabınız olmadan verdiğiniz siparişin durumunu buradan görebilir,
+          ödemesi yarım kaldıysa tamamlayabilirsiniz. Hesabınız varsa
+          siparişleriniz &quot;Hesabım&quot; sayfasında da listelenir.
         </p>
       </div>
       <FindOrderForm />
