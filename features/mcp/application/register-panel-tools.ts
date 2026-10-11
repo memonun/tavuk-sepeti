@@ -18,7 +18,6 @@ import { getCustomerById } from "@/features/customers/application/get-customer";
 import { listCustomers } from "@/features/customers/application/list-customers";
 import { getFinanceSummary } from "@/features/finance/application/get-finance-summary";
 import {
-  agendaInput,
   confirmOrdersInput,
   financeSummaryInput,
   getCustomerInput,
@@ -27,7 +26,6 @@ import {
   listOrdersInput,
   transitionOrderInput,
 } from "@/features/mcp/domain/mcp-tool-inputs";
-import { getAgendaPage } from "@/features/agenda/application/get-agenda-page";
 import { confirmOrdersAs } from "@/features/orders/application/confirm-orders-as";
 import { getDashboardOrderStats } from "@/features/orders/application/get-dashboard-order-stats";
 import { getOrderById, getOrderEvents } from "@/features/orders/application/get-order";
@@ -37,15 +35,15 @@ import { listAllProducts } from "@/features/products/application/list-products";
 import { logger } from "@/shared/logger";
 
 import { registerAdminMiscTools } from "./tools/admin-misc-tools";
-import { registerAgendaWriteTools } from "./tools/agenda-write-tools";
+import { registerCalendarTools } from "./tools/calendar-tools";
 import { registerFinanceAdminTools } from "./tools/finance-admin-tools";
 import { registerFinanceTools } from "./tools/finance-tools";
 import { registerCustomerWriteTools } from "./tools/customer-write-tools";
 import { registerOrderExtraTools } from "./tools/order-extra-tools";
 import { registerOrderWriteTools } from "./tools/order-write-tools";
-import { registerPlannerTools } from "./tools/planner-tools";
 import { registerProductWriteTools } from "./tools/product-write-tools";
 import { registerRecurringOrderTools } from "./tools/recurring-order-tools";
+import { registerReminderTools } from "./tools/reminder-tools";
 import { registerRouteTools } from "./tools/route-tools";
 import { toolError, toolJson, toolRefusal } from "./tool-result";
 
@@ -167,21 +165,6 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
   );
 
   server.registerTool(
-    "get_agenda",
-    {
-      title: "Ajanda / yapılacaklar",
-      description:
-        "Haftanın günlere göre görevlerini, bekleyen yapılacaklar listesini (backlog) ve hafta özetini getirir.",
-      inputSchema: agendaInput,
-      annotations: { ...READ_ONLY, title: "Ajanda / yapılacaklar" },
-    },
-    async (input) => {
-      const result = await getAgendaPage(input);
-      return result.ok ? toolJson(result.value) : toolError("get_agenda", result.error);
-    },
-  );
-
-  server.registerTool(
     "transition_order",
     {
       title: "Sipariş durumunu değiştir",
@@ -264,12 +247,12 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
   registerOrderWriteTools(server);
   registerCustomerWriteTools(server);
   registerProductWriteTools(server);
-  registerAgendaWriteTools(server);
+  registerCalendarTools(server);
+  registerReminderTools(server);
   registerFinanceTools(server);
   registerFinanceAdminTools(server);
   registerRouteTools(server);
   registerOrderExtraTools(server);
   registerRecurringOrderTools(server);
-  registerPlannerTools(server);
   registerAdminMiscTools(server);
 }

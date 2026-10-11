@@ -186,39 +186,76 @@ export const deleteProductInput = {
   confirm: confirmDelete,
 };
 
-// ---- Agenda (yapılacaklar) ------------------------------------------------
+// ---- Anımsatıcılar ---------------------------------------------------------
 
-const agendaCategory = z.enum([
-  "genel",
-  "hayvan_sagligi",
-  "kumes_bakimi",
-  "satis_teslimat",
-  "alisveris",
-]);
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Saat SS:DD biçiminde olmalı.");
+const repeatUnit = z.enum(["day", "week", "month", "year"]);
+const repeatEvery = z.number().int().min(1).max(365);
 
-const agendaBody = {
+const reminderBody = {
+  notes: z.string().max(2000).nullish().describe("Verilmezse korunur; null/boş = temizle."),
+  due_date: ymd.nullish().describe("Verilmezse korunur; null/boş = tarihsiz yap (saat ve tekrar da temizlenir)."),
+  due_time: hhmm.nullish().describe("İstanbul saati. Verilmezse korunur; null/boş = tüm gün. due_date olmadan verilemez."),
+  priority: z.number().int().min(0).max(3).optional().describe("0 yok, 1 düşük, 2 orta, 3 yüksek."),
+  flagged: z.boolean().optional(),
+  repeat_unit: repeatUnit.nullish().describe("Verilmezse korunur; null = tekrarı kaldır. due_date gerektirir."),
+  repeat_every: repeatEvery.nullish().describe("Kaç birimde bir (örn. repeat_unit=month, repeat_every=3 → 3 ayda bir). Boşsa 1."),
+};
+
+export const createReminderInput = {
+  list_id: uuid.describe("get_reminders çıktısındaki lists[].id."),
   title: z.string().min(1).max(200),
-  notes: z.string().max(1000).nullish(),
-  category: agendaCategory.default("genel"),
-  due_date: ymd.nullish().describe("Boşsa tarihsiz (backlog)."),
-  repeat_unit: z.enum(["day", "week", "month"]).nullish(),
-  repeat_every: z.number().int().min(1).max(365).nullish().describe("repeat_unit ile birlikte verilmeli."),
+  ...reminderBody,
 };
 
-export const createAgendaTaskInput = agendaBody;
-
-export const updateAgendaTaskInput = {
+export const updateReminderInput = {
   id: uuid,
-  ...agendaBody,
+  list_id: uuid.optional().describe("Başka listeye taşımak için."),
+  title: z.string().min(1).max(200).optional(),
+  ...reminderBody,
 };
 
-export const completeAgendaTaskInput = {
+export const completeReminderInput = {
   id: uuid,
   completed: z.boolean().describe("true = tamamlandı, false = yeniden aç."),
 };
 
-export const deleteAgendaTaskInput = {
+export const deleteReminderInput = {
   id: uuid,
+  confirm: confirmDelete,
+};
+
+// ---- Takvim ----------------------------------------------------------------
+
+const calendarEventBody = {
+  calendar_id: uuid.describe("get_calendar çıktısındaki calendars[].id."),
+  title: z.string().min(1).max(200),
+  notes: z.string().max(2000).nullish(),
+  location: z.string().max(200).nullish(),
+  all_day: z.boolean().default(false).describe("true = tüm gün; saatler yok sayılır."),
+  start_date: ymd.describe("Başlangıç günü."),
+  start_time: hhmm.nullish().describe("İstanbul saati. all_day=false ise zorunlu."),
+  end_date: ymd.nullish().describe("Bitiş günü (tüm gün etkinlikte SON gün, dahil). Boşsa start_date."),
+  end_time: hhmm.nullish().describe("İstanbul saati. Boşsa başlangıçtan 1 saat sonra."),
+  repeat_unit: repeatUnit.nullish().describe("Tekrarlayan etkinlik için; boşsa tek seferlik."),
+  repeat_every: repeatEvery.nullish().describe("Kaç birimde bir. Boşsa 1."),
+  repeat_until: ymd.nullish().describe("Tekrarın son günü; boşsa süresiz."),
+};
+
+export const createCalendarEventInput = calendarEventBody;
+
+export const updateCalendarEventInput = {
+  id: uuid,
+  ...calendarEventBody,
+};
+
+export const deleteCalendarEventInput = {
+  id: uuid,
+  occurrence_date: ymd
+    .optional()
+    .describe(
+      "Tekrarlayan etkinliğin YALNIZCA bu gündeki tekrarını siler (get_calendar çıktısındaki occurrence_date). Verilmezse etkinliğin tamamı / tüm seri silinir.",
+    ),
   confirm: confirmDelete,
 };
 
@@ -522,28 +559,6 @@ export const setRecurringOrderActiveInput = {
 };
 
 export const deleteRecurringOrderInput = { id: uuid, confirm: confirmDelete };
-
-// ---- Planner ---------------------------------------------------------------
-
-export const listPlannerTasksInput = {
-  week_start: ymd.describe("Haftanın PAZARTESİ günü (YYYY-AA-GG)."),
-};
-
-export const createPlannerTaskInput = {
-  title: z.string().min(1).max(200),
-  notes: z.string().max(2000).nullish(),
-  scheduled_date: ymd.nullish().describe("Boşsa tarihsiz (backlog)."),
-};
-
-export const updatePlannerTaskInput = {
-  id: uuid,
-  title: z.string().min(1).max(200).optional(),
-  notes: z.string().max(2000).nullish().describe("Verilmezse korunur; null/boş = temizle."),
-  scheduled_date: ymd.nullish().describe("Verilmezse korunur; null/boş = tarihsiz yap."),
-  status: z.enum(["open", "done"]).optional(),
-};
-
-export const deletePlannerTaskInput = { id: uuid, confirm: confirmDelete };
 
 // ---- Notifications, storefront settings, reports --------------------------
 

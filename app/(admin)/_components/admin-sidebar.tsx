@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  CalendarCheck,
+  CalendarDays,
   CalendarRange,
   LayoutDashboard,
-  ListTodo,
+  ListChecks,
   LogOut,
   Map,
   Package,
@@ -41,7 +41,8 @@ import {
 
 const navItems = [
   { href: "/admin", label: "Panel", icon: LayoutDashboard, exact: true },
-  { href: "/ajanda", label: "Ajanda", icon: CalendarCheck, exact: false },
+  { href: "/takvim", label: "Takvim", icon: CalendarDays, exact: false },
+  { href: "/animsaticilar", label: "Anımsatıcılar", icon: ListChecks, exact: false },
   { href: "/customers", label: "Müşteriler", icon: Users, exact: false },
   { href: "/orders", label: "Siparişler", icon: Package, exact: false },
   { href: "/recurring", label: "Tekrarlananlar", icon: Repeat, exact: false },
@@ -50,7 +51,6 @@ const navItems = [
   { href: "/routes", label: "Rota", icon: CalendarRange, exact: false },
   { href: "/kargo", label: "Kargo", icon: Truck, exact: false },
   { href: "/magaza-ayarlari", label: "Mağaza ayarları", icon: Store, exact: false },
-  { href: "/planlayici", label: "Planlayıcı", icon: ListTodo, exact: false },
 ] as const;
 
 // Finans has sub-pages, so it's kept out of the flat navItems list above —

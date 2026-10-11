@@ -214,6 +214,121 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_event_exceptions: {
+        Row: {
+          created_at: string
+          event_id: string
+          occurrence_date: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          occurrence_date: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          occurrence_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_exceptions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          calendar_id: string
+          created_at: string
+          created_by: string | null
+          ends_at: string
+          id: string
+          location: string | null
+          notes: string | null
+          repeat_every: number | null
+          repeat_unit: string | null
+          repeat_until: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          calendar_id: string
+          created_at?: string
+          created_by?: string | null
+          ends_at: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          repeat_every?: number | null
+          repeat_unit?: string | null
+          repeat_until?: string | null
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          calendar_id?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          repeat_every?: number | null
+          repeat_unit?: string | null
+          repeat_until?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "calendars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendars: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customer_product_prices: {
         Row: {
           created_at: string
@@ -591,6 +706,7 @@ export type Database = {
           order_id: string | null
           read_at: string | null
           recurring_template_id: string | null
+          reminder_id: string | null
           title: string
           type: string
         }
@@ -602,6 +718,7 @@ export type Database = {
           order_id?: string | null
           read_at?: string | null
           recurring_template_id?: string | null
+          reminder_id?: string | null
           title: string
           type: string
         }
@@ -613,6 +730,7 @@ export type Database = {
           order_id?: string | null
           read_at?: string | null
           recurring_template_id?: string | null
+          reminder_id?: string | null
           title?: string
           type?: string
         }
@@ -629,6 +747,13 @@ export type Database = {
             columns: ["recurring_template_id"]
             isOneToOne: false
             referencedRelation: "recurring_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "reminders"
             referencedColumns: ["id"]
           },
         ]
@@ -1044,6 +1169,108 @@ export type Database = {
           },
         ]
       }
+      reminder_lists: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reminders: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          due_all_day: boolean
+          due_at: string | null
+          flagged: boolean
+          id: string
+          list_id: string
+          notes: string | null
+          notified_at: string | null
+          priority: number
+          recurrence_parent_id: string | null
+          repeat_every: number | null
+          repeat_unit: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_all_day?: boolean
+          due_at?: string | null
+          flagged?: boolean
+          id?: string
+          list_id: string
+          notes?: string | null
+          notified_at?: string | null
+          priority?: number
+          recurrence_parent_id?: string | null
+          repeat_every?: number | null
+          repeat_unit?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_all_day?: boolean
+          due_at?: string | null
+          flagged?: boolean
+          id?: string
+          list_id?: string
+          notes?: string | null
+          notified_at?: string | null
+          priority?: number
+          recurrence_parent_id?: string | null
+          repeat_every?: number | null
+          repeat_unit?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "reminder_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: true
+            referencedRelation: "reminders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_locations: {
         Row: {
           created_at: string
@@ -1399,6 +1626,14 @@ export type Database = {
         Returns: undefined
       }
       disablelongtransactions: { Args: never; Returns: string }
+      delivery_counts_by_day: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          day: string
+          delivered: number
+          total: number
+        }[]
+      }
       dropgeometrycolumn:
         | {
             Args: {
@@ -1726,6 +1961,13 @@ export type Database = {
           total_minor: number
         }[]
       }
+      materialize_due_reminder_notifications: {
+        Args: never
+        Returns: {
+          created: number
+          next_due_at: string
+        }[]
+      }
       place_guest_order: {
         Args: {
           p_address: Json
@@ -1808,6 +2050,18 @@ export type Database = {
       recompute_order_payment: {
         Args: { p_order_id: string }
         Returns: undefined
+      }
+      reminder_counts: {
+        Args: { p_day_end: string }
+        Returns: {
+          kind: string
+          list_id: string
+          n: number
+        }[]
+      }
+      reminder_notify_at: {
+        Args: { p_all_day: boolean; p_due_at: string }
+        Returns: string
       }
       resolve_channel_for_items: {
         Args: {

@@ -33,9 +33,13 @@ const m = {
   saveProductPricingAction: vi.fn(),
   deleteProductAction: vi.fn(),
   listAllProducts: vi.fn(),
-  createAgendaTaskAction: vi.fn(),
-  setAgendaTaskCompletedAction: vi.fn(),
-  deleteAgendaTaskAction: vi.fn(),
+  createReminderAction: vi.fn(),
+  updateReminderAction: vi.fn(),
+  setReminderCompletedAction: vi.fn(),
+  deleteReminderAction: vi.fn(),
+  createEventAction: vi.fn(),
+  deleteEventAction: vi.fn(),
+  deleteEventOccurrenceAction: vi.fn(),
   createExpenseAction: vi.fn(),
   deleteExpenseAction: vi.fn(),
   getMarketSaleById: vi.fn(),
@@ -62,8 +66,6 @@ const m = {
   updateRecurringTemplateAction: vi.fn(),
   deleteRecurringTemplateAction: vi.fn(),
   getRecurringTemplateAction: vi.fn(),
-  updatePlannerTaskAction: vi.fn(),
-  deletePlannerTaskAction: vi.fn(),
   getNotificationFeed: vi.fn(),
   markNotificationReadAction: vi.fn(),
   getStorefrontSettings: vi.fn(),
@@ -116,10 +118,6 @@ vi.mock("@/features/recurring/application/recurring-template-actions", () => ({
   listAllRecurringTemplatesAction: vi.fn(),
   listCustomerRecurringTemplatesAction: vi.fn(),
 }));
-vi.mock("@/features/planner/application/create-planner-task", () => ({ createPlannerTaskAction: vi.fn() }));
-vi.mock("@/features/planner/application/update-planner-task", () => ({ updatePlannerTaskAction: (...a: unknown[]) => m.updatePlannerTaskAction(...a) }));
-vi.mock("@/features/planner/application/delete-planner-task", () => ({ deletePlannerTaskAction: (...a: unknown[]) => m.deletePlannerTaskAction(...a) }));
-vi.mock("@/features/planner/application/list-planner-tasks", () => ({ listPlannerWeekTasks: vi.fn() }));
 vi.mock("@/features/admin-notifications/application/list-notifications", () => ({ getNotificationFeed: (...a: unknown[]) => m.getNotificationFeed(...a) }));
 vi.mock("@/features/admin-notifications/application/mark-notification-read", () => ({
   markNotificationReadAction: (...a: unknown[]) => m.markNotificationReadAction(...a),
@@ -133,12 +131,19 @@ vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductT
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: (...a: unknown[]) => m.getStorefrontSettings(...a) }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: (...a: unknown[]) => m.updateStorefrontSettingsAction(...a) }));
-vi.mock("@/features/agenda/application/agenda-task-actions", () => ({
-  createAgendaTaskAction: (...a: unknown[]) => m.createAgendaTaskAction(...a),
-  updateAgendaTaskAction: vi.fn(),
-  setAgendaTaskCompletedAction: (...a: unknown[]) => m.setAgendaTaskCompletedAction(...a),
-  deleteAgendaTaskAction: (...a: unknown[]) => m.deleteAgendaTaskAction(...a),
+vi.mock("@/features/reminders/application/reminder-actions", () => ({
+  createReminderAction: (...a: unknown[]) => m.createReminderAction(...a),
+  updateReminderAction: (...a: unknown[]) => m.updateReminderAction(...a),
+  setReminderCompletedAction: (...a: unknown[]) => m.setReminderCompletedAction(...a),
+  deleteReminderAction: (...a: unknown[]) => m.deleteReminderAction(...a),
 }));
+vi.mock("@/features/calendar/application/calendar-event-actions", () => ({
+  createEventAction: (...a: unknown[]) => m.createEventAction(...a),
+  updateEventAction: vi.fn(),
+  deleteEventAction: (...a: unknown[]) => m.deleteEventAction(...a),
+  deleteEventOccurrenceAction: (...a: unknown[]) => m.deleteEventOccurrenceAction(...a),
+}));
+
 vi.mock("@/features/finance/application/expense-actions", () => ({
   createExpenseAction: (...a: unknown[]) => m.createExpenseAction(...a),
   deleteExpenseAction: (...a: unknown[]) => m.deleteExpenseAction(...a),
@@ -184,7 +189,8 @@ vi.mock("@/features/products/application/remove-product-image", () => ({ removeP
 vi.mock("@/features/routing/application/get-day-load-manifest", () => ({ buildDayLoadManifest: vi.fn() }));
 vi.mock("@/features/routing/application/get-day-orders", () => ({ getDayOrders: vi.fn() }));
 vi.mock("@/features/routing/application/get-day-route", () => ({ getDayRoute: vi.fn() }));
-vi.mock("@/features/agenda/application/get-agenda-page", () => ({ getAgendaPage: vi.fn() }));
+vi.mock("@/features/calendar/application/get-calendar-range", () => ({ getCalendarForDays: vi.fn() }));
+vi.mock("@/features/reminders/application/get-reminders-page", () => ({ getRemindersPage: vi.fn() }));
 vi.mock("@/features/orders/application/list-orders", () => ({ listOrders: vi.fn() }));
 vi.mock("@/features/orders/application/get-order", () => ({ getOrderById: (...a: unknown[]) => m.getOrderById(...a), getOrderEvents: vi.fn() }));
 vi.mock("@/features/orders/application/get-dashboard-order-stats", () => ({ getDashboardOrderStats: vi.fn() }));
@@ -260,7 +266,7 @@ describe("write tool adapters", () => {
       ["delete_orders", { order_ids: [UUID] }],
       ["delete_customers", { customer_ids: [UUID] }],
       ["delete_product", { product_key: "x" }],
-      ["delete_agenda_task", { id: UUID }],
+      ["delete_reminder", { id: UUID }],
       ["delete_order_payment", { order_id: UUID, payment_id: UUID2 }],
       ["delete_expense", { id: UUID }],
       ["delete_market_sale", { id: UUID }],
@@ -268,7 +274,7 @@ describe("write tool adapters", () => {
       ["delete_recurring_expense_template", { id: UUID }],
       ["delete_market_location", { id: UUID }],
       ["delete_recurring_order", { id: UUID }],
-      ["delete_planner_task", { id: UUID }],
+      ["delete_calendar_event", { id: UUID }],
       ["remove_order_gift", { order_id: UUID, gift_id: UUID2 }],
     ] as const) {
       const res = await client.callTool({ name, arguments: args });
@@ -277,7 +283,7 @@ describe("write tool adapters", () => {
     expect(m.bulkDeleteOrdersAction).not.toHaveBeenCalled();
     expect(m.bulkDeleteCustomersAction).not.toHaveBeenCalled();
     expect(m.deleteProductAction).not.toHaveBeenCalled();
-    expect(m.deleteAgendaTaskAction).not.toHaveBeenCalled();
+    expect(m.deleteReminderAction).not.toHaveBeenCalled();
     expect(m.deletePaymentAction).not.toHaveBeenCalled();
     expect(m.deleteExpenseAction).not.toHaveBeenCalled();
     expect(m.deleteMarketSaleAction).not.toHaveBeenCalled();
@@ -285,7 +291,8 @@ describe("write tool adapters", () => {
     expect(m.deleteRecurringExpenseTemplateAction).not.toHaveBeenCalled();
     expect(m.deleteMarketLocationAction).not.toHaveBeenCalled();
     expect(m.deleteRecurringTemplateAction).not.toHaveBeenCalled();
-    expect(m.deletePlannerTaskAction).not.toHaveBeenCalled();
+    expect(m.deleteEventAction).not.toHaveBeenCalled();
+    expect(m.deleteEventOccurrenceAction).not.toHaveBeenCalled();
     expect(m.removeOrderGiftAction).not.toHaveBeenCalled();
   });
 
@@ -370,13 +377,15 @@ describe("write tool adapters", () => {
   });
 
   it("masks upstream errors but keeps the panel's validation messages", async () => {
-    m.createAgendaTaskAction.mockResolvedValue(err(new ValidationError({ message: "Tekrar sıklığı eksik." })));
+    m.createReminderAction.mockResolvedValue(
+      err(new ValidationError({ message: "Tekrarlayan anımsatıcı için bir tarih seçin." })),
+    );
     const res = await (await connect()).callTool({
-      name: "create_agenda_task",
-      arguments: { title: "Aşı", repeat_unit: "week" },
+      name: "create_reminder",
+      arguments: { list_id: UUID, title: "Aşı", repeat_unit: "week" },
     });
     expect(res.isError).toBe(true);
-    expect(JSON.parse(text(res)).message).toBe("Tekrar sıklığı eksik.");
+    expect(JSON.parse(text(res)).message).toBe("Tekrarlayan anımsatıcı için bir tarih seçin.");
   });
 
   it("set_product_pricing passes tiers through untouched", async () => {
@@ -620,19 +629,35 @@ describe("write tool adapters", () => {
     expect(payload).toMatchObject({ active: false, payment_method: "bank_transfer", customer_id: UUID2, cadence: "weekly", day_of_week: 2 });
   });
 
-  it("update_planner_task forwards only the keys the model sent", async () => {
-    m.updatePlannerTaskAction.mockResolvedValue(ok({ id: UUID }));
+  it("update_reminder forwards only the keys the model sent", async () => {
+    m.updateReminderAction.mockResolvedValue(ok({ id: UUID }));
     await (await connect()).callTool({
-      name: "update_planner_task",
-      arguments: { id: UUID, status: "done" },
+      name: "update_reminder",
+      arguments: { id: UUID, flagged: true },
     });
-    expect(m.updatePlannerTaskAction).toHaveBeenCalledWith({ id: UUID, status: "done" });
+    expect(m.updateReminderAction).toHaveBeenCalledWith({ id: UUID, flagged: true });
 
     await (await connect()).callTool({
-      name: "update_planner_task",
-      arguments: { id: UUID, scheduled_date: null },
+      name: "update_reminder",
+      arguments: { id: UUID, due_date: null },
     });
-    expect(m.updatePlannerTaskAction).toHaveBeenLastCalledWith({ id: UUID, scheduled_date: null });
+    expect(m.updateReminderAction).toHaveBeenLastCalledWith({ id: UUID, due_date: null });
+  });
+
+  it("delete_calendar_event deletes one occurrence when a date is given, else the whole event", async () => {
+    m.deleteEventAction.mockResolvedValue(ok({ id: UUID }));
+    m.deleteEventOccurrenceAction.mockResolvedValue(ok({ id: UUID }));
+    const client = await connect();
+
+    await client.callTool({
+      name: "delete_calendar_event",
+      arguments: { id: UUID, occurrence_date: "2026-10-12", confirm: true },
+    });
+    expect(m.deleteEventOccurrenceAction).toHaveBeenCalledWith({ id: UUID, occurrence_date: "2026-10-12" });
+    expect(m.deleteEventAction).not.toHaveBeenCalled();
+
+    await client.callTool({ name: "delete_calendar_event", arguments: { id: UUID, confirm: true } });
+    expect(m.deleteEventAction).toHaveBeenCalledWith({ id: UUID });
   });
 
   it("update_storefront_settings changes only the given value and keeps the rest (a missing fee must not become free delivery)", async () => {

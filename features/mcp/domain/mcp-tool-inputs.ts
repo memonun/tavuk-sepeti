@@ -62,10 +62,25 @@ export const financeSummaryInput = {
     .describe("scheduled_for = teslim tarihine göre, created_at = oluşturulma tarihine göre."),
 };
 
-export const agendaInput = {
-  hafta: ymd
+export const calendarInput = {
+  from: ymd.describe("İlk gün (dahil)."),
+  to: ymd.describe("Son gün (dahil). Aralık en fazla 62 gün olabilir."),
+};
+
+export const remindersInput = {
+  liste: z
+    .string()
+    .max(64)
     .optional()
-    .describe("Bu tarihi içeren haftayı getirir; boşsa bu hafta. Yapılacaklar listesi (backlog) dahildir."),
+    .describe(
+      "Hangi liste: bugun (bugünün ve gecikenler), planlanan (tarihli olanlar), tumu, bayrakli, tamamlanan veya bir listenin id'si. Boşsa bugun.",
+    ),
+  sayfa: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("Yalnızca liste=tamamlanan için sayfa numarası (sayfa başına 25)."),
 };
 
 export const transitionOrderInput = {

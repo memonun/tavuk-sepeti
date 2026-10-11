@@ -4,6 +4,7 @@ import { AdminSidebar } from "@/app/(admin)/_components/admin-sidebar";
 import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { getNotificationFeed } from "@/features/admin-notifications/application/list-notifications";
 import { NotificationBell } from "@/features/admin-notifications/ui/notification-bell";
+import { ReminderDueTicker } from "@/features/reminders/ui/reminder-due-ticker";
 import { ErrorCode } from "@/shared/errors/error-codes";
 import {
   SidebarInset,
@@ -47,6 +48,7 @@ export default async function AdminLayout({
         <main className="min-w-0 flex-1 overflow-hidden px-3 py-2 sm:px-4">{children}</main>
       </SidebarInset>
       <Toaster />
+      <ReminderDueTicker />
     </SidebarProvider>
   );
 }
