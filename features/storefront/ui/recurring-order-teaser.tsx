@@ -1,42 +1,35 @@
 import Link from "next/link";
-import { ArrowRightIcon, RepeatIcon } from "lucide-react";
+import { ChevronRightIcon, RepeatIcon } from "lucide-react";
 
 import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
 
 /**
- * A deliberately separate section from the two delivery-scope cards above:
- * those two answer "where are you", this one answers "how do you want to
- * buy". Solid neutral card (not the primary/destructive fill the scope cards
- * use) so it never reads as a third option in the same choice, per the
- * design brief — it's a doorway to a different flow, not a third answer to
- * "where are you".
+ * A doorway to a different way of buying ("how", not "what"): a weekly
+ * standing order. Sits below the products, as a quiet kraft band, so it never
+ * reads as one more product or as a third answer to "where do you live".
  */
 export function RecurringOrderTeaser() {
   return (
-    <section className="mt-4">
+    <section className="mt-10 sm:mt-12">
       <Link
         href="/duzenli-siparis"
-        className="flex min-h-24 items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors active:bg-secondary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-5"
+        className="shop-press shop-focus flex min-h-24 items-center gap-4 rounded-3xl bg-secondary p-4 sm:p-6"
       >
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground sm:size-14">
-          <RepeatIcon className="size-6 sm:size-7" aria-hidden />
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-card text-primary">
+          <RepeatIcon className="size-7" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display text-lg font-semibold tracking-[-0.01em] text-foreground sm:text-xl">
-            Düzenli Sipariş{" "}
-            <span className="font-sans text-xs font-normal text-muted-foreground">
-              (Sadece {DELIVERY_PROVINCE}&apos;daki Müşterilerimiz için)
-            </span>
+          <p className="font-display text-2xl leading-tight text-foreground">
+            Düzenli Sipariş
           </p>
-          <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Her hafta aldığınız ürünleri tekrar tekrar sipariş vermeden
-            planlayın.
+          <p className="mt-1 text-base leading-relaxed text-foreground">
+            Her hafta aldığınız ürünleri bir kez seçin, biz her hafta getirelim.
+          </p>
+          <p className="mt-1 text-base font-semibold text-muted-foreground">
+            Yalnızca {DELIVERY_PROVINCE} içindeki müşterilerimiz için.
           </p>
         </div>
-        <ArrowRightIcon
-          className="size-5 shrink-0 text-primary"
-          aria-hidden
-        />
+        <ChevronRightIcon className="size-7 shrink-0 text-primary" aria-hidden />
       </Link>
     </section>
   );

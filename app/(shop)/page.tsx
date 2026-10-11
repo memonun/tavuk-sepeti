@@ -16,7 +16,6 @@ import {
 } from "@/features/storefront/domain/storefront.config";
 import { CatalogGrid } from "@/features/storefront/ui/catalog-grid";
 import { CatalogScopeControls } from "@/features/storefront/ui/catalog-scope-controls";
-import { DeliveryScopeHero } from "@/features/storefront/ui/delivery-scope-hero";
 // "Öne Çıkan Ürünler" vitrini şimdilik UI'dan gizlendi (owner isteği — şu an
 // yeterince ürün yok). Bileşen ve veri akışı ileride geri açmak için korunuyor;
 // geri açmak için bu importu ve aşağıdaki <ProductShowcase /> bloğunu tekrar aç.
@@ -28,14 +27,12 @@ import { TrustHighlights } from "@/features/storefront/ui/trust-highlights";
 import { formatTRY } from "@/shared/utils/money";
 
 /**
- * Storefront home, redesigned around one question first: "where are you" —
- * everything else (what you can buy, the recurring-order doorway, the full
- * collection, the fulfilment rules, how to reach us) follows in the order a
- * first-time older shopper needs it, most important decision first.
- *
- * The header already states who this is (logo + brand), so this page skips
- * a second masthead and opens directly on `DeliveryScopeHero` — the actual
- * first decision, not a headline about one.
+ * Storefront home. Products first: the header already says who this is, so
+ * the page opens on one short line, the single filter the shop has ("where
+ * should we deliver"), and — on the same first screen — the things for sale.
+ * Everything a first-time older shopper might ask next (a weekly standing
+ * order, when the van comes, what shipping costs, how to just phone instead)
+ * follows underneath, in that order.
  *
  * Admins see the shop too (the header shows a "Yönetim" button → /admin); they
  * are not auto-redirected away, so they can preview the storefront.
@@ -43,10 +40,8 @@ import { formatTRY } from "@/shared/utils/money";
  * `?teslimat=malatya|kargo` is a pure browsing hint — see `catalog-filter.ts`.
  * It narrows what this page shows; it is never read by checkout or order
  * creation, so a wrong guess here can't affect the real fulfillment decision.
- * `&filtre=` still parses (a stale bookmark from before this redesign should
- * keep working) but nothing on this page links to it any more — the
- * Tümü/Özel/Kargolu sub-filter it drove read as a second, confusing "where
- * are you" question sitting right under the first one.
+ * `&filtre=` still parses (a stale bookmark should keep working) but nothing
+ * on this page links to it any more.
  */
 export default async function ShopHomePage({
   searchParams,
@@ -64,15 +59,45 @@ export default async function ShopHomePage({
   const products = catalog.ok ? catalog.value : [];
   const catalogProducts = filterProductsForScope(products, scope, filter);
 
+  const catalogHeading =
+    scope === "malatya"
+      ? "Malatya içine getirdiklerimiz"
+      : scope === "kargo"
+        ? "Kargoyla gönderdiklerimiz"
+        : "Tüm ürünlerimiz";
+
   return (
-    <main className="mx-auto max-w-6xl px-4 pt-6 pb-16 sm:px-6 sm:pt-8">
+    <main className="mx-auto max-w-6xl px-4 pt-6 pb-16 sm:px-6 sm:pt-10">
       <Suspense fallback={null}>
         <StorefrontScopeSync />
       </Suspense>
 
-      <DeliveryScopeHero scope={scope} />
-      <RecurringOrderTeaser />
-      <TrustHighlights homeDeliveryDays={settings.homeDeliveryDays} />
+      <h1 className="max-w-3xl font-display text-[2.125rem] leading-[1.05] text-foreground sm:text-5xl">
+        Çiftlikten sofranıza
+      </h1>
+      <p className="mt-2.5 max-w-xl text-lg leading-relaxed text-muted-foreground">
+        Malatya&apos;daki çiftliğimizden. Seçin, sepete ekleyin, biz getirelim.
+      </p>
+
+      {/* `#urunler` is the target of both scope links, so after choosing, the
+          page lands with the choice itself (now marked) at the top and the
+          products right under it. scroll-mt clears the sticky header. */}
+      <section
+        id="urunler"
+        aria-labelledby="catalog-heading"
+        className="mt-6 scroll-mt-24 sm:mt-8"
+      >
+        <CatalogScopeControls scope={scope} />
+        <h2
+          id="catalog-heading"
+          className="mt-7 font-display text-[1.75rem] leading-tight text-foreground sm:mt-9 sm:text-4xl"
+        >
+          {catalogHeading}
+        </h2>
+        <div className="mt-4 sm:mt-5">
+          <CatalogGrid products={catalogProducts} unavailable={!catalog.ok} />
+        </div>
+      </section>
 
       {/* "Öne Çıkan Ürünler" vitrini şimdilik gizli (owner isteği — şu an az ürün var).
           Arkadaki bileşen (product-showcase.tsx) ve veri akışı korunuyor; geri açmak
@@ -83,22 +108,7 @@ export default async function ShopHomePage({
           </div>
       */}
 
-      <section
-        id="urunler"
-        aria-labelledby="catalog-heading"
-        className="mt-10 scroll-mt-20 sm:mt-12"
-      >
-        <h2
-          id="catalog-heading"
-          className="font-display text-2xl leading-tight tracking-[-0.01em] text-foreground sm:text-3xl"
-        >
-          Tüm Ürünler
-        </h2>
-        <div className="mt-5">
-          <CatalogScopeControls scope={scope} />
-          <CatalogGrid products={catalogProducts} unavailable={!catalog.ok} />
-        </div>
-      </section>
+      <RecurringOrderTeaser />
 
       {/* Both fulfilment stories, in the owner's own words — when the van
           comes, and what shipping costs. Both are rules the owner edits in
@@ -106,10 +116,10 @@ export default async function ShopHomePage({
           than written into this page. */}
       <section aria-label="Teslimat Bilgisi" className="mt-10 sm:mt-12">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-          <div className="flex gap-3 rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
-            <MapPinIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
-            <p className="text-base leading-relaxed text-muted-foreground">
-              <strong className="block text-base font-bold text-foreground">
+          <div className="flex gap-3 rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <MapPinIcon className="mt-1 size-7 shrink-0 text-primary" aria-hidden />
+            <p className="text-lg leading-relaxed text-muted-foreground">
+              <strong className="block text-xl font-bold text-foreground">
                 Malatya Eve Servis
               </strong>
               {FULFILLMENT_NOTICE} Eve servis günlerimiz:{" "}
@@ -122,10 +132,10 @@ export default async function ShopHomePage({
               </strong>
             </p>
           </div>
-          <div className="flex gap-3 rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
-            <TruckIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
-            <p className="text-base leading-relaxed text-muted-foreground">
-              <strong className="block text-base font-bold text-foreground">
+          <div className="flex gap-3 rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <TruckIcon className="mt-1 size-7 shrink-0 text-primary" aria-hidden />
+            <p className="text-lg leading-relaxed text-muted-foreground">
+              <strong className="block text-xl font-bold text-foreground">
                 Türkiye Geneli Kargo
               </strong>
               {CARGO_FREE_SHIPPING_NOTICE}{" "}
@@ -137,6 +147,7 @@ export default async function ShopHomePage({
         </div>
       </section>
 
+      <TrustHighlights homeDeliveryDays={settings.homeDeliveryDays} />
       <SupportContactCard />
     </main>
   );

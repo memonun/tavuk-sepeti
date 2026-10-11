@@ -12,7 +12,7 @@
 import { useEffect } from "react";
 import { AlertTriangleIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 
 export default function ShopError({
   error,
@@ -29,40 +29,33 @@ export default function ShopError({
   }, [error]);
 
   return (
-    <main className="mx-auto max-w-md px-4 py-16">
-      <div className="flex flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
-        <AlertTriangleIcon className="size-12 text-muted-foreground" />
-        <h1 className="font-display text-2xl">Bir şeyler ters gitti</h1>
-        <p className="text-sm text-muted-foreground">
-          Beklenmedik bir hata oluştu. Sepetiniz duruyor — tekrar deneyebilir
+    <main className="mx-auto max-w-lg px-4 py-12 sm:py-16">
+      <div className="flex flex-col items-center gap-5 rounded-3xl border border-border bg-card p-6 text-center shadow-(--shop-shadow-sm) sm:p-8">
+        <AlertTriangleIcon className="size-14 text-destructive" aria-hidden />
+        <h1 className="font-display text-3xl leading-tight">Bir şeyler ters gitti</h1>
+        <p className="text-lg leading-relaxed text-muted-foreground">
+          Beklenmedik bir hata oluştu. Sepetiniz duruyor. Tekrar deneyebilir
           veya alışverişe kaldığınız yerden devam edebilirsiniz.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button
-            type="button"
-            size="lg"
-            className="rounded-full"
-            onClick={() => reset()}
-          >
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
+          <ShopButton size="lg" onClick={() => reset()}>
             Tekrar dene
-          </Button>
+          </ShopButton>
           {/* A hard load rather than a soft navigation: if the failure is in a
               shared server component, client-side routing lands right back in
               the boundary. */}
-          <Button
-            type="button"
+          <ShopButton
             size="lg"
-            variant="outline"
-            className="rounded-full"
+            variant="secondary"
             onClick={() => {
               window.location.href = "/";
             }}
           >
-            Ana sayfa
-          </Button>
+            Ana sayfaya dön
+          </ShopButton>
         </div>
         {error.digest ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Hata kodu: <span className="font-mono">{error.digest}</span>
           </p>
         ) : null}

@@ -1,9 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { MapPinIcon, ShoppingBasketIcon, TruckIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  MapPinIcon,
+  ShoppingBasketIcon,
+  TruckIcon,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
 import {
@@ -18,9 +23,9 @@ import {
   deliveryFeeNotice,
   DELIVERY_PROVINCE,
 } from "@/features/storefront/domain/storefront.config";
-import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetFooter,
   SheetHeader,
@@ -35,6 +40,10 @@ import { productImagePublicUrl } from "@/features/products/application/product-i
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
+import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
+import { ShopNotice } from "@/features/storefront/ui/kit/shop-notice";
+import { shopSheetClass } from "@/features/storefront/ui/kit/shop-sheet";
+import { tabItemClass, tabLabelClass } from "@/features/storefront/ui/kit/tab-item";
 import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
 
 import type { Product } from "@/features/products/application/list-products";
@@ -43,7 +52,9 @@ import type { Product } from "@/features/products/application/list-products";
  *  catalog so displayed prices are never stale.
  *
  * `variant` swaps only the opening control — the header's pill button
- * ("header") or the mobile tab bar's stacked icon+label ("tab") — while the
+ * ("header"), the mobile tab bar's stacked icon+label ("tab"), or the phone's
+ * basket bar ("bar": a full-width strip above the tab bar that exists only
+ * while the basket has something in it, and says how much) — while the
  * slide-over itself (lines, minimum check, checkout link) stays the single
  * shared instance of this logic. Each mount owns its own open/close state,
  * but both read the same module-level cart store, so a basket opened from
@@ -60,9 +71,9 @@ export function CartSheet({
   cargoMinOrderMinor: number;
   /** Live eve-servis fee in kuruş (0 = free), for the "ücret eklenir" note. */
   deliveryFeeMinor: number;
-  variant?: "header" | "tab";
+  variant?: "header" | "tab" | "bar";
 }) {
-  const { lines, lineCount, hydrated, clear, retainOnly } = useCart();
+  const { lines, lineCount, hydrated, clear, retainOnly, addItem } = useCart();
   const [open, setOpen] = useState(false);
 
   const rows = lines.flatMap((line) => {
@@ -107,53 +118,79 @@ export function CartSheet({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      {variant === "tab" ? (
+      {variant === "bar" ? (
+        // Rendered only once the persisted basket has been read AND has
+        // something in it. `data-cart-bar` is what theme.css keys the taller
+        // dock height off, so the WhatsApp button moves up out of its way.
+        hydrated && rows.length > 0 ? (
+          <SheetTrigger
+            render={
+              <button
+                type="button"
+                data-cart-bar
+                className="shop-press shop-enter-up flex min-h-15 w-full items-center gap-3 bg-primary px-4 py-2 text-left text-primary-foreground focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-card"
+              />
+            }
+          >
+            <ShoppingBasketIcon className="size-7 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block text-base">Sepetinizde {rows.length} ürün</span>
+              <span className="shop-money block text-xl font-extrabold">
+                {formatTRY(subtotal)}
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-card py-2 pr-2 pl-4 text-base font-bold text-primary">
+              Sepeti gör
+              <ChevronRightIcon className="size-5" aria-hidden />
+            </span>
+          </SheetTrigger>
+        ) : null
+      ) : variant === "tab" ? (
         <SheetTrigger
-          render={
-            <button
-              type="button"
-              className="flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-muted-foreground transition-colors active:bg-secondary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            />
-          }
+          render={<button type="button" className={cn(tabItemClass, "text-foreground")} />}
         >
           <span className="relative">
-            <ShoppingBasketIcon className="size-6" aria-hidden />
+            <ShoppingBasketIcon className="size-7" aria-hidden />
             {hydrated && lineCount > 0 ? (
-              <span className="absolute -top-1.5 -right-2 flex min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[0.65rem] font-bold text-primary-foreground tabular-nums">
+              <span className="absolute -top-2 -right-3.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-(--shop-apricot) px-1.5 text-sm font-bold text-foreground tabular-nums">
                 {lineCount}
               </span>
             ) : null}
           </span>
-          <span className="text-[11px] leading-none font-semibold">Sepetim</span>
+          <span className={tabLabelClass}>Sepetim</span>
         </SheetTrigger>
       ) : (
-        <SheetTrigger
-          render={
-            <Button variant="outline" size="lg" className="relative rounded-full" />
-          }
-        >
-          <ShoppingBasketIcon />
-          <span className="hidden sm:inline">Sepet</span>
+        <SheetTrigger render={<ShopButton variant="quiet" />}>
+          <ShoppingBasketIcon aria-hidden />
+          Sepet
           {hydrated && lineCount > 0 ? (
-            <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground tabular-nums">
+            <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-(--shop-apricot) px-1.5 text-sm font-bold text-foreground tabular-nums">
               {lineCount}
             </span>
           ) : null}
         </SheetTrigger>
       )}
 
-      <SheetContent className="w-full gap-0 sm:max-w-md">
-        <SheetHeader className="border-b border-border/60">
-          <SheetTitle className="font-display text-lg">Sepetiniz</SheetTitle>
+      <SheetContent
+        showCloseButton={false}
+        className={shopSheetClass("data-[side=right]:w-full data-[side=right]:sm:max-w-md")}
+      >
+        <SheetHeader className="flex-row items-center justify-between border-b border-border px-4 py-3">
+          <SheetTitle className="font-display text-2xl">Sepetiniz</SheetTitle>
+          <SheetClose render={<ShopButton variant="quiet" />}>Kapat</SheetClose>
         </SheetHeader>
 
         {rows.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-            <ShoppingBasketIcon className="size-8 text-muted-foreground/60" />
-            <p className="text-sm text-muted-foreground">Sepetiniz henüz boş.</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+            <ShoppingBasketIcon className="size-14 text-muted-foreground" aria-hidden />
+            <p className="text-xl font-bold text-foreground">Sepetiniz boş</p>
+            <p className="text-lg text-muted-foreground">
+              Beğendiğiniz ürünün altındaki “Sepete ekle” düğmesine basın.
+            </p>
+            <SheetClose render={<ShopButton size="lg" />}>Ürünlere dön</SheetClose>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4">
             <ul className="flex flex-col gap-3">
               {rows.map(({ product, quantity }) => {
                 const imageUrl = productImagePublicUrl(
@@ -161,37 +198,38 @@ export function CartSheet({
                   env.NEXT_PUBLIC_SUPABASE_URL,
                 );
                 return (
-                <li
-                  key={product.key}
-                  className="flex items-center gap-3 rounded-2xl border border-border/60 p-3"
-                >
-                  <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary/60">
-                    {imageUrl ? (
-                      <Image
-                        src={imageUrl}
-                        alt={product.image_alt ?? product.display_name}
-                        fill
-                        sizes="44px"
-                        className="object-cover object-center"
-                      />
-                    ) : (
-                      <span className="text-2xl" aria-hidden>
-                        {productEmoji(product.key)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {product.display_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground tabular-nums">
-                      {formatTRY(lineTotalMinor(product, quantity))}
-                    </p>
-                    <div className="mt-1.5">
-                      <QuantityStepper product={product} />
+                  <li
+                    key={product.key}
+                    className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted">
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
+                            alt={product.image_alt ?? product.display_name}
+                            fill
+                            sizes="64px"
+                            className="object-cover object-center"
+                          />
+                        ) : (
+                          <span className="text-3xl" aria-hidden>
+                            {productEmoji(product.key)}
+                          </span>
+                        )}
+                      </div>
+                      {/* Name wraps instead of truncating: "Gün Kurusu Kayısı
+                          Çeki…" tells nobody which of two apricot products
+                          this line is. */}
+                      <p className="min-w-0 flex-1 text-lg leading-snug font-bold break-words">
+                        {product.display_name}
+                      </p>
+                      <p className="shop-money shrink-0 text-lg font-bold">
+                        {formatTRY(lineTotalMinor(product, quantity))}
+                      </p>
                     </div>
-                  </div>
-                </li>
+                    <QuantityStepper product={product} block />
+                  </li>
                 );
               })}
             </ul>
@@ -199,94 +237,77 @@ export function CartSheet({
             {/* The only way out of a basket the customer wants to abandon.
                 Without it, emptying a cart meant tapping "−" once per unit on
                 every row — 18 taps for a 10 kg line — and there was no exit at
-                all from a line the catalog had stopped selling. */}
-            <div className="mt-3 text-right">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                onClick={() => clear()}
+                all from a line the catalog had stopped selling. Undoable from
+                the toast rather than guarded by a confirmation. */}
+            <div className="mt-3 flex justify-end">
+              <ShopButton
+                variant="plain"
+                className="text-muted-foreground underline decoration-2 underline-offset-4"
+                onClick={() => {
+                  const removed = rows.map((r) => ({
+                    key: r.product.key,
+                    quantity: r.quantity,
+                  }));
+                  clear();
+                  toast("Sepet boşaltıldı", {
+                    action: {
+                      label: "Geri al",
+                      onClick: () => {
+                        for (const line of removed) addItem(line.key, line.quantity);
+                      },
+                    },
+                  });
+                }}
               >
                 Sepeti boşalt
-              </Button>
+              </ShopButton>
             </div>
           </div>
         )}
 
         {rows.length > 0 ? (
-          <SheetFooter className="border-t border-border/60">
-            {/* Say how this basket will arrive BEFORE checkout, so the delivery
-                restriction is never a surprise at the address step. */}
-            <p className="flex items-start gap-2 rounded-lg bg-secondary/60 px-2.5 py-2 text-xs text-muted-foreground">
+          <SheetFooter className="gap-3 border-t border-border bg-muted pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+            {/* Say how THIS basket will arrive before checkout, in one
+                sentence, so the delivery restriction is never a surprise at
+                the address step. */}
+            <p className="flex items-start gap-2.5 text-base leading-snug text-foreground">
               {mode === "route" ? (
-                <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+                <MapPinIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
               ) : (
-                <TruckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+                <TruckIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
               )}
               <span>
-                <strong className="block font-bold text-foreground">
-                  Teslimat Bilgisi
-                </strong>
-                <span className="mt-1 block">
-                  <strong className="font-medium text-foreground">Yumurta:</strong>{" "}
-                  Kargoda hasar görme riski nedeniyle yalnızca {DELIVERY_PROVINCE}{" "}
-                  il sınırları içerisinde teslim edilir.
-                </span>
-                <span className="mt-1 block">
-                  <strong className="font-medium text-foreground">
-                    Süt ürünleri:
-                  </strong>{" "}
-                  Uygun taşıma koşullarının korunabilmesi için yalnızca{" "}
-                  {DELIVERY_PROVINCE} il sınırları içerisinde teslim edilir.
-                </span>
-                <span className="mt-1 block">
-                  <strong className="font-medium text-foreground">
-                    Diğer ürünler:
-                  </strong>{" "}
-                  Kargoya uygun ürünlerimiz Türkiye&apos;nin her yerine
-                  gönderilir.
-                </span>
+                {mode === "route"
+                  ? `Bu sepet yalnızca ${DELIVERY_PROVINCE} il sınırları içinde, kendi ekibimizle teslim edilir. ${deliveryFeeNotice(deliveryFeeMinor)}`
+                  : "Bu sepet kargo ile Türkiye'nin her yerine gönderilebilir."}
               </span>
             </p>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Ara toplam</span>
-              <span className="font-semibold tabular-nums">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-lg text-foreground">Ara toplam</span>
+              <span className="shop-money text-2xl font-extrabold">
                 {formatTRY(subtotal)}
               </span>
             </div>
-            {mode === "route" ? (
-              <p className="text-xs text-muted-foreground">
-                {deliveryFeeNotice(deliveryFeeMinor)} Ödeme adımında eklenir.
-              </p>
-            ) : null}
             {minimum.ok ? (
-              <Link
+              <ShopLinkButton
                 href="/odeme"
+                size="lg"
+                block
                 onClick={() => setOpen(false)}
-                className={cn(buttonVariants({ size: "lg" }), "w-full rounded-full")}
               >
                 Siparişi tamamla
-              </Link>
+              </ShopLinkButton>
             ) : (
               // Below the cargo floor: say so here rather than letting the
               // customer discover it after filling in the whole checkout.
-              <div className="flex flex-col gap-2">
-                <p
-                  className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
-                  role="status"
-                >
+              <>
+                <ShopNotice tone="warning" role="status">
                   {orderMinimumMessage("shipping", cargoMinOrderMinor, minimum.shortfallMinor)}
-                </p>
-                <Button
-                  type="button"
-                  size="lg"
-                  className="w-full rounded-full"
-                  disabled
-                >
+                </ShopNotice>
+                <ShopButton size="lg" block disabled>
                   Siparişi tamamla
-                </Button>
-              </div>
+                </ShopButton>
+              </>
             )}
           </SheetFooter>
         ) : null}

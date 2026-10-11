@@ -6,62 +6,60 @@ import { COMPANY, LEGAL_LINKS } from "@/features/storefront/domain/legal";
  *  the compliance surface a Turkish payment provider requires. */
 export function ShopFooter() {
   return (
-    <footer className="border-t border-border/60">
+    <footer className="border-t border-border bg-muted">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <div className="grid gap-8 sm:grid-cols-[1.5fr_1fr_1fr]">
+        <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
-            <p className="font-display text-base text-foreground">
-              {COMPANY.brand}
+            <p className="font-display text-2xl text-foreground">{COMPANY.brand}</p>
+            <p className="mt-2 text-base text-muted-foreground">
+              Çiftlikten sofranıza, kapınıza teslim.
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Taze yumurta ve süt ürünleri · kapınıza teslim.
-            </p>
-            <div className="mt-3 space-y-0.5 text-xs leading-relaxed text-muted-foreground">
+            <address className="mt-4 space-y-1 text-base leading-relaxed text-muted-foreground not-italic">
               <p>{COMPANY.tradeName}</p>
               <p>{COMPANY.address}</p>
-              <p>
-                {COMPANY.phone} · {COMPANY.email}
-              </p>
+              <p>{COMPANY.phone}</p>
+              <p className="break-all">{COMPANY.email}</p>
               {COMPANY.mersisNo ? <p>MERSİS: {COMPANY.mersisNo}</p> : null}
-            </div>
+            </address>
           </div>
 
-          <nav aria-label="Yasal" className="flex flex-col gap-1.5 text-sm">
-            <p className="mb-1 font-medium text-foreground">Yasal</p>
+          <nav aria-label="Yasal" className="flex flex-col">
+            <p className="mb-1 text-lg font-bold text-foreground">Yasal</p>
             {LEGAL_LINKS.map((l) => (
-              <Link
-                key={l.slug}
-                href={`/${l.slug}`}
-                className="text-muted-foreground transition-colors hover:text-foreground hover:underline"
-              >
+              <Link key={l.slug} href={`/${l.slug}`} className={footerLinkClass}>
                 {l.title}
               </Link>
             ))}
           </nav>
 
-          <div className="flex flex-col gap-2 text-sm">
-            <p className="font-medium text-foreground">Güvenli Ödeme</p>
-            <p className="text-xs text-muted-foreground">
-              Kredi/banka kartı ile 3D Secure güvenli ödeme — PayTR altyapısı.
+          <div className="flex flex-col">
+            <p className="mb-1 text-lg font-bold text-foreground">Güvenli Ödeme</p>
+            <p className="py-1.5 text-base text-muted-foreground">
+              Kredi ve banka kartıyla 3D Secure güvenli ödeme (PayTR altyapısı).
             </p>
-            <p className="text-xs text-muted-foreground">
-              Visa · Mastercard · Troy
+            <p className="py-1.5 text-base text-muted-foreground">
+              Visa, Mastercard, Troy
             </p>
             <a
               href={COMPANY.etbisUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground hover:underline"
+              className={footerLinkClass}
             >
               ETBİS Kayıtlı Elektronik Ticaret
             </a>
           </div>
         </div>
 
-        <div className="mt-8 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+        <p className="mt-8 border-t border-border pt-5 text-base text-muted-foreground">
           © 2026 {COMPANY.brand}. Tüm hakları saklıdır.
-        </div>
+        </p>
       </div>
     </footer>
   );
 }
+
+/* Underlined at rest: a link that only shows itself on hover is invisible on
+   a phone. 44px tall so two adjacent links are not a coin-toss to tap. */
+const footerLinkClass =
+  "shop-focus flex min-h-11 items-center rounded-md text-base text-foreground underline decoration-border decoration-2 underline-offset-4";

@@ -23,11 +23,9 @@ import { HouseIcon, SearchIcon, UserRoundIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { CartSheet } from "@/features/storefront/ui/cart-sheet";
+import { tabItemClass, tabLabelClass } from "@/features/storefront/ui/kit/tab-item";
 
 import type { Product } from "@/features/products/application/list-products";
-
-const itemClass =
-  "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-xl py-1.5 transition-colors active:bg-secondary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function MobileBottomNav({
   products,
@@ -44,15 +42,26 @@ export function MobileBottomNav({
   const isHome = pathname === "/";
   const isAccount = pathname === "/hesap" || pathname.startsWith("/giris");
   const isFindOrder = pathname === "/siparis-sorgula";
+  // On checkout the order summary is already on screen; a second "your
+  // basket" strip there would only cover the form.
+  const showCartBar = !pathname.startsWith("/odeme");
 
   return (
     <nav
       aria-label="Alt gezinme"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm sm:hidden"
+      className="shop-glass fixed inset-x-0 bottom-0 z-40 border-t border-border pb-[env(safe-area-inset-bottom,0px)] sm:hidden"
     >
-      <div className="mx-auto flex max-w-6xl items-stretch justify-between gap-0.5 px-1.5">
+      {showCartBar ? (
+        <CartSheet
+          products={products}
+          cargoMinOrderMinor={cargoMinOrderMinor}
+          deliveryFeeMinor={deliveryFeeMinor}
+          variant="bar"
+        />
+      ) : null}
+      <div className="mx-auto flex max-w-6xl items-stretch justify-between gap-0.5 px-1.5 py-1">
         <NavLink href="/" active={isHome} label="Ana Sayfa">
-          <HouseIcon className="size-6" aria-hidden />
+          <HouseIcon className="size-7" aria-hidden />
         </NavLink>
         <CartSheet
           products={products}
@@ -61,14 +70,14 @@ export function MobileBottomNav({
           variant="tab"
         />
         <NavLink href="/siparis-sorgula" active={isFindOrder} label="Sipariş Sorgula">
-          <SearchIcon className="size-6" aria-hidden />
+          <SearchIcon className="size-7" aria-hidden />
         </NavLink>
         <NavLink
           href={authed ? "/hesap" : "/giris?next=/hesap"}
           active={isAccount}
           label="Hesabım"
         >
-          <UserRoundIcon className="size-6" aria-hidden />
+          <UserRoundIcon className="size-7" aria-hidden />
         </NavLink>
       </div>
     </nav>
@@ -90,10 +99,15 @@ function NavLink({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={cn(itemClass, active ? "text-primary" : "text-muted-foreground")}
+      className={cn(
+        tabItemClass,
+        // Colour alone would not tell an older eye which tab is current, so
+        // the active one also gets a filled pill behind it.
+        active ? "bg-(--shop-green-soft) text-primary" : "text-foreground",
+      )}
     >
       {children}
-      <span className="text-[11px] leading-none font-semibold">{label}</span>
+      <span className={tabLabelClass}>{label}</span>
     </Link>
   );
 }

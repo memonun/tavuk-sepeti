@@ -1,21 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
-import { HouseIcon, SearchIcon } from "lucide-react";
 
 import { AccountNav } from "@/features/storefront/ui/account-nav";
 import { CartSheet } from "@/features/storefront/ui/cart-sheet";
+import { ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 import { MobileNavSheet } from "@/features/storefront/ui/mobile-nav-sheet";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 import type { Product } from "@/features/products/application/list-products";
 
 /**
- * Sticky storefront header. Three columns so the brand mark stays visually
- * centred at every width: hamburger (mobile only) + full nav (desktop) on the
- * left, mark in the middle, basket on the right — matching the plain,
- * three-item header of a native shopping app on a phone, while desktop keeps
- * every link reachable without opening anything.
+ * Sticky storefront header: who this is on the left, where you can go on the
+ * right — the arrangement every shop and every phone app already taught the
+ * customer, so nothing here has to be learned.
+ *
+ *   phone  (<640)      brand · "Menü"            (basket lives in the tab bar)
+ *   tablet (640–1023)  brand · basket · "Menü"
+ *   desktop (≥1024)    brand · links · account · basket
+ *
+ * Every control carries its name in words; none is an icon alone. The bar is
+ * a translucent layer the page scrolls under (`.shop-glass`), and pads itself
+ * past the notch.
  *
  * Data (viewer + settings) is fetched once by the shop layout and passed down
  * — this used to fetch its own copy, which meant every render paid for a
@@ -35,59 +39,44 @@ export function ShopHeader({
   isAdmin: boolean;
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-sm">
-      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-2 sm:px-6">
-        <div className="flex items-center justify-start gap-1">
-          <MobileNavSheet authed={authed} isAdmin={isAdmin} />
-          <div className="hidden items-center gap-1 sm:flex">
-            <Link
-              href="/"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "lg" }),
-                "rounded-full",
-              )}
-              title="Anasayfa"
-            >
-              <HouseIcon />
-              <span className="hidden sm:inline">Anasayfa</span>
-            </Link>
-            <Link
-              href="/siparis-sorgula"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "lg" }),
-                "rounded-full",
-              )}
-              title="Siparişi sorgula"
-            >
-              <SearchIcon />
-              <span className="hidden sm:inline">Sipariş Sorgula</span>
-            </Link>
-          </div>
-        </div>
-
-        <Link href="/" className="flex items-center justify-center gap-2">
+    <header className="shop-glass sticky top-0 z-40 border-b border-border pt-[env(safe-area-inset-top,0px)]">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:h-[4.5rem]">
+        <Link
+          href="/"
+          aria-label="Apuhan Çiftliği, ana sayfa"
+          className="shop-focus flex min-h-12 min-w-0 items-center gap-2.5 rounded-xl"
+        >
           <Image
             src="/brand/apuhan-logo.png"
             alt=""
-            width={36}
-            height={36}
+            width={40}
+            height={40}
             priority
-            className="size-9 shrink-0 rounded-xl"
+            className="size-10 shrink-0 rounded-xl"
           />
-          <span className="font-display text-lg font-semibold tracking-tight text-foreground">
+          <span className="truncate font-display text-xl leading-none text-foreground sm:text-[1.375rem]">
             Apuhan Çiftliği
           </span>
         </Link>
 
-        <div className="flex items-center justify-end gap-1">
-          <div className="hidden sm:flex">
+        <div className="flex shrink-0 items-center gap-2">
+          <nav aria-label="Ana gezinme" className="hidden items-center gap-1 lg:flex">
+            <ShopLinkButton href="/" variant="plain">
+              Ana Sayfa
+            </ShopLinkButton>
+            <ShopLinkButton href="/siparis-sorgula" variant="plain">
+              Sipariş Sorgula
+            </ShopLinkButton>
             <AccountNav authed={authed} isAdmin={isAdmin} />
+          </nav>
+          <div className="hidden sm:block">
+            <CartSheet
+              products={products}
+              cargoMinOrderMinor={cargoMinOrderMinor}
+              deliveryFeeMinor={deliveryFeeMinor}
+            />
           </div>
-          <CartSheet
-            products={products}
-            cargoMinOrderMinor={cargoMinOrderMinor}
-            deliveryFeeMinor={deliveryFeeMinor}
-          />
+          <MobileNavSheet authed={authed} isAdmin={isAdmin} />
         </div>
       </div>
     </header>

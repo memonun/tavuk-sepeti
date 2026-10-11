@@ -10,8 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Çiftlikten sofranıza taze yumurta ve süt ürünleri. Online sipariş verin, biz getirelim.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f8f4eb",
-    theme_color: "#c9872f",
+    background_color: "#fffdf9",
+    theme_color: "#2f5a36",
     lang: "tr",
     icons: [
       {

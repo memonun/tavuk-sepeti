@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Header hamburger drawer — mobile only. The tab bar (`MobileBottomNav`)
+ * Header menu drawer — phone and tablet (the desktop header shows the same
+ * links inline). The tab bar (`MobileBottomNav`)
  * already covers the five everyday destinations, so this menu exists for
  * what it doesn't: Düzenli Sipariş (a distinct thing from browsing the
  * catalog, not a tab), the admin panel shortcut, sign-in/out, and a phone
@@ -16,7 +17,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  ArrowRightIcon,
+  ChevronRightIcon,
   HouseIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
@@ -31,14 +32,17 @@ import {
 import { customerSignOutAction } from "@/features/storefront/application/customer-auth";
 import { COMPANY } from "@/features/storefront/domain/legal";
 import { SUPPORT_WHATSAPP_E164 } from "@/features/storefront/domain/support-contact";
-import { Button } from "@/components/ui/button";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
+import { shopSheetClass } from "@/features/storefront/ui/kit/shop-sheet";
 
 export function MobileNavSheet({
   authed,
@@ -53,42 +57,45 @@ export function MobileNavSheet({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            className="size-11 rounded-full sm:hidden"
-            aria-label="Menü"
-          />
-        }
+        render={<ShopButton variant="quiet" className="lg:hidden" />}
       >
-        <MenuIcon className="size-6" aria-hidden />
+        <MenuIcon aria-hidden />
+        Menü
       </SheetTrigger>
 
-      <SheetContent side="left" className="w-4/5 gap-0 sm:max-w-xs">
-        <SheetHeader className="border-b border-border/60">
-          <SheetTitle className="font-display text-lg">Menü</SheetTitle>
+      {/* Opens from the right because its button sits on the right — a panel
+          should arrive from, and leave toward, the control that summoned it. */}
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className={shopSheetClass("data-[side=right]:w-[88%]")}
+      >
+        <SheetHeader className="flex-row items-center justify-between border-b border-border px-4 py-3">
+          <SheetTitle className="font-display text-2xl">Menü</SheetTitle>
+          <SheetClose render={<ShopButton variant="quiet" />}>Kapat</SheetClose>
         </SheetHeader>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-          <DrawerLink href="/" onNavigate={close} icon={<HouseIcon className="size-5" aria-hidden />}>
+        <nav
+          aria-label="Menü"
+          className="flex flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-3"
+        >
+          <DrawerLink href="/" onNavigate={close} icon={<HouseIcon aria-hidden />}>
             Ana Sayfa
           </DrawerLink>
-          <DrawerLink href="/#urunler" onNavigate={close} icon={<LayoutGridIcon className="size-5" aria-hidden />}>
+          <DrawerLink href="/#urunler" onNavigate={close} icon={<LayoutGridIcon aria-hidden />}>
             Ürünler
           </DrawerLink>
-          <DrawerLink href="/duzenli-siparis" onNavigate={close} icon={<RepeatIcon className="size-5" aria-hidden />}>
+          <DrawerLink href="/duzenli-siparis" onNavigate={close} icon={<RepeatIcon aria-hidden />}>
             Düzenli Sipariş
           </DrawerLink>
-          <DrawerLink href="/siparis-sorgula" onNavigate={close} icon={<SearchIcon className="size-5" aria-hidden />}>
+          <DrawerLink href="/siparis-sorgula" onNavigate={close} icon={<SearchIcon aria-hidden />}>
             Sipariş Sorgula
           </DrawerLink>
           {isAdmin ? (
             <DrawerLink
               href="/admin"
               onNavigate={close}
-              icon={<LayoutDashboardIcon className="size-5" aria-hidden />}
+              icon={<LayoutDashboardIcon aria-hidden />}
             >
               Yönetim Paneli
             </DrawerLink>
@@ -96,7 +103,7 @@ export function MobileNavSheet({
             <DrawerLink
               href={authed ? "/hesap" : "/giris"}
               onNavigate={close}
-              icon={<UserRoundIcon className="size-5" aria-hidden />}
+              icon={<UserRoundIcon aria-hidden />}
             >
               {authed ? "Hesabım" : "Giriş Yap"}
             </DrawerLink>
@@ -104,11 +111,8 @@ export function MobileNavSheet({
 
           {authed ? (
             <form action={customerSignOutAction} className="mt-1">
-              <button
-                type="submit"
-                className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-base font-medium text-muted-foreground transition-colors active:bg-secondary/60"
-              >
-                <LogOutIcon className="size-5" aria-hidden />
+              <button type="submit" className={`${rowClass} w-full text-muted-foreground`}>
+                <LogOutIcon className="size-6 shrink-0" aria-hidden />
                 Çıkış Yap
               </button>
             </form>
@@ -117,23 +121,25 @@ export function MobileNavSheet({
 
         <a
           href={`tel:${SUPPORT_WHATSAPP_E164}`}
-          className="m-3 flex items-center gap-3 rounded-2xl bg-primary/10 p-4 transition-colors active:bg-primary/15"
+          className="shop-press shop-focus m-3 mb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3 rounded-2xl bg-(--shop-green-soft) p-4"
         >
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <PhoneIcon className="size-5" aria-hidden />
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <PhoneIcon className="size-6" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm text-muted-foreground">Bizi arayın</span>
-            <span className="block truncate font-display text-base font-semibold text-foreground">
+            <span className="block text-base text-muted-foreground">Bizi arayın</span>
+            <span className="block truncate text-xl font-bold text-foreground tabular-nums">
               {COMPANY.phone}
             </span>
           </span>
-          <ArrowRightIcon className="size-4 shrink-0 text-primary" aria-hidden />
         </a>
       </SheetContent>
     </Sheet>
   );
 }
+
+const rowClass =
+  "shop-press shop-focus flex min-h-14 items-center gap-3.5 rounded-xl px-3 text-lg font-semibold text-foreground active:bg-secondary";
 
 function DrawerLink({
   href,
@@ -143,17 +149,14 @@ function DrawerLink({
 }: {
   href: string;
   onNavigate: () => void;
-  icon?: React.ReactNode;
+  icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-base font-medium text-foreground transition-colors active:bg-secondary/60"
-    >
-      {icon}
-      {children}
+    <Link href={href} onClick={onNavigate} className={rowClass}>
+      <span className="text-primary [&_svg]:size-6">{icon}</span>
+      <span className="flex-1">{children}</span>
+      <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
     </Link>
   );
 }
