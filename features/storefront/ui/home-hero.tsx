@@ -1,6 +1,5 @@
 import Image from "next/image";
 
-import heroImage from "@/public/brand/apuhan-acilis.webp";
 import { cn } from "@/lib/utils";
 
 import { HomeHeroIntroMarker } from "@/features/storefront/ui/home-hero-intro-marker";
@@ -20,6 +19,11 @@ import { HomeHeroIntroMarker } from "@/features/storefront/ui/home-hero-intro-ma
  * The frame is cropped tighter than the photograph on phones and tablets;
  * the sign sits in the middle 60% of the picture's height, which every crop
  * here keeps.
+ *
+ * Referenced by URL, not as a static import: the `*.webp` module types come
+ * from the generated (git-ignored) next-env.d.ts, which does not exist when
+ * CI runs `tsc` without a build. The frame's own kraft background stands in
+ * until the picture arrives.
  */
 export function HomeHero({ className }: { className?: string | undefined }) {
   return (
@@ -30,11 +34,10 @@ export function HomeHero({ className }: { className?: string | undefined }) {
       )}
     >
       <Image
-        src={heroImage}
+        src="/brand/apuhan-acilis.webp"
         alt="Kayısı ağacının altında, üzerinde apuhanciftligi.com yazan ahşap tabela ve taze kayısılar"
         fill
         priority
-        placeholder="blur"
         sizes="(max-width: 1023px) 100vw, 480px"
         className="shop-hero-media object-cover object-[50%_49%]"
       />
