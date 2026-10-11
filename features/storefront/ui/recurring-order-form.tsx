@@ -14,13 +14,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { createRecurringOrderRequestAction } from "@/features/storefront/application/recurring-order-request";
 import { WEEKDAY_NAMES_TR, WEEKDAYS_TR_ORDER } from "@/features/storefront/domain/delivery-window";
 import { paymentMethodsForChannel } from "@/features/storefront/domain/payment-options";
 import { deliveryFeeNotice } from "@/features/storefront/domain/storefront.config";
 import { RecurringOrderItemsPicker } from "@/features/storefront/ui/recurring-order-items-picker";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 
 import type { Product } from "@/features/products/application/list-products";
 import type { RecurringRequestInput } from "@/features/storefront/domain/recurring-request.schema";
@@ -104,13 +103,13 @@ export function RecurringOrderForm({
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-      <p className="text-sm font-semibold text-foreground">Yeni talep oluştur</p>
-      <p className="mt-1 mb-5 text-xs text-muted-foreground">
+      <p className="text-base font-semibold text-foreground">Yeni talep oluştur</p>
+      <p className="mt-1 mb-5 text-base text-muted-foreground">
         Talebiniz ekibimiz onayladıktan sonra aktif olur.
       </p>
 
       <div className="mb-5 rounded-lg bg-amber-50 border border-amber-200 p-3">
-        <p className="text-sm text-amber-900">
+        <p className="text-base text-amber-900">
           Eve teslimat hizmeti, 250 ₺ ve üzeri tutardaki siparişler için geçerlidir.{" "}
           {deliveryFeeNotice(deliveryFeeMinor)}
           {deliveryFeeMinor > 0 ? " Bu ücret oluşturulan her siparişe eklenir." : ""}
@@ -118,21 +117,21 @@ export function RecurringOrderForm({
       </div>
 
       <div className="space-y-5">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cadence">Sıklık</Label>
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground" htmlFor="cadence">Sıklık</label>
           <select
             id="cadence"
             value={cadence}
             onChange={(e) => setCadence(e.target.value as "weekly" | "biweekly")}
-            className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             <option value="weekly">Haftalık</option>
             <option value="biweekly">İki haftada bir</option>
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label>Teslimat günü</Label>
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground">Teslimat günü</label>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Teslimat günü">
             {orderedDays.map((d) => (
               <button
@@ -141,7 +140,7 @@ export function RecurringOrderForm({
                 onClick={() => setDayOfWeek(d)}
                 aria-pressed={dayOfWeek === d}
                 className={[
-                  "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+                  "rounded-md border px-3 py-1.5 text-base font-bold transition-colors",
                   dayOfWeek === d
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-input bg-transparent hover:bg-muted",
@@ -153,13 +152,13 @@ export function RecurringOrderForm({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="payment_method">Ödeme yöntemi</Label>
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground" htmlFor="payment_method">Ödeme yöntemi</label>
           <select
             id="payment_method"
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             {PAYMENT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -169,8 +168,8 @@ export function RecurringOrderForm({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label>Ürünler</Label>
+        <div className="flex min-w-0 flex-col gap-2">
+          <label className="text-base font-bold text-foreground">Ürünler</label>
           <RecurringOrderItemsPicker
             products={products}
             items={items}
@@ -180,20 +179,17 @@ export function RecurringOrderForm({
         </div>
 
         {formError ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-base text-destructive" role="alert">
             {formError}
           </p>
         ) : null}
 
-        <Button
-          type="button"
-          size="lg"
-          className="w-full rounded-full"
+        <ShopButton size="lg" block
           onClick={handleSubmit}
           disabled={pending}
         >
           {pending ? "Gönderiliyor…" : "Talep gönder"}
-        </Button>
+        </ShopButton>
       </div>
     </div>
   );

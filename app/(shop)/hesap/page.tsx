@@ -14,10 +14,9 @@ import { AccountAddresses } from "@/features/storefront/ui/account-addresses";
 import { AccountProfileForm } from "@/features/storefront/ui/account-profile-form";
 import { OrderStatusRefresher } from "@/features/storefront/ui/order-status-refresher";
 import { ResumePaymentButton } from "@/features/storefront/ui/resume-payment-button";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",
@@ -49,11 +48,11 @@ export default async function AccountPage() {
     <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       {hasPendingCardOrder ? <OrderStatusRefresher /> : null}
       <div className="flex items-center justify-between gap-4">
-        <h1 className="font-display text-3xl">Hesabım</h1>
+        <h1 className="font-display text-[2rem] leading-tight sm:text-4xl">Hesabım</h1>
         <form action={customerSignOutAction}>
-          <Button type="submit" variant="outline" size="lg" className="rounded-full">
+          <ShopButton type="submit" variant="secondary" size="lg">
             Çıkış yap
-          </Button>
+          </ShopButton>
         </form>
       </div>
 
@@ -72,13 +71,13 @@ export default async function AccountPage() {
       />
 
       <section className="mt-6">
-        <h2 className="mb-3 font-display text-lg">Siparişlerim</h2>
+        <h2 className="mb-3 font-display text-2xl leading-tight">Siparişlerim</h2>
         {account.orders.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border p-8 text-center">
-            <p className="text-sm text-muted-foreground">Henüz siparişiniz yok.</p>
+            <p className="text-base text-muted-foreground">Henüz siparişiniz yok.</p>
             <Link
               href="/"
-              className={cn(buttonVariants({ size: "lg" }), "mt-4 rounded-full")}
+              className="shop-btn shop-press shop-focus mt-4" data-variant="primary" data-size="lg"
             >
               Alışverişe başla
             </Link>
@@ -88,10 +87,10 @@ export default async function AccountPage() {
             {account.orders.map((order) => (
               <li
                 key={order.order_number}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/60 bg-card p-4 text-sm"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 text-base"
               >
                 <div>
-                  <p className="font-mono font-medium">{order.order_number}</p>
+                  <p className="shop-money font-bold">{order.order_number}</p>
                   {/* A cargo order never picked a delivery day — `scheduled_for`
                       is the internal preparation date, so printing it as
                       "Teslimat" invented a promise the confirmation e-mail
@@ -109,22 +108,22 @@ export default async function AccountPage() {
                       Cash-on-delivery is excluded: it is unpaid by design until
                       the driver arrives, so flagging it would be noise. */}
                   {isAwaitingCardConfirmation(order, nowMs) ? (
-                    <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                    <span className="rounded-full bg-secondary px-2.5 py-1 text-base font-bold text-muted-foreground">
                       Ödeme kontrol ediliyor
                     </span>
                   ) : isAwaitingPayment(order) ? (
-                    <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                    <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-base font-bold text-destructive">
                       Ödeme bekliyor
                     </span>
                   ) : showsPaidBadge(order) ? (
-                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-base font-bold text-primary">
                       Ödendi
                     </span>
                   ) : null}
-                  <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium">
+                  <span className="rounded-full bg-secondary px-2.5 py-1 text-base font-bold">
                     {STATUS_LABELS[order.status] ?? order.status}
                   </span>
-                  <span className="font-semibold tabular-nums">
+                  <span className="font-semibold shop-money">
                     {formatTRY(order.total_minor)}
                   </span>
                 </div>
@@ -132,7 +131,7 @@ export default async function AccountPage() {
                 (order.cargo_carrier ||
                   order.cargo_tracking_number ||
                   order.cargo_tracking_url) ? (
-                  <div className="w-full text-xs text-muted-foreground">
+                  <div className="w-full text-base text-muted-foreground">
                     {[order.cargo_carrier, order.cargo_tracking_number]
                       .filter(Boolean)
                       .join(" · ")}
@@ -143,7 +142,7 @@ export default async function AccountPage() {
                           href={order.cargo_tracking_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline underline-offset-2"
+                          className="underline underline-offset-4"
                         >
                           Kargo takip
                         </a>

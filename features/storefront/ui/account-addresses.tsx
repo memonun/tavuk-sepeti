@@ -18,12 +18,12 @@ import { MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { deleteAddressAction } from "@/features/storefront/application/delete-address";
 import { saveAddressAction } from "@/features/storefront/application/save-address";
 import { AddressForm } from "@/features/storefront/ui/address-form";
 import { DELIVERY_PROVINCE } from "@/features/storefront/domain/storefront.config";
 import { isRouteCapable } from "@/features/storefront/domain/route-capability";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
 
@@ -89,13 +89,9 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
   return (
     <section className="mt-6">
       <div className="mb-3 flex items-center justify-between gap-4">
-        <h2 className="font-display text-lg">Adreslerim</h2>
+        <h2 className="font-display text-2xl leading-tight">Adreslerim</h2>
         {!adding ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full"
+          <ShopButton variant="secondary"
             onClick={() => {
               setEditing(null);
               setAdding(true);
@@ -103,7 +99,7 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
           >
             <PlusIcon className="size-4" />
             Yeni adres
-          </Button>
+          </ShopButton>
         ) : null}
       </div>
 
@@ -124,7 +120,7 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
 
       {addresses.length === 0 && !adding ? (
         <div className="rounded-3xl border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Kayıtlı adresiniz yok. Sipariş verirken de ekleyebilirsiniz.
           </p>
         </div>
@@ -138,7 +134,7 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
           return (
             <li
               key={address.id}
-              className="rounded-2xl border border-border/60 bg-card p-4 text-sm"
+              className="rounded-2xl border border-border bg-card p-4 text-base"
             >
               {editing === address.id ? (
                 <AddressForm
@@ -155,21 +151,21 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
               ) : (
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 font-medium">
+                    <p className="flex flex-wrap items-center gap-2 font-bold">
                       {address.label?.trim() || "Adres"}
                       {address.is_primary ? (
-                        <Badge variant="secondary" className="text-[11px]">
+                        <Badge variant="secondary" className="h-auto px-2.5 py-0.5 text-base">
                           Varsayılan
                         </Badge>
                       ) : null}
                       <Badge
                         variant={routeCapable ? "default" : "outline"}
-                        className="gap-1 text-[11px]"
+                        className="h-auto gap-1.5 px-2.5 py-0.5 text-base"
                       >
                         {routeCapable ? (
-                          <MapPinIcon className="size-3" />
+                          <MapPinIcon className="size-4" aria-hidden />
                         ) : (
-                          <TruckIcon className="size-3" />
+                          <TruckIcon className="size-4" aria-hidden />
                         )}
                         {routeCapable
                           ? `${DELIVERY_PROVINCE} teslimat`
@@ -178,29 +174,21 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
                     </p>
                     <p className="mt-1 text-muted-foreground">{address.raw_text}</p>
                     {address.description ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-base text-muted-foreground">
                         {address.description}
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {!address.is_primary ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full"
+                      <ShopButton variant="secondary"
                         onClick={() => makeDefault(address, routeCapable)}
                         disabled={pending}
                       >
                         Varsayılan yap
-                      </Button>
+                      </ShopButton>
                     ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full"
+                    <ShopButton variant="secondary"
                       onClick={() => {
                         setAdding(false);
                         setEditing(address.id);
@@ -208,17 +196,14 @@ export function AccountAddresses({ addresses, mapsKey }: AccountAddressesProps) 
                       disabled={pending}
                     >
                       Düzenle
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full text-destructive"
+                    </ShopButton>
+                    <ShopButton
+                      variant="danger"
                       onClick={() => remove(address.id)}
                       disabled={pending}
                     >
                       Sil
-                    </Button>
+                    </ShopButton>
                   </div>
                 </div>
               )}

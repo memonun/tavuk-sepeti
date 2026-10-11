@@ -14,8 +14,8 @@ export function LegalArticle({ slug }: { slug: string }) {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl">{doc.longTitle}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <h1 className="font-display text-[2rem] leading-tight sm:text-4xl">{doc.longTitle}</h1>
+      <p className="mt-2 text-base text-muted-foreground">
         Son güncelleme: {doc.updated}
       </p>
 
@@ -23,25 +23,25 @@ export function LegalArticle({ slug }: { slug: string }) {
         {doc.sections.map((section, i) => (
           <section key={section.heading ?? i} className="flex flex-col gap-2">
             {section.heading ? (
-              <h2 className="font-display text-lg text-foreground">
+              <h2 className="font-display text-2xl leading-tight text-foreground">
                 {section.heading}
               </h2>
             ) : null}
             {section.paragraphs.map((para, j) => (
               <p
                 key={j}
-                className="text-sm leading-relaxed text-muted-foreground"
+                className="max-w-[68ch] text-lg leading-relaxed text-foreground"
               >
                 {para}
               </p>
             ))}
             {section.links?.length ? (
-              <ul className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1 text-sm">
+              <ul className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1 text-base">
                 {section.links.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      className="inline-flex min-h-11 items-center font-bold text-foreground underline underline-offset-4"
                     >
                       {link.title}
                     </Link>
@@ -56,17 +56,17 @@ export function LegalArticle({ slug }: { slug: string }) {
       {related.length > 0 ? (
         <nav
           aria-label="İlgili hukuki metinler"
-          className="mt-10 border-t border-border/60 pt-6"
+          className="mt-10 border-t border-border pt-6"
         >
-          <p className="text-sm font-medium text-foreground">
+          <p className="text-base font-bold text-foreground">
             İlgili hukuki metinler
           </p>
-          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-base">
             {related.map((d) => (
               <li key={d.slug}>
                 <Link
                   href={`/${d.slug}`}
-                  className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  className="inline-flex min-h-11 items-center font-bold text-foreground underline underline-offset-4"
                 >
                   {d.title}
                 </Link>

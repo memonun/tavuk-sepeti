@@ -13,11 +13,11 @@
 import { useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { isMultipleOfStep } from "@/features/orders/application/order-item-pricing";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { formatTRY } from "@/shared/utils/money";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
+import { ShopInput } from "@/features/storefront/ui/kit/shop-field";
 
 import type { Product } from "@/features/products/application/list-products";
 import type { RecurringRequestInput } from "@/features/storefront/domain/recurring-request.schema";
@@ -55,7 +55,7 @@ function LineRow({
   const approxTotal = lineTotalMinor(product, quantity);
 
   return (
-    <div className="grid grid-cols-1 items-start gap-2 rounded-md border bg-card px-3 py-2 text-sm sm:grid-cols-12">
+    <div className="grid grid-cols-1 items-start gap-2 rounded-md border bg-card px-3 py-2 text-base sm:grid-cols-12">
       <div className="sm:col-span-5">
         <select
           value={product.key}
@@ -63,7 +63,7 @@ function LineRow({
             const val = e.target.value;
             if (val) onProductChange(val);
           }}
-          className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 text-base focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           aria-label="Ürün seç"
         >
           <option value={product.key}>{product.display_name}</option>
@@ -79,27 +79,27 @@ function LineRow({
       </div>
 
       <div className="flex items-center gap-2 sm:col-span-4">
-        <Input
+        <ShopInput
           type="number"
           inputMode="decimal"
           min={product.min_qty}
           step={product.step}
           value={quantity}
           aria-invalid={stepInvalid || minInvalid}
-          className="w-16 shrink-0"
+          className="w-24 shrink-0"
           onChange={(e) => {
             const next = Number(e.target.value);
             if (Number.isFinite(next)) onQuantityChange(next);
           }}
         />
-        <span className="min-w-0 truncate text-xs text-muted-foreground">
+        <span className="min-w-0 truncate text-base text-muted-foreground">
           {product.unit_label}
         </span>
       </div>
 
       <div className="flex items-center justify-between sm:col-span-2 sm:justify-end">
         <span
-          className="font-mono text-xs text-muted-foreground"
+          className="shop-money text-base text-muted-foreground"
           title="Tahmini tutar — teslimat anındaki güncel fiyat üzerinden hesaplanır"
         >
           ≈{formatTRY(approxTotal)}
@@ -107,20 +107,18 @@ function LineRow({
       </div>
 
       <div className="flex justify-end sm:col-span-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 px-0 text-destructive"
+        <ShopButton
+          variant="danger"
           onClick={onRemove}
           aria-label={`${product.display_name} satırını kaldır`}
         >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+          <Trash2 aria-hidden />
+          Kaldır
+        </ShopButton>
       </div>
 
       {stepInvalid || minInvalid ? (
-        <p className="text-xs text-destructive sm:col-span-12" role="alert">
+        <p className="text-base text-destructive sm:col-span-12" role="alert">
           {minInvalid
             ? `Minimum ${product.min_qty} ${product.unit_label} gerekli.`
             : `Miktar ${product.step} ${product.unit_label} katı olmalı.`}
@@ -199,26 +197,22 @@ export function RecurringOrderItemsPicker({
           })}
         </div>
       ) : (
-        <p className="rounded-md border border-dashed bg-muted/30 px-3 py-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-md border border-dashed bg-muted/30 px-3 py-6 text-center text-base text-muted-foreground">
           Henüz ürün eklenmedi.
         </p>
       )}
 
       {remaining.length > 0 ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
+        <ShopButton variant="secondary"
           onClick={addItem}
-          className="gap-1.5"
         >
           <Plus className="h-3 w-3" />
           Ürün ekle
-        </Button>
+        </ShopButton>
       ) : null}
 
       {error ? (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-base text-destructive" role="alert">
           {error}
         </p>
       ) : null}

@@ -220,13 +220,17 @@ export function CartSheet({
                       </div>
                       {/* Name wraps instead of truncating: "Gün Kurusu Kayısı
                           Çeki…" tells nobody which of two apricot products
-                          this line is. */}
-                      <p className="min-w-0 flex-1 text-lg leading-snug font-bold break-words">
-                        {product.display_name}
-                      </p>
-                      <p className="shop-money shrink-0 text-lg font-bold">
-                        {formatTRY(lineTotalMinor(product, quantity))}
-                      </p>
+                          this line is. The price sits UNDER the name, not
+                          beside it: side by side, a long price squeezed the
+                          name down to one letter per line on a narrow phone. */}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-lg leading-snug font-bold break-words">
+                          {product.display_name}
+                        </p>
+                        <p className="shop-money text-lg font-bold text-primary">
+                          {formatTRY(lineTotalMinor(product, quantity))}
+                        </p>
+                      </div>
                     </div>
                     <QuantityStepper product={product} block />
                   </li>

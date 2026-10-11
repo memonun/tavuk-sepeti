@@ -918,12 +918,15 @@ function OrderSummary({
                     </span>
                   )}
                 </div>
-                <p className="min-w-0 flex-1 text-lg leading-snug font-bold break-words">
-                  {product.display_name}
-                </p>
-                <p className="shop-money shrink-0 text-lg font-bold">
-                  {formatTRY(lineTotalMinor(product, quantity))}
-                </p>
+                {/* Price under the name, not beside it — see cart-sheet.tsx. */}
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg leading-snug font-bold break-words">
+                    {product.display_name}
+                  </p>
+                  <p className="shop-money text-lg font-bold text-primary">
+                    {formatTRY(lineTotalMinor(product, quantity))}
+                  </p>
+                </div>
               </div>
               <QuantityStepper product={product} block />
             </li>

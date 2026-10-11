@@ -56,7 +56,7 @@ export function ShopHeader({
             priority
             className="size-12 shrink-0 rounded-full lg:size-14"
           />
-          <span className="truncate font-display text-xl leading-none text-foreground sm:text-[1.375rem]">
+          <span className="truncate font-display text-lg leading-none text-foreground min-[360px]:text-xl sm:text-[1.375rem]">
             Apuhan Çiftliği
           </span>
         </Link>
