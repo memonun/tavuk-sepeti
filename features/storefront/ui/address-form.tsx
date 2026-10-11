@@ -29,13 +29,12 @@ import { MapPinIcon } from "lucide-react";
 import { AddressAutocomplete } from "@/components/address/address-autocomplete";
 import { AddressMapsProvider } from "@/components/address/address-maps-provider";
 import { AddressPinCorrector } from "@/components/address/address-pin-corrector";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { geocodeAddressAction } from "@/features/geocoding/application/geocode-address-action";
 import { reverseGeocodeAction } from "@/features/geocoding/application/reverse-geocode-action";
 import { saveAddressAction } from "@/features/storefront/application/save-address";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
+import { ShopInput } from "@/features/storefront/ui/kit/shop-field";
 import { DETACHED_HOUSE_APARTMENT_NO } from "@/features/storefront/domain/customer-address.schema";
 import {
   DELIVERY_PROVINCE,
@@ -397,20 +396,20 @@ export function AddressForm({
       apiKey={mapsKey}
       fallback={
         needsPin ? (
-          <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <p className="rounded-2xl border border-destructive/40 bg-(--shop-red-soft) p-4 text-base leading-relaxed font-semibold text-destructive">
             {`Harita yüklenemedi. ${DELIVERY_PROVINCE} içi teslimat için konum onayı gerektiğinden şu an bu adres kaydedilemiyor.`}
           </p>
         ) : (
           // Cargo does not depend on the map, so a missing key is a downgrade,
           // not a dead end: the fields below are still fully usable by hand.
-          <p className="rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
+          <p className="rounded-2xl bg-muted p-4 text-base leading-relaxed text-foreground">
             Harita şu an kullanılamıyor — adres alanlarını elle
             doldurabilirsiniz.
           </p>
         )
       }
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {/* Map first: picking the point is the fast path, and it fills every
             field below, so the customer edits pre-filled text instead of
             typing an address from scratch on a phone. */}
@@ -433,15 +432,15 @@ export function AddressForm({
         />
 
         {lookupError ? (
-          <p className="text-xs text-muted-foreground" role="status">
+          <p className="text-base text-muted-foreground" role="status">
             {lookupError}
           </p>
         ) : null}
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="af-search" className="text-muted-foreground">
+        <div className="flex flex-col gap-2">
+          <label htmlFor="af-search" className={labelClass}>
             veya adres arayın
-          </Label>
+          </label>
           <AddressAutocomplete
             id="af-search"
             onSelect={applySuggestion}
@@ -453,12 +452,12 @@ export function AddressForm({
         {needsPin && hasPin ? (
           <label
             data-checked={confirmed || undefined}
-            className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-sm data-[checked]:border-primary data-[checked]:bg-secondary/50"
+            className="shop-press-soft flex min-h-14 cursor-pointer items-start gap-3 rounded-2xl border-2 border-(--shop-field-border) bg-card px-4 py-3 text-base leading-relaxed font-semibold text-foreground data-[checked]:border-primary data-[checked]:bg-(--shop-green-soft)"
           >
             <Checkbox
               checked={confirmed}
               onCheckedChange={setConfirmed}
-              className="mt-0.5"
+              className={checkboxClass}
               disabled={saving}
             />
             <span>
@@ -469,8 +468,8 @@ export function AddressForm({
         ) : null}
 
         {needsPin && !hasPin ? (
-          <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
-            <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+          <p className="flex items-start gap-3 rounded-2xl bg-muted p-4 text-base leading-relaxed text-foreground">
+            <MapPinIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
             <span>
               {`${DELIVERY_PROVINCE} içi teslimat için konumunuzu haritadan seçip onaylayın.`}
             </span>
@@ -481,12 +480,15 @@ export function AddressForm({
   );
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-4">
+    // `shop-address`: the hook theme.css uses to bring the map's hint and the
+    // address search box (shared components, also used by the admin) up to
+    // the shop's sizes without editing those files.
+    <div className="shop-address flex flex-col gap-5 rounded-3xl border border-border bg-card p-4 sm:p-5">
       {mapBlock}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Adres adı (ör. Ev, İş)" htmlFor="af-label">
-          <Input
+          <ShopInput
             id="af-label"
             value={fields.label}
             onChange={(e) => set({ label: e.target.value })}
@@ -495,7 +497,7 @@ export function AddressForm({
           />
         </Field>
         <Field label="İl" htmlFor="af-city">
-          <Input
+          <ShopInput
             id="af-city"
             value={fields.city}
             onChange={(e) => set({ city: e.target.value })}
@@ -505,7 +507,7 @@ export function AddressForm({
           />
         </Field>
         <Field label="İlçe" htmlFor="af-district">
-          <Input
+          <ShopInput
             id="af-district"
             value={fields.district}
             onChange={(e) => set({ district: e.target.value })}
@@ -515,7 +517,7 @@ export function AddressForm({
           />
         </Field>
         <Field label="Mahalle" htmlFor="af-neighborhood">
-          <Input
+          <ShopInput
             id="af-neighborhood"
             value={fields.neighborhood}
             onChange={(e) => set({ neighborhood: e.target.value })}
@@ -527,7 +529,7 @@ export function AddressForm({
           label={needsPin || requiresAllFields ? "Cadde / Sokak" : "Cadde / Sokak (opsiyonel)"}
           htmlFor="af-street"
         >
-          <Input
+          <ShopInput
             id="af-street"
             value={fields.street}
             onChange={(e) => set({ street: e.target.value })}
@@ -537,7 +539,7 @@ export function AddressForm({
           />
         </Field>
         <Field label={needsPin || requiresAllFields ? "Bina no" : "Bina no (opsiyonel)"} htmlFor="af-building">
-          <Input
+          <ShopInput
             id="af-building"
             value={fields.building_no}
             onChange={(e) => set({ building_no: e.target.value })}
@@ -546,8 +548,8 @@ export function AddressForm({
           />
         </Field>
         <Field label={needsPin || requiresAllFields ? "Daire no" : "Daire no (opsiyonel)"} htmlFor="af-apartment">
-          <div className="flex flex-col gap-1.5">
-            <Input
+          <div className="flex flex-col gap-2">
+            <ShopInput
               id="af-apartment"
               value={detached ? "" : fields.apartment_no}
               onChange={(e) => set({ apartment_no: e.target.value })}
@@ -558,10 +560,11 @@ export function AddressForm({
             {/* A detached house genuinely has no flat number. Recording that
                 explicitly beats leaving the field blank, which would make the
                 stop show a red "Daire" warning on every route forever. */}
-            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 text-base text-foreground">
               <Checkbox
                 checked={detached}
                 onCheckedChange={setDetached}
+                className={checkboxClass}
                 disabled={saving}
               />
               Müstakil ev — daire numarası yok
@@ -569,7 +572,7 @@ export function AddressForm({
           </div>
         </Field>
         <Field label="Posta kodu (opsiyonel)" htmlFor="af-postal">
-          <Input
+          <ShopInput
             id="af-postal"
             value={fields.postal_code}
             onChange={(e) => set({ postal_code: e.target.value })}
@@ -579,7 +582,7 @@ export function AddressForm({
           />
         </Field>
         <Field label="Adres tarifi (opsiyonel)" htmlFor="af-desc">
-          <Input
+          <ShopInput
             id="af-desc"
             value={fields.description}
             onChange={(e) => set({ description: e.target.value })}
@@ -590,13 +593,16 @@ export function AddressForm({
       </div>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className="rounded-2xl border border-destructive/40 bg-(--shop-red-soft) p-4 text-base font-semibold text-destructive"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={submit} disabled={!canSubmit}>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <ShopButton size="lg" onClick={submit} disabled={!canSubmit}>
           {/* Nothing is stored in collect mode — a guest has no address book,
               so promising "kaydet" would be a lie. */}
           {onCollect
@@ -604,22 +610,28 @@ export function AddressForm({
             : saving
               ? "Kaydediliyor…"
               : "Adresi kaydet"}
-        </Button>
+        </ShopButton>
         {onCancel ? (
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>
+          <ShopButton size="lg" variant="quiet" onClick={onCancel} disabled={saving}>
             Vazgeç
-          </Button>
+          </ShopButton>
         ) : null}
       </div>
 
       {needsPin && hasPin && !confirmed ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="rounded-2xl bg-(--shop-apricot-soft) p-4 text-base font-semibold text-foreground">
           Kaydetmek için haritadaki konumu onaylayın.
         </p>
       ) : null}
     </div>
   );
 }
+
+/** Same label and checkbox treatment as the rest of the checkout
+ *  (checkout-form.tsx): dark bold labels, 28px boxes. */
+const labelClass = "text-base font-bold text-foreground";
+const checkboxClass =
+  "mt-0.5 size-7 rounded-md border-2 border-(--shop-field-border) [&_svg]:size-5";
 
 function Field({
   label,
@@ -631,10 +643,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={htmlFor} className="text-muted-foreground">
+    <div className="flex min-w-0 flex-col gap-2">
+      <label htmlFor={htmlFor} className={labelClass}>
         {label}
-      </Label>
+      </label>
       {children}
     </div>
   );

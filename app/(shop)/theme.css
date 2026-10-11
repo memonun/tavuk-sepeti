@@ -127,6 +127,90 @@
   background-color: rgb(42 28 18 / 0.42);
 }
 
+/* ---------------------------------------------------------------------------
+ * The address form's shared pieces.
+ *
+ * The map with its hint line (components/address/address-pin-corrector) and
+ * the address search box (address-autocomplete) are also used by the admin,
+ * and they are the Google Maps code, so the shop does not edit them. These
+ * rules bring them up to the shop's sizes from outside, scoped to
+ * `.shop-address` (the root of the storefront's AddressForm). Unlayered on
+ * purpose: they have to outrank the utilities those components carry. If the
+ * shared markup ever changes shape these simply stop matching — nothing
+ * breaks, the pieces just fall back to their admin sizes.
+ * ------------------------------------------------------------------------- */
+
+/* The hint above the map is coloured `text-orange-700 dark:text-orange-300`
+   (and emerald for "confirmed"). The shop is fixed-light, but <html> still
+   carries `.dark` on a phone in dark mode, so the `dark:` half won and the
+   hint rendered pale orange on a pale orange panel. Both halves are pointed
+   at one dark tone here: 6.9:1 (orange) and 7.3:1 (green) on their tints. */
+:root:has(.shop-theme) {
+  --color-orange-700: #9a3412;
+  --color-orange-300: #9a3412;
+  --color-emerald-700: #065f46;
+  --color-emerald-300: #065f46;
+}
+
+/* The hint line itself: 14px → 16px, with room to wrap. */
+.shop-address .space-y-2 > div:first-child {
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 1rem;
+  font-size: 1rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.shop-address .space-y-2 > div:first-child svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.0625rem;
+}
+/* The map frame's corners match the cards around it. */
+.shop-address .space-y-2 > div:nth-child(2) {
+  border-radius: 1rem;
+  border-color: var(--shop-field-border);
+}
+
+/* The search box: same field as every other input in the checkout. */
+.shop-address #af-search {
+  height: auto;
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--shop-field-border);
+  border-radius: 0.875rem;
+  background-color: var(--card);
+  color: var(--foreground);
+  font-size: 1.125rem;
+  line-height: 1.35;
+}
+.shop-address #af-search::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+.shop-address #af-search:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgb(27 74 38 / 0.22);
+}
+/* Its suggestions: a 36px row of 14px text is a hard target for an older
+   finger; 52px rows of 17px text. */
+.shop-address #af-search ~ ul {
+  border-radius: 0.875rem;
+  border: 2px solid var(--shop-field-border);
+  max-height: 20rem;
+}
+.shop-address #af-search ~ ul button {
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+  font-size: 1.0625rem;
+  line-height: 1.35;
+}
+.shop-address #af-search ~ [role="status"] {
+  font-size: 1rem;
+}
+
 /* Increased contrast (an OS accessibility setting): every edge that carries
    meaning goes to full ink, and secondary text stops being lighter than body
    text. Colour only — no sizes or layout change. */

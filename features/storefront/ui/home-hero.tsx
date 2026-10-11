@@ -29,7 +29,7 @@ export function HomeHero({ className }: { className?: string | undefined }) {
   return (
     <div
       className={cn(
-        "relative aspect-[2/1] overflow-hidden rounded-3xl bg-secondary shadow-(--shop-shadow-sm) sm:aspect-[5/2] lg:aspect-[3/2]",
+        "relative aspect-[9/4] overflow-hidden rounded-3xl bg-secondary shadow-(--shop-shadow-sm) sm:aspect-[5/2] lg:aspect-[3/2]",
         className,
       )}
     >
