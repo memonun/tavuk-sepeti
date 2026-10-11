@@ -444,7 +444,7 @@ export function AddressForm({
           <AddressAutocomplete
             id="af-search"
             onSelect={applySuggestion}
-            placeholder="Mahalle, cadde veya sokak adı yazın"
+            placeholder="Mahalle, cadde veya sokak adı"
             disabled={saving}
           />
         </div>

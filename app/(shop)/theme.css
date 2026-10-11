@@ -31,6 +31,11 @@
  */
 :root:has(.shop-theme),
 .shop-theme {
+  /* Native UI (scrollbars, form controls) follows `color-scheme`. next-themes
+     writes `color-scheme: dark` on <html> on a dark-mode phone, which turned
+     the suggestion list's scrollbar black on this fixed-light shop. */
+  color-scheme: light;
+
   --background: #fffdf9;
   --foreground: #2a1c12;
 
@@ -184,6 +189,9 @@
   color: var(--foreground);
   font-size: 1.125rem;
   line-height: 1.35;
+  /* A placeholder that is a hair too wide for a narrow phone ends in an
+     ellipsis instead of losing its last letter. */
+  text-overflow: ellipsis;
 }
 .shop-address #af-search::placeholder {
   color: var(--muted-foreground);
