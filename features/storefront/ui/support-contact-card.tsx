@@ -15,22 +15,20 @@ export function SupportContactCard() {
     <section className="mt-10 sm:mt-12">
       <a
         href={`tel:${SUPPORT_WHATSAPP_E164}`}
-        className="flex flex-col gap-4 rounded-2xl bg-accent/60 p-5 transition-colors active:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        className="shop-press shop-focus flex flex-col gap-4 rounded-3xl bg-primary p-5 text-primary-foreground sm:flex-row sm:items-center sm:justify-between sm:p-7"
       >
         <div className="flex items-center gap-4">
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <PhoneIcon className="size-6" aria-hidden />
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-card text-primary">
+            <PhoneIcon className="size-7" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="font-display text-lg font-semibold text-foreground sm:text-xl">
-              Sipariş veya Bilgi İçin
+            <p className="font-display text-2xl leading-tight">
+              Telefonla da sipariş verebilirsiniz
             </p>
-            <p className="mt-0.5 text-sm text-muted-foreground sm:text-base">
-              Bizi arayın, yardımcı olalım.
-            </p>
+            <p className="mt-1 text-lg">Bizi arayın, yardımcı olalım.</p>
           </div>
         </div>
-        <span className="inline-flex min-h-12 w-fit items-center justify-center rounded-full bg-primary px-5 font-display text-lg font-bold whitespace-nowrap text-primary-foreground">
+        <span className="inline-flex min-h-14 items-center justify-center rounded-full bg-card px-6 shop-money text-2xl font-extrabold whitespace-nowrap text-primary">
           {COMPANY.phone}
         </span>
       </a>

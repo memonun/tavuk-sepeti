@@ -1,55 +1,381 @@
 /*
- * Storefront theme — soft, warm "cream & honey", fixed light.
+ * Storefront theme — "Kayısı bahçesi", fixed light.
  *
- * Scoped to `.shop-theme` so it re-declares the design tokens ONLY within the
- * shop subtree. Because app/globals.css maps them with `@theme inline`
- * (`--color-*: var(--…)`), overriding the raw vars here re-skins every shadcn
- * primitive (Button, Input, Sheet…) inside the shop without touching the admin
- * theme — and without responding to the root `.dark` class, so the storefront
- * stays graceful and light regardless of the visitor's system preference.
+ * The palette is lifted from the shop's own logo and product photographs: the
+ * logo's deep green (the badge is #16401e; the action colour is one step
+ * lighter so large fills stay green rather than near-black), the sun-dried
+ * apricot, the kraft box, and a whitewash ground matching the logo's own
+ * paper. Green carries every action (white on it is 10.22:1);
+ * apricot is a FILL only — it sits at 2.1:1 against the ground, so it never
+ * carries text or an outline by itself, only dark text on top of it (7.75:1).
+ *
+ * Measured contrast (WCAG 2.x), kept here so a future tweak re-checks them:
+ *   foreground / background        16.23   muted-foreground / background  8.09
+ *   primary-foreground / primary   10.22   muted-foreground / secondary   6.22
+ *   primary (as text) / background 10.06   destructive / background       7.11
+ *   foreground / apricot            7.75   field border / background      4.02
+ *
+ * Two selectors, one block:
+ *   `.shop-theme`              — the storefront subtree (works everywhere).
+ *   `:root:has(.shop-theme)`   — the document root while a storefront page is
+ *     mounted. Sheets, dialogs and toasts are portalled to <body>, OUTSIDE the
+ *     `.shop-theme` div, so without this they rendered with the admin tokens
+ *     and followed the visitor's OS dark mode (a black basket drawer over a
+ *     light shop). It outranks `.dark` (0,2,0 vs 0,1,0), so the storefront
+ *     stays light whatever the system preference is. A browser without
+ *     `:has()` simply keeps the old portal behaviour; nothing else changes.
+ *
+ * Because app/globals.css maps the tokens with `@theme inline`
+ * (`--color-*: var(--…)`), overriding the raw vars re-skins every shadcn
+ * primitive inside the shop without touching the admin theme.
  */
+:root:has(.shop-theme),
 .shop-theme {
-  --background: oklch(0.985 0.008 85);
-  --foreground: oklch(0.29 0.02 62);
+  --background: #fffdf9;
+  --foreground: #2a1c12;
 
-  --card: oklch(0.995 0.004 85);
-  --card-foreground: oklch(0.29 0.02 62);
-  --popover: oklch(0.995 0.004 85);
-  --popover-foreground: oklch(0.29 0.02 62);
+  --card: #ffffff;
+  --card-foreground: #2a1c12;
+  --popover: #fffdf9;
+  --popover-foreground: #2a1c12;
 
-  /* Warm caramel/honey primary with cream text (AA on the button). */
-  --primary: oklch(0.62 0.13 66);
-  --primary-foreground: oklch(0.99 0.01 85);
+  --primary: #1b4a26;
+  --primary-foreground: #ffffff;
 
-  --secondary: oklch(0.94 0.02 82);
-  --secondary-foreground: oklch(0.34 0.02 62);
+  --secondary: #eadfc8;
+  --secondary-foreground: #2a1c12;
 
-  --muted: oklch(0.95 0.014 84);
-  --muted-foreground: oklch(0.52 0.025 68);
+  --muted: #f5efe2;
+  --muted-foreground: #5c4c3d;
 
-  --accent: oklch(0.93 0.03 80);
-  --accent-foreground: oklch(0.32 0.03 62);
+  --accent: #f5efe2;
+  --accent-foreground: #2a1c12;
 
-  --destructive: oklch(0.585 0.16 28);
+  --destructive: #a32a1e;
 
-  --border: oklch(0.9 0.015 80);
-  --input: oklch(0.9 0.015 80);
-  --ring: oklch(0.72 0.1 70);
+  /* `--border`/`--input` stay quiet: they also feed the shared primitives
+     (and the address form, which this theme must not restyle beyond colour).
+     Fields built with the shop kit draw their own, stronger edge from
+     `--shop-field-border`. */
+  --border: #d9cbb0;
+  --input: #d9cbb0;
+  --ring: #1b4a26;
 
-  /* Softer, rounder than the admin (0.625rem). */
-  --radius: 1rem;
+  --radius: 0.875rem;
 
-  /* Elegant serif for display type; falls back to the app sans. */
-  --font-heading: var(--font-shop-serif, var(--font-sans));
+  /* Shop-only tokens (no Tailwind colour utility — use `bg-(--shop-…)`). */
+  --shop-apricot: #f2a03d;
+  --shop-apricot-soft: #fce8c8;
+  --shop-green-hover: #123a1b;
+  --shop-green-soft: #e4eedd;
+  --shop-red-soft: #fbedea;
+  --shop-field-border: #8c7b66;
+  --shop-shadow-sm: 0 1px 2px rgb(42 28 18 / 0.08);
+  --shop-shadow-md: 0 6px 20px -6px rgb(42 28 18 / 0.18), 0 2px 4px rgb(42 28 18 / 0.06);
+  --shop-shadow-lg: 0 18px 40px -12px rgb(42 28 18 / 0.28);
 
+  /* Strong ease-out for anything entering or answering a press; the drawer
+     curve for sheets. The built-in keywords are too soft to read as
+     deliberate. */
+  --shop-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --shop-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* The layout injects `--font-shop-body` / `--font-shop-display` at the same
+     two scopes; falling back to the app sans keeps the page legible if it
+     ever doesn't. */
+  --font-sans: var(--font-shop-body, ui-sans-serif, system-ui, sans-serif);
+  --font-heading: var(--font-shop-display, var(--font-sans));
+}
+
+.shop-theme {
   background-color: var(--background);
   color: var(--foreground);
+  font-family: var(--font-sans);
+  /* No grey flash on tap — every control below has its own pressed state. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
-/* Display headings pick up the serif. */
+/* Display type. Tracking is size-specific: tight on headings, zero on body. */
+:root:has(.shop-theme) :is(h1, h2, .font-display),
 .shop-theme :is(h1, h2, .font-display) {
-  font-family: var(--font-shop-serif, var(--font-sans));
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-optical-sizing: auto;
 }
 
+@layer theme, base, components, utilities;
+
+@layer components {
+  /* ---------------------------------------------------------------------------
+   * Shop kit primitives. Plain CSS rather than long utility strings so the
+   * pressed state, focus ring and motion are defined once and every control in
+   * the shop answers a finger the same way.
+   *
+   * In `@layer components` on purpose: unlayered CSS outranks every Tailwind
+   * utility, so `<ShopButton className="lg:hidden">` or `text-muted-foreground`
+   * would silently lose to `.shop-btn`. Inside the components layer these are
+   * defaults that a utility on the same element still overrides. The layer
+   * order is restated so it holds even if this sheet loads before globals.css.
+   * ------------------------------------------------------------------------- */
+
+  /* Pressed feedback on pointer-DOWN, not on release. */
+  .shop-press {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    transition:
+      transform 140ms var(--shop-ease-out),
+      background-color 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+  .shop-press:active:not(:disabled, [aria-disabled="true"]) {
+    transform: scale(0.97);
+  }
+
+  .shop-focus:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 3px;
+  }
+
+  .shop-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    min-height: 3rem;
+    padding: 0.625rem 1.25rem;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .shop-btn svg {
+    flex-shrink: 0;
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+  .shop-btn[data-size="lg"] {
+    min-height: 3.5rem;
+    padding-inline: 1.5rem;
+    font-size: 1.125rem;
+  }
+  .shop-btn[data-block="true"] {
+    width: 100%;
+  }
+
+  .shop-btn[data-variant="primary"] {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: var(--shop-shadow-sm);
+  }
+  .shop-btn[data-variant="secondary"] {
+    background-color: var(--card);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .shop-btn[data-variant="quiet"] {
+    background-color: var(--secondary);
+    color: var(--secondary-foreground);
+  }
+  .shop-btn[data-variant="plain"] {
+    background-color: transparent;
+    color: var(--foreground);
+  }
+  .shop-btn[data-variant="danger"] {
+    background-color: var(--card);
+    border-color: var(--destructive);
+    color: var(--destructive);
+  }
+
+  /* A disabled action must still be readable — the reason it is disabled is
+     always written next to it. Solid tones, not `opacity`, which dropped the
+     old label to ~1.6:1. */
+  .shop-btn:disabled,
+  .shop-btn[aria-disabled="true"] {
+    background-color: var(--secondary);
+    border-color: transparent;
+    color: var(--muted-foreground);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  /* Hover only where a pointer can actually hover — on touch the browser
+     leaves `:hover` stuck on the last tapped element. */
+  @media (hover: hover) and (pointer: fine) {
+    .shop-btn[data-variant="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
+      background-color: var(--shop-green-hover);
+    }
+    .shop-btn[data-variant="secondary"]:hover:not(:disabled, [aria-disabled="true"]) {
+      background-color: var(--shop-green-soft);
+    }
+    .shop-btn[data-variant="quiet"]:hover:not(:disabled, [aria-disabled="true"]),
+    .shop-btn[data-variant="plain"]:hover:not(:disabled, [aria-disabled="true"]) {
+      background-color: var(--border);
+    }
+    .shop-btn[data-variant="danger"]:hover:not(:disabled, [aria-disabled="true"]) {
+      background-color: var(--shop-red-soft);
+    }
+  }
+
+  /* Form field: 52px tall, 18px text (no iOS zoom-on-focus), an edge that is
+     actually visible (4:1 against the ground). */
+  .shop-field {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 3.25rem;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--shop-field-border);
+    border-radius: 0.875rem;
+    background-color: var(--card);
+    color: var(--foreground);
+    font-family: inherit;
+    font-size: 1.125rem;
+    line-height: 1.35;
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+  .shop-field::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+  }
+  .shop-field:focus-visible {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgb(27 74 38 / 0.22);
+  }
+  .shop-field[aria-invalid="true"] {
+    border-color: var(--destructive);
+  }
+  .shop-field:disabled {
+    background-color: var(--muted);
+    color: var(--muted-foreground);
+    cursor: not-allowed;
+  }
+  textarea.shop-field {
+    min-height: 6.5rem;
+    resize: vertical;
+  }
+
+  /* Floating chrome: a translucent layer the page scrolls under. */
+  .shop-glass {
+    background-color: rgb(255 253 249 / 0.86);
+    -webkit-backdrop-filter: saturate(160%) blur(16px);
+    backdrop-filter: saturate(160%) blur(16px);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .shop-glass {
+      background-color: var(--background);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+  @media (prefers-contrast: more) {
+    .shop-glass {
+      background-color: var(--background);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .shop-btn[data-variant="quiet"],
+    .shop-btn[data-variant="plain"] {
+      border-color: var(--foreground);
+    }
+  }
+
+  /* The pazar etiketi — a market price tag. The one loud element in the shop:
+     apricot fill, dark numerals, a punched hole on the string side. */
+  .shop-price-tag {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.375rem;
+    padding: 0.375rem 0.875rem 0.375rem 1.625rem;
+    border-radius: 0.5rem 0.75rem 0.75rem 0.5rem;
+    background-color: var(--shop-apricot);
+    color: var(--foreground);
+    clip-path: polygon(0.75rem 0, 100% 0, 100% 100%, 0.75rem 100%, 0 50%);
+  }
+  .shop-price-tag::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0.875rem;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background-color: var(--background);
+    transform: translateY(-50%);
+  }
+
+  /* Reduced motion: keep colour/opacity feedback, drop the movement. (The
+     global rule in app/globals.css already collapses durations; this removes
+     the scale itself so nothing jumps.) */
+  @media (prefers-reduced-motion: reduce) {
+    .shop-press:active:not(:disabled, [aria-disabled="true"]) {
+      transform: none;
+    }
+  }
+
+  /* Entrance for something that replaces what the customer just pressed (the
+   * "Sepete ekle" button becoming a quantity control) or arrives because of it
+   * (the basket bar). Purpose: state indication — without it the swap teleports.
+   * Transition + @starting-style, not keyframes, so a second tap retargets
+   * instead of restarting. Browsers without @starting-style simply swap. */
+  .shop-enter {
+    transition:
+      opacity 220ms var(--shop-ease-out),
+      transform 220ms var(--shop-ease-out);
+  }
+  @starting-style {
+    .shop-enter {
+      opacity: 0;
+      transform: translateY(0.5rem) scale(0.98);
+    }
+  }
+  .shop-enter-up {
+    transition:
+      opacity 260ms var(--shop-ease-out),
+      transform 260ms var(--shop-ease-out);
+  }
+  @starting-style {
+    .shop-enter-up {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @starting-style {
+      .shop-enter,
+      .shop-enter-up {
+        transform: none;
+      }
+    }
+  }
+
+  /* Money and quantities are set in the display face: Atkinson's slashed zero
+     is right for telling 0 from O in running text, but a price is mostly
+     zeros ("1.050,00 ₺") and a row of slashes reads as noise. */
+  .shop-money {
+    font-family: var(--font-heading);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* The phone dock (tab bar, plus the basket bar when the basket has anything
+ * in it). Anything floating above it — the WhatsApp button — reads its height
+ * from here instead of hardcoding it, so the two can never overlap. */
+.shop-theme {
+  --shop-dock: calc(4.625rem + env(safe-area-inset-bottom, 0px));
+}
+.shop-theme:has([data-cart-bar]) {
+  --shop-dock: calc(4.625rem + 4.25rem + env(safe-area-inset-bottom, 0px));
+}

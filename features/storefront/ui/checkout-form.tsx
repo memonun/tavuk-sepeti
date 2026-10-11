@@ -916,7 +916,7 @@ function OrderSummary({
             env.NEXT_PUBLIC_SUPABASE_URL,
           );
           return (
-            <li key={product.key} className="flex items-center gap-3">
+            <li key={product.key} className="flex flex-wrap items-center gap-3">
               <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary/60">
                 {imageUrl ? (
                   <Image
@@ -932,7 +932,7 @@ function OrderSummary({
                   </span>
                 )}
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-32 flex-1">
                 <p className="truncate text-sm font-medium">
                   {product.display_name}
                 </p>

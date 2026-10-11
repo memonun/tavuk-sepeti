@@ -1,18 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { LayoutDashboardIcon, UserRoundIcon } from "lucide-react";
+import { LayoutDashboardIcon } from "lucide-react";
 
 import { customerSignOutAction } from "@/features/storefront/application/customer-auth";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 
 /**
- * Header auth control:
+ * Header auth control (desktop):
  *   - admin  → "Yönetim" button (→ /admin) + logout, so admins reach the
  *     dashboard by a click, never by typing the URL.
  *   - customer → "Hesabım" + logout.
- *   - signed out → "Giriş".
+ *   - signed out → "Giriş Yap".
  */
 export function AccountNav({
   authed,
@@ -22,54 +20,29 @@ export function AccountNav({
   isAdmin: boolean;
 }) {
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-1">
       {isAdmin ? (
-        <Link
-          href="/admin"
-          className={cn(
-            buttonVariants({ variant: "default", size: "lg" }),
-            "rounded-full",
-          )}
-        >
-          <LayoutDashboardIcon />
-          <span className="hidden sm:inline">Yönetim</span>
-        </Link>
+        <ShopLinkButton href="/admin" variant="secondary">
+          <LayoutDashboardIcon aria-hidden />
+          Yönetim
+        </ShopLinkButton>
       ) : null}
 
       {!authed ? (
-        <Link
-          href="/giris"
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "lg" }),
-            "rounded-full",
-          )}
-        >
-          <UserRoundIcon />
-          <span className="hidden sm:inline">Giriş</span>
-        </Link>
+        <ShopLinkButton href="/giris" variant="plain">
+          Giriş Yap
+        </ShopLinkButton>
       ) : (
         <>
           {!isAdmin ? (
-            <Link
-              href="/hesap"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "lg" }),
-                "rounded-full",
-              )}
-            >
-              <UserRoundIcon />
-              <span className="hidden sm:inline">Hesabım</span>
-            </Link>
+            <ShopLinkButton href="/hesap" variant="plain">
+              Hesabım
+            </ShopLinkButton>
           ) : null}
           <form action={customerSignOutAction}>
-            <Button
-              type="submit"
-              variant="ghost"
-              size="lg"
-              className="rounded-full text-muted-foreground"
-            >
+            <ShopButton type="submit" variant="plain" className="text-muted-foreground">
               Çıkış
-            </Button>
+            </ShopButton>
           </form>
         </>
       )}

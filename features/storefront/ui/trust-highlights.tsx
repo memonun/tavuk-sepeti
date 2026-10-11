@@ -43,20 +43,26 @@ export function TrustHighlights({
 
   return (
     <section aria-label="Neden Apuhan Çiftliği" className="mt-10 sm:mt-12">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-5">
+      {/* Icon beside the text, not above it: on a phone this is one readable
+          line per fact instead of four cramped, centred tiles. */}
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {highlights.map(({ icon: Icon, label, detail }) => (
-          <div
+          <li
             key={label}
-            className="flex flex-col items-center gap-2 rounded-2xl border border-border/70 bg-card p-4 text-center sm:p-5"
+            className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4"
           >
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary sm:size-14">
-              <Icon className="size-6 sm:size-7" aria-hidden />
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-(--shop-green-soft) text-primary">
+              <Icon className="size-6" aria-hidden />
             </span>
-            <p className="text-sm font-bold text-foreground sm:text-base">{label}</p>
-            <p className="text-sm leading-snug text-muted-foreground">{detail}</p>
-          </div>
+            <div className="min-w-0">
+              <p className="text-lg leading-snug font-bold text-foreground">{label}</p>
+              <p className="mt-0.5 text-base leading-snug text-muted-foreground">
+                {detail}
+              </p>
+            </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

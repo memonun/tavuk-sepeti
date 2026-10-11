@@ -1,3 +1,4 @@
+import { ShopNotice } from "@/features/storefront/ui/kit/shop-notice";
 import { ProductCard } from "@/features/storefront/ui/product-card";
 
 import type { Product } from "@/features/products/application/list-products";
@@ -18,28 +19,22 @@ export function CatalogGrid({
 }) {
   if (unavailable) {
     return (
-      <p
-        className="rounded-2xl border border-dashed border-destructive/40 p-8 text-center text-muted-foreground"
-        role="alert"
-      >
-        Ürünler şu anda yüklenemedi. Lütfen sayfayı yenileyin — sepetiniz
-        duruyor.
-      </p>
+      <ShopNotice tone="danger" role="alert" title="Ürünler şu anda yüklenemedi">
+        Lütfen sayfayı yenileyin. Sepetiniz duruyor.
+      </ShopNotice>
     );
   }
 
   if (products.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-border p-8 text-center text-muted-foreground">
-        Şu anda satışta ürün bulunmuyor. Kısa süre içinde tekrar bakın.
-      </p>
+      <ShopNotice title="Şu anda satışta ürün bulunmuyor">
+        Kısa süre içinde tekrar bakın.
+      </ShopNotice>
     );
   }
 
-  // Column gaps stay wider than row gaps: the photographs need air between
-  // them horizontally, while name/price/action already separate the rows.
   return (
-    <div className="grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8">
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
       {products.map((product) => (
         <ProductCard key={product.key} product={product} />
       ))}

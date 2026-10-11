@@ -20,6 +20,8 @@ function WhatsAppGlyph({ className }: { className?: string }) {
   );
 }
 
+/** Dark label on WhatsApp green: white on #25D366 is under 2:1, the shop's
+ *  own dark brown on it is ~8.6:1. */
 export function WhatsAppSupportButton() {
   return (
     <a
@@ -29,13 +31,14 @@ export function WhatsAppSupportButton() {
       )}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed right-5 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 flex items-center gap-2 rounded-full bg-[#25D366] p-3 text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366] sm:bottom-5 sm:py-3 sm:pr-4 sm:pl-3"
+      aria-label="WhatsApp'tan yardım alın"
+      className="shop-press shop-focus fixed right-3 bottom-[calc(var(--shop-dock)+0.75rem)] z-50 flex min-h-12 items-center gap-2 rounded-full bg-[#25D366] py-2 pr-4 pl-3 text-foreground shadow-(--shop-shadow-md) sm:right-5 sm:bottom-5"
     >
-      <WhatsAppGlyph className="size-6 shrink-0" />
-      {/* Label hidden on mobile — the button is a plain icon-only circle
-          there so it doesn't dominate the screen; the pill with label
-          returns from `sm:` up where there's room for it. */}
-      <span className="hidden text-sm font-medium whitespace-nowrap sm:inline">
+      <WhatsAppGlyph className="size-7 shrink-0" />
+      {/* A word on every width: an unlabelled green circle is a logo to an
+          older shopper, not an offer of help. */}
+      <span className="text-base font-bold whitespace-nowrap sm:hidden">Yardım</span>
+      <span className="hidden text-base font-bold whitespace-nowrap sm:inline">
         WhatsApp&apos;tan yazın
       </span>
     </a>
