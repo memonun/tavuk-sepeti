@@ -1,24 +1,17 @@
 "use client";
 
-import {
-  CalendarDays,
-  CalendarRange,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
-  Map,
-  Package,
-  PiggyBank,
-  Repeat,
-  Store,
-  Tags,
-  Truck,
-  Users,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import {
+  FINANS_HREF,
+  FINANS_ICON,
+  financeSubItems,
+  isNavItemActive,
+  navItems,
+} from "@/app/(admin)/_components/admin-nav";
 import { signOutAction } from "@/features/auth/application/sign-out";
 import { clearDriveOfflineCache } from "@/features/routing/ui/drive-offline-client";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -38,31 +31,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-
-const navItems = [
-  { href: "/admin", label: "Panel", icon: LayoutDashboard, exact: true },
-  { href: "/takvim", label: "Takvim", icon: CalendarDays, exact: false },
-  { href: "/animsaticilar", label: "Anımsatıcılar", icon: ListChecks, exact: false },
-  { href: "/customers", label: "Müşteriler", icon: Users, exact: false },
-  { href: "/orders", label: "Siparişler", icon: Package, exact: false },
-  { href: "/recurring", label: "Tekrarlananlar", icon: Repeat, exact: false },
-  { href: "/products", label: "Ürünler", icon: Tags, exact: false },
-  { href: "/map", label: "Harita", icon: Map, exact: false },
-  { href: "/routes", label: "Rota", icon: CalendarRange, exact: false },
-  { href: "/kargo", label: "Kargo", icon: Truck, exact: false },
-  { href: "/magaza-ayarlari", label: "Mağaza ayarları", icon: Store, exact: false },
-] as const;
-
-// Finans has sub-pages, so it's kept out of the flat navItems list above —
-// every other item stays exactly as it was, this is additive.
-const FINANS_HREF = "/finans";
-const financeSubItems = [
-  { href: "/finans", label: "Finans Özeti" },
-  { href: "/finans/pazar-satislari", label: "Pazar Satışları" },
-  { href: "/finans/giderler", label: "Giderler" },
-  { href: "/finans/rutin-giderler", label: "Rutin Giderler" },
-  { href: "/finans/urun-cetelesi", label: "Ürün Çetelesi" },
-] as const;
 
 interface AdminSidebarProps {
   userEmail: string | null;
@@ -95,9 +63,7 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive = item.exact
-                  ? pathname === item.href
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const isActive = isNavItemActive(pathname, item);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -122,7 +88,7 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
                       tooltip="Finans"
                       render={<Link href={FINANS_HREF} />}
                     >
-                      <PiggyBank />
+                      <FINANS_ICON />
                       <span>Finans</span>
                     </SidebarMenuButton>
                     {isFinansActive ? (

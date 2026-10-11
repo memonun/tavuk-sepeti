@@ -1,0 +1,261 @@
+/*
+ * Admin theme — "Çalışma defteri" (the farm's work ledger).
+ *
+ * The panel is used on a phone, outdoors, by the people who run the farm. So:
+ * the logo's green carries every action (same #1b4a26 as the storefront, so the
+ * two read as one business), the ground is a calm off-white paper with white
+ * cards on it, and text is a green-black ink at full contrast. Dark mode stays
+ * available (the theme switch is existing behaviour) and gets the same family.
+ *
+ * Measured contrast (WCAG 2.x), kept here so a future tweak re-checks them:
+ *   light  foreground / background        14.98   muted-foreground / background  6.93
+ *          primary-foreground / primary   10.22   muted-foreground / card        7.62
+ *          primary (as text) / background  9.30   muted-foreground / muted       6.33
+ *   dark   foreground / background        16.16   muted-foreground / background  9.24
+ *          primary-foreground / primary   10.06   muted-foreground / card        8.40
+ *          primary (as text) / background 10.35   muted-foreground / muted       7.46
+ *
+ * Scope: same two-selector pattern as app/(shop)/theme.css. `.admin-theme` is
+ * the panel subtree; `:root:has(.admin-theme)` is the document root while a
+ * panel page is mounted, so dialogs, sheets, menus and toasts (portalled to
+ * <body>) get the same tokens. Nothing here can reach the storefront: neither
+ * selector matches unless a panel page is on screen.
+ */
+:root:has(.admin-theme),
+.admin-theme {
+  --background: #f6f4ee;
+  --foreground: #1a2118;
+
+  --card: #ffffff;
+  --card-foreground: #1a2118;
+  --popover: #ffffff;
+  --popover-foreground: #1a2118;
+
+  --primary: #1b4a26;
+  --primary-foreground: #ffffff;
+
+  --secondary: #e9e4d6;
+  --secondary-foreground: #1a2118;
+
+  --muted: #edeae0;
+  --muted-foreground: #4f5648;
+
+  --accent: #e4eedd;
+  --accent-foreground: #143a1d;
+
+  --destructive: #a32a1e;
+
+  --border: #d8d3c4;
+  --input: #c4bead;
+  --ring: #1b4a26;
+
+  --radius: 0.875rem;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a2118;
+  --sidebar-primary: #1b4a26;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4eedd;
+  --sidebar-accent-foreground: #143a1d;
+  --sidebar-border: #d8d3c4;
+  --sidebar-ring: #1b4a26;
+
+  /* Panel-only tokens (no Tailwind colour utility — use `bg-(--admin-…)`). */
+  --admin-green-soft: #e4eedd;
+  --admin-shadow-sm: 0 1px 2px rgb(26 33 24 / 0.07);
+  --admin-shadow-bar: 0 -1px 0 var(--border), 0 -8px 24px -12px rgb(26 33 24 / 0.18);
+  /* Strong ease-out for anything answering a press; the drawer curve for the
+     menu sheet. The built-in keywords are too soft to read as deliberate. */
+  --admin-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --admin-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.dark:has(.admin-theme),
+.dark .admin-theme {
+  --background: #11150f;
+  --foreground: #eef1e9;
+
+  --card: #1a1f17;
+  --card-foreground: #eef1e9;
+  --popover: #1f251c;
+  --popover-foreground: #eef1e9;
+
+  --primary: #8fd19e;
+  --primary-foreground: #0c1a10;
+
+  --secondary: #262c22;
+  --secondary-foreground: #eef1e9;
+
+  --muted: #232920;
+  --muted-foreground: #b3baa9;
+
+  --accent: #22301f;
+  --accent-foreground: #d8ecd4;
+
+  --destructive: #f0806f;
+
+  --border: rgb(238 241 233 / 0.13);
+  --input: rgb(238 241 233 / 0.22);
+  --ring: #8fd19e;
+
+  --sidebar: #161b13;
+  --sidebar-foreground: #eef1e9;
+  --sidebar-primary: #8fd19e;
+  --sidebar-primary-foreground: #0c1a10;
+  --sidebar-accent: #22301f;
+  --sidebar-accent-foreground: #d8ecd4;
+  --sidebar-border: rgb(238 241 233 / 0.13);
+  --sidebar-ring: #8fd19e;
+
+  --admin-green-soft: #22301f;
+  --admin-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --admin-shadow-bar: 0 -1px 0 var(--border), 0 -8px 24px -12px rgb(0 0 0 / 0.6);
+}
+
+/* Height the phone tab bar takes away from the page. Set on the ROOT only —
+   never on `.admin-theme` — so the phone value below is not overridden inside
+   the panel subtree. 0 wherever the bar is not rendered (desktop, driver
+   mode), so full-height screens can subtract it unconditionally. */
+:root:has(.admin-theme) {
+  --admin-tabbar-h: 0px;
+}
+
+@media (max-width: 767.98px) {
+  :root:has(.admin-tab-bar) {
+    --admin-tabbar-h: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* An installed app, not a web page: no grey flash on tap (every control has
+   its own pressed state), no font inflation in landscape. Set on the root as
+   well because menus and sheets are portalled to <body>. */
+:root:has(.admin-theme) {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/*
+ * Fingers, not a mouse. On a touch screen every ordinary control grows to a
+ * 44px target and form text to 16px, in one place, instead of re-sizing each
+ * of the panel's screens by hand. Gated on the pointer, not the screen width:
+ * a desktop with a mouse keeps the dense layout whatever its window size.
+ *
+ * The spreadsheet grid and the calendar's time grid are excluded — their rows
+ * are sized by their own layout maths and must not be stretched.
+ */
+@media (pointer: coarse) {
+  /* `.group/button` is the base class of buttonVariants, so this also reaches
+     links styled as buttons (which carry no data-slot). */
+  :root:has(.admin-theme)
+    .group\/button:is(.h-7, .h-8, .h-9):not(:is([role="grid"], [data-admin-dense]) *) {
+    min-height: 2.75rem;
+    padding-inline: 0.875rem;
+    font-size: 0.9375rem;
+  }
+
+  :root:has(.admin-theme)
+    .group\/button:is(.size-7, .size-8, .size-9):not(:is([role="grid"], [data-admin-dense]) *) {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  /* Icon-only buttons that were given an explicit square size (h-7 w-7 …):
+     grow the target, keep the icon centred. Listed after the text-button rule
+     so its zero padding wins. */
+  :root:has(.admin-theme)
+    .group\/button:is(.w-6, .w-7, .w-8, .w-9, .w-10):is(.h-6, .h-7, .h-8, .h-9, .h-10):not(
+      :is([role="grid"], [data-admin-dense]) *
+    ) {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding-inline: 0;
+  }
+
+  :root:has(.admin-theme)
+    :is([data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"]):not(
+      :is([role="grid"], [data-admin-dense]) *
+    ) {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  :root:has(.admin-theme)
+    :is(input:not([type="checkbox"], [type="radio"]), select, textarea):not(
+      :is([role="grid"], [data-admin-dense]) *
+    ) {
+    font-size: 1rem;
+  }
+
+  :root:has(.admin-theme) :is([data-slot="dropdown-menu-item"], [data-slot="select-item"]) {
+    min-height: 2.75rem;
+    font-size: 0.9375rem;
+  }
+
+  :root:has(.admin-theme) :is(button, a, [role="button"], [role="tab"]) {
+    touch-action: manipulation;
+  }
+}
+
+/* The phone tab bar. Pressed state answers on finger-down, not on release. */
+.admin-tab {
+  transition: transform 120ms var(--admin-ease-out);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.admin-tab:active {
+  transform: scale(0.96);
+}
+
+.admin-tab-pill {
+  transition:
+    background-color 160ms var(--admin-ease-out),
+    color 160ms var(--admin-ease-out);
+}
+
+.admin-menu-row {
+  transition: background-color 120ms var(--admin-ease-out);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.admin-menu-row:active {
+  background-color: var(--muted);
+}
+
+/* A whole card that opens something (home tiles, list cards): it gives a
+   little under the finger. Transform only — nothing reflows. */
+.admin-pressable {
+  transition: transform 140ms var(--admin-ease-out);
+}
+
+.admin-pressable:active {
+  transform: scale(0.98);
+}
+
+/* The menu sheet slides up by its own height on the drawer curve, and leaves
+   faster than it arrived. (The shared Sheet's default is a 2.5rem nudge with a
+   fade, which reads as a popover rather than a drawer.) */
+.admin-drawer[data-side="bottom"] {
+  transition-property: transform;
+  transition-duration: 320ms;
+  transition-timing-function: var(--admin-ease-drawer);
+}
+
+.admin-drawer[data-side="bottom"][data-starting-style],
+.admin-drawer[data-side="bottom"][data-ending-style] {
+  transform: translateY(100%);
+  opacity: 1;
+}
+
+.admin-drawer[data-side="bottom"][data-ending-style] {
+  transition-duration: 200ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-menu-row:hover {
+    background-color: var(--muted);
+  }
+}

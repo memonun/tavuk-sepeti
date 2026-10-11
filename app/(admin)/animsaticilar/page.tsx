@@ -1,5 +1,8 @@
 import { getRemindersPage } from "@/features/reminders/application/get-reminders-page";
-import { RemindersSidebar } from "@/features/reminders/ui/reminders-sidebar";
+import {
+  ReminderListsSection,
+  RemindersSidebar,
+} from "@/features/reminders/ui/reminders-sidebar";
 import { RemindersView } from "@/features/reminders/ui/reminders-view";
 
 interface AnimsaticilarPageProps {
@@ -26,7 +29,7 @@ export default async function AnimsaticilarPage({ searchParams }: AnimsaticilarP
   const viewKey = `${data.view.kind}:${data.view.id}`;
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col gap-4 overflow-y-auto md:flex-row md:gap-5 md:overflow-hidden">
+    <div className="flex h-[calc(100dvh-4rem-var(--admin-tabbar-h,0px))] flex-col gap-4 overflow-y-auto md:flex-row md:gap-5 md:overflow-hidden">
       <aside className="shrink-0 md:w-72 md:overflow-y-auto md:pr-1 md:pb-6">
         <RemindersSidebar lists={data.lists} counts={data.counts} view={data.view} />
       </aside>
@@ -42,6 +45,11 @@ export default async function AnimsaticilarPage({ searchParams }: AnimsaticilarP
           page={data.page}
           pageCount={data.pageCount}
         />
+      </div>
+      {/* Phone only: managing the lists comes after the reminders. On desktop
+          the same section lives in the sidebar. */}
+      <div className="shrink-0 pb-6 md:hidden">
+        <ReminderListsSection lists={data.lists} counts={data.counts} view={data.view} />
       </div>
     </div>
   );

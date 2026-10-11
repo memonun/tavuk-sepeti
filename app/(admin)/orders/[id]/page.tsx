@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { loadCustomerProductPriceMap } from "@/features/customers/application/customer-prices";
@@ -42,14 +43,21 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     : "—";
 
   return (
-    <OrderDetailPanel
-      order={order}
-      products={products}
-      customerName={customerName}
-      events={events}
-      customerPrices={Object.fromEntries(customerPriceMap)}
-      payments={payments}
-      gifts={gifts}
-    />
+    <div className="mx-auto max-w-3xl space-y-3">
+      <p className="text-sm text-muted-foreground">
+        <Link href="/orders" className="hover:underline">
+          ← Siparişler
+        </Link>
+      </p>
+      <OrderDetailPanel
+        order={order}
+        products={products}
+        customerName={customerName}
+        events={events}
+        customerPrices={Object.fromEntries(customerPriceMap)}
+        payments={payments}
+        gifts={gifts}
+      />
+    </div>
   );
 }

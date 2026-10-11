@@ -16,6 +16,7 @@ import { calendarHref, rangeTitle } from "@/features/calendar/ui/calendar-format
 import { useCalendarPrefs } from "@/features/calendar/ui/calendar-prefs";
 import { CalendarSidebar } from "@/features/calendar/ui/calendar-sidebar";
 import { EventDialog, type EventDialogTarget } from "@/features/calendar/ui/event-dialog";
+import { MonthAgendaView } from "@/features/calendar/ui/month-agenda-view";
 import { MonthView } from "@/features/calendar/ui/month-view";
 import { TimeGridView } from "@/features/calendar/ui/time-grid-view";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ export function CalendarShell({ data }: { data: CalendarPageData }) {
   const newEventDay = today >= range.start && today < range.end ? today : range.date;
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col gap-4 overflow-y-auto lg:flex-row lg:gap-5 lg:overflow-hidden">
+    <div className="flex h-[calc(100dvh-4rem-var(--admin-tabbar-h,0px))] flex-col gap-4 overflow-y-auto lg:flex-row lg:gap-5 lg:overflow-hidden">
       <aside className="order-2 shrink-0 pb-6 lg:order-1 lg:w-60 lg:overflow-y-auto lg:pr-1">
         <CalendarSidebar
           range={range}
@@ -97,7 +98,7 @@ export function CalendarShell({ data }: { data: CalendarPageData }) {
 
       <section
         aria-label="Takvim"
-        className="order-1 flex h-[calc(100dvh-5rem)] min-w-0 shrink-0 flex-col lg:order-2 lg:h-auto lg:flex-1 lg:shrink"
+        className="order-1 flex h-[calc(100dvh-5rem-var(--admin-tabbar-h,0px))] min-w-0 shrink-0 flex-col lg:order-2 lg:h-auto lg:flex-1 lg:shrink"
       >
         <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-2">
           <h2 className="text-2xl leading-tight tracking-[-0.02em] sm:text-3xl">
@@ -166,16 +167,34 @@ export function CalendarShell({ data }: { data: CalendarPageData }) {
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
           {range.view === "ay" ? (
-            <MonthView
-              range={range}
-              today={today}
-              occurrencesByDay={occurrencesByDay}
-              remindersByDay={remindersByDay}
-              deliveriesByDay={deliveriesByDay}
-              colorOf={colorOf}
-              onCreate={(date) => setDialog({ mode: "create", date })}
-              onOpen={(occurrence) => setDialog({ mode: "edit", occurrence })}
-            />
+            <>
+              {/* Phone: dots + the selected day's list. Remounted per month so
+                  the selection starts on today (or the 1st) again. */}
+              <MonthAgendaView
+                key={range.start}
+                className="md:hidden"
+                range={range}
+                today={today}
+                occurrencesByDay={occurrencesByDay}
+                remindersByDay={remindersByDay}
+                deliveriesByDay={deliveriesByDay}
+                colorOf={colorOf}
+                onCreate={(date) => setDialog({ mode: "create", date })}
+                onOpen={(occurrence) => setDialog({ mode: "edit", occurrence })}
+              />
+              <div className="hidden min-h-0 flex-1 flex-col md:flex">
+                <MonthView
+                  range={range}
+                  today={today}
+                  occurrencesByDay={occurrencesByDay}
+                  remindersByDay={remindersByDay}
+                  deliveriesByDay={deliveriesByDay}
+                  colorOf={colorOf}
+                  onCreate={(date) => setDialog({ mode: "create", date })}
+                  onOpen={(occurrence) => setDialog({ mode: "edit", occurrence })}
+                />
+              </div>
+            </>
           ) : (
             <TimeGridView
               range={range}

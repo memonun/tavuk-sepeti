@@ -101,8 +101,8 @@ export function ExpenseFilterBar({
   }
 
   return (
-    <div className="grid gap-3 border-b pb-4 sm:grid-cols-2 lg:grid-cols-5">
-      <div className="flex flex-col gap-1.5">
+    <div className="grid grid-cols-2 gap-3 border-b pb-4 lg:grid-cols-5">
+      <div className="col-span-2 flex min-w-0 flex-col gap-1.5 sm:col-span-1">
         <Label className="text-xs">Ara</Label>
         <Input
           value={q}
@@ -111,10 +111,10 @@ export function ExpenseFilterBar({
           disabled={pending}
         />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-xs">Kategori</Label>
         <Select value={categoryId} onValueChange={setCategory} disabled={pending} items={categoryItems}>
-          <SelectTrigger>
+          <SelectTrigger className="max-md:w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -141,10 +141,10 @@ export function ExpenseFilterBar({
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-xs">Ödeme Durumu</Label>
         <Select value={status} onValueChange={setStatus} disabled={pending} items={STATUS_LABEL}>
-          <SelectTrigger>
+          <SelectTrigger className="max-md:w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -156,10 +156,10 @@ export function ExpenseFilterBar({
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label className="text-xs">Kaynak</Label>
         <Select value={source} onValueChange={setSource} disabled={pending} items={SOURCE_LABEL}>
-          <SelectTrigger>
+          <SelectTrigger className="max-md:w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -171,17 +171,19 @@ export function ExpenseFilterBar({
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="col-span-2 flex min-w-0 flex-col gap-1.5 lg:col-span-1">
         <Label className="text-xs">Tarih aralığı</Label>
         <div className="flex gap-2">
           <Input
             type="date"
+            className="min-w-0"
             value={from}
             disabled={pending}
             onChange={(e) => setDate("date_from", e.target.value)}
           />
           <Input
             type="date"
+            className="min-w-0"
             value={to}
             disabled={pending}
             onChange={(e) => setDate("date_to", e.target.value)}

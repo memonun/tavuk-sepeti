@@ -79,7 +79,7 @@ export default async function FinansPage({ searchParams }: FinansPageProps) {
 
       <FinancePeriodFilter />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Toplam Ciro" value={formatTRY(summary.totalRevenueMinor)} />
         <StatCard title="Tahsil Edilen" value={formatTRY(summary.collectedMinor)} tone="positive" />
         <StatCard title="Beklenen Ödemeler" value={formatTRY(summary.expectedPaymentsMinor)} />

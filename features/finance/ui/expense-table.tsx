@@ -28,6 +28,11 @@ import {
 } from "@/features/finance/domain/expense";
 import { buildCategoryTree, formatCategoryPath } from "@/features/finance/domain/expense-category";
 import { ExpenseRowActions } from "@/features/finance/ui/expense-row-actions";
+import {
+  PhoneCard,
+  PhoneCardHeading,
+  PhoneSortRow,
+} from "@/features/finance/ui/finance-phone-list";
 import { FinanceSortableHeader } from "@/features/finance/ui/finance-sortable-header";
 
 import type { ExpenseCategory } from "@/features/finance/domain/expense-category";
@@ -81,7 +86,83 @@ export function ExpenseTable({ items, total, page, pageSize, basePath, query, ca
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border overflow-x-auto">
+      {/* Phone: one card per expense (see finance-phone-list.tsx). */}
+      <div className="md:hidden">
+        <PhoneSortRow>
+          <FinanceSortableHeader
+            variant="chip"
+            column="expense_date"
+            label="Tarih"
+            defaultOrder="desc"
+            defaultSort="expense_date"
+          />
+          <FinanceSortableHeader
+            variant="chip"
+            column="amount_minor"
+            label="Tutar"
+            defaultOrder="desc"
+            defaultSort="expense_date"
+          />
+          <FinanceSortableHeader
+            variant="chip"
+            column="payment_status"
+            label="Ödeme durumu"
+            defaultSort="expense_date"
+          />
+        </PhoneSortRow>
+        <ul className="flex flex-col gap-2.5">
+          {items.map((expense) => (
+            <PhoneCard
+              key={expense.id}
+              footer={
+                <>
+                  <Badge variant={expense.payment_status === "paid" ? "default" : "secondary"}>
+                    {EXPENSE_PAYMENT_STATUS_LABELS[expense.payment_status]}
+                  </Badge>
+                  <ExpenseRowActions
+                    expense={expense}
+                    categories={categoryTree}
+                    categoryLabel={categoryLabel(expense)}
+                  />
+                </>
+              }
+            >
+              <PhoneCardHeading
+                title={
+                  <>
+                    <span>{categoryLabel(expense)}</span>
+                    {expense.source === "recurring_generated" ? (
+                      <Badge variant="outline">{EXPENSE_SOURCE_LABELS.recurring_generated}</Badge>
+                    ) : null}
+                  </>
+                }
+                amount={formatTRY(expense.amount_minor)}
+              />
+              <p className="text-sm text-muted-foreground">
+                {[
+                  formatDate(expense.expense_date),
+                  expense.payment_method ? MANUAL_PAYMENT_METHOD_LABELS[expense.payment_method] : null,
+                  expense.vendor,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+              {expense.description ? (
+                <p className="line-clamp-2 text-sm">{expense.description}</p>
+              ) : null}
+              {expense.quantity !== null && expense.unit ? (
+                <p className="text-sm text-muted-foreground tabular-nums">
+                  {expense.quantity.toLocaleString("tr-TR")} {EXPENSE_UNIT_LABELS[expense.unit]},{" "}
+                  {formatTRY(calculateUnitCostMinor(expense.amount_minor, expense.quantity) ?? 0)}/
+                  {EXPENSE_UNIT_LABELS[expense.unit]}
+                </p>
+              ) : null}
+            </PhoneCard>
+          ))}
+        </ul>
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -141,7 +222,7 @@ export function ExpenseTable({ items, total, page, pageSize, basePath, query, ca
                 </TableCell>
                 <TableCell className="hidden text-right text-muted-foreground lg:table-cell">
                   {expense.quantity !== null && expense.unit
-                    ? `${expense.quantity} ${EXPENSE_UNIT_LABELS[expense.unit]} · ${formatTRY(calculateUnitCostMinor(expense.amount_minor, expense.quantity) ?? 0)}/${EXPENSE_UNIT_LABELS[expense.unit]}`
+                    ? `${expense.quantity.toLocaleString("tr-TR")} ${EXPENSE_UNIT_LABELS[expense.unit]} · ${formatTRY(calculateUnitCostMinor(expense.amount_minor, expense.quantity) ?? 0)}/${EXPENSE_UNIT_LABELS[expense.unit]}`
                     : "—"}
                 </TableCell>
                 <TableCell className="text-right font-medium tabular-nums">
@@ -167,7 +248,7 @@ export function ExpenseTable({ items, total, page, pageSize, basePath, query, ca
         </Table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
         <p>
           {from}-{to} / toplam {total}
         </p>

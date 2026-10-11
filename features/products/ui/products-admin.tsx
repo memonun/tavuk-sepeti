@@ -274,14 +274,15 @@ function ProductCard({ product }: { product: Product }) {
 
   return (
     <div
-      className={`flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-md ${
+      className={`flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5 ${
         archived ? "opacity-70" : ""
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
+      {/* Phone: name on its own line, the three actions as a row below it. */}
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="truncate font-semibold">{product.display_name}</p>
+            <p className="truncate font-semibold max-sm:text-lg">{product.display_name}</p>
             <Badge variant={archived ? "secondary" : "outline"}>
               {archived ? "Arşiv" : "Aktif"}
             </Badge>
@@ -290,7 +291,7 @@ function ProductCard({ product }: { product: Product }) {
             {product.unit_label}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1 max-sm:-mx-2 max-sm:w-[calc(100%+1rem)] max-sm:justify-between">
           <ProductFormDialog
             mode="edit"
             product={product}
@@ -374,7 +375,7 @@ function ProductCard({ product }: { product: Product }) {
         displayName={product.display_name}
       />
 
-      <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-muted/40 px-3 py-2">
         <div className="flex items-center gap-2 text-sm">
           <Switch
             checked={product.is_web_visible}

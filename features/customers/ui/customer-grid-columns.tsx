@@ -25,13 +25,13 @@ import type { CustomerListItem } from "@/features/customers/domain/customer";
 
 import { z } from "zod";
 
-const STATUS_OPTIONS = [
+export const STATUS_OPTIONS = [
   { value: "active", label: "Aktif", badgeVariant: "default" as const },
   { value: "inactive", label: "Pasif", badgeVariant: "secondary" as const },
   { value: "blocked", label: "Engelli", badgeVariant: "destructive" as const },
 ];
 
-const ACCOUNT_TYPE_OPTIONS = [
+export const ACCOUNT_TYPE_OPTIONS = [
   { value: "individual", label: "Birey" },
   { value: "business", label: "İşletme" },
   { value: "charity", label: "Vakıf" },

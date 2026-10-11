@@ -180,7 +180,7 @@ export function BulkOrderScreen({
   };
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col gap-2">
+    <div className="flex h-[calc(100dvh-7rem-var(--admin-tabbar-h,0px))] flex-col gap-2">
       {/* Top bar: date / slot / payment defaults */}
       <div className="flex flex-wrap items-center gap-3 rounded-md border p-2 text-sm">
         <label className="flex items-center gap-1">

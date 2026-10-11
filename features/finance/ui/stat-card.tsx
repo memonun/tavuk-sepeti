@@ -15,11 +15,14 @@ interface StatCardProps {
 
 export function StatCard({ title, value, hint, tone = "default" }: StatCardProps) {
   return (
-    <div className="rounded-lg border bg-card p-4 text-card-foreground">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{title}</p>
+    // A container, so the figure can size itself to the card: an amount is never
+    // wrapped or cut mid-number, it gets smaller instead (two-up on a phone, a
+    // seven-figure total still has to fit on one line).
+    <div className="@container rounded-2xl border bg-card p-4 text-card-foreground shadow-(--admin-shadow-sm)">
+      <p className="text-sm font-medium text-muted-foreground">{title}</p>
       <p
         className={cn(
-          "mt-2 text-2xl font-semibold tabular-nums",
+          "mt-1.5 text-[clamp(0.8125rem,calc(100cqw/8.4),1.5rem)] leading-tight font-semibold whitespace-nowrap tabular-nums",
           tone === "positive" && "text-emerald-600 dark:text-emerald-400",
           tone === "negative" && "text-destructive",
         )}

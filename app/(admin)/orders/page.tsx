@@ -117,15 +117,19 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] min-w-0 flex-col gap-2">
-      {/* Notion-style page header: title left, count + action right */}
-      <div className="flex items-baseline justify-between gap-4 px-1">
-        <div className="flex items-baseline gap-4">
-          <h1 className="text-lg font-semibold tracking-tight">Siparişler</h1>
+    <div className="flex h-[calc(100dvh-4rem-var(--admin-tabbar-h,0px))] min-w-0 flex-col gap-2">
+      {/* Page header. Desktop: title left, count + actions right, one line.
+          Phone: title + count, then the two actions as a full-width row. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 md:items-baseline">
+        <div className="flex items-baseline gap-3 md:gap-4">
+          <h1 className="text-xl font-semibold tracking-tight md:text-lg">Siparişler</h1>
+          <p className="text-sm text-muted-foreground md:hidden">
+            {listResult.value.total} kayıt
+          </p>
           <OrderRowColorLegend />
         </div>
-        <div className="flex items-center gap-4">
-          <p className="text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 max-md:w-full max-md:*:flex-1 md:gap-4">
+          <p className="text-xs text-muted-foreground max-md:hidden">
             {listResult.value.total} kayıt
           </p>
           {mapsKey ? <NewCustomerAction mapsBrowserKey={mapsKey} /> : null}

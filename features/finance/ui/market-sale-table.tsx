@@ -14,6 +14,11 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 import { MANUAL_PAYMENT_METHOD_LABELS } from "@/features/finance/domain/expense";
+import {
+  PhoneCard,
+  PhoneCardHeading,
+  PhoneSortRow,
+} from "@/features/finance/ui/finance-phone-list";
 import { FinanceSortableHeader } from "@/features/finance/ui/finance-sortable-header";
 import { MarketSaleRowActions } from "@/features/finance/ui/market-sale-row-actions";
 
@@ -65,7 +70,51 @@ export function MarketSaleTable({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border overflow-x-auto">
+      {/* Phone: one card per sale (see finance-phone-list.tsx). */}
+      <div className="md:hidden">
+        <PhoneSortRow>
+          <FinanceSortableHeader
+            variant="chip"
+            column="sale_date"
+            label="Tarih"
+            defaultOrder="desc"
+            defaultSort="sale_date"
+          />
+          <FinanceSortableHeader
+            variant="chip"
+            column="total_amount_minor"
+            label="Toplam tutar"
+            defaultOrder="desc"
+            defaultSort="sale_date"
+          />
+        </PhoneSortRow>
+        <ul className="flex flex-col gap-2.5">
+          {items.map((sale) => (
+            <PhoneCard
+              key={sale.id}
+              footer={
+                <>
+                  <span className="text-sm text-muted-foreground">
+                    {MANUAL_PAYMENT_METHOD_LABELS[sale.payment_method]}
+                  </span>
+                  <MarketSaleRowActions listItem={sale} locations={locations} products={products} />
+                </>
+              }
+            >
+              <PhoneCardHeading
+                title={<span>{sale.location_name}</span>}
+                amount={formatTRY(sale.total_amount_minor)}
+              />
+              <p className="text-sm text-muted-foreground">{formatDate(sale.sale_date)}</p>
+              {sale.items.length > 0 ? (
+                <p className="line-clamp-3 text-sm">{summarizeSoldLines(sale.items)}</p>
+              ) : null}
+            </PhoneCard>
+          ))}
+        </ul>
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -121,7 +170,7 @@ export function MarketSaleTable({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
         <p>
           {from}-{to} / toplam {total}
         </p>

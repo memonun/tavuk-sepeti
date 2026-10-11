@@ -53,8 +53,8 @@ export function OrderCargoInfoForm({
   };
 
   return (
-    <section className="space-y-3 rounded-lg border bg-card p-4">
-      <h3 className="text-sm font-semibold">Kargo Bilgisi</h3>
+    <section className="space-y-3 rounded-2xl border bg-card p-4">
+      <h3 className="text-base font-semibold">Kargo Bilgisi</h3>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Kargo firması</Label>

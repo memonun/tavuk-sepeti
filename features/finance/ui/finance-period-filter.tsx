@@ -80,11 +80,11 @@ export function FinancePeriodFilter() {
 
   return (
     <div className="space-y-3 border-b pb-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-xs">Dönem</Label>
           <Select value={range} onValueChange={setRange} disabled={pending} items={RANGE_LABEL}>
-            <SelectTrigger>
+            <SelectTrigger className="max-md:w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -96,10 +96,10 @@ export function FinancePeriodFilter() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Label className="text-xs">Tarih baz alma</Label>
           <Select value={dateBasis} onValueChange={setDateBasis} disabled={pending} items={DATE_BASIS_LABEL}>
-            <SelectTrigger>
+            <SelectTrigger className="max-md:w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -114,8 +114,8 @@ export function FinancePeriodFilter() {
       </div>
 
       {range === "custom" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label className="text-xs">Başlangıç</Label>
             <Input
               type="date"
@@ -124,7 +124,7 @@ export function FinancePeriodFilter() {
               onChange={(e) => setDate("date_from", e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label className="text-xs">Bitiş</Label>
             <Input
               type="date"

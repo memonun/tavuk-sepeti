@@ -104,9 +104,9 @@ export function OrderGiftItemsPanel({
   };
 
   return (
-    <section className="space-y-3 rounded-lg border bg-card p-4">
+    <section className="space-y-3 rounded-2xl border bg-card p-4">
       <div>
-        <h3 className="text-sm font-semibold">Hediye ürünler</h3>
+        <h3 className="text-base font-semibold">Hediye ürünler</h3>
         <p className="text-xs text-muted-foreground">
           Bu siparişe elden eklenen ücretsiz numune/hediye — Finans → Ürün Çetelesi
           raporuna yansır.

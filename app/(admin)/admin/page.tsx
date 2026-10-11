@@ -1,4 +1,5 @@
-import { PackageIcon, TruckIcon } from "lucide-react";
+import { ChevronRight, PackageIcon, TruckIcon } from "lucide-react";
+import Link from "next/link";
 
 import { getRecurringExpenseOverview } from "@/features/finance/application/get-recurring-expense-overview";
 import { materializeDueRecurringExpenses } from "@/features/finance/application/materialize-due-recurring-expenses";
@@ -7,7 +8,7 @@ import { countActiveCustomers } from "@/features/customers/application/count-act
 import { getDashboardOrderStats } from "@/features/orders/application/get-dashboard-order-stats";
 import { DashboardOrderListPanel } from "@/features/orders/ui/dashboard-order-list-panel";
 import { DashboardPrepPanel } from "@/features/orders/ui/dashboard-prep-panel";
-import { todayInIstanbul } from "@/shared/utils/date";
+import { formatLongDate, todayInIstanbul } from "@/shared/utils/date";
 
 export default async function DashboardHome() {
   // Lazy materialization, same as the Finans pages (no cron — spec §14): this
@@ -23,38 +24,41 @@ export default async function DashboardHome() {
     getRecurringExpenseOverview(today),
   ]);
 
+  // Each tile opens the screen where that work is done.
   const cards = [
     // Every order not yet delivered/cancelled, both channels — not just
     // status="pending" (the old tile hid confirmed/shipped orders that are
     // just as unfinished).
-    { title: "Teslim Edilmemiş Sipariş", value: orderStats.undeliveredOrders },
+    { title: "Teslim edilmemiş sipariş", value: orderStats.undeliveredOrders, href: "/orders" },
     // Scheduled for today and not yet delivered — what's due out with the van
     // today, not a count of what's already been delivered.
-    { title: "Bugün Teslim Edilecek", value: orderStats.prepManifest.route.orderCount },
+    { title: "Bugün teslim edilecek", value: orderStats.prepManifest.route.orderCount, href: "/routes" },
     // The cargo backlog has no date scope (see dashboard-manifest.ts) — kept
     // as its own tile rather than folded into "today" above.
-    { title: "Kargo (bekleyen)", value: orderStats.prepManifest.cargo.orderCount },
-    { title: "Aktif Müşteri", value: activeCustomers },
+    { title: "Bekleyen kargo", value: orderStats.prepManifest.cargo.orderCount, href: "/kargo" },
+    { title: "Aktif müşteri", value: activeCustomers, href: "/customers" },
   ];
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Panel</h2>
-        <p className="text-sm text-muted-foreground">Hoş geldin.</p>
+        <p className="text-sm text-muted-foreground">{formatLongDate(new Date())}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {cards.map((card) => (
-          <div
+          <Link
             key={card.title}
-            className="rounded-lg border bg-card p-4 text-card-foreground"
+            href={card.href}
+            className="group flex min-h-28 flex-col justify-between rounded-2xl border bg-card p-4 text-card-foreground shadow-(--admin-shadow-sm) admin-pressable"
           >
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              {card.title}
+            <p className="text-4xl leading-none font-semibold tabular-nums">{card.value}</p>
+            <p className="flex items-end justify-between gap-1 text-sm leading-tight font-medium text-muted-foreground">
+              <span>{card.title}</span>
+              <ChevronRight className="size-4 shrink-0" aria-hidden />
             </p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums">{card.value}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
