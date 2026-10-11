@@ -13,7 +13,7 @@ import {
   resumeCardPaymentAction,
   type ResumePaymentState,
 } from "@/features/storefront/application/resume-card-payment";
-import { Button } from "@/components/ui/button";
+import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 
 const initialState: ResumePaymentState = { status: "idle" };
 
@@ -38,20 +38,17 @@ export function ResumePaymentButton({
   }, [state]);
 
   return (
-    <form action={formAction} className="flex flex-col items-end gap-1">
+    <form action={formAction} className="flex flex-col items-end gap-2">
       <input type="hidden" name="order_number" value={orderNumber} />
       {phone ? <input type="hidden" name="phone" value={phone} /> : null}
-      <Button
+      <ShopButton
         type="submit"
-        size="sm"
-        variant="outline"
-        className="rounded-full"
         disabled={pending || state.status === "redirect"}
       >
         {pending || state.status === "redirect" ? "Yönlendiriliyor…" : label}
-      </Button>
+      </ShopButton>
       {state.status === "error" ? (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="text-base font-semibold text-destructive" role="alert">
           {state.message}
         </p>
       ) : null}

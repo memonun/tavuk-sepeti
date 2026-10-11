@@ -91,11 +91,8 @@ import {
   DELIVERY_PROVINCE,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CopyButton } from "@/components/ui/copy-button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
@@ -106,6 +103,9 @@ import { useCart } from "@/features/storefront/ui/cart-provider";
 import { trackProductAddedToCart } from "@/features/storefront/ui/meta-events";
 import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
+import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
+import { ShopInput, shopFieldClass } from "@/features/storefront/ui/kit/shop-field";
+import { ShopNotice } from "@/features/storefront/ui/kit/shop-notice";
 import { fromPriceMinor, lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
@@ -129,8 +129,17 @@ const initialAccountState: CheckoutAccountState = { status: "idle" };
  */
 type CheckoutMode = "guest" | "signup" | "signin";
 
-const controlClass =
-  "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+const controlClass = shopFieldClass;
+
+/** A whole-row tap target wrapping a radio or checkbox: 56px tall, and the
+ *  chosen one is marked by a thicker green edge AND a tint, not colour alone. */
+const choiceCardClass =
+  "flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 border-(--shop-field-border) bg-card px-4 py-3 text-lg font-semibold text-foreground transition-colors data-[checked]:border-primary data-[checked]:bg-(--shop-green-soft)";
+/** The shared radio/checkbox are 16px (admin density); 28px here. */
+const radioClass =
+  "size-7 border-2 border-(--shop-field-border) data-[checked]:border-primary [&_svg]:size-3.5";
+const checkboxClass =
+  "mt-0.5 size-7 rounded-md border-2 border-(--shop-field-border) [&_svg]:size-5";
 
 export interface CheckoutIdentityDefaults {
   first_name: string;
@@ -324,7 +333,7 @@ export function CheckoutForm({
   }
 
   if (!hydrated) {
-    return <p className="py-16 text-center text-muted-foreground">Yükleniyor…</p>;
+    return <p className="py-16 text-center text-lg text-muted-foreground">Yükleniyor…</p>;
   }
 
   if (lines.length === 0) {
@@ -360,14 +369,14 @@ export function CheckoutForm({
   // needs no session, so the guest flow stays on the single order submit below.
   if (!identity && accountMode !== "guest") {
     return (
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_20rem]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_24rem]">
         <form action={accountAction} className="flex flex-col gap-8">
           <Section title="1. Hesap">
-            <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
+            <ShopNotice>
               Siparişinizi tamamlamak için önce hesabınızı oluşturun ya da giriş
-              yapın. Sepetiniz kaybolmaz — bir sonraki adımda adresinizi girip
+              yapın. Sepetiniz kaybolmaz. Bir sonraki adımda adresinizi girip
               siparişi tamamlayacaksınız.
-            </p>
+            </ShopNotice>
             <AccountBlock
               mode={accountMode}
               onModeChange={setPickedMode}
@@ -383,44 +392,37 @@ export function CheckoutForm({
             <input type="hidden" name="account_mode" value={accountMode} />
 
             {accountState.status === "email_taken" ? (
-              <p className="text-sm" role="alert">
-                Bu e-posta ile bir hesabınız zaten var — şifrenizi girip devam
+              <ShopNotice tone="warning" role="alert">
+                Bu e-posta ile bir hesabınız zaten var. Şifrenizi girip devam
                 edin.{" "}
                 <Link
                   href="/sifremi-unuttum"
-                  className="underline underline-offset-2"
+                  className="font-bold underline underline-offset-4"
                 >
                   Şifrenizi mi unuttunuz?
                 </Link>
-              </p>
+              </ShopNotice>
             ) : null}
 
             {accountState.status === "error" ? (
-              <p className="text-sm text-destructive" role="alert">
+              <ShopNotice tone="danger" role="alert">
                 {accountState.message}
-              </p>
+              </ShopNotice>
             ) : null}
 
-            <div>
-              <Button
-                type="submit"
-                size="lg"
-                className="rounded-full"
-                disabled={accountPending}
-              >
-                {accountPending
-                  ? "Gönderiliyor…"
-                  : accountMode === "signup"
-                    ? "Hesabımı oluştur ve devam et"
-                    : "Giriş yap ve devam et"}
-              </Button>
-            </div>
+            <ShopButton type="submit" size="lg" block disabled={accountPending}>
+              {accountPending
+                ? "Gönderiliyor…"
+                : accountMode === "signup"
+                  ? "Hesabımı oluştur ve devam et"
+                  : "Giriş yap ve devam et"}
+            </ShopButton>
           </Section>
 
           {/* The steps that follow, so the account block doesn't read like the
               whole checkout. */}
-          <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Sonraki adımlar</p>
+          <div className="flex flex-col gap-1.5 text-base text-muted-foreground">
+            <p className="font-bold text-foreground">Sonraki adımlar</p>
             <p>2. Teslimat adresi</p>
             <p>{mode === "route" ? "3. Teslimat zamanı" : "3. Gönderim"}</p>
             <p>4. Ödeme yöntemi</p>
@@ -449,6 +451,15 @@ export function CheckoutForm({
   const hasAddress = identity ? addressId !== null : guestAddress !== null;
   const canSubmit =
     !pending && hasAddress && minimum.ok && !noDeliveryDay && distanceSalesAccepted;
+  // Display only: the first thing still standing between the customer and the
+  // submit button, in the order they meet it on the page. The minimum and the
+  // no-delivery-day cases already have their own alert, so they are not
+  // repeated here.
+  const missingStep = !hasAddress
+    ? "Devam etmek için önce teslimat adresinizi girin (2. adım)."
+    : minimum.ok && !noDeliveryDay && !distanceSalesAccepted
+      ? "Devam etmek için yukarıdaki sözleşme kutusunu işaretleyin."
+      : null;
 
   return (
     // grid-cols-1: without an explicit base track, the implicit single-column
@@ -457,57 +468,48 @@ export function CheckoutForm({
     // column pushed the whole page ~10px past the viewport, which iOS Safari
     // then read back into the fixed bottom nav's width, showing as a black
     // strip down the right edge.
-    <form action={formAction} className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_20rem]">
+    <form action={formAction} className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_24rem]">
       <div className="flex flex-col gap-8">
         <Section title="1. İletişim">
           {identity ? (
             <>
-              <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm">
+              <p className="rounded-2xl bg-muted px-4 py-3 text-lg leading-relaxed">
                 Merhaba{" "}
-                <strong className="font-medium">
+                <strong className="font-bold break-all">
                   {identity.first_name || identity.email}
-                </strong>{" "}
-                — siparişiniz bu hesaba kaydedilecek.
+                </strong>
+                , siparişiniz bu hesaba kaydedilecek.
               </p>
               <input type="hidden" name="account_mode" value="existing" />
             </>
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 text-sm">
-                <span>
-                  Daha önce sipariş verdiyseniz bir hesabınız olabilir — giriş
-                  yaparsanız bu sipariş de hesabınıza kaydedilir.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPickedMode("signin")}
-                  className={cn(
-                    buttonVariants({ size: "sm", variant: "outline" }),
-                    "shrink-0 rounded-full",
-                  )}
-                >
-                  Giriş yap
-                </button>
+              {/* Guest is the default and needs nothing from this box, so it
+                  leads with that. The two account routes are real buttons —
+                  "Hesap oluşturun" used to be one underlined word inside a
+                  paragraph. */}
+              <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted p-4">
+                <p className="text-base leading-relaxed">
+                  <strong className="font-bold">Üye olmadan sipariş verebilirsiniz.</strong>{" "}
+                  Siparişinizi daha sonra numarası ve telefonunuzla{" "}
+                  <Link
+                    href="/siparis-sorgula"
+                    className="font-bold underline underline-offset-4"
+                    target="_blank"
+                  >
+                    sorgulayabilirsiniz
+                  </Link>
+                  . Hesabınız varsa giriş yapın; sipariş hesabınıza kaydedilir.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <ShopButton variant="secondary" onClick={() => setPickedMode("signin")}>
+                    Giriş yap
+                  </ShopButton>
+                  <ShopButton variant="quiet" onClick={() => setPickedMode("signup")}>
+                    Hesap oluştur
+                  </ShopButton>
+                </div>
               </div>
-              <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
-                Üye olmadan da sipariş verebilirsiniz. Siparişinizi daha sonra
-                numarası ve telefonunuzla{" "}
-                <Link
-                  href="/siparis-sorgula"
-                  className="underline underline-offset-2"
-                  target="_blank"
-                >
-                  sorgulayabilirsiniz
-                </Link>
-                .{" "}
-                <button
-                  type="button"
-                  onClick={() => setPickedMode("signup")}
-                  className="underline underline-offset-2"
-                >
-                  Hesap oluşturun
-                </button>
-              </p>
               <GuestBlock
                 disabled={pending}
                 values={{
@@ -528,11 +530,11 @@ export function CheckoutForm({
         </Section>
 
         <Section title="2. Teslimat adresi">
-          <p className="mb-1 flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
+          <p className="flex items-start gap-3 rounded-2xl bg-muted p-4 text-base leading-relaxed text-foreground">
             {mode === "route" ? (
-              <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+              <MapPinIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
             ) : (
-              <TruckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+              <TruckIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
             )}
             <span>
               {mode === "route" ? (
@@ -596,8 +598,8 @@ export function CheckoutForm({
             all, which placeOrderAction then rejects. */}
         {channel === "delivery" ? (
           <Section title="3. Teslimat zamanı">
-            <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-xs text-muted-foreground">
-              <MapPinIcon className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+            <p className="flex items-start gap-3 rounded-2xl bg-muted p-4 text-base leading-relaxed text-foreground">
+              <MapPinIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
               <span>
                 {DELIVERY_PROVINCE} içi teslimat günlerimiz{" "}
                 <strong>{deliveryDaysLabel}</strong>. Size uygun günü seçin.
@@ -605,13 +607,10 @@ export function CheckoutForm({
             </p>
 
             {noDeliveryDay ? (
-              <p
-                className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-                role="alert"
-              >
+              <ShopNotice tone="danger" role="alert">
                 Şu anda planlanabilir bir eve servis günü yok. Lütfen daha sonra
                 tekrar deneyin veya bizimle iletişime geçin.
-              </p>
+              </ShopNotice>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {/* A <select> of real delivery days, not a free date input: the
@@ -656,9 +655,9 @@ export function CheckoutForm({
              no van to schedule and no window to promise — the parcel goes out
              as soon as it is ready. */
           <Section title="3. Gönderim">
-            <p className="flex items-start gap-2 rounded-xl bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">
+            <p className="flex items-start gap-3 rounded-2xl bg-muted p-4 text-base leading-relaxed text-foreground">
               <PackageCheckIcon
-                className="mt-0.5 size-4 shrink-0 text-primary"
+                className="mt-0.5 size-6 shrink-0 text-primary"
                 aria-hidden
               />
               <span>
@@ -671,7 +670,7 @@ export function CheckoutForm({
                 its wording) is the eve-servis one, not the cargo one, even
                 though this section still opened the cargo-shaped form. */}
             {minOrderMinor > 0 ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 {orderMinimumNotice(channel, minOrderMinor)}
               </p>
             ) : null}
@@ -687,15 +686,15 @@ export function CheckoutForm({
             }
             disabled={pending}
             required
-            className="grid gap-2 sm:grid-cols-2"
+            className="grid gap-3"
           >
             {paymentOptions.map((option) => (
               <label
                 key={option.value}
                 data-checked={selectedPaymentMethod === option.value || undefined}
-                className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-input p-3 text-sm transition-colors data-[checked]:border-primary data-[checked]:bg-secondary/50"
+                className={choiceCardClass}
               >
-                <RadioGroupItem value={option.value} />
+                <RadioGroupItem value={option.value} className={radioClass} />
                 {option.label}
               </label>
             ))}
@@ -706,7 +705,7 @@ export function CheckoutForm({
               ödeme is genuinely offered above, and this note would otherwise
               contradict it. */}
           {channel === "shipping" ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               Kapıda nakit ödeme yalnızca eve servis siparişlerinde geçerlidir.
             </p>
           ) : null}
@@ -719,7 +718,7 @@ export function CheckoutForm({
               name="delivery_notes"
               rows={3}
               maxLength={2000}
-              className={cn(controlClass, "h-auto py-2")}
+              className={controlClass}
               placeholder="Eklemek istediğiniz bir şey var mı?"
               disabled={pending}
               value={draft.deliveryNotes}
@@ -733,7 +732,7 @@ export function CheckoutForm({
         <div className="flex flex-col gap-4">
           {summary}
 
-          <div className="flex flex-col gap-2 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
+          <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-4 shadow-(--shop-shadow-sm) sm:p-5">
             {/* Held back until an address is actually known (selected, or
                 just entered) — the cargo floor is a property of THAT
                 address's channel, not of the basket in isolation, and
@@ -745,12 +744,9 @@ export function CheckoutForm({
                 from) — `hasAddress` is the one flag both shapes set once an
                 address is actually known, so it's what has to gate this. */}
             {hasAddress && !minimum.ok ? (
-              <p
-                className="rounded-lg bg-destructive/5 px-2.5 py-2 text-xs text-destructive"
-                role="alert"
-              >
+              <ShopNotice tone="warning" role="alert">
                 {orderMinimumMessage(channel, minOrderMinor, minimum.shortfallMinor)}
-              </p>
+              </ShopNotice>
             ) : null}
 
             {/* A dead session is not a form error. Without a way back the
@@ -758,27 +754,18 @@ export function CheckoutForm({
                 bearing their own name, getting the same sentence every time.
                 `next` returns them here with the basket still in localStorage. */}
             {state.status === "session_expired" ? (
-              <div
-                className="flex flex-col gap-2 rounded-xl bg-destructive/5 px-3 py-2.5"
-                role="alert"
-              >
-                <p className="text-sm text-destructive">{state.message}</p>
-                <Link
-                  href="/giris?next=%2Fodeme"
-                  className={cn(
-                    buttonVariants({ size: "sm" }),
-                    "self-start rounded-full",
-                  )}
-                >
+              <ShopNotice tone="danger" role="alert">
+                <p>{state.message}</p>
+                <ShopLinkButton href="/giris?next=%2Fodeme" className="mt-3">
                   Giriş yap ve siparişe dön
-                </Link>
-              </div>
+                </ShopLinkButton>
+              </ShopNotice>
             ) : null}
 
             {state.status === "validation_error" || state.status === "error" ? (
-              <p className="text-sm text-destructive" role="alert">
+              <ShopNotice tone="danger" role="alert">
                 {state.message}
-              </p>
+              </ShopNotice>
             ) : null}
 
             {/* Submit exactly what the customer was shown. This used to
@@ -799,20 +786,20 @@ export function CheckoutForm({
             />
             <label
               data-checked={distanceSalesAccepted || undefined}
-              className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-input p-3 text-xs data-[checked]:border-primary data-[checked]:bg-secondary/50"
+              className={cn(choiceCardClass, "items-start text-base font-normal")}
             >
               <Checkbox
                 name="distance_sales_accepted"
                 checked={distanceSalesAccepted}
                 onCheckedChange={setDistanceSalesAccepted}
-                className="mt-0.5"
+                className={checkboxClass}
                 required
                 disabled={pending}
               />
               <span>
                 <Link
                   href="/on-bilgilendirme-formu"
-                  className="underline underline-offset-2"
+                  className="font-bold underline underline-offset-4"
                   target="_blank"
                 >
                   Ön Bilgilendirme Formu&apos;nu
@@ -820,7 +807,7 @@ export function CheckoutForm({
                 ve{" "}
                 <Link
                   href="/mesafeli-satis-sozlesmesi"
-                  className="underline underline-offset-2"
+                  className="font-bold underline underline-offset-4"
                   target="_blank"
                 >
                   Mesafeli Satış Sözleşmesi&apos;ni
@@ -829,20 +816,22 @@ export function CheckoutForm({
                 kabul ediyorum.
               </span>
             </label>
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full rounded-full"
-              disabled={!canSubmit}
-            >
+            {/* A greyed-out button with no reason beside it is a dead end. Say
+                which step is still open, in readable type, right above it. */}
+            {!pending && missingStep ? (
+              <ShopNotice tone="warning" role="status">
+                {missingStep}
+              </ShopNotice>
+            ) : null}
+            <ShopButton type="submit" size="lg" block disabled={!canSubmit}>
               {pending ? "Gönderiliyor…" : "Ödemeyi Tamamla"}
-            </Button>
+            </ShopButton>
 
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-center text-base text-muted-foreground">
               Kişisel verilerinizin işlenmesine ilişkin bilgi için{" "}
               <Link
                 href="/kvkk"
-                className="underline underline-offset-2"
+                className="font-bold underline underline-offset-4"
                 target="_blank"
               >
                 KVKK Aydınlatma Metni&apos;ni
@@ -850,19 +839,15 @@ export function CheckoutForm({
               inceleyebilirsiniz.
             </p>
 
-            {!hasAddress ? (
-              <p className="text-center text-xs text-muted-foreground">
-                Devam etmek için bir teslimat adresi seçin.
-              </p>
-            ) : (
-              <p className="text-center text-xs text-muted-foreground">
+            {hasAddress ? (
+              <p className="text-center text-base text-muted-foreground">
                 {paytrEnabled
                   ? "Kart seçilirse güvenli ödeme sayfasına (PayTR) yönlendirilirsiniz."
                   : mode === "route"
                     ? "Ödeme teslimatta veya havale ile alınır."
                     : "Ödeme havale ile alınır."}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
       </aside>
@@ -907,65 +892,64 @@ function OrderSummary({
   const addableProducts = products.filter((p) => !cartKeys.has(p.key));
 
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-border/70 bg-card p-5 shadow-sm">
-      <h2 className="font-display text-lg">Sipariş özeti</h2>
-      <ul className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-4 shadow-(--shop-shadow-sm) sm:p-5">
+      <h2 className="font-display text-2xl leading-tight">Sipariş özeti</h2>
+      <ul className="flex flex-col gap-4">
         {rows.map(({ product, quantity }) => {
           const imageUrl = productImagePublicUrl(
             product.image_path,
             env.NEXT_PUBLIC_SUPABASE_URL,
           );
           return (
-            <li key={product.key} className="flex flex-wrap items-center gap-3">
-              <div className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary/60">
-                {imageUrl ? (
-                  <Image
-                    src={imageUrl}
-                    alt={product.image_alt ?? product.display_name}
-                    fill
-                    sizes="44px"
-                    className="object-cover object-center"
-                  />
-                ) : (
-                  <span className="text-2xl" aria-hidden>
-                    {productEmoji(product.key)}
-                  </span>
-                )}
-              </div>
-              <div className="min-w-32 flex-1">
-                <p className="truncate text-sm font-medium">
+            <li key={product.key} className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted">
+                  {imageUrl ? (
+                    <Image
+                      src={imageUrl}
+                      alt={product.image_alt ?? product.display_name}
+                      fill
+                      sizes="56px"
+                      className="object-cover object-center"
+                    />
+                  ) : (
+                    <span className="text-3xl" aria-hidden>
+                      {productEmoji(product.key)}
+                    </span>
+                  )}
+                </div>
+                <p className="min-w-0 flex-1 text-lg leading-snug font-bold break-words">
                   {product.display_name}
                 </p>
-                <p className="text-xs text-muted-foreground tabular-nums">
+                <p className="shop-money shrink-0 text-lg font-bold">
                   {formatTRY(lineTotalMinor(product, quantity))}
                 </p>
               </div>
-              <QuantityStepper product={product} />
+              <QuantityStepper product={product} block />
             </li>
           );
         })}
       </ul>
 
       {addableProducts.length > 0 ? (
-        <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="w-fit gap-1.5 text-primary hover:text-primary"
+        <div className="flex flex-col gap-3 border-t border-border pt-4">
+          <ShopButton
+            variant="secondary"
+            aria-expanded={showAddPicker}
             onClick={() => setShowAddPicker((v) => !v)}
           >
-            <PlusIcon className="size-4" />
-            Ürün ekle
+            <PlusIcon aria-hidden />
+            Başka ürün ekle
             <ChevronDownIcon
+              aria-hidden
               className={cn(
-                "size-3.5 transition-transform",
+                "transition-transform duration-200 ease-(--shop-ease-out)",
                 showAddPicker && "rotate-180",
               )}
             />
-          </Button>
+          </ShopButton>
           {showAddPicker ? (
-            <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto rounded-2xl border border-border/60 bg-secondary/30 p-2">
+            <ul className="shop-enter flex max-h-80 flex-col gap-2 overflow-y-auto overscroll-contain rounded-2xl bg-muted p-2">
               {addableProducts.map((product) => {
                 const imageUrl = productImagePublicUrl(
                   product.image_path,
@@ -974,41 +958,40 @@ function OrderSummary({
                 return (
                   <li
                     key={product.key}
-                    className="flex items-center gap-2.5 rounded-xl p-1.5"
+                    className="flex items-center gap-3 rounded-xl bg-card p-2"
                   >
-                    <div className="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary/60">
+                    <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                       {imageUrl ? (
                         <Image
                           src={imageUrl}
                           alt={product.image_alt ?? product.display_name}
                           fill
-                          sizes="32px"
+                          sizes="48px"
                           className="object-cover object-center"
                         />
                       ) : (
-                        <span className="text-base" aria-hidden>
+                        <span className="text-2xl" aria-hidden>
                           {productEmoji(product.key)}
                         </span>
                       )}
                     </div>
-                    <span className="min-w-0 flex-1 truncate text-sm">
-                      {product.display_name}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base leading-snug font-bold break-words">
+                        {product.display_name}
+                      </span>
+                      <span className="shop-money block text-base text-muted-foreground">
+                        {formatTRY(fromPriceMinor(product))}
+                      </span>
                     </span>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {formatTRY(fromPriceMinor(product))}
-                    </span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="rounded-full"
+                    <ShopButton
+                      variant="quiet"
                       onClick={() => {
                         addItem(product.key, product.min_qty);
                         trackProductAddedToCart(product, product.min_qty);
                       }}
                     >
                       Ekle
-                    </Button>
+                    </ShopButton>
                   </li>
                 );
               })}
@@ -1017,35 +1000,33 @@ function OrderSummary({
         </div>
       ) : null}
 
-      <div className="border-t border-border/60 pt-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Ara toplam</span>
-          <span className="tabular-nums">{formatTRY(subtotal)}</span>
+      <dl className="flex flex-col gap-2 border-t border-border pt-4 text-lg">
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted-foreground">Ara toplam</dt>
+          <dd className="shop-money">{formatTRY(subtotal)}</dd>
         </div>
-        <div className="mt-1 flex justify-between">
-          <span className="text-muted-foreground">
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted-foreground">
             {channel === "delivery" ? "Teslimat" : "Kargo"}
-          </span>
-          <span className="tabular-nums">
+          </dt>
+          <dd className="shop-money">
             {feeMinor === 0 ? "Ücretsiz" : formatTRY(feeMinor)}
-          </span>
+          </dd>
         </div>
-        <div className="mt-2 flex justify-between border-t border-border/60 pt-2 text-base font-semibold">
-          <span>Toplam</span>
-          <span className="tabular-nums">{formatTRY(total)}</span>
+        <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-border pt-3 font-bold">
+          <dt className="text-xl">Toplam</dt>
+          <dd className="shop-money text-[1.75rem] leading-none font-extrabold">
+            {formatTRY(total)}
+          </dd>
         </div>
-      </div>
+      </dl>
 
-      <p className="rounded-lg bg-secondary/60 px-2.5 py-1.5 text-center text-xs text-muted-foreground">
-        {mode === "route" ? (
-          <strong className="font-bold text-foreground">
-            {`Yumurta ve süt ürünleri yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`}
-          </strong>
-        ) : channel === "delivery" ? (
-          deliveryFeeNotice(feeMinor)
-        ) : (
-          CARGO_FREE_SHIPPING_NOTICE
-        )}
+      <p className="rounded-2xl bg-muted px-4 py-3 text-base leading-relaxed text-foreground">
+        {mode === "route"
+          ? `Yumurta ve süt ürünleri yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`
+          : channel === "delivery"
+            ? deliveryFeeNotice(feeMinor)
+            : CARGO_FREE_SHIPPING_NOTICE}
       </p>
     </div>
   );
@@ -1082,53 +1063,46 @@ function AccountBlock({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-2 text-sm">
-        <button
-          type="button"
+      <div className="flex flex-wrap gap-2">
+        <ShopButton
+          variant={mode === "signup" ? "primary" : "quiet"}
+          aria-pressed={mode === "signup"}
           onClick={() => onModeChange("signup")}
-          className={cn(
-            "rounded-full px-3 py-1.5 transition-colors",
-            mode === "signup" ? "bg-primary text-primary-foreground" : "bg-secondary",
-          )}
           disabled={disabled}
         >
           Hesap oluştur
-        </button>
-        <button
-          type="button"
+        </ShopButton>
+        <ShopButton
+          variant={mode === "signin" ? "primary" : "quiet"}
+          aria-pressed={mode === "signin"}
           onClick={() => onModeChange("signin")}
-          className={cn(
-            "rounded-full px-3 py-1.5 transition-colors",
-            mode === "signin" ? "bg-primary text-primary-foreground" : "bg-secondary",
-          )}
           disabled={disabled}
         >
           Zaten hesabım var
-        </button>
+        </ShopButton>
         {/* The way back out. Without it, a customer who tapped "hesap oluştur"
             to see what it involved was stuck in the account flow. */}
-        <button
-          type="button"
+        <ShopButton
+          variant="quiet"
           onClick={() => onModeChange("guest")}
-          className="rounded-full bg-secondary px-3 py-1.5 transition-colors"
           disabled={disabled}
         >
           Üye olmadan devam et
-        </button>
+        </ShopButton>
       </div>
 
       {mode === "signup" ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Ad" htmlFor="first_name">
-            <Input id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} defaultValue={values?.first_name} />
+            <ShopInput id="first_name" name="first_name" autoComplete="given-name" required disabled={disabled} defaultValue={values?.first_name} />
           </Field>
           <Field label="Soyad" htmlFor="last_name">
-            <Input id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} defaultValue={values?.last_name} />
+            <ShopInput id="last_name" name="last_name" autoComplete="family-name" required disabled={disabled} defaultValue={values?.last_name} />
           </Field>
           {/* Required, not optional: a stop the driver can't phone is a delivery
               that fails at the door, and it's the field the CRM keys on. */}
           <Field label="Telefon" htmlFor="phone">
-            <Input
+            <ShopInput
               id="phone"
               name="phone"
               type="tel"
@@ -1140,10 +1114,10 @@ function AccountBlock({
             />
           </Field>
           <Field label="E-posta" htmlFor="account_email">
-            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} defaultValue={values?.email} />
+            <ShopInput id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} defaultValue={values?.email} />
           </Field>
           <Field label="Şifre (en az 8 karakter)" htmlFor="account_password">
-            <Input
+            <ShopInput
               id="account_password"
               name="account_password"
               type="password"
@@ -1157,10 +1131,10 @@ function AccountBlock({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="E-posta" htmlFor="account_email">
-            <Input id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} defaultValue={values?.email} />
+            <ShopInput id="account_email" name="account_email" type="email" autoComplete="email" required disabled={disabled} defaultValue={values?.email} />
           </Field>
           <Field label="Şifre" htmlFor="account_password">
-            <Input
+            <ShopInput
               id="account_password"
               name="account_password"
               type="password"
@@ -1169,9 +1143,9 @@ function AccountBlock({
               disabled={disabled}
             />
           </Field>
-          <p className="text-xs text-muted-foreground sm:col-span-2">
+          <p className="text-base text-muted-foreground sm:col-span-2">
             Şifrenizi mi unuttunuz?{" "}
-            <Link href="/sifremi-unuttum" className="underline underline-offset-2">
+            <Link href="/sifremi-unuttum" className="font-bold text-foreground underline underline-offset-4">
               Sıfırlayın
             </Link>
             .
@@ -1224,7 +1198,7 @@ function GuestBlock({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Ad" htmlFor="first_name">
-        <Input
+        <ShopInput
           id="first_name"
           name="first_name"
           autoComplete="given-name"
@@ -1235,7 +1209,7 @@ function GuestBlock({
         />
       </Field>
       <Field label="Soyad" htmlFor="last_name">
-        <Input
+        <ShopInput
           id="last_name"
           name="last_name"
           autoComplete="family-name"
@@ -1246,7 +1220,7 @@ function GuestBlock({
         />
       </Field>
       <Field label="Telefon" htmlFor="phone">
-        <Input
+        <ShopInput
           id="phone"
           name="phone"
           type="tel"
@@ -1259,7 +1233,7 @@ function GuestBlock({
         />
       </Field>
       <Field label="E-posta" htmlFor="account_email">
-        <Input
+        <ShopInput
           id="account_email"
           name="account_email"
           type="email"
@@ -1270,7 +1244,7 @@ function GuestBlock({
           onChange={(e) => onChange({ email: e.target.value })}
         />
       </Field>
-      <p className="text-xs text-muted-foreground sm:col-span-2">
+      <p className="text-base text-muted-foreground sm:col-span-2">
         Sipariş onayını e-posta ile göndeririz. E-posta yalnızca kartla ödemede
         zorunludur; havale/EFT ve kapıda nakit ödemede gerekmez.
       </p>
@@ -1307,22 +1281,22 @@ function GuestAddressSummary({
   ];
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-primary bg-secondary/50 p-3 text-sm">
-      <MapPinIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">
+    <div className="flex flex-wrap items-start gap-3 rounded-2xl border-2 border-primary bg-(--shop-green-soft) p-4 text-base">
+      <MapPinIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
+      <div className="min-w-40 flex-1">
+        <p className="text-lg font-bold">
           {[address.neighborhood, address.street, address.building_no]
             .filter(Boolean)
             .join(" ")}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-base text-foreground">
           {[address.district, address.city].filter(Boolean).join(" / ")}
           {address.apartment_no ? ` · Daire ${address.apartment_no}` : ""}
         </p>
       </div>
-      <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
+      <ShopButton variant="secondary" onClick={onEdit}>
         Adresi düzenle
-      </Button>
+      </ShopButton>
       {hidden.map(([name, value]) => (
         <input key={name} type="hidden" name={`addr_${name}`} value={value} />
       ))}
@@ -1330,10 +1304,33 @@ function GuestAddressSummary({
   );
 }
 
+/**
+ * One numbered step of the checkout. The number is real information here —
+ * these are a sequence, and "2. adım" is how the page refers back to them — so
+ * it is pulled out of the title ("2. Teslimat adresi") into a badge.
+ */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const match = /^(\d+)\.\s*(.+)$/.exec(title);
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-display text-lg text-foreground">{title}</h2>
+      <h2 className="flex items-center gap-3 font-display text-2xl leading-tight text-foreground">
+        {match ? (
+          <>
+            <span
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-xl text-primary-foreground"
+              aria-hidden
+            >
+              {match[1]}
+            </span>
+            <span>
+              <span className="sr-only">{match[1]}. adım: </span>
+              {match[2]}
+            </span>
+          </>
+        ) : (
+          title
+        )}
+      </h2>
       {children}
     </section>
   );
@@ -1349,10 +1346,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={htmlFor} className="text-muted-foreground">
+    <div className="flex min-w-0 flex-col gap-2">
+      <label htmlFor={htmlFor} className="text-base font-bold text-foreground">
         {label}
-      </Label>
+      </label>
       {children}
     </div>
   );
@@ -1360,15 +1357,15 @@ function Field({
 
 function EmptyCart() {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-16 text-center">
-      <ShoppingBasketIcon className="size-10 text-muted-foreground/60" />
-      <h2 className="font-display text-xl">Sepetiniz boş</h2>
-      <p className="text-sm text-muted-foreground">
+    <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-12 text-center">
+      <ShoppingBasketIcon className="size-14 text-muted-foreground" aria-hidden />
+      <h2 className="font-display text-3xl leading-tight">Sepetiniz boş</h2>
+      <p className="text-lg text-muted-foreground">
         Sipariş vermek için önce sepetinize ürün ekleyin.
       </p>
-      <Link href="/" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
-        Ürünlere göz at
-      </Link>
+      <ShopLinkButton href="/" size="lg">
+        Ürünlere dön
+      </ShopLinkButton>
     </div>
   );
 }
@@ -1394,18 +1391,17 @@ function VerifyEmail({ email }: { email: string }) {
   const [checking, setChecking] = useState(false);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
-      <MailCheckIcon className="size-12 text-primary" />
-      <h2 className="font-display text-2xl">E-postanızı doğrulayın</h2>
-      <p className="text-sm text-muted-foreground">
-        <strong className="font-medium text-foreground">{email}</strong> adresine
-        bir doğrulama bağlantısı gönderdik. Sepetiniz duruyor — bağlantıya
-        tıkladıktan sonra buradan devam edebilirsiniz.
+    <div className={resultCardClass}>
+      <MailCheckIcon className="size-14 text-primary" aria-hidden />
+      <h2 className="font-display text-3xl leading-tight">E-postanızı doğrulayın</h2>
+      <p className="text-lg leading-relaxed text-muted-foreground">
+        <strong className="font-bold break-all text-foreground">{email}</strong>{" "}
+        adresine bir doğrulama bağlantısı gönderdik. Sepetiniz duruyor.
+        Bağlantıya tıkladıktan sonra buradan devam edebilirsiniz.
       </p>
-      <Button
-        type="button"
+      <ShopButton
         size="lg"
-        className="rounded-full"
+        block
         disabled={checking}
         onClick={() => {
           setChecking(true);
@@ -1415,14 +1411,17 @@ function VerifyEmail({ email }: { email: string }) {
           window.setTimeout(() => setChecking(false), 2000);
         }}
       >
-        {checking ? "Kontrol ediliyor…" : "E-postamı doğruladım — devam et"}
-      </Button>
-      <p className="text-xs text-muted-foreground">
+        {checking ? "Kontrol ediliyor…" : "E-postamı doğruladım, devam et"}
+      </ShopButton>
+      <p className="text-base text-muted-foreground">
         Bağlantı gelmediyse spam klasörünü kontrol edin.
       </p>
     </div>
   );
 }
+
+const resultCardClass =
+  "mx-auto flex max-w-lg flex-col items-center gap-5 rounded-3xl border border-border bg-card p-5 text-center shadow-(--shop-shadow-sm) sm:p-8";
 
 function OrderConfirmation({
   orderNumber,
@@ -1442,29 +1441,31 @@ function OrderConfirmation({
   hasEmail: boolean;
 }) {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
-      <CheckCircle2Icon className="size-12 text-primary" />
-      <h2 className="font-display text-2xl">Siparişiniz alındı!</h2>
-      <div className="flex flex-col items-center gap-1">
-        <p className="text-sm text-muted-foreground">Sipariş numaranız</p>
-        <p className="rounded-full bg-secondary px-4 py-1.5 font-mono text-sm font-semibold tracking-wide">
+    <div className={resultCardClass}>
+      <CheckCircle2Icon className="size-16 text-primary" aria-hidden />
+      <h2 className="font-display text-3xl leading-tight">Siparişiniz alındı</h2>
+      <div className="flex w-full flex-col items-center gap-2 rounded-2xl bg-(--shop-green-soft) p-4">
+        <p className="text-lg text-foreground">Sipariş numaranız</p>
+        {/* The guest's only handle on this order, so it is the biggest thing
+            on the screen and selectable. */}
+        <p className="shop-money text-3xl font-extrabold tracking-wide break-all select-all">
           {orderNumber}
         </p>
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-lg leading-relaxed text-muted-foreground">
         Siparişinizi hazırlamaya başlıyoruz. Durumunu istediğiniz zaman{" "}
         {hasAccount
           ? "hesabınızdan takip edebilirsiniz."
           : `sipariş numaranız ve telefonunuzla sorgulayabilirsiniz${
-              hasEmail ? " — numarayı onay e-postanıza da gönderdik." : "."
+              hasEmail ? ". Numarayı onay e-postanıza da gönderdik." : "."
             }`}
       </p>
 
       {!hasAccount ? (
-        <p className="rounded-xl bg-secondary/50 px-3 py-2.5 text-sm text-muted-foreground">
+        <p className="rounded-2xl bg-muted px-4 py-3 text-base leading-relaxed text-foreground">
           Bir hesap açarsanız bir sonraki siparişinizi ve bu siparişi tek
           yerden, &quot;Hesabım&quot; sayfasından takip edebilirsiniz.{" "}
-          <Link href="/kayit" className="underline underline-offset-2">
+          <Link href="/kayit" className="font-bold underline underline-offset-4">
             Hesap oluşturun
           </Link>
         </p>
@@ -1478,16 +1479,17 @@ function OrderConfirmation({
         />
       ) : null}
 
-      <div className="flex flex-wrap justify-center gap-2">
-        <Link href="/" className={cn(buttonVariants({ size: "lg" }), "rounded-full")}>
-          Alışverişe devam et
-        </Link>
-        <Link
+      <div className="flex w-full flex-col gap-3">
+        <ShopLinkButton
           href={hasAccount ? "/hesap" : "/siparis-sorgula"}
-          className={cn(buttonVariants({ size: "lg", variant: "outline" }), "rounded-full")}
+          size="lg"
+          block
         >
           {hasAccount ? "Siparişlerim" : "Siparişimi sorgula"}
-        </Link>
+        </ShopLinkButton>
+        <ShopLinkButton href="/" size="lg" variant="secondary" block>
+          Alışverişe devam et
+        </ShopLinkButton>
       </div>
     </div>
   );
@@ -1514,46 +1516,52 @@ function BankTransferDetails({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-xl border border-input bg-secondary/40 p-3 text-sm",
+        "flex flex-col gap-3 rounded-2xl border-2 border-(--shop-field-border) bg-muted p-4 text-base",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      <p className="text-lg font-bold">Havale / EFT bilgileri</p>
+      {/* IBAN on its own line, large and in digit groups: this is the string
+          an older customer has to read out or type into a bank app. */}
+      <div className="flex flex-col gap-2">
         <span className="text-muted-foreground">IBAN</span>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-xs">{BANK_TRANSFER_IBAN}</span>
-          <CopyButton value={BANK_TRANSFER_IBAN_RAW} label="Kopyala" />
-        </div>
+        <span className="shop-money text-xl leading-snug font-bold break-words select-all">
+          {BANK_TRANSFER_IBAN}
+        </span>
+        <CopyButton
+          value={BANK_TRANSFER_IBAN_RAW}
+          label="IBAN'ı kopyala"
+          className="h-12 self-start rounded-full border-2 border-primary bg-card px-5 text-base font-bold text-primary [&_svg]:size-5"
+        />
       </div>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
         <span className="text-muted-foreground">Hesap sahibi</span>
-        <span>{BANK_TRANSFER_ACCOUNT_HOLDER}</span>
+        <span className="font-bold">{BANK_TRANSFER_ACCOUNT_HOLDER}</span>
       </div>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
         <span className="text-muted-foreground">Banka</span>
-        <span>{BANK_TRANSFER_BANK_NAME}</span>
+        <span className="font-bold">{BANK_TRANSFER_BANK_NAME}</span>
       </div>
       {orderNumber ? (
         <>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-base leading-relaxed">
             Açıklamaya sipariş numaranızı yazın:{" "}
-            <span className="font-mono font-medium text-foreground">{orderNumber}</span>
+            <span className="shop-money font-bold select-all">{orderNumber}</span>
           </p>
           <a
             href={buildBankTransferWhatsAppLink(orderNumber, totalMinor)}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "mt-1 w-fit gap-1.5 rounded-full",
-            )}
+            className="shop-btn shop-press shop-focus"
+            data-variant="secondary"
+            data-block="true"
           >
-            <MessageCircleIcon className="size-4" />
+            <MessageCircleIcon aria-hidden />
             Dekontu WhatsApp&apos;tan gönderin
           </a>
         </>
       ) : (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-base leading-relaxed text-muted-foreground">
           Siparişi tamamladıktan sonra dekontu WhatsApp&apos;tan gönderebilirsiniz.
         </p>
       )}

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
 
 import { isPaytrEnabled } from "@/features/payments/application/paytr";
 import { ensureCustomerProfile } from "@/features/storefront/application/ensure-customer-profile";
@@ -18,6 +18,7 @@ import {
   CheckoutForm,
   type CheckoutIdentityDefaults,
 } from "@/features/storefront/ui/checkout-form";
+import { ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 import { MetaCheckoutTracker } from "@/features/storefront/ui/meta-checkout-tracker";
 import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { env } from "@/shared/env";
@@ -70,15 +71,15 @@ export default async function CheckoutPage() {
     : null;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <div className="mb-8">
-        <Link
-          href="/"
-          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          ← Alışverişe dön
-        </Link>
-        <h1 className="mt-2 font-display text-3xl">Siparişi tamamla</h1>
+    <main className="mx-auto max-w-6xl px-4 pt-4 pb-12 sm:px-6 sm:pt-8">
+      <div className="mb-6 sm:mb-8">
+        <ShopLinkButton href="/" variant="plain" className="-ml-3">
+          <ArrowLeftIcon aria-hidden />
+          Alışverişe dön
+        </ShopLinkButton>
+        <h1 className="mt-2 font-display text-[2rem] leading-tight sm:text-4xl">
+          Siparişi tamamla
+        </h1>
       </div>
 
       {/* Meta Pixel InitiateCheckout — only mounted when a Pixel ID is set. */}

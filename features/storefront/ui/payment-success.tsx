@@ -1,14 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2Icon, ClockIcon, Loader2Icon } from "lucide-react";
 
 import { checkOrderPaymentState } from "@/features/storefront/application/check-payment-state";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 import { clearCheckoutDraft } from "@/features/storefront/ui/use-checkout-draft";
 
 import type { OrderPaymentState } from "@/features/storefront/application/get-order-payment-status";
@@ -104,29 +102,29 @@ export function PaymentSuccess({
   }, [check]);
 
   return (
-    <main className="mx-auto max-w-md px-4 py-16">
-      <div className="flex flex-col items-center gap-4 rounded-3xl border border-border/70 bg-card p-8 text-center shadow-sm">
+    <main className="mx-auto max-w-lg px-4 py-10 sm:py-16">
+      <div className="flex flex-col items-center gap-5 rounded-3xl border border-border bg-card p-5 text-center shadow-(--shop-shadow-sm) sm:p-8">
         {paid ? (
-          <CheckCircle2Icon className="size-12 text-primary" />
+          <CheckCircle2Icon className="size-16 text-primary" aria-hidden />
         ) : gaveUp ? (
-          <ClockIcon className="size-12 text-muted-foreground" />
+          <ClockIcon className="size-16 text-muted-foreground" aria-hidden />
         ) : (
-          <Loader2Icon className="size-12 animate-spin text-muted-foreground" />
+          <Loader2Icon className="size-16 animate-spin text-primary" aria-hidden />
         )}
-        <h1 className="font-display text-2xl">
-          {paid ? "Ödemeniz alındı!" : "Ödemeniz kontrol ediliyor"}
+        <h1 className="font-display text-3xl leading-tight" aria-live="polite">
+          {paid ? "Ödemeniz alındı" : "Ödemeniz kontrol ediliyor"}
         </h1>
 
         {orderNumber ? (
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-sm text-muted-foreground">Sipariş numaranız</p>
-            <p className="rounded-full bg-secondary px-4 py-1.5 font-mono text-sm font-semibold">
+          <div className="flex w-full flex-col items-center gap-2 rounded-2xl bg-(--shop-green-soft) p-4">
+            <p className="text-lg text-foreground">Sipariş numaranız</p>
+            <p className="shop-money text-3xl font-extrabold tracking-wide break-all select-all">
               {orderNumber}
             </p>
           </div>
         ) : null}
 
-        <p className="text-sm text-muted-foreground">
+        <p className="text-lg leading-relaxed text-muted-foreground">
           {paid
             ? "Siparişiniz onaylandı ve hazırlanmaya başlanacak. Teşekkürler!"
             : gaveUp
@@ -135,34 +133,24 @@ export function PaymentSuccess({
         </p>
 
         {!paid ? (
-          <Button
-            type="button"
-            variant="outline"
+          <ShopButton
+            variant="secondary"
             size="lg"
-            className="rounded-full"
+            block
             onClick={onManualCheck}
             disabled={checking || !orderNumber}
           >
             {checking ? "Kontrol ediliyor…" : "Durumu tekrar kontrol et"}
-          </Button>
+          </ShopButton>
         ) : null}
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Link
-            href="/hesap"
-            className={cn(buttonVariants({ size: "lg" }), "rounded-full")}
-          >
+        <div className="flex w-full flex-col gap-3">
+          <ShopLinkButton href="/hesap" size="lg" block>
             Siparişlerim
-          </Link>
-          <Link
-            href="/"
-            className={cn(
-              buttonVariants({ size: "lg", variant: "outline" }),
-              "rounded-full",
-            )}
-          >
+          </ShopLinkButton>
+          <ShopLinkButton href="/" size="lg" variant="secondary" block>
             Alışverişe devam et
-          </Link>
+          </ShopLinkButton>
         </div>
       </div>
     </main>
