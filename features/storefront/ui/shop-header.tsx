@@ -46,13 +46,15 @@ export function ShopHeader({
           aria-label="Apuhan Çiftliği, ana sayfa"
           className="shop-focus flex min-h-12 min-w-0 items-center gap-2.5 rounded-xl"
         >
+          {/* The round farm badge. Its own lettering is unreadable at this
+              size, which is why the name is also set in type beside it. */}
           <Image
-            src="/brand/apuhan-logo.png"
+            src="/brand/apuhan-ciftligi-logo.png"
             alt=""
-            width={40}
-            height={40}
+            width={56}
+            height={56}
             priority
-            className="size-10 shrink-0 rounded-xl"
+            className="size-12 shrink-0 rounded-full lg:size-14"
           />
           <span className="truncate font-display text-xl leading-none text-foreground sm:text-[1.375rem]">
             Apuhan Çiftliği

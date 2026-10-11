@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { COMPANY, LEGAL_LINKS } from "@/features/storefront/domain/legal";
@@ -10,6 +11,15 @@ export function ShopFooter() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
+            {/* Large enough here to actually read: the badge carries the farm's
+                name, its motto and "Malatya". */}
+            <Image
+              src="/brand/apuhan-ciftligi-logo.png"
+              alt={`${COMPANY.brand} logosu: Geçmişten gelen modernlik, Malatya`}
+              width={128}
+              height={128}
+              className="mb-4 size-32 rounded-full"
+            />
             <p className="font-display text-2xl text-foreground">{COMPANY.brand}</p>
             <p className="mt-2 text-base text-muted-foreground">
               Çiftlikten sofranıza, kapınıza teslim.

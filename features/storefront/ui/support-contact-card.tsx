@@ -28,7 +28,7 @@ export function SupportContactCard() {
             <p className="mt-1 text-lg">Bizi arayın, yardımcı olalım.</p>
           </div>
         </div>
-        <span className="inline-flex min-h-14 items-center justify-center rounded-full bg-card px-6 text-2xl font-extrabold whitespace-nowrap text-primary tabular-nums">
+        <span className="inline-flex min-h-14 items-center justify-center rounded-full bg-card px-6 shop-money text-2xl font-extrabold whitespace-nowrap text-primary">
           {COMPANY.phone}
         </span>
       </a>

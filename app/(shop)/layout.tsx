@@ -93,9 +93,9 @@ const publicStructuredData = {
       url: CANONICAL_ORIGIN,
       logo: {
         "@type": "ImageObject",
-        url: `${CANONICAL_ORIGIN}/brand/apuhan-logo.png`,
-        width: 256,
-        height: 256,
+        url: `${CANONICAL_ORIGIN}/brand/apuhan-ciftligi-logo.png`,
+        width: 512,
+        height: 512,
       },
     },
     {

@@ -128,7 +128,7 @@ export function MobileNavSheet({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-base text-muted-foreground">Bizi arayın</span>
-            <span className="block truncate text-xl font-bold text-foreground tabular-nums">
+            <span className="shop-money block truncate text-xl font-bold text-foreground">
               {COMPANY.phone}
             </span>
           </span>

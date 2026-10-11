@@ -1,16 +1,18 @@
 /*
  * Storefront theme — "Kayısı bahçesi", fixed light.
  *
- * The palette is lifted from the shop's own product photographs: the orchard
- * green behind the trays, the sun-dried apricot, the kraft box, and a
- * whitewash ground. Green carries every action (white on it is 7.96:1);
+ * The palette is lifted from the shop's own logo and product photographs: the
+ * logo's deep green (the badge is #16401e; the action colour is one step
+ * lighter so large fills stay green rather than near-black), the sun-dried
+ * apricot, the kraft box, and a whitewash ground matching the logo's own
+ * paper. Green carries every action (white on it is 10.22:1);
  * apricot is a FILL only — it sits at 2.1:1 against the ground, so it never
  * carries text or an outline by itself, only dark text on top of it (7.75:1).
  *
  * Measured contrast (WCAG 2.x), kept here so a future tweak re-checks them:
  *   foreground / background        16.23   muted-foreground / background  8.09
- *   primary-foreground / primary    7.96   muted-foreground / secondary   6.22
- *   primary (as text) / background  7.84   destructive / background       7.11
+ *   primary-foreground / primary   10.22   muted-foreground / secondary   6.22
+ *   primary (as text) / background 10.06   destructive / background       7.11
  *   foreground / apricot            7.75   field border / background      4.02
  *
  * Two selectors, one block:
@@ -37,7 +39,7 @@
   --popover: #fffdf9;
   --popover-foreground: #2a1c12;
 
-  --primary: #2f5a36;
+  --primary: #1b4a26;
   --primary-foreground: #ffffff;
 
   --secondary: #eadfc8;
@@ -57,14 +59,14 @@
      `--shop-field-border`. */
   --border: #d9cbb0;
   --input: #d9cbb0;
-  --ring: #2f5a36;
+  --ring: #1b4a26;
 
   --radius: 0.875rem;
 
   /* Shop-only tokens (no Tailwind colour utility — use `bg-(--shop-…)`). */
   --shop-apricot: #f2a03d;
   --shop-apricot-soft: #fce8c8;
-  --shop-green-hover: #274c2e;
+  --shop-green-hover: #123a1b;
   --shop-green-soft: #e4eedd;
   --shop-red-soft: #fbedea;
   --shop-field-border: #8c7b66;
@@ -248,7 +250,7 @@
   .shop-field:focus-visible {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgb(47 90 54 / 0.22);
+    box-shadow: 0 0 0 4px rgb(27 74 38 / 0.22);
   }
   .shop-field[aria-invalid="true"] {
     border-color: var(--destructive);
