@@ -152,7 +152,7 @@ function PhoneLookup() {
               <label
                 key={option.value}
                 className={cn(
-                  "flex min-h-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-3 text-center transition-colors has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
+                  "shop-press-soft flex min-h-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-3 text-center has-focus-visible:outline-3 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
                   orderType === option.value
                     ? "border-primary bg-(--shop-green-soft)"
                     : "border-(--shop-field-border) bg-card",
@@ -204,13 +204,17 @@ function PhoneLookup() {
         </ShopButton>
       </form>
 
+      {/* The answer arrives under the button that asked for it; without the
+          entrance it simply is there on the next frame. */}
       {state.status === "found_one" ? (
-        <OrderCard order={state.order} phone={state.phone} allowResume />
+        <div className="shop-enter">
+          <OrderCard order={state.order} phone={state.phone} allowResume />
+        </div>
       ) : null}
 
       {state.status === "found_many" ? (
         selectedOrder ? (
-          <div className="flex flex-col gap-2">
+          <div className="shop-enter flex flex-col gap-2">
             <button
               type="button"
               onClick={() => setSelectedOrder(null)}
@@ -221,7 +225,7 @@ function PhoneLookup() {
             <OrderCard order={selectedOrder} phone={phoneForCard} allowResume />
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="shop-enter flex flex-col gap-3">
             <p className="text-base text-muted-foreground">
               Bu bilgilerle {state.orders.length} sipariş bulduk. Görmek
               istediğinizi seçin.
@@ -232,7 +236,7 @@ function PhoneLookup() {
                   key={order.orderId}
                   type="button"
                   onClick={() => setSelectedOrder(order)}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-(--shop-shadow-sm) transition-colors hover:border-primary/50"
+                  className="shop-press-soft shop-focus flex items-center justify-between gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-(--shop-shadow-sm) hover:border-primary/50"
                 >
                   <div className="flex flex-col gap-0.5">
                     <span className="shop-money text-base font-bold">
@@ -304,7 +308,9 @@ function OrderNumberLookup() {
       </form>
 
       {state.status === "found" ? (
-        <OrderCard order={state.order} phone="" allowResume={false} />
+        <div className="shop-enter">
+          <OrderCard order={state.order} phone="" allowResume={false} />
+        </div>
       ) : null}
     </div>
   );

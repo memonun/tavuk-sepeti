@@ -105,7 +105,7 @@ export function PaymentSuccess({
     <main className="mx-auto max-w-lg px-4 py-10 sm:py-16">
       <div className="flex flex-col items-center gap-5 rounded-3xl border border-border bg-card p-5 text-center shadow-(--shop-shadow-sm) sm:p-8">
         {paid ? (
-          <CheckCircle2Icon className="size-16 text-primary" aria-hidden />
+          <CheckCircle2Icon className="shop-enter-pop size-16 text-primary" aria-hidden />
         ) : gaveUp ? (
           <ClockIcon className="size-16 text-muted-foreground" aria-hidden />
         ) : (

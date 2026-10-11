@@ -134,7 +134,7 @@ const controlClass = shopFieldClass;
 /** A whole-row tap target wrapping a radio or checkbox: 56px tall, and the
  *  chosen one is marked by a thicker green edge AND a tint, not colour alone. */
 const choiceCardClass =
-  "flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 border-(--shop-field-border) bg-card px-4 py-3 text-lg font-semibold text-foreground transition-colors data-[checked]:border-primary data-[checked]:bg-(--shop-green-soft)";
+  "shop-press-soft flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 border-(--shop-field-border) bg-card px-4 py-3 text-lg font-semibold text-foreground data-[checked]:border-primary data-[checked]:bg-(--shop-green-soft)";
 /** The shared radio/checkbox are 16px (admin density); 28px here. */
 const radioClass =
   "size-7 border-2 border-(--shop-field-border) data-[checked]:border-primary [&_svg]:size-3.5";
@@ -710,7 +710,7 @@ export function CheckoutForm({
             </p>
           ) : null}
           {selectedPaymentMethod === "bank_transfer" ? (
-            <BankTransferDetails />
+            <BankTransferDetails className="shop-enter" />
           ) : null}
           <Field label="Sipariş notu (opsiyonel)" htmlFor="delivery_notes">
             <textarea
@@ -816,16 +816,20 @@ export function CheckoutForm({
                 kabul ediyorum.
               </span>
             </label>
-            {/* A greyed-out button with no reason beside it is a dead end. Say
-                which step is still open, in readable type, right above it. */}
+            <ShopButton type="submit" size="lg" block disabled={!canSubmit}>
+              {pending ? "Gönderiliyor…" : "Ödemeyi Tamamla"}
+            </ShopButton>
+            {/* A greyed-out button with no reason beside it is a dead end, so
+                the open step is named right next to it. BELOW, not above: the
+                last step is usually ticking the box just over the button, and
+                a notice that vanished from between them slid the button up
+                under the customer's finger. Down here its going only moves
+                the footnotes. */}
             {!pending && missingStep ? (
               <ShopNotice tone="warning" role="status">
                 {missingStep}
               </ShopNotice>
             ) : null}
-            <ShopButton type="submit" size="lg" block disabled={!canSubmit}>
-              {pending ? "Gönderiliyor…" : "Ödemeyi Tamamla"}
-            </ShopButton>
 
             <p className="text-center text-base text-muted-foreground">
               Kişisel verilerinizin işlenmesine ilişkin bilgi için{" "}
@@ -1445,7 +1449,7 @@ function OrderConfirmation({
 }) {
   return (
     <div className={resultCardClass}>
-      <CheckCircle2Icon className="size-16 text-primary" aria-hidden />
+      <CheckCircle2Icon className="shop-enter-pop size-16 text-primary" aria-hidden />
       <h2 className="font-display text-3xl leading-tight">Siparişiniz alındı</h2>
       <div className="flex w-full flex-col items-center gap-2 rounded-2xl bg-(--shop-green-soft) p-4">
         <p className="text-lg text-foreground">Sipariş numaranız</p>

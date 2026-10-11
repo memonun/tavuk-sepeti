@@ -2,6 +2,7 @@
 
 import { CheckIcon, MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 
 import { formatTRY } from "@/shared/utils/money";
 import { env } from "@/shared/env";
@@ -41,6 +42,18 @@ export function ProductCard({ product }: { product: Product }) {
   const { getQuantity, addItem } = useCart();
   const qty = getQuantity(product.key);
   const inCart = qty > 0;
+  // True once this card has gone from "in the basket" back to "not": only
+  // then does the "Sepete ekle" button play its entrance (the way back along
+  // the same path the quantity control arrived by). Without the flag every
+  // button on the page would fade in on first load, which is exactly the
+  // decorative page-load motion this shop does not want. Adjusted during
+  // render — React's documented pattern for deriving state from a change.
+  const [returnedFromCart, setReturnedFromCart] = useState(false);
+  const [wasInCart, setWasInCart] = useState(inCart);
+  if (wasInCart !== inCart) {
+    setWasInCart(inCart);
+    if (!inCart) setReturnedFromCart(true);
+  }
   const imageUrl = productImagePublicUrl(
     product.image_path,
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -136,18 +149,22 @@ export function ProductCard({ product }: { product: Product }) {
               <QuantityStepper product={product} block />
             </div>
           ) : (
-            <ShopButton
-              key="add"
-              size="lg"
-              block
-              onClick={() => {
-                addItem(product.key, product.min_qty);
-                // Reported only after the basket really changed; no-op without a Pixel ID.
-                trackProductAddedToCart(product, product.min_qty);
-              }}
-            >
-              <PlusIcon aria-hidden /> Sepete ekle
-            </ShopButton>
+            // The entrance sits on a wrapper, not on the button: `.shop-enter`
+            // sets its own `transition`, which would replace the button's
+            // 140ms press transition.
+            <div key="add" className={returnedFromCart ? "shop-enter" : undefined}>
+              <ShopButton
+                size="lg"
+                block
+                onClick={() => {
+                  addItem(product.key, product.min_qty);
+                  // Reported only after the basket really changed; no-op without a Pixel ID.
+                  trackProductAddedToCart(product, product.min_qty);
+                }}
+              >
+                <PlusIcon aria-hidden /> Sepete ekle
+              </ShopButton>
+            </div>
           )}
         </div>
       </div>

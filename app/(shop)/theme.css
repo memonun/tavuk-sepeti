@@ -87,11 +87,17 @@
   --font-heading: var(--font-shop-display, var(--font-sans));
 }
 
+/* No grey flash on tap — every control has its own pressed state. Inherited,
+   and set on the root as well because the basket and menu are portalled to
+   <body>, outside `.shop-theme`; without it their rows still flashed. */
+:root:has(.shop-theme) {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .shop-theme {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  /* No grey flash on tap — every control below has its own pressed state. */
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
 }
@@ -120,8 +126,11 @@
    * order is restated so it holds even if this sheet loads before globals.css.
    * ------------------------------------------------------------------------- */
 
-  /* Pressed feedback on pointer-DOWN, not on release. */
-  .shop-press {
+  /* Pressed feedback on pointer-DOWN, not on release. `-soft` is the same
+     answer for a large surface (a full-width option row): 3% of a 340px card
+     is a visible lurch, 1.5% reads as a press. */
+  .shop-press,
+  .shop-press-soft {
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
@@ -133,6 +142,9 @@
   }
   .shop-press:active:not(:disabled, [aria-disabled="true"]) {
     transform: scale(0.97);
+  }
+  .shop-press-soft:active:not(:disabled, [aria-disabled="true"]) {
+    transform: scale(0.985);
   }
 
   .shop-focus:focus-visible {
@@ -319,7 +331,8 @@
      global rule in app/globals.css already collapses durations; this removes
      the scale itself so nothing jumps.) */
   @media (prefers-reduced-motion: reduce) {
-    .shop-press:active:not(:disabled, [aria-disabled="true"]) {
+    .shop-press:active:not(:disabled, [aria-disabled="true"]),
+    .shop-press-soft:active:not(:disabled, [aria-disabled="true"]) {
       transform: none;
     }
   }
@@ -351,10 +364,25 @@
       transform: translateY(100%);
     }
   }
+  /* The one "delight" entrance: the check mark on "Siparişiniz alındı" /
+     "Ödemeniz alındı" — rare, and the moment the whole visit was for. It
+     arrives rather than is simply there; no overshoot (nothing was thrown). */
+  .shop-enter-pop {
+    transition:
+      opacity 320ms var(--shop-ease-out),
+      transform 320ms var(--shop-ease-out);
+  }
+  @starting-style {
+    .shop-enter-pop {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     @starting-style {
       .shop-enter,
-      .shop-enter-up {
+      .shop-enter-up,
+      .shop-enter-pop {
         transform: none;
       }
     }
