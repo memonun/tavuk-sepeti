@@ -19,9 +19,10 @@
  *    `canTrack()` below — that is the single place every event passes through.
  *
  * ── Events ─────────────────────────────────────────────────────────────────────
- *  PageView, AddToCart, InitiateCheckout are wired (see their callers).
+ *  PageView, AddToCart, InitiateCheckout, Purchase are wired (see their callers).
  *  ViewContent is READY but unused: the storefront has no product detail page.
- *  Purchase is READY but deliberately NOT wired — see `trackPurchase`.
+ *  EVERY event carries the page URL (Meta's `dl`), not just PageView — an event
+ *  must never be sent from a URL that holds a credential. See `trackPurchase`.
  *
  * ── Conversions API later ──────────────────────────────────────────────────────
  *  Every event accepts an `eventId` and is sent with Meta's `eventID` option, the
@@ -315,13 +316,15 @@ function readPurchased(): string[] {
 }
 
 /**
- * NOT WIRED to anything — on purpose. A wrong Purchase is worse than a missing
- * one, and the only trustworthy proof of a card payment is PayTR's HMAC-verified
- * server callback (app/api/paytr/callback → handlePaytrCallback), which never
- * runs in the browser. See the PR notes for the safe integration point.
- *
- * When it IS wired it must be called only from state the SERVER has confirmed as
- * paid, with the amount taken from the server. Guarantees here:
+ * A wrong Purchase is worse than a missing one, so this is called only from
+ * state the SERVER has confirmed, with the amount taken from the server:
+ *   - kapıda ödeme / havale: `placeOrderAction`'s success state — the order is
+ *     committed when placed (checkout-form.tsx);
+ *   - card: after PayTR's HMAC-verified callback has stamped the order paid
+ *     and the return page has read that back (meta-purchase-tracker.tsx). That
+ *     page's URL carries the signed return token, which is taken out of the
+ *     address bar BEFORE this runs — keep it that way.
+ * Guarantees here:
  *   - at most one Purchase per `orderId` — across re-renders (in-memory set),
  *     refresh, back/forward and re-opening the page (localStorage);
  *   - `eventID` = `purchase:<orderId>`, the key a Conversions API send must reuse.

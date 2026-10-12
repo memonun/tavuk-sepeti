@@ -5,9 +5,13 @@ import { CheckCircle2Icon, ClockIcon, Loader2Icon } from "lucide-react";
 
 import { checkOrderPaymentState } from "@/features/storefront/application/check-payment-state";
 
+import { recallReturnToken } from "@/features/storefront/ui/card-return-token";
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
+import { MetaPurchaseTracker } from "@/features/storefront/ui/meta-purchase-tracker";
 import { clearCheckoutDraft } from "@/features/storefront/ui/use-checkout-draft";
+
+import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 
 import type { OrderPaymentState } from "@/features/storefront/application/get-order-payment-status";
 
@@ -63,7 +67,13 @@ export function PaymentSuccess({
 
   const check = useCallback(async (): Promise<OrderPaymentState> => {
     if (!orderNumber) return "unknown";
-    const next = await checkOrderPaymentState({ orderNumber, returnToken });
+    // Once a payment is confirmed the token is moved out of the address bar
+    // (see card-return-token.ts), so after a reload the URL no longer carries
+    // it — this browser's remembered copy stands in.
+    const next = await checkOrderPaymentState({
+      orderNumber,
+      returnToken: returnToken ?? recallReturnToken(orderNumber),
+    });
     setPaymentState(next);
     return next;
   }, [orderNumber, returnToken]);
@@ -75,6 +85,14 @@ export function PaymentSuccess({
     if (paid || !orderNumber) return;
 
     let cancelled = false;
+    // Reloaded after the token left the URL: the server render could not vouch
+    // for a guest, but this browser can — ask now rather than a tick from now.
+    const immediate =
+      !returnToken && recallReturnToken(orderNumber)
+        ? setTimeout(() => {
+            if (!cancelled) void check();
+          }, 0)
+        : null;
     const timer = setInterval(() => {
       if (cancelled) return;
       polls.current += 1;
@@ -88,9 +106,10 @@ export function PaymentSuccess({
 
     return () => {
       cancelled = true;
+      if (immediate !== null) clearTimeout(immediate);
       clearInterval(timer);
     };
-  }, [paid, orderNumber, check]);
+  }, [paid, orderNumber, returnToken, check]);
 
   const onManualCheck = useCallback(() => {
     setChecking(true);
@@ -103,6 +122,11 @@ export function PaymentSuccess({
 
   return (
     <main className="mx-auto max-w-lg px-4 py-10 sm:py-16">
+      {/* Meta Pixel Purchase — only for a payment the server has confirmed, and
+          only mounted when a Pixel ID is set. */}
+      {paid && orderNumber && isMetaPixelEnabled() ? (
+        <MetaPurchaseTracker orderNumber={orderNumber} returnToken={returnToken} />
+      ) : null}
       <div className="flex flex-col items-center gap-5 rounded-3xl border border-border bg-card p-5 text-center shadow-(--shop-shadow-sm) sm:p-8">
         {paid ? (
           <CheckCircle2Icon className="shop-enter-pop size-16 text-primary" aria-hidden />

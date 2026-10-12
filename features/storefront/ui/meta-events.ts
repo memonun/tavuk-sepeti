@@ -12,11 +12,13 @@
 import {
   trackAddToCart,
   trackInitiateCheckout,
+  trackPurchase,
   trackViewContent,
 } from "@/shared/analytics/meta-pixel";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 
 import type { Product } from "@/features/products/application/list-products";
+import type { OrderPurchase } from "@/features/storefront/domain/order-purchase.schema";
 
 /** A product was actually added to the basket (call AFTER the cart mutation). */
 export function trackProductAddedToCart(product: Product, quantity: number): void {
@@ -40,6 +42,25 @@ export function trackCheckoutStarted(
     trackInitiateCheckout({
       contents: rows.map((r) => ({ id: r.product.key, quantity: r.quantity })),
       valueMinor: rows.reduce((sum, r) => sum + lineTotalMinor(r.product, r.quantity), 0),
+    });
+  } catch {
+    /* never throw */
+  }
+}
+
+/**
+ * An order is complete. `purchase` must come from the SERVER — the placed
+ * order's own total and lines, never the browser's basket: for kapıda ödeme /
+ * havale that is `placeOrderAction`'s success state, for a card order the
+ * paid-order read behind the return page. Reported at most once per order
+ * number per browser (see `trackPurchase`).
+ */
+export function trackOrderPurchased(purchase: OrderPurchase): void {
+  try {
+    trackPurchase({
+      orderId: purchase.orderNumber,
+      contents: purchase.items.map((item) => ({ id: item.productKey, quantity: item.quantity })),
+      valueMinor: purchase.totalMinor,
     });
   } catch {
     /* never throw */
