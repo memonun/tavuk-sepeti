@@ -606,6 +606,17 @@ describe("placeOrderAction — pricing and payment", () => {
 });
 
 describe("placeOrderAction — eve servis günleri", () => {
+  // The Meta Pixel `Purchase` event is built from this — the basket is emptied
+  // on success, so the server's answer is the only record the browser has left.
+  it("reports what was sold, by product key and quantity", async () => {
+    const state = await placeOrderAction(idle, buildForm());
+
+    expect(state).toMatchObject({
+      status: "success",
+      items: [{ productKey: "eggs", quantity: 2 }],
+    });
+  });
+
   it("accepts a day the van drives", async () => {
     const state = await placeOrderAction(idle, buildForm());
 

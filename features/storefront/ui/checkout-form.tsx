@@ -100,7 +100,10 @@ import { formatTRY } from "@/shared/utils/money";
 
 import { productImagePublicUrl } from "@/features/products/application/product-image";
 import { useCart } from "@/features/storefront/ui/cart-provider";
-import { trackProductAddedToCart } from "@/features/storefront/ui/meta-events";
+import {
+  trackOrderPurchased,
+  trackProductAddedToCart,
+} from "@/features/storefront/ui/meta-events";
 import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
 import { hapticTick } from "@/features/storefront/ui/kit/haptic";
@@ -238,6 +241,14 @@ export function CheckoutForm({
   // payment) — the success return page clears them once the payment books.
   useEffect(() => {
     if (state.status === "success") {
+      // Kapıda ödeme / havale: the order is committed the moment it is placed,
+      // so this IS the sale (owner decision 2026-10-12). Card orders report
+      // from the return page instead, once PayTR's callback has booked them.
+      trackOrderPurchased({
+        orderNumber: state.orderNumber,
+        totalMinor: state.totalMinor,
+        items: state.items,
+      });
       clear();
       clearDraft();
     } else if (state.status === "redirect") {

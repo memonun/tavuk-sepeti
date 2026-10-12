@@ -91,6 +91,7 @@ import {
   buildBankTransferWhatsAppLink,
 } from "@/features/storefront/domain/bank-transfer";
 import { buildOrderConfirmationEmail } from "@/features/storefront/domain/order-email";
+import type { OrderPurchase } from "@/features/storefront/domain/order-purchase.schema";
 import {
   isPaymentMethodAllowed,
   paymentMethodBlockedMessage,
@@ -128,6 +129,10 @@ export type PlaceOrderState =
       orderNumber: string;
       paymentMethod: PaymentMethod;
       totalMinor: number;
+      /** What was sold, as the server re-priced it — product keys and
+       *  quantities only. Feeds the Meta Pixel `Purchase` event; the basket is
+       *  emptied on success, so the browser can no longer tell. */
+      items: OrderPurchase["items"];
       /** Did a confirmation e-mail go out? False for a guest who left the
        *  (optional) e-mail field blank — the confirmation screen wording
        *  depends on it. */
@@ -643,6 +648,10 @@ export async function placeOrderAction(
     orderNumber: placed.value.order_number,
     paymentMethod: parsed.data.payment_method,
     totalMinor,
+    items: enriched.value.map((item) => ({
+      productKey: item.product_key,
+      quantity: item.quantity,
+    })),
     hasEmail: Boolean(emailTo),
   };
 }
