@@ -38,6 +38,11 @@ import { formatTRY } from "@/shared/utils/money";
 
 import { productImagePublicUrl } from "@/features/products/application/product-image";
 import { useCart } from "@/features/storefront/ui/cart-provider";
+import {
+  trackCartViewed,
+  trackProductAddedToCart,
+  trackProductQuantityDecreased,
+} from "@/features/storefront/ui/meta-events";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
@@ -117,7 +122,14 @@ export function CartSheet({
       : { ok: true, shortfallMinor: 0 };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        // Meta Pixel ViewCart (no-op without a Pixel ID or with an empty basket).
+        if (next) trackCartViewed(rows);
+      }}
+    >
       {variant === "bar" ? (
         // Rendered only once the persisted basket has been read AND has
         // something in it. `data-cart-bar` is what theme.css keys the taller
@@ -259,15 +271,21 @@ export function CartSheet({
                 className="text-muted-foreground underline decoration-2 underline-offset-4"
                 onClick={() => {
                   const removed = rows.map((r) => ({
-                    key: r.product.key,
+                    product: r.product,
                     quantity: r.quantity,
                   }));
                   clear();
+                  for (const line of removed) {
+                    trackProductQuantityDecreased(line.product, line.quantity, 0);
+                  }
                   toast("Sepet boşaltıldı", {
                     action: {
                       label: "Geri al",
                       onClick: () => {
-                        for (const line of removed) addItem(line.key, line.quantity);
+                        for (const line of removed) {
+                          addItem(line.product.key, line.quantity);
+                          trackProductAddedToCart(line.product, line.quantity);
+                        }
                       },
                     },
                   });

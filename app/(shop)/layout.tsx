@@ -6,6 +6,7 @@ import { getStorefrontSettings } from "@/features/storefront/application/get-sto
 import { COMPANY } from "@/features/storefront/domain/legal";
 import { CartProvider } from "@/features/storefront/ui/cart-provider";
 import { HOME_INTRO_SKIP_SCRIPT } from "@/features/storefront/ui/home-hero-intro";
+import { MetaContactTracker } from "@/features/storefront/ui/meta-contact-tracker";
 import { MetaPixelTracker } from "@/features/storefront/ui/meta-pixel-tracker";
 import { MobileBottomNav } from "@/features/storefront/ui/mobile-bottom-nav";
 import { ShopFooter } from "@/features/storefront/ui/shop-footer";
@@ -140,7 +141,12 @@ export default async function ShopLayout({
       >
         {/* Meta Pixel PageView. Rendered ONLY when NEXT_PUBLIC_META_PIXEL_ID is a
             valid ID — otherwise this does not exist and nothing loads. */}
-        {isMetaPixelEnabled() ? <MetaPixelTracker /> : null}
+        {isMetaPixelEnabled() ? (
+          <>
+            <MetaPixelTracker />
+            <MetaContactTracker />
+          </>
+        ) : null}
         <CartProvider>
           <ShopHeader
             products={products}

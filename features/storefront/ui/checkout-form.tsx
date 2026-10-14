@@ -37,7 +37,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
@@ -101,9 +101,13 @@ import { formatTRY } from "@/shared/utils/money";
 import { productImagePublicUrl } from "@/features/products/application/product-image";
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import {
+  opaqueKey,
   trackOrderPurchased,
+  trackPaymentInfoAdded,
   trackProductAddedToCart,
+  trackShippingInfoAdded,
 } from "@/features/storefront/ui/meta-events";
+import { trackCompleteRegistration } from "@/shared/analytics/meta-pixel";
 import { AddressForm, type CollectedAddress } from "@/features/storefront/ui/address-form";
 import { AddressPicker } from "@/features/storefront/ui/address-picker";
 import { hapticTick } from "@/features/storefront/ui/kit/haptic";
@@ -263,6 +267,19 @@ export function CheckoutForm({
     if (accountState.status === "success") router.refresh();
   }, [accountState, router]);
 
+  // Meta Pixel CompleteRegistration. The tab the customer submitted from is
+  // remembered at submit time: a new answer resets the visible tab (see
+  // `pickedMode` above), so by the time the answer lands it no longer says
+  // whether this was a signup.
+  const accountSubmitMode = useRef<CheckoutMode | null>(null);
+  useEffect(() => {
+    const created = accountState.status === "success" || accountState.status === "verify_email";
+    if (created && accountSubmitMode.current === "signup") {
+      trackCompleteRegistration({ where: "odeme" });
+    }
+    if (accountState.status !== "idle") accountSubmitMode.current = null;
+  }, [accountState]);
+
   const rows = useMemo(
     () =>
       lines.flatMap((line) => {
@@ -325,6 +342,23 @@ export function CheckoutForm({
     : false;
   const channel = resolveOrderChannel(items, addressRouteCapable);
 
+  // Meta Pixel AddShippingInfo: a delivery address is in place on the order
+  // step — a saved one picked (or preselected) by an account, or a guest's
+  // collected one. Deduped per address per basket inside the tracker; the key
+  // only distinguishes addresses, nothing about them is sent.
+  const onOrderStep = state.status !== "success" && (identity !== null || accountMode === "guest");
+  useEffect(() => {
+    if (!onOrderStep || rows.length === 0) return;
+    const addressKey = identity
+      ? addressId
+        ? `a:${addressId}`
+        : null
+      : guestAddress
+        ? `g:${opaqueKey(JSON.stringify(guestAddress))}`
+        : null;
+    if (addressKey) trackShippingInfoAdded(rows, channel, addressKey);
+  }, [onOrderStep, identity, addressId, guestAddress, rows, channel]);
+
   if (state.status === "success") {
     return (
       <OrderConfirmation
@@ -382,7 +416,13 @@ export function CheckoutForm({
   if (!identity && accountMode !== "guest") {
     return (
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_24rem]">
-        <form action={accountAction} className="flex flex-col gap-8">
+        <form
+          action={accountAction}
+          onSubmit={() => {
+            accountSubmitMode.current = accountMode;
+          }}
+          className="flex flex-col gap-8"
+        >
           <Section title="1. Hesap">
             <ShopNotice>
               Siparişinizi tamamlamak için önce hesabınızı oluşturun ya da giriş
@@ -480,7 +520,14 @@ export function CheckoutForm({
     // column pushed the whole page ~10px past the viewport, which iOS Safari
     // then read back into the fixed bottom nav's width, showing as a black
     // strip down the right edge.
-    <form action={formAction} className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_24rem]">
+    <form
+      action={formAction}
+      onSubmit={() => {
+        // Meta Pixel AddPaymentInfo: the order goes in with this method.
+        if (selectedPaymentMethod) trackPaymentInfoAdded(rows, selectedPaymentMethod, total);
+      }}
+      className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_24rem]"
+    >
       <div className="flex flex-col gap-8">
         <Section title="1. İletişim">
           {identity ? (
