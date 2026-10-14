@@ -19,6 +19,8 @@ function installBrowser(): Record<string, unknown> {
   const win: Record<string, unknown> = {
     localStorage: new MemoryStorage(),
     sessionStorage: new MemoryStorage(),
+    // Where a kapıda ödeme order completes.
+    location: { href: "https://apuhanciftligi.com/odeme" },
   };
   vi.stubGlobal("window", win);
   vi.stubGlobal("navigator", { globalPrivacyControl: false });
