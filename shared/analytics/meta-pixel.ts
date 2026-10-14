@@ -42,9 +42,11 @@ const SCRIPT_SRC = "https://connect.facebook.net/en_US/fbevents.js";
 // Owner decision 2026-10-14: EVERY storefront page reports a PageView — /hesap,
 // /giris, /kayit, /siparis-sorgula, the legal pages, the payment result pages,
 // 404s. Two things keep that safe:
-//   1. The tracker is mounted only by app/(shop)/layout.tsx, so the admin panel
-//      (a different layout) never loads the Pixel at all. The prefixes below are
-//      a second line for paths that are never storefront pages.
+//   1. The tracker is mounted only by app/(shop)/layout.tsx and the site-wide
+//      404 (app/not-found.tsx), so the admin panel (a different layout) never
+//      loads the Pixel. The 404 also catches mistyped ADMIN addresses, which is
+//      why the admin route group's segments are listed below — a test keeps
+//      that list in step with app/(admin)/.
 //   2. `isUrlReportable` refuses ANY event — not just PageView — while the URL
 //      holds a credential. Path-based allowlisting used to do that job; the URL
 //      check does it for every route, including ones added later.
@@ -53,7 +55,20 @@ const NEVER_REPORT_PREFIXES: ReadonlyArray<string> = [
   "/api",
   "/login", // admin sign-in
   "/oauth",
+  "/.well-known",
+  // app/(admin)/* — the admin panel's top-level segments.
   "/admin",
+  "/animsaticilar",
+  "/customers",
+  "/finans",
+  "/kargo",
+  "/magaza-ayarlari",
+  "/map",
+  "/orders",
+  "/products",
+  "/recurring",
+  "/routes",
+  "/takvim",
 ];
 
 export function isPageViewPath(pathname: string): boolean {

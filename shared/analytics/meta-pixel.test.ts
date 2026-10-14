@@ -4,6 +4,9 @@
  * data, reports a PageView on every storefront page but never sends anything
  * from a URL holding a credential, and never reports the same Purchase twice.
  */
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const VALID_ID = "123456789012345";
@@ -221,10 +224,29 @@ describe("PageView", () => {
     expect(env.scripts).toEqual([]);
   });
 
+  // The site-wide 404 mounts the tracker too, so a mistyped admin address must
+  // be refused by path. Fails when a new admin section is added without being
+  // listed in NEVER_REPORT_PREFIXES.
+  it("refuses every admin section, including ones added later", async () => {
+    const meta = await load(VALID_ID);
+    const adminSegments = readdirSync(join(process.cwd(), "app", "(admin)"), {
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("_"))
+      .map((entry) => entry.name);
+
+    expect(adminSegments.length).toBeGreaterThan(5);
+    for (const segment of adminSegments) {
+      expect(meta.isPageViewPath(`/${segment}`), segment).toBe(false);
+      expect(meta.isPageViewPath(`/${segment}/yanlis-yazilmis`), segment).toBe(false);
+    }
+  });
+
   it("does not mistake a page for a blocked prefix it merely starts with", async () => {
     const meta = await load(VALID_ID);
     expect(meta.isPageViewPath("/apuhan")).toBe(true);
     expect(meta.isPageViewPath("/authors")).toBe(true);
+    expect(meta.isPageViewPath("/ordersx")).toBe(true);
     expect(meta.isPageViewPath("/api")).toBe(false);
   });
 

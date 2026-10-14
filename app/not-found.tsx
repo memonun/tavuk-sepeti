@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
+import { MetaPixelTracker } from "@/features/storefront/ui/meta-pixel-tracker";
 import { NotFoundCard } from "@/features/storefront/ui/not-found-card";
+import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 
 import { shopBody, shopDisplay } from "./(shop)/fonts";
 import "./(shop)/theme.css";
@@ -21,12 +23,18 @@ export const metadata: Metadata = {
  * It renders under the ROOT layout only — not the shop layout — so it brings
  * the shop's theme and typefaces itself and shows a minimal brand header in
  * place of the full one (which needs the catalogue and the viewer).
+ *
+ * Mounts the Meta Pixel PageView tracker itself for the same reason — a
+ * customer arriving on a dead ad or shared link is still a page view (owner
+ * decision 2026-10-14: every storefront page). A mistyped ADMIN address lands
+ * here too; `isPageViewPath` refuses the admin segments, so those never report.
  */
 export default function NotFound() {
   return (
     <div
       className={`${shopBody.variable} ${shopDisplay.variable} shop-theme flex min-h-dvh flex-col bg-background text-foreground`}
     >
+      {isMetaPixelEnabled() ? <MetaPixelTracker /> : null}
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-6xl items-center px-4 sm:px-6">
           <Link
