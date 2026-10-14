@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import {
   customerSignInAction,
@@ -10,6 +10,7 @@ import {
 } from "@/features/storefront/application/customer-auth";
 import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 import { ShopInput } from "@/features/storefront/ui/kit/shop-field";
+import { trackCompleteRegistration } from "@/shared/analytics/meta-pixel";
 
 const initialState: CustomerAuthState = { status: "idle" };
 
@@ -35,6 +36,14 @@ export function CustomerAuthForm({
   const [email, setEmail] = useState("");
   const withNext = (path: string): string =>
     next ? `${path}?next=${encodeURIComponent(next)}` : path;
+
+  // Meta Pixel CompleteRegistration: signup answers `verify_email` only once
+  // the account exists (an existing e-mail answers `email_taken` instead).
+  useEffect(() => {
+    if (mode === "signup" && state.status === "verify_email") {
+      trackCompleteRegistration({ where: "kayit" });
+    }
+  }, [mode, state]);
 
   if (state.status === "email_taken") {
     return (

@@ -12,6 +12,11 @@ import { cn } from "@/lib/utils";
 
 import { useCart } from "@/features/storefront/ui/cart-provider";
 import { hasHalfUnitOption } from "@/features/storefront/ui/line-pricing";
+import {
+  trackProductAddedToCart,
+  trackProductQuantityDecreased,
+  trackProductQuantityIncreased,
+} from "@/features/storefront/ui/meta-events";
 
 import type { Product } from "@/features/products/application/list-products";
 
@@ -56,19 +61,28 @@ export function QuantityStepper({
     if (atMin) {
       const removedQty = qty;
       removeItem(product.key);
+      // Meta Pixel (no-op without a Pixel ID): reported after the basket changed.
+      trackProductQuantityDecreased(product, removedQty, 0);
       toast(`${product.display_name} sepetten çıkarıldı`, {
         action: {
           label: "Geri al",
-          onClick: () => addItem(product.key, removedQty),
+          onClick: () => {
+            addItem(product.key, removedQty);
+            trackProductAddedToCart(product, removedQty);
+          },
         },
       });
       return;
     }
-    setQuantity(product.key, decrementQuantity(qty, product.min_qty, product.step));
+    const next = decrementQuantity(qty, product.min_qty, product.step);
+    setQuantity(product.key, next);
+    trackProductQuantityDecreased(product, qty, next);
   };
 
   const handleIncrement = () => {
-    setQuantity(product.key, incrementQuantity(qty, product.step));
+    const next = incrementQuantity(qty, product.step);
+    setQuantity(product.key, next);
+    trackProductQuantityIncreased(product, qty, next);
   };
 
   return (

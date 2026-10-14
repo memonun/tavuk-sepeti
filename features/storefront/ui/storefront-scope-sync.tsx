@@ -19,6 +19,7 @@ import {
   DELIVERY_SCOPE_STORAGE_KEY,
   parseDeliveryScope,
 } from "@/features/storefront/domain/catalog-filter";
+import { trackSelectDeliveryArea } from "@/shared/analytics/meta-pixel";
 
 export function StorefrontScopeSync() {
   const router = useRouter();
@@ -27,6 +28,10 @@ export function StorefrontScopeSync() {
 
   useEffect(() => {
     if (current) {
+      // Meta Pixel SelectDeliveryArea — only for a NEW choice. A scope this
+      // component itself restored from storage (below) matches what is stored.
+      const previous = window.localStorage.getItem(DELIVERY_SCOPE_STORAGE_KEY);
+      if (previous !== current) trackSelectDeliveryArea({ area: current });
       window.localStorage.setItem(DELIVERY_SCOPE_STORAGE_KEY, current);
       return;
     }

@@ -473,6 +473,173 @@ describe("Purchase", () => {
   });
 });
 
+describe("funnel events", () => {
+  const BASKET = [
+    { id: "eggs", quantity: 2 },
+    { id: "kayisi", quantity: 1.5 },
+  ];
+  const named = (env: FakeEnv, method: string, event: string) =>
+    queued(env).filter((c) => c[0] === method && c[1] === event);
+
+  it("RemoveFromCart is a custom event shaped like AddToCart", async () => {
+    const env = installBrowser();
+    const meta = await load(VALID_ID);
+    meta.trackRemoveFromCart({ productId: "eggs", productName: "Yumurta", quantity: 1, valueMinor: 12_500 });
+
+    expect(named(env, "trackCustom", "RemoveFromCart")).toEqual([
+      [
+        "trackCustom",
+        "RemoveFromCart",
+        {
+          content_ids: ["eggs"],
+          content_name: "Yumurta",
+          content_type: "product",
+          contents: [{ id: "eggs", quantity: 1 }],
+          value: 125,
+          currency: "TRY",
+        },
+      ],
+    ]);
+  });
+
+  it("ViewCart reports a non-empty basket on every opening, never an empty one", async () => {
+    const env = installBrowser();
+    const meta = await load(VALID_ID);
+    meta.trackViewCart({ contents: [], valueMinor: 0 });
+    expect(env.window.fbq).toBeUndefined();
+
+    meta.trackViewCart({ contents: BASKET, valueMinor: 30_000 });
+    meta.trackViewCart({ contents: BASKET, valueMinor: 30_000 });
+    const views = named(env, "trackCustom", "ViewCart");
+    expect(views).toHaveLength(2);
+    expect(views[0]?.[2]).toMatchObject({ content_ids: ["eggs", "kayisi"], num_items: 2, value: 300 });
+  });
+
+  it("AddShippingInfo: once per address and basket, nothing about the address sent", async () => {
+    const env = installBrowser();
+    const meta = await load(VALID_ID);
+    const input = { contents: BASKET, valueMinor: 30_000, shippingTier: "kargo" as const, addressKey: "a:123" };
+    meta.trackAddShippingInfo(input);
+    meta.trackAddShippingInfo(input); // re-render
+    meta.trackAddShippingInfo({ ...input, addressKey: "a:456" }); // another address
+    meta.trackAddShippingInfo({ ...input, addressKey: "a:456", contents: [{ id: "eggs", quantity: 3 }] }); // basket changed
+
+    const sent = named(env, "trackCustom", "AddShippingInfo");
+    expect(sent).toHaveLength(3);
+    expect(sent[0]?.[2]).toEqual({
+      content_ids: ["eggs", "kayisi"],
+      contents: BASKET,
+      content_type: "product",
+      num_items: 2,
+      shipping_tier: "kargo",
+      value: 300,
+      currency: "TRY",
+    });
+    expect(JSON.stringify(sent)).not.toContain("a:123");
+  });
+
+  it("AddShippingInfo survives a reload of the page without repeating", async () => {
+    const env = installBrowser();
+    let meta = await load(VALID_ID);
+    const input = { contents: BASKET, valueMinor: 30_000, shippingTier: "eve_teslimat" as const, addressKey: "g:x" };
+    meta.trackAddShippingInfo(input);
+    delete env.window.fbq;
+    meta = await load(VALID_ID); // same tab, new page load
+    meta.trackAddShippingInfo(input);
+    expect(env.window.fbq).toBeUndefined();
+  });
+
+  it("AddPaymentInfo is standard, once per method and basket", async () => {
+    const env = installBrowser();
+    const meta = await load(VALID_ID);
+    const input = { contents: BASKET, valueMinor: 32_000, paymentMethod: "credit_card" };
+    meta.trackAddPaymentInfo(input);
+    meta.trackAddPaymentInfo(input); // second press after a validation error
+    meta.trackAddPaymentInfo({ ...input, paymentMethod: "cash_on_delivery" });
+
+    const sent = named(env, "track", "AddPaymentInfo");
+    expect(sent).toHaveLength(2);
+    expect(sent[0]?.[2]).toMatchObject({ payment_type: "credit_card", value: 320, currency: "TRY", num_items: 2 });
+    expect(sent[1]?.[2]).toMatchObject({ payment_type: "cash_on_delivery" });
+  });
+
+  it("CompleteRegistration, Contact and Lead are standard events with fixed labels", async () => {
+    const env = installBrowser();
+    const meta = await load(VALID_ID);
+    meta.trackCompleteRegistration({ where: "kayit" });
+    meta.trackContact({ channel: "whatsapp" });
+    meta.trackLead({ category: "duzenli_siparis", contents: [{ id: "eggs", quantity: 2 }] });
+
+    expect(named(env, "track", "CompleteRegistration")[0]?.[2]).toEqual({ content_name: "kayit", status: true });
+    expect(named(env, "track", "Contact")[0]?.[2]).toEqual({ content_category: "whatsapp" });
+    expect(named(env, "track", "Lead")[0]?.[2]).toMatchObject({
+      content_category: "duzenli_siparis",
+      content_ids: ["eggs"],
+    });
+  });
+
+  it("PaymentFailed: once per order per tab", async () => {
+    const env = installBrowser();
+    const meta = await load(VALID_ID);
+    meta.trackPaymentFailed({ orderId: "AP-1" });
+    meta.trackPaymentFailed({ orderId: "AP-1" });
+    meta.trackPaymentFailed({ orderId: "AP-2" });
+    const sent = named(env, "trackCustom", "PaymentFailed");
+    expect(sent).toHaveLength(2);
+    expect(sent[0]?.[2]).toEqual({ payment_type: "credit_card" });
+  });
+
+  it("SelectDeliveryArea is a custom event", async () => {
+    const env = installBrowser();
+    const meta = await load(VALID_ID);
+    meta.trackSelectDeliveryArea({ area: "kargo" });
+    expect(named(env, "trackCustom", "SelectDeliveryArea")[0]?.[2]).toEqual({ content_category: "kargo" });
+  });
+
+  it("custom events obey the credential-in-URL rule too", async () => {
+    const env = installBrowser({ href: "https://apuhanciftligi.com/odeme/basarili?no=1&t=s3cr3t" });
+    const meta = await load(VALID_ID);
+    meta.trackViewCart({ contents: BASKET, valueMinor: 1 });
+    meta.trackPaymentFailed({ orderId: "AP-1" });
+    meta.trackContact({ channel: "telefon" });
+    expect(env.window.fbq).toBeUndefined();
+  });
+
+  it("does nothing at all without a Pixel ID", async () => {
+    const env = installBrowser();
+    const meta = await load(undefined);
+    meta.trackRemoveFromCart({ productId: "eggs", productName: "Yumurta", quantity: 1, valueMinor: 1 });
+    meta.trackViewCart({ contents: BASKET, valueMinor: 1 });
+    meta.trackAddShippingInfo({ contents: BASKET, valueMinor: 1, shippingTier: "kargo", addressKey: "a" });
+    meta.trackAddPaymentInfo({ contents: BASKET, valueMinor: 1, paymentMethod: "x" });
+    meta.trackCompleteRegistration({ where: "odeme" });
+    meta.trackContact({ channel: "whatsapp" });
+    meta.trackLead({ category: "duzenli_siparis", contents: BASKET });
+    meta.trackPaymentFailed({ orderId: null });
+    meta.trackSelectDeliveryArea({ area: "malatya" });
+    expect(env.window.fbq).toBeUndefined();
+    expect(env.scripts).toEqual([]);
+  });
+});
+
+describe("contactChannelOf", () => {
+  it.each([
+    ["tel:+905551112233", "telefon"],
+    [" TEL:+905551112233", "telefon"],
+    ["https://wa.me/905551112233?text=Merhaba", "whatsapp"],
+    ["https://api.whatsapp.com/send?phone=90555", "whatsapp"],
+    ["https://web.whatsapp.com/", "whatsapp"],
+    ["/odeme", null],
+    ["https://apuhanciftligi.com/kvkk", null],
+    ["https://wa.me.evil.example/", null],
+    ["mailto:info@example.com", null],
+    ["", null],
+  ])("%s → %s", async (href, expected) => {
+    const meta = await load(VALID_ID);
+    expect(meta.contactChannelOf(href)).toBe(expected);
+  });
+});
+
 describe("helpers", () => {
   it("converts kuruş to TRY without float noise", async () => {
     installBrowser();

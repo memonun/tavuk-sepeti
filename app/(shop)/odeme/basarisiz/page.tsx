@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { XCircleIcon } from "lucide-react";
 
 import { ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
+import { MetaPaymentFailedTracker } from "@/features/storefront/ui/meta-payment-failed-tracker";
+import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 
 export const metadata: Metadata = { title: "Ödeme tamamlanamadı" };
 
@@ -13,6 +15,8 @@ export default async function PaymentFailedPage({
   const { no } = await searchParams;
   return (
     <main className="mx-auto max-w-lg px-4 py-10 sm:py-16">
+      {/* Meta Pixel PaymentFailed — only mounted when a Pixel ID is set. */}
+      {isMetaPixelEnabled() ? <MetaPaymentFailedTracker orderNumber={no ?? null} /> : null}
       <div className="flex flex-col items-center gap-5 rounded-3xl border border-border bg-card p-5 text-center shadow-(--shop-shadow-sm) sm:p-8">
         <XCircleIcon className="size-16 text-destructive" aria-hidden />
         <h1 className="font-display text-3xl leading-tight">Ödeme tamamlanamadı</h1>

@@ -14,6 +14,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { trackRecurringRequested } from "@/features/storefront/ui/meta-events";
+
 import { createRecurringOrderRequestAction } from "@/features/storefront/application/recurring-order-request";
 import { WEEKDAY_NAMES_TR, WEEKDAYS_TR_ORDER } from "@/features/storefront/domain/delivery-window";
 import { paymentMethodsForChannel } from "@/features/storefront/domain/payment-options";
@@ -90,6 +92,8 @@ export function RecurringOrderForm({
       });
 
       if (result.status === "success") {
+        // Meta Pixel Lead (no-op without a Pixel ID).
+        trackRecurringRequested(items);
         toast.success("Talebiniz alındı. Ekibimiz inceleyip onayladığında düzenli siparişiniz aktif olacak.");
         setItems([]);
         router.refresh();
