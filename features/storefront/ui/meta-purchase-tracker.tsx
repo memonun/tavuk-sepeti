@@ -12,9 +12,10 @@
  *      The server answers only for an order it reads as paid.
  *   2. Take the signed return token out of the address bar. Meta attaches the
  *      full page URL to every event; nothing is sent unless that succeeded.
- *   3. Send. `trackPurchase` guarantees at most one Purchase per order number,
- *      so a reload, back/forward or React re-running this effect cannot double
- *      count.
+ *   3. Send the PageView that arriving on the token URL held back, then the
+ *      Purchase. `trackPurchase` guarantees at most one Purchase per order
+ *      number, so a reload, back/forward or React re-running this effect cannot
+ *      double count.
  *
  * A customer who pays but never comes back to this page (closes the tab at the
  * bank) is not reported — only a server-side Conversions API send can cover
@@ -28,6 +29,7 @@ import {
   retireReturnTokenFromUrl,
 } from "@/features/storefront/ui/card-return-token";
 import { trackOrderPurchased } from "@/features/storefront/ui/meta-events";
+import { flushDeferredPageView } from "@/shared/analytics/meta-pixel";
 
 export function MetaPurchaseTracker({
   orderNumber,
@@ -46,6 +48,7 @@ export function MetaPurchaseTracker({
         });
         if (cancelled || !purchase) return;
         if (!retireReturnTokenFromUrl(orderNumber)) return;
+        flushDeferredPageView();
         trackOrderPurchased(purchase);
       } catch {
         // Analytics must never affect the shop.

@@ -7,7 +7,8 @@
  * Only mounted by app/(shop)/layout.tsx when a Pixel ID is configured (see
  * shared/analytics/meta-pixel-config.ts), and the admin panel is outside that
  * layout — so with no ID this component does not exist, and admin pages never
- * report to Meta. Duplicate/sensitive-path handling lives in `trackPageView`.
+ * report to Meta. Every storefront page reports (owner decision 2026-10-14);
+ * duplicate handling and the credential-in-URL check live in `trackPageView`.
  */
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";

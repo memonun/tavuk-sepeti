@@ -14,6 +14,9 @@
  *    the automatic advanced matching built on form fields) is switched OFF in
  *    code before `init`. ALSO turn "Automatic advanced matching" off in Meta
  *    Events Manager when the Pixel is created — that is a dashboard setting.
+ *  - Never sends from a URL that carries a credential (see `isUrlReportable`):
+ *    Meta attaches the full page URL, query and fragment included, to EVERY
+ *    event, so this check sits in `send()` and covers all of them.
  *  - Respects the browser's Global Privacy Control signal. There is NO cookie
  *    consent system in this project yet; when one is added, gate on it in
  *    `canTrack()` below — that is the single place every event passes through.
@@ -36,22 +39,80 @@ const SCRIPT_SRC = "https://connect.facebook.net/en_US/fbevents.js";
 
 // ---- Pages the Pixel may report ----------------------------------------------
 //
-// ALLOWLIST, not blocklist. Meta reads the full page URL (query string included)
-// off every PageView, and a few routes carry credentials in it: the card-return
-// pages (`?no=…&t=<signed return token>`), the password-reset and auth-confirm
-// links, guest order lookup. A new sensitive route must never leak by default,
-// so only these exact paths report a PageView.
-const PAGEVIEW_PATHS: ReadonlySet<string> = new Set([
-  "/",
-  "/odeme",
-  "/duzenli-siparis",
-  "/duzenli-siparis-kosullari",
-  "/teslimat-kosullari",
-  "/islem-rehberi",
-]);
+// Owner decision 2026-10-14: EVERY storefront page reports a PageView — /hesap,
+// /giris, /kayit, /siparis-sorgula, the legal pages, the payment result pages,
+// 404s. Two things keep that safe:
+//   1. The tracker is mounted only by app/(shop)/layout.tsx, so the admin panel
+//      (a different layout) never loads the Pixel at all. The prefixes below are
+//      a second line for paths that are never storefront pages.
+//   2. `isUrlReportable` refuses ANY event — not just PageView — while the URL
+//      holds a credential. Path-based allowlisting used to do that job; the URL
+//      check does it for every route, including ones added later.
+const NEVER_REPORT_PREFIXES: ReadonlyArray<string> = [
+  "/auth", // e-mail confirm / recovery landing — a server redirect, carries tokens
+  "/api",
+  "/login", // admin sign-in
+  "/oauth",
+  "/admin",
+];
 
 export function isPageViewPath(pathname: string): boolean {
-  return PAGEVIEW_PATHS.has(pathname);
+  if (!pathname.startsWith("/")) return false;
+  return !NEVER_REPORT_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+// ---- URLs the Pixel may send from ---------------------------------------------
+//
+// Query/fragment keys that carry a secret somewhere in this app or its auth
+// provider: the card-return token (`t`), Supabase's confirm/recovery/PKCE
+// parameters, and the generic names a future feature would reach for.
+const CREDENTIAL_PARAMS: ReadonlySet<string> = new Set([
+  "t",
+  "token",
+  "token_hash",
+  "code",
+  "access_token",
+  "refresh_token",
+  "provider_token",
+  "provider_refresh_token",
+  "otp",
+  "key",
+  "secret",
+  "password",
+  "signature",
+  "sig",
+]);
+
+/**
+ * Whether the page's current URL may be handed to Meta (which it is, in full,
+ * with every event). False when:
+ *   - a query parameter is credential-shaped (`CREDENTIAL_PARAMS`, any case);
+ *   - the fragment holds key=value pairs at all — this app never uses them,
+ *     but Supabase's implicit auth flow puts `#access_token=…` there and a
+ *     browser carries a fragment across redirects;
+ *   - the URL cannot be read. Unknown is treated as unsafe.
+ */
+export function isUrlReportable(href: string): boolean {
+  try {
+    const url = new URL(href);
+    if (url.hash.includes("=")) return false;
+    for (const key of url.searchParams.keys()) {
+      if (CREDENTIAL_PARAMS.has(key.toLowerCase())) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function currentUrlReportable(): boolean {
+  try {
+    return isUrlReportable(window.location.href);
+  } catch {
+    return false;
+  }
 }
 
 // ---- Minimal typing for the global -------------------------------------------
@@ -77,6 +138,8 @@ function canTrack(): boolean {
   try {
     if (getMetaPixelId() === null) return false;
     if (typeof window === "undefined" || typeof document === "undefined") return false;
+    // Meta reads the full URL off every event: never from one holding a secret.
+    if (!currentUrlReportable()) return false;
     // Global Privacy Control: the user asked not to be tracked/sold.
     if ((navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true) {
       return false;
@@ -105,8 +168,8 @@ function ensureFbq(): FbqCall | null {
     stub.version = "2.0";
     stub.queue = [];
     // Meta's library otherwise fires its OWN PageView on every history.pushState
-    // (i.e. every client-side navigation) — that bypasses the sensitive-route
-    // allowlist above and would report /giris, /odeme/basarili?t=… and friends.
+    // (i.e. every client-side navigation) — that bypasses the URL check above
+    // and our dedupe, and would report /odeme/basarili?t=… and friends.
     // Turn it off so trackPageView() is the only source of PageViews.
     stub.disablePushState = true;
     // …and since this app is a SPA, each client-side navigation IS a new page
@@ -162,18 +225,45 @@ export function metaEventId(event: string, key: string): string {
 // ---- PageView -----------------------------------------------------------------
 
 let lastPageViewPath: string | null = null;
+/** A PageView held back because the URL carried a credential at the time. */
+let deferredPageViewPath: string | null = null;
 
 /**
  * Report a page view for `pathname` (call on every client-side route change).
  * Never reports the same path twice in a row — React strict-mode re-runs and
- * re-renders of the tracker are absorbed here. A hidden/sensitive page still
- * counts as "last path", so leaving it for an allowed page reports again.
+ * re-renders of the tracker are absorbed here. A page that was not reported
+ * still counts as "last path", so leaving it for another page reports again.
+ *
+ * Arriving on a URL that holds a credential (the card-return page) does not
+ * report; the view is held back until the page cleans its URL and calls
+ * `flushDeferredPageView`.
  */
 export function trackPageView(pathname: string): void {
   try {
     if (pathname === lastPageViewPath) return;
     lastPageViewPath = pathname;
+    deferredPageViewPath = null;
     if (!isPageViewPath(pathname)) return;
+    if (!currentUrlReportable()) {
+      deferredPageViewPath = pathname;
+      return;
+    }
+    send("PageView");
+  } catch {
+    /* never throw */
+  }
+}
+
+/**
+ * Report the PageView `trackPageView` held back — once, only while still on
+ * that page, and only if its URL is now clean. Call right after a page has
+ * removed a credential from its own URL.
+ */
+export function flushDeferredPageView(): void {
+  try {
+    if (deferredPageViewPath === null || deferredPageViewPath !== lastPageViewPath) return;
+    if (!currentUrlReportable()) return;
+    deferredPageViewPath = null;
     send("PageView");
   } catch {
     /* never throw */
@@ -323,7 +413,8 @@ function readPurchased(): string[] {
  *   - card: after PayTR's HMAC-verified callback has stamped the order paid
  *     and the return page has read that back (meta-purchase-tracker.tsx). That
  *     page's URL carries the signed return token, which is taken out of the
- *     address bar BEFORE this runs — keep it that way.
+ *     address bar BEFORE this runs — keep it that way (`send()` refuses while
+ *     it is there in any case).
  * Guarantees here:
  *   - at most one Purchase per `orderId` — across re-renders (in-memory set),
  *     refresh, back/forward and re-opening the page (localStorage);
@@ -369,5 +460,6 @@ export function trackPurchase(input: PurchaseInput): void {
 /** Test seam: forget in-memory state. Not for application code. */
 export function __resetMetaPixelForTests(): void {
   lastPageViewPath = null;
+  deferredPageViewPath = null;
   purchasedThisSession.clear();
 }
