@@ -32,6 +32,7 @@ import {
   UserRoundIcon,
 } from "lucide-react";
 
+import { TRUST_PAGES_PUBLISHED } from "@/features/content/application/trust-pages-visibility";
 import { customerSignOutAction } from "@/features/storefront/application/customer-auth";
 import { COMPANY } from "@/features/storefront/domain/legal";
 import { SUPPORT_WHATSAPP_E164 } from "@/features/storefront/domain/support-contact";
@@ -91,12 +92,16 @@ export function MobileNavSheet({
           <DrawerLink href="/tarifler" onNavigate={close} icon={<BookOpenIcon aria-hidden />}>
             Tarifler
           </DrawerLink>
-          <DrawerLink href="/hakkimizda" onNavigate={close} icon={<UsersRoundIcon aria-hidden />}>
-            Hakkımızda
-          </DrawerLink>
-          <DrawerLink href="/ciftligimiz" onNavigate={close} icon={<SproutIcon aria-hidden />}>
-            Çiftliğimiz
-          </DrawerLink>
+          {TRUST_PAGES_PUBLISHED ? (
+            <>
+              <DrawerLink href="/hakkimizda" onNavigate={close} icon={<UsersRoundIcon aria-hidden />}>
+                Hakkımızda
+              </DrawerLink>
+              <DrawerLink href="/ciftligimiz" onNavigate={close} icon={<SproutIcon aria-hidden />}>
+                Çiftliğimiz
+              </DrawerLink>
+            </>
+          ) : null}
           <DrawerLink href="/duzenli-siparis" onNavigate={close} icon={<RepeatIcon aria-hidden />}>
             Düzenli Sipariş
           </DrawerLink>
