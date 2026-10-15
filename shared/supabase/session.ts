@@ -51,11 +51,14 @@ export async function refreshSupabaseSession(
     },
   );
 
-  // IMPORTANT: getUser() validates the JWT against Supabase Auth. getSession()
-  // would only decode the local cookie, which a malicious client could forge.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() verifies the access token's SIGNATURE against the project's
+  // public key (ES256, JWKS cached per server instance) — no round trip to
+  // Supabase Auth on every request, unlike getUser(). getSession() alone would
+  // only decode the cookie, which a client could forge. Like getUser(), it
+  // refreshes an expired session first and hands the rotated cookies to
+  // setAll above. The admin layout still calls getUser() + is_admin() before
+  // rendering anything privileged; this only decides the /login redirect.
+  const { data } = await supabase.auth.getClaims();
 
-  return { response, userId: user?.id ?? null };
+  return { response, userId: data?.claims.sub ?? null };
 }

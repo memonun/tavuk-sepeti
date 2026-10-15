@@ -14,11 +14,14 @@ interface CustomerEditPageProps {
 
 export default async function CustomerEditPage({ params }: CustomerEditPageProps) {
   const { id } = await params;
-  const result = await getCustomerById(id);
+  // Independent reads — fetched together, not one after the other.
+  const [result, productsResult] = await Promise.all([
+    getCustomerById(id),
+    listActiveProducts(),
+  ]);
   if (!result.ok) notFound();
   const customer = result.value;
 
-  const productsResult = await listActiveProducts();
   const products = productsResult.ok ? productsResult.value : [];
 
   const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;

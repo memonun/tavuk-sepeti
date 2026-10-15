@@ -21,28 +21,15 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 import { CargoCardDialog } from "@/features/cargo/ui/cargo-card-dialog";
+import { CargoOrderCard } from "@/features/cargo/ui/cargo-order-card";
+import {
+  PAYMENT_STATUS_LABEL,
+  PAYMENT_STATUS_VARIANT,
+} from "@/features/cargo/ui/cargo-payment-status";
 import { MarkCargoShippedButton } from "@/features/cargo/ui/mark-cargo-shipped-button";
 
 import type { CargoRecipient } from "@/features/cargo/domain/cargo-recipient";
-import type { OrderListItem, PaymentStatus } from "@/features/orders/application/list-orders";
-
-/** Shared with cargo-shipped-order-table.tsx — same payment-status vocabulary
- *  for both the prep queue and the shipped-history view below it. */
-export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
-  pending: "Bekliyor",
-  partial: "Kısmi",
-  paid: "Ödendi",
-  failed: "Başarısız",
-  refunded: "İade",
-};
-
-export const PAYMENT_STATUS_VARIANT: Record<PaymentStatus, "default" | "secondary" | "destructive"> = {
-  pending: "secondary",
-  partial: "secondary",
-  paid: "default",
-  failed: "destructive",
-  refunded: "destructive",
-};
+import type { OrderListItem } from "@/features/orders/application/list-orders";
 
 export function CargoOrderTable({
   orders,
@@ -60,68 +47,89 @@ export function CargoOrderTable({
   }
 
   return (
-    <div className="rounded-lg border overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Sipariş No</TableHead>
-            <TableHead>Müşteri</TableHead>
-            <TableHead className="hidden sm:table-cell">Tarih</TableHead>
-            <TableHead className="text-right">Tutar</TableHead>
-            <TableHead>Ödeme</TableHead>
-            <TableHead className="hidden lg:table-cell">Kargo Bilgisi</TableHead>
-            <TableHead className="text-right">İşlemler</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {orders.map((order) => (
-            <TableRow key={order.id}>
-              <TableCell className="font-medium">
-                <Link href={`/orders/${order.id}`} className="hover:underline">
-                  {order.order_number}
-                </Link>
-              </TableCell>
-              <TableCell>{order.customer_name}</TableCell>
-              <TableCell className="hidden text-muted-foreground sm:table-cell">
-                {formatDate(order.created_at)}
-              </TableCell>
-              <TableCell className="text-right font-medium tabular-nums">
-                {formatTRY(order.total_minor)}
-              </TableCell>
-              <TableCell>
-                <Badge variant={PAYMENT_STATUS_VARIANT[order.payment_status]}>
-                  {PAYMENT_STATUS_LABEL[order.payment_status]}
-                </Badge>
-              </TableCell>
-              <TableCell className="hidden text-muted-foreground lg:table-cell">
-                {order.cargo_carrier ? (
-                  <span>
-                    {order.cargo_carrier}
-                    {order.cargo_tracking_number ? ` · ${order.cargo_tracking_number}` : ""}
-                  </span>
-                ) : (
-                  "—"
-                )}
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  <CargoCardDialog
-                    orderNumber={order.order_number}
-                    recipient={recipients[order.id]}
-                  />
-                  <MarkCargoShippedButton orderId={order.id} />
-                  <Link
-                    href={`/orders/${order.id}`}
-                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                  >
-                    Detay
-                  </Link>
-                </div>
-              </TableCell>
+    <>
+      {/* Phone: one card per order (see cargo-order-card.tsx). */}
+      <ul className="flex flex-col gap-2.5 md:hidden">
+        {orders.map((order) => (
+          <CargoOrderCard
+            key={order.id}
+            order={order}
+            actions={
+              <>
+                <CargoCardDialog
+                  orderNumber={order.order_number}
+                  recipient={recipients[order.id]}
+                />
+                <MarkCargoShippedButton orderId={order.id} />
+              </>
+            }
+          />
+        ))}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Sipariş No</TableHead>
+              <TableHead>Müşteri</TableHead>
+              <TableHead className="hidden sm:table-cell">Tarih</TableHead>
+              <TableHead className="text-right">Tutar</TableHead>
+              <TableHead>Ödeme</TableHead>
+              <TableHead className="hidden lg:table-cell">Kargo Bilgisi</TableHead>
+              <TableHead className="text-right">İşlemler</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {orders.map((order) => (
+              <TableRow key={order.id}>
+                <TableCell className="font-medium">
+                  <Link href={`/orders/${order.id}`} className="hover:underline">
+                    {order.order_number}
+                  </Link>
+                </TableCell>
+                <TableCell>{order.customer_name}</TableCell>
+                <TableCell className="hidden text-muted-foreground sm:table-cell">
+                  {formatDate(order.created_at)}
+                </TableCell>
+                <TableCell className="text-right font-medium tabular-nums">
+                  {formatTRY(order.total_minor)}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={PAYMENT_STATUS_VARIANT[order.payment_status]}>
+                    {PAYMENT_STATUS_LABEL[order.payment_status]}
+                  </Badge>
+                </TableCell>
+                <TableCell className="hidden text-muted-foreground lg:table-cell">
+                  {order.cargo_carrier ? (
+                    <span>
+                      {order.cargo_carrier}
+                      {order.cargo_tracking_number ? ` · ${order.cargo_tracking_number}` : ""}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <CargoCardDialog
+                      orderNumber={order.order_number}
+                      recipient={recipients[order.id]}
+                    />
+                    <MarkCargoShippedButton orderId={order.id} />
+                    <Link
+                      href={`/orders/${order.id}`}
+                      className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                    >
+                      Detay
+                    </Link>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }

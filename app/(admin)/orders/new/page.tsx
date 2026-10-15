@@ -9,7 +9,13 @@ import { toIstanbulDateString } from "@/shared/utils/date";
 import { NewCustomerAction } from "@/app/(admin)/_components/new-customer-action";
 
 export default async function NewOrderPage() {
-  const productsResult = await listActiveProducts();
+  // Independent reads — fetched together, not one after the other.
+  // Cross-feature read goes through application/ (CLAUDE.md §2). Fallback to
+  // launch defaults on a blip is built in, so settings never block order entry.
+  const [productsResult, settings] = await Promise.all([
+    listActiveProducts(),
+    getStorefrontSettings(),
+  ]);
   if (!productsResult.ok) {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-6 text-sm text-destructive">
@@ -17,10 +23,6 @@ export default async function NewOrderPage() {
       </div>
     );
   }
-
-  // Cross-feature read goes through application/ (CLAUDE.md §2). Fallback to
-  // launch defaults on a blip is built in, so this never blocks order entry.
-  const settings = await getStorefrontSettings();
 
   const today = toIstanbulDateString(new Date());
   const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;

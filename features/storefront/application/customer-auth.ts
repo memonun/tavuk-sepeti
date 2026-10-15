@@ -182,7 +182,8 @@ export async function customerSignUpAction(
 
 export async function customerSignOutAction(): Promise<never> {
   const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  // "local": sign out this browser only, not the customer's other devices.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/");
 }
 

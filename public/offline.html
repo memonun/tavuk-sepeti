@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#f6f4ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#11150f" media="(prefers-color-scheme: dark)" />
+    <title>İnternet yok · Apuhan Çiftliği</title>
+    <!--
+      Shown by public/admin-sw.js when an admin page can't be loaded (no or
+      stalled signal). Fully self-contained — no scripts, styles or fonts from
+      the network, because there is no network. Colours mirror the admin theme
+      (app/(admin)/theme.css).
+    -->
+    <style>
+      :root {
+        --background: #f6f4ee;
+        --foreground: #1a2118;
+        --muted: #4f5648;
+        --primary: #1b4a26;
+        --primary-foreground: #ffffff;
+        --border: #d8d3c4;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #11150f;
+          --foreground: #eef1e9;
+          --muted: #b3baa9;
+          --primary: #8fd19e;
+          --primary-foreground: #0c1a10;
+          --border: rgb(238 241 233 / 0.13);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+      }
+      main {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: calc(24px + env(safe-area-inset-top, 0px)) 24px
+          calc(24px + env(safe-area-inset-bottom, 0px));
+        text-align: center;
+      }
+      svg {
+        width: 48px;
+        height: 48px;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 8px 0 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        max-width: 22rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      button {
+        margin-top: 12px;
+        min-height: 48px;
+        padding: 0 28px;
+        border: 0;
+        border-radius: 10px;
+        background: var(--primary);
+        color: var(--primary-foreground);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+      }
+      button:active {
+        transform: scale(0.97);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 20h.01" />
+        <path d="M8.5 16.43a5 5 0 0 1 7 0" />
+        <path d="M5 12.86a10 10 0 0 1 5.17-2.69" />
+        <path d="M19 12.86a10 10 0 0 0-2-1.5" />
+        <path d="M2 8.82a15 15 0 0 1 4.17-2.65" />
+        <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76" />
+        <path d="m2 2 20 20" />
+      </svg>
+      <h1>İnternet bağlantısı yok</h1>
+      <p>Sayfa açılamadı. Bağlantı gelince sayfa kendiliğinden yenilenir, ya da aşağıdan tekrar deneyebilirsin.</p>
+      <button type="button" id="retry">Tekrar dene</button>
+    </main>
+    <script>
+      // Reloading re-requests the page the admin was opening (this page is
+      // served in its place, so the address is still theirs).
+      document.getElementById("retry").addEventListener("click", function () {
+        location.reload();
+      });
+      window.addEventListener("online", function () {
+        location.reload();
+      });
+    </script>
+  </body>
+</html>
