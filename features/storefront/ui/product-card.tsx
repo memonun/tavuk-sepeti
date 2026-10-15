@@ -1,8 +1,9 @@
 "use client";
 
-import { CheckIcon, MapPinIcon, PlusIcon, TruckIcon } from "lucide-react";
+import { MapPinIcon, TruckIcon } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import Link from "next/link";
+import { ProductPurchaseControls } from "@/features/storefront/ui/product-purchase-controls";
 
 import { formatTRY } from "@/shared/utils/money";
 import { env } from "@/shared/env";
@@ -12,20 +13,14 @@ import {
   DELIVERY_ONLY_BADGE,
   SHIPPING_BADGE,
 } from "@/features/storefront/domain/storefront.config";
-import { useCart } from "@/features/storefront/ui/cart-provider";
-import { hapticTick } from "@/features/storefront/ui/kit/haptic";
 import { PriceTag } from "@/features/storefront/ui/kit/price-tag";
-import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
-import { trackProductAddedToCart } from "@/features/storefront/ui/meta-events";
 import {
   fromPriceMinor,
   halfUnitPriceMinor,
   hasHalfUnitOption,
   hasVolumeDiscount,
-  lineTotalMinor,
 } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
-import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
 
 import type { Product } from "@/features/products/application/list-products";
 
@@ -40,21 +35,6 @@ import type { Product } from "@/features/products/application/list-products";
  * begin. Nothing on the card is under 16px.
  */
 export function ProductCard({ product }: { product: Product }) {
-  const { getQuantity, addItem } = useCart();
-  const qty = getQuantity(product.key);
-  const inCart = qty > 0;
-  // True once this card has gone from "in the basket" back to "not": only
-  // then does the "Sepete ekle" button play its entrance (the way back along
-  // the same path the quantity control arrived by). Without the flag every
-  // button on the page would fade in on first load, which is exactly the
-  // decorative page-load motion this shop does not want. Adjusted during
-  // render — React's documented pattern for deriving state from a change.
-  const [returnedFromCart, setReturnedFromCart] = useState(false);
-  const [wasInCart, setWasInCart] = useState(inCart);
-  if (wasInCart !== inCart) {
-    setWasInCart(inCart);
-    if (!inCart) setReturnedFromCart(true);
-  }
   const imageUrl = productImagePublicUrl(
     product.image_path,
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -82,8 +62,15 @@ export function ProductCard({ product }: { product: Product }) {
             {productEmoji(product.key)}
           </span>
         )}
+        {product.web_slug ? (
+          <Link
+            href={`/urun/${product.web_slug}`}
+            className="absolute inset-0 rounded-t-3xl focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-[-2px]"
+            aria-label={`${product.display_name} ürününü incele`}
+          />
+        ) : null}
         {product.is_featured ? (
-          <p className="absolute top-3 left-3 rounded-full bg-card px-3 py-1 text-base font-bold text-foreground shadow-(--shop-shadow-sm)">
+          <p className="pointer-events-none absolute top-3 left-3 rounded-full bg-card px-3 py-1 text-base font-bold text-foreground shadow-(--shop-shadow-sm)">
             Öne çıkan
           </p>
         ) : null}
@@ -95,7 +82,11 @@ export function ProductCard({ product }: { product: Product }) {
             whether a name wraps or not. On a phone there is one card per row
             and nothing to line up with. */}
         <h3 className="font-display text-2xl leading-[1.2] break-words text-foreground sm:line-clamp-2 sm:min-h-[3.6rem]">
-          {product.display_name}
+          {product.web_slug ? (
+            <Link href={`/urun/${product.web_slug}`} className="hover:underline focus-visible:underline">
+              {product.display_name}
+            </Link>
+          ) : product.display_name}
         </h3>
 
         <PriceTag
@@ -134,41 +125,7 @@ export function ProductCard({ product }: { product: Product }) {
           </p>
         ) : null}
 
-        <div className="mt-auto pt-5">
-          {inCart ? (
-            // `key` remounts on the swap so `.shop-enter` plays: the button
-            // visibly BECOMES this, rather than one thing vanishing and
-            // another appearing.
-            <div key="in-cart" className="shop-enter flex flex-col gap-3">
-              <p className="flex items-center gap-2 text-lg font-bold text-primary">
-                <CheckIcon className="size-6 shrink-0" strokeWidth={3} aria-hidden />
-                Sepette
-                <span className="shop-money ml-auto text-foreground">
-                  {formatTRY(lineTotalMinor(product, qty))}
-                </span>
-              </p>
-              <QuantityStepper product={product} block />
-            </div>
-          ) : (
-            // The entrance sits on a wrapper, not on the button: `.shop-enter`
-            // sets its own `transition`, which would replace the button's
-            // 140ms press transition.
-            <div key="add" className={returnedFromCart ? "shop-enter" : undefined}>
-              <ShopButton
-                size="lg"
-                block
-                onClick={() => {
-                  addItem(product.key, product.min_qty);
-                  hapticTick();
-                  // Reported only after the basket really changed; no-op without a Pixel ID.
-                  trackProductAddedToCart(product, product.min_qty);
-                }}
-              >
-                <PlusIcon aria-hidden /> Sepete ekle
-              </ShopButton>
-            </div>
-          )}
-        </div>
+        <ProductPurchaseControls product={product} />
       </div>
     </article>
   );

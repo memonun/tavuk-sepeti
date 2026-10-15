@@ -1,13 +1,22 @@
 import type { MetadataRoute } from "next";
+import { randomUUID } from "node:crypto";
 
+import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { buildStorefrontSitemapEntries } from "@/features/storefront/domain/sitemap-entries";
+import { logger } from "@/shared/logger";
 
-/** /sitemap.xml — the indexable storefront pages. Static: no DB access. */
-export default function sitemap(): MetadataRoute.Sitemap {
-  return buildStorefrontSitemapEntries().map((entry) => ({
-    url: entry.url,
-    changeFrequency: entry.changeFrequency,
-    priority: entry.priority,
-    ...(entry.lastModified ? { lastModified: entry.lastModified } : {}),
-  }));
+/** Keep the static URLs available even during a catalog outage. */
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const correlationId = randomUUID();
+  try {
+    const catalog = await getStorefrontCatalog();
+    if (catalog.ok) return buildStorefrontSitemapEntries(catalog.value);
+    logger.error(
+      { correlationId, code: catalog.error.code },
+      "sitemap_catalog_failed",
+    );
+  } catch (error: unknown) {
+    logger.error({ correlationId, err: error }, "sitemap_catalog_unavailable");
+  }
+  return buildStorefrontSitemapEntries();
 }

@@ -1,11 +1,15 @@
 import "server-only";
 
+import { z } from "zod";
+import { mapProductRows } from "@/features/products/infrastructure/product.mapper";
+import { productWebSlugSchema } from "@/features/products/domain/product.schema";
+
 import { ExternalApiError } from "@/shared/errors/app-error";
-import { logger } from "@/shared/logger";
-import { err, ok, type Result } from "@/shared/result";
+import { logger, newCorrelationId } from "@/shared/logger";
+import { err, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
-import type { Product, ProductUnit } from "@/features/products/domain/product";
+import type { Product } from "@/features/products/domain/product";
 import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
 
 // Re-export the domain types as the products feature's public API surface.
@@ -22,17 +26,16 @@ export type {
 // as a dedicated follow-up so a stale cache can't ever serve a wrong price.
 
 const PRODUCT_COLUMNS =
-  "key, display_name, unit, unit_label, package_size, min_qty, step, current_unit_price_minor, active, fulfillment_type, is_web_visible, is_featured, web_description, image_path, image_alt, sort_order";
+  "key, display_name, web_slug, unit, unit_label, package_size, min_qty, step, current_unit_price_minor, active, fulfillment_type, is_web_visible, is_featured, web_description, image_path, image_alt, sort_order";
 
 /**
  * Load every product's volume tiers, grouped by product key. Tiers live in
- * `product_price_tiers` (not in the generated Database type yet) — degrades to
+ * `product_price_tiers` — degrades to
  * "no tiers" (flat base price) when the table is unavailable pre-migration.
  */
 async function loadTiersByProduct(): Promise<Map<string, ProductPriceTier[]>> {
   const supabase = await createSupabaseServerClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tiersRes = await (supabase as any)
+  const tiersRes = await supabase
     .from("product_price_tiers")
     .select("product_key, min_qty, unit_price_minor");
 
@@ -44,11 +47,16 @@ async function loadTiersByProduct(): Promise<Map<string, ProductPriceTier[]>> {
     );
     return tiersByProduct;
   }
-  for (const t of (tiersRes.data ?? []) as Array<{
-    product_key: string;
-    min_qty: number | string;
-    unit_price_minor: number | string;
-  }>) {
+  const parsed = z.array(z.object({
+    product_key: z.string(),
+    min_qty: z.coerce.number().positive(),
+    unit_price_minor: z.coerce.number().nonnegative(),
+  })).safeParse(tiersRes.data ?? []);
+  if (!parsed.success) {
+    logger.error({ correlationId: newCorrelationId(), issueCount: parsed.error.issues.length }, "invalid_product_price_tiers");
+    return tiersByProduct;
+  }
+  for (const t of parsed.data) {
     const list = tiersByProduct.get(t.product_key) ?? [];
     list.push({
       min_qty: Number(t.min_qty),
@@ -57,55 +65,6 @@ async function loadTiersByProduct(): Promise<Map<string, ProductPriceTier[]>> {
     tiersByProduct.set(t.product_key, list);
   }
   return tiersByProduct;
-}
-
-interface ProductRow {
-  key: string;
-  display_name: string;
-  unit: string;
-  unit_label: string;
-  package_size: number | string;
-  min_qty: number | string;
-  step: number | string;
-  current_unit_price_minor: number;
-  active: boolean;
-  fulfillment_type: string;
-  is_web_visible: boolean | null;
-  is_featured: boolean | null;
-  web_description: string | null;
-  image_path: string | null;
-  image_alt: string | null;
-  sort_order: number | string;
-  total_quantity_sold?: number | string;
-}
-
-function toProduct(
-  row: ProductRow,
-  tiersByProduct: Map<string, ProductPriceTier[]>,
-): Product {
-  return {
-    key: row.key,
-    display_name: row.display_name,
-    unit: row.unit as ProductUnit,
-    unit_label: row.unit_label,
-    package_size: Number(row.package_size),
-    min_qty: Number(row.min_qty),
-    step: Number(row.step),
-    current_unit_price_minor: row.current_unit_price_minor,
-    price_tiers: (tiersByProduct.get(row.key) ?? []).sort(
-      (a, b) => a.min_qty - b.min_qty,
-    ),
-    active: row.active,
-    fulfillment_type:
-      row.fulfillment_type === "shipping" ? "shipping" : "delivery",
-    is_web_visible: row.is_web_visible ?? true,
-    is_featured: row.is_featured ?? false,
-    web_description: row.web_description ?? null,
-    image_path: row.image_path ?? null,
-    image_alt: row.image_alt ?? null,
-    sort_order: Number(row.sort_order),
-    total_quantity_sold: Number(row.total_quantity_sold ?? 0),
-  };
 }
 
 /**
@@ -129,7 +88,7 @@ export async function listActiveProducts(): Promise<
   }
 
   const tiersByProduct = await loadTiersByProduct();
-  return ok((data ?? []).map((row) => toProduct(row as ProductRow, tiersByProduct)));
+  return mapProductRows(data ?? [], tiersByProduct);
 }
 
 /**
@@ -142,13 +101,34 @@ export async function listAllProducts(): Promise<
   const supabase = await createSupabaseServerClient();
   // The RPC returns the catalog already ordered (active first, sort_order,
   // display_name) with total_quantity_sold attached.
-  const { data, error } = await supabase.rpc("list_products_with_sales");
+  // Keep the existing RPC contract compatible with the previous app release.
+  // Slugs are fetched once for the whole admin list, never per product.
+  const [{ data, error }, slugResult] = await Promise.all([
+    supabase.rpc("list_products_with_sales"),
+    supabase.from("products").select("key, web_slug"),
+  ]);
 
   if (error) {
     logger.error({ code: error.code, message: error.message }, "list_all_products_failed");
     return err(new ExternalApiError({ message: error.message, cause: error }));
   }
 
+  if (slugResult.error) {
+    const correlationId = newCorrelationId();
+    logger.error({ correlationId, code: slugResult.error.code }, "list_product_slugs_failed");
+    return err(new ExternalApiError({ message: slugResult.error.message, cause: slugResult.error, correlationId }));
+  }
+  const slugs = z.array(z.object({ key: z.string(), web_slug: productWebSlugSchema.nullable() }))
+    .safeParse(slugResult.data ?? []);
+  if (!slugs.success) {
+    const correlationId = newCorrelationId();
+    logger.error({ correlationId, issueCount: slugs.error.issues.length }, "invalid_product_slugs");
+    return err(new ExternalApiError({ message: "Ürün web adresleri doğrulanamadı.", correlationId }));
+  }
+  const slugByKey = new Map(slugs.data.map((row) => [row.key, row.web_slug]));
   const tiersByProduct = await loadTiersByProduct();
-  return ok((data ?? []).map((row) => toProduct(row as ProductRow, tiersByProduct)));
+  return mapProductRows((data ?? []).map((row) => ({
+    ...row,
+    web_slug: slugByKey.get(row.key) ?? null,
+  })), tiersByProduct);
 }

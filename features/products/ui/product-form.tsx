@@ -18,6 +18,7 @@ import {
   PRODUCT_UNIT_OPTIONS,
 } from "@/features/products/domain/product.schema";
 import { normalizeDecimal, parseTRY2 } from "@/features/products/ui/money";
+import { deriveProductWebSlug } from "@/features/products/domain/product-web-slug";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,6 +49,7 @@ import type {
 
 interface FieldsState {
   display_name: string;
+  web_slug: string;
   unit: ProductUnit;
   unit_label: string;
   package_size: string;
@@ -61,6 +63,7 @@ interface FieldsState {
 function initialFields(product?: Product): FieldsState {
   return {
     display_name: product?.display_name ?? "",
+    web_slug: product?.web_slug ?? (product ? deriveProductWebSlug(product.display_name) : ""),
     unit: product?.unit ?? "package",
     unit_label: product?.unit_label ?? "",
     package_size: product ? String(product.package_size) : "1",
@@ -101,6 +104,7 @@ export function ProductFormDialog({
   const submit = () => {
     const base = {
       display_name: fields.display_name,
+      web_slug: fields.web_slug || deriveProductWebSlug(fields.display_name),
       unit: fields.unit,
       unit_label: fields.unit_label,
       package_size: normalizeDecimal(fields.package_size),
@@ -176,6 +180,23 @@ export function ProductFormDialog({
               placeholder="ör. Köy Yumurtası"
               autoFocus
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pf-slug">Web adresi (slug)</Label>
+            <Input
+              id="pf-slug"
+              value={fields.web_slug}
+              onChange={(e) => set({ web_slug: e.target.value })}
+              placeholder={deriveProductWebSlug(fields.display_name)}
+              maxLength={80}
+              autoCapitalize="none"
+              spellCheck={false}
+              aria-describedby="pf-slug-help"
+            />
+            <p id="pf-slug-help" className="text-sm text-muted-foreground">
+              /urun/{fields.web_slug || deriveProductWebSlug(fields.display_name)}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

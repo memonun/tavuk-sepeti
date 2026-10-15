@@ -48,6 +48,7 @@ function purchases(win: Record<string, unknown>): unknown[][] {
 const EGGS: Product = {
   key: "eggs",
   display_name: "Yumurta",
+  web_slug: null,
   unit: "package",
   unit_label: "paket",
   package_size: 15,

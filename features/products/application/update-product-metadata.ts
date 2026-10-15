@@ -17,9 +17,6 @@ import { err, ok, type Result } from "@/shared/result";
 export async function updateProductMetadataAction(
   raw: unknown,
 ): Promise<Result<void, AppError>> {
-  const auth = await assertAdmin();
-  if (!auth.ok) return err(auth.error);
-
   const parsed = updateProductMetadataSchema.safeParse(raw);
   if (!parsed.success) {
     return err(
@@ -29,6 +26,9 @@ export async function updateProductMetadataAction(
       }),
     );
   }
+
+  const auth = await assertAdmin();
+  if (!auth.ok) return err(auth.error);
 
   const { product_key, ...metadata } = parsed.data;
 
@@ -42,6 +42,7 @@ export async function updateProductMetadataAction(
     entity_id: product_key,
     after: {
       display_name: metadata.display_name,
+      web_slug: metadata.web_slug,
       unit: metadata.unit,
       unit_label: metadata.unit_label,
       package_size: metadata.package_size,
@@ -52,5 +53,7 @@ export async function updateProductMetadataAction(
 
   revalidatePath("/products");
   revalidatePath("/orders/new");
+  revalidatePath("/urun/[slug]", "page");
+  revalidatePath("/sitemap.xml");
   return ok(undefined);
 }

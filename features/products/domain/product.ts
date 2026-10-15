@@ -20,6 +20,8 @@ export type FulfillmentType = "delivery" | "shipping";
 export interface Product {
   readonly key: string;
   readonly display_name: string;
+  /** Editable public URL, independent of the permanent product key. */
+  readonly web_slug: string | null;
   readonly unit: ProductUnit;
   readonly unit_label: string;
   readonly package_size: number;

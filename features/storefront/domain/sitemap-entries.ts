@@ -40,12 +40,17 @@ function entry(
   };
 }
 
-export function buildStorefrontSitemapEntries(): StorefrontSitemapEntry[] {
+/** Products are supplied by the filtered storefront catalog. */
+export function buildStorefrontSitemapEntries(
+  products: readonly { readonly web_slug: string | null }[] = [],
+): StorefrontSitemapEntry[] {
   return [
     // The shop itself: prices and stock change daily.
     entry("/", "daily", 1),
     entry("/duzenli-siparis", "monthly", 0.6),
     entry("/siparis-sorgula", "yearly", 0.3),
     ...LEGAL_DOCS.map((doc) => entry(`/${doc.slug}`, "yearly", 0.2, doc.updated)),
+    ...[...new Set(products.flatMap((product) => product.web_slug ? [product.web_slug] : []))]
+      .map((slug) => entry(`/urun/${slug}`, "daily", 0.8)),
   ];
 }

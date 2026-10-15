@@ -72,6 +72,9 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    // The existing local Storage pattern also needs Next 16's private-IP
+    // opt-in during development. Production keeps the default protection.
+    dangerouslyAllowLocalIP: process.env.NODE_ENV === "development",
     remotePatterns: [
       // Product cover images served from the public Supabase Storage bucket.
       {

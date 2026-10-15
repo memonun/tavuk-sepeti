@@ -11,6 +11,7 @@
  * permanent contract minted server-side (see ./product-key) and never edited.
  */
 import { z } from "zod";
+import { deriveProductWebSlug } from "@/features/products/domain/product-web-slug";
 
 import type { FulfillmentType, ProductUnit } from "@/features/products/domain/product";
 
@@ -52,8 +53,15 @@ const nullableText = (max: number, message: string) =>
     .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
+export const productWebSlugSchema = z.string()
+  .min(1, "Web adresi gerekli.")
+  .max(80, "Web adresi en fazla 80 karakter olabilir.")
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Yalnızca küçük harf, rakam ve kelimeler arasında tire kullanın.");
+
 /** The editable content fields of a product (everything except key + price). */
 export const productMetadataSchema = z.object({
+  // Optional for existing callers; omission preserves the stored URL on edit.
+  web_slug: productWebSlugSchema.optional(),
   display_name: z
     .string()
     .trim()
@@ -86,7 +94,10 @@ export const createProductSchema = productMetadataSchema.extend({
     .number()
     .nonnegative("Birim fiyat negatif olamaz.")
     .default(0),
-});
+}).transform((data) => ({
+  ...data,
+  web_slug: data.web_slug ?? deriveProductWebSlug(data.display_name),
+}));
 
 export type CreateProductInput = z.input<typeof createProductSchema>;
 

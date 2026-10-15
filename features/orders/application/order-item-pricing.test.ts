@@ -11,6 +11,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
   return {
     key: "cheese",
     display_name: "Peynir",
+    web_slug: null,
     unit: "kilogram",
     unit_label: "kg",
     package_size: 1,
