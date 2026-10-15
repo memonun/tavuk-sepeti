@@ -21,10 +21,11 @@ import {
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
+import { CargoOrderCard } from "@/features/cargo/ui/cargo-order-card";
 import {
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUS_VARIANT,
-} from "@/features/cargo/ui/cargo-order-table";
+} from "@/features/cargo/ui/cargo-payment-status";
 
 import type { OrderListItem } from "@/features/orders/application/list-orders";
 
@@ -56,7 +57,25 @@ export function CargoShippedOrderTable({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border overflow-x-auto">
+      {/* Phone: one card per order (see cargo-order-card.tsx). */}
+      <ul className="flex flex-col gap-2.5 md:hidden">
+        {orders.map((order) => (
+          <CargoOrderCard
+            key={order.id}
+            order={order}
+            actions={
+              <Link
+                href={`/orders/${order.id}`}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                Detay
+              </Link>
+            }
+          />
+        ))}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -113,7 +132,7 @@ export function CargoShippedOrderTable({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
         <p>
           {from}-{to} / toplam {total}
         </p>

@@ -2,6 +2,7 @@ import type { Viewport } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 
+import { AdminOfflineSupport } from "@/app/(admin)/_components/admin-offline-support";
 import { AdminSidebar } from "@/app/(admin)/_components/admin-sidebar";
 import { AdminTabBar } from "@/app/(admin)/_components/admin-tab-bar";
 import { assertAdmin } from "@/features/auth/application/assert-admin";
@@ -47,12 +48,17 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const result = await assertAdmin();
+  // Both start at once: the feed is an RLS-gated read (a non-admin gets an
+  // empty list and is redirected below anyway), so it need not wait for the
+  // admin check — one round trip saved on every page load.
+  const [result, notificationFeed] = await Promise.all([
+    assertAdmin(),
+    getNotificationFeed(),
+  ]);
   if (!result.ok) {
     redirect(result.error.code === ErrorCode.UNAUTHORIZED ? "/login" : "/");
   }
   const user = result.value;
-  const notificationFeed = await getNotificationFeed();
 
   return (
     <SidebarProvider className="admin-theme">
@@ -90,6 +96,7 @@ export default async function AdminLayout({
       <AdminTabBar userEmail={user.email} />
       <Toaster mobileOffset={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }} />
       <ReminderDueTicker />
+      <AdminOfflineSupport />
     </SidebarProvider>
   );
 }

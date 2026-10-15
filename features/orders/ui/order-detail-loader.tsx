@@ -2,17 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import { getCustomerProductPricesAction } from "@/features/customers/application/customer-price-actions";
-import { getOrderByIdAction } from "@/features/orders/application/get-order-action";
-import { listOrderEventsAction } from "@/features/orders/application/get-order-events-action";
-import { getOrderGiftsAction } from "@/features/orders/application/get-order-gifts-action";
-import { getOrderPaymentsAction } from "@/features/orders/application/payments";
+import { getOrderDetailAction } from "@/features/orders/application/get-order-detail-action";
 import { OrderDetailPanel } from "@/features/orders/ui/order-detail-panel";
 
+import type { OrderDetail } from "@/features/orders/application/get-order-detail-action";
 import type { Product } from "@/features/products/application/list-products";
-import type { Order, OrderStatusEvent } from "@/features/orders/domain/order";
-import type { OrderGiftItem } from "@/features/orders/domain/order-gift";
-import type { OrderPayment } from "@/features/orders/domain/payment";
 
 interface OrderDetailLoaderProps {
   readonly id: string;
@@ -24,23 +18,16 @@ interface OrderDetailLoaderProps {
  *  fetch (or a freshly-changed id) is ignored when rendering. */
 type LoadState =
   | { kind: "loading"; id: string }
-  | {
-      kind: "ok";
-      id: string;
-      order: Order;
-      events: OrderStatusEvent[];
-      payments: OrderPayment[];
-      gifts: OrderGiftItem[];
-      /** The customer's saved special prices — the edit form pre-fills its
-       *  "Özel fiyat" fields from these. */
-      customerPrices: Record<string, number>;
-    }
+  | { kind: "ok"; id: string; detail: OrderDetail }
   | { kind: "error"; id: string; message: string };
 
 /**
- * Client loader for the grid's detail Sheet: fetches a single order + its
- * status events in parallel via Server Actions when the Sheet opens, then
- * renders the shared <OrderDetailPanel>. Shows loading + error states inline.
+ * Client loader for the grid's detail Sheet: fetches the order, its status
+ * events, payments, gifts and the customer's special prices in ONE Server
+ * Action when the Sheet opens (see get-order-detail-action.ts — Next runs a
+ * client's actions one at a time, so separate calls were sequential round
+ * trips), then renders the shared <OrderDetailPanel>. Shows loading + error
+ * states inline.
  *
  * State carries its `id` so we never need a synchronous reset-to-loading
  * setState inside the effect — the render simply treats a state whose id
@@ -60,36 +47,11 @@ export function OrderDetailLoader({
 
   useEffect(() => {
     let active = true;
-    void (async () => {
-      const [orderResult, eventsResult, payments, giftsResult] = await Promise.all([
-        getOrderByIdAction(id),
-        listOrderEventsAction(id),
-        getOrderPaymentsAction(id),
-        getOrderGiftsAction(id),
-      ]);
+    void getOrderDetailAction(id).then((result) => {
       if (!active) return;
-      if (!orderResult.ok) {
-        setState({ kind: "error", id, message: orderResult.error.message });
-        return;
-      }
-      // Needs the order's customer, hence the second round. Without this the
-      // edit form opens with EVERY special-price field blank, and saving then
-      // re-prices the order at catalog prices and deletes the customer's saved
-      // special prices (a cleared field means "remove" on the edit path).
-      const customerPrices = await getCustomerProductPricesAction(orderResult.value.customer_id);
-      if (!active) return;
-      // Events/gifts failing isn't fatal — render the panel with an empty
-      // timeline / gift list rather than blocking the whole Sheet.
-      setState({
-        kind: "ok",
-        id,
-        order: orderResult.value,
-        events: eventsResult.ok ? eventsResult.value : [],
-        payments,
-        gifts: giftsResult.ok ? giftsResult.value : [],
-        customerPrices,
-      });
-    })();
+      if (result.ok) setState({ kind: "ok", id, detail: result.value });
+      else setState({ kind: "error", id, message: result.error.message });
+    });
     return () => {
       active = false;
     };
@@ -104,13 +66,13 @@ export function OrderDetailLoader({
 
   return (
     <OrderDetailPanel
-      order={state.order}
+      order={state.detail.order}
       products={products}
       customerName={customerName}
-      events={state.events}
-      payments={state.payments}
-      gifts={state.gifts}
-      customerPrices={state.customerPrices}
+      events={state.detail.events}
+      payments={state.detail.payments}
+      gifts={state.detail.gifts}
+      customerPrices={state.detail.customerPrices}
       onMutated={() => setReloadKey((k) => k + 1)}
     />
   );

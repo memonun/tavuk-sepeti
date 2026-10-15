@@ -352,7 +352,10 @@ function ViewTab({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-5 w-5 p-0 opacity-0 transition-opacity group-hover:opacity-100 data-[popup-open]:opacity-100"
+                // Hover-revealed with a mouse; on a touch screen there is no
+                // hover, so it is always shown, and an invisible ::after
+                // grows the 20px target to ~44px without moving the tab row.
+                className="relative h-5 w-5 p-0 opacity-0 transition-opacity group-hover:opacity-100 data-[popup-open]:opacity-100 [@media(pointer:coarse)]:opacity-100 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-3 [@media(pointer:coarse)]:after:content-['']"
                 aria-label="Görünüm menüsü"
               />
             }

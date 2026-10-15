@@ -7,7 +7,6 @@
  * `status`, and the "Kargolandı" button (order-status-actions.tsx) never
  * requires these to be filled in first.
  */
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -29,7 +28,6 @@ export function OrderCargoInfoForm({
   cargoTrackingNumber,
   cargoTrackingUrl,
 }: OrderCargoInfoFormProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [carrier, setCarrier] = useState(cargoCarrier ?? "");
   const [trackingNumber, setTrackingNumber] = useState(cargoTrackingNumber ?? "");
@@ -48,7 +46,6 @@ export function OrderCargoInfoForm({
         return;
       }
       toast.success("Kargo bilgisi kaydedildi.");
-      router.refresh();
     });
   };
 

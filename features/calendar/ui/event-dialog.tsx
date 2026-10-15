@@ -8,7 +8,6 @@
  */
 import { Loader2, Trash2 } from "lucide-react";
 import { type ReactNode, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -194,7 +193,6 @@ function EventDialogBody({
   calendars: readonly Calendar[];
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [fields, setFields] = useState<FieldsState>(() =>
     initialFields(target, calendars[0]?.id ?? ""),
   );
@@ -220,7 +218,6 @@ function EventDialogBody({
   const done = (message: string) => {
     toast.success(message);
     onClose();
-    router.refresh();
   };
 
   const submit = () => {

@@ -7,7 +7,6 @@
  */
 import { Loader2 } from "lucide-react";
 import { type ReactElement, type ReactNode, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -100,7 +99,6 @@ export function ExpenseFormDialog({
   categories: readonly ExpenseCategoryNode[];
   trigger: ReactNode;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState<FieldsState>(() => initialFields(expense));
   const [saving, startSaving] = useTransition();
@@ -155,7 +153,6 @@ export function ExpenseFormDialog({
       if (result.ok) {
         toast.success(mode === "create" ? "Gider eklendi." : "Gider güncellendi.");
         setOpen(false);
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }

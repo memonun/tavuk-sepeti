@@ -53,6 +53,12 @@ export async function proxy(request: NextRequest) {
   if (!userId && isAdminPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = LOGIN_PATH;
+    // Send the admin back where they were after signing in (the login form
+    // forwards `next`; sign-in only follows same-site paths).
+    url.search = "";
+    if (pathname !== ADMIN_HOME) {
+      url.searchParams.set("next", pathname + request.nextUrl.search);
+    }
     return withRefreshedCookies(NextResponse.redirect(url), response);
   }
 

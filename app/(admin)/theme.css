@@ -134,6 +134,17 @@
   -webkit-text-size-adjust: 100%;
 }
 
+/* No pull-to-refresh: in the Android app a downward swipe at the top of a list
+   reloaded the whole page mid-task (and threw away a half-filled form). Fresh
+   data still comes from the live-updating lists or tapping the section's tab
+   again (a dynamic page re-fetches on navigation). `contain` keeps the overscroll
+   glow; on both elements because browsers differ in which one drives the page
+   scroll. */
+:root:has(.admin-theme),
+:root:has(.admin-theme) body {
+  overscroll-behavior-y: contain;
+}
+
 /*
  * Fingers, not a mouse. On a touch screen every ordinary control grows to a
  * 44px target and form text to 16px, in one place, instead of re-sizing each

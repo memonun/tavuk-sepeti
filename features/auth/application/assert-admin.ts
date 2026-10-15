@@ -15,6 +15,8 @@
  */
 import "server-only";
 
+import { cache } from "react";
+
 import {
   ForbiddenError,
   UnauthorizedError,
@@ -26,7 +28,14 @@ import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 import type { SessionUser } from "@/features/auth/application/get-session";
 
-export async function assertAdmin(): Promise<Result<SessionUser, AppError>> {
+/**
+ * Memoised per request (React `cache`): the admin layout, the page and the
+ * data actions it calls during render all ask, and each un-cached call was two
+ * more round trips to Supabase (getUser + is_admin). Outside a render (a Server
+ * Action's own request, the MCP route) `cache` does not memoise across
+ * requests, so every request is still checked.
+ */
+export const assertAdmin = cache(async (): Promise<Result<SessionUser, AppError>> => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -57,4 +66,4 @@ export async function assertAdmin(): Promise<Result<SessionUser, AppError>> {
   }
 
   return ok({ id: user.id, email: user.email ?? null });
-}
+});

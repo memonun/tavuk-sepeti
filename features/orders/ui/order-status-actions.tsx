@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckCircle2, Package, Truck, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { transitionOrderAction } from "@/features/orders/application/transition-order";
@@ -13,14 +12,17 @@ interface OrderStatusActionsProps {
   orderId: string;
   currentStatus: OrderStatus;
   fulfillmentChannel: FulfillmentChannel;
+  /** Sheet loaders pass this to refetch after a status change (the Sheet's
+   *  data is fetched client-side, so the page re-render can't update it). */
+  onChanged?: () => void;
 }
 
 export function OrderStatusActions({
   orderId,
   currentStatus,
   fulfillmentChannel,
+  onChanged,
 }: OrderStatusActionsProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [cancelMode, setCancelMode] = useState(false);
@@ -40,7 +42,9 @@ export function OrderStatusActions({
       if (result.status === "success") {
         setCancelMode(false);
         setCancelReason("");
-        router.refresh();
+        // The page behind re-renders from the action's revalidatePath; the
+        // Sheet refetches its own copy.
+        onChanged?.();
         return;
       }
       if (result.status === "error") {

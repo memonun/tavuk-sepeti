@@ -11,10 +11,10 @@
  *
  * The local `order` state is seeded from the prop and replaced on a successful
  * save so the panel reflects the fresh aggregate (server-recomputed totals)
- * without a full reload; `router.refresh()` updates the grid behind it.
+ * without a full reload; the save action's revalidatePath re-renders the
+ * grid / page behind it in the same response.
  */
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Fragment, useMemo, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +67,8 @@ interface OrderDetailPanelProps {
   readonly payments: OrderPayment[];
   readonly gifts: OrderGiftItem[];
   /** Sheet loaders pass this to refetch after a child mutation (no full
-   *  reload); on the full page it's omitted and router.refresh() is used. */
+   *  reload); on the full page it's omitted and router.refresh() is used
+   *  (see order-payments.tsx). */
   readonly onMutated?: () => void;
 }
 
@@ -129,8 +130,17 @@ export function OrderDetailPanel({
   gifts,
   onMutated,
 }: OrderDetailPanelProps) {
-  const router = useRouter();
   const [order, setOrder] = useState<Order>(initialOrder);
+  // Render-phase sync (React's documented pattern, same as notification-bell):
+  // when the server sends a newer copy of the order — the page re-rendering
+  // after a status change, or the Sheet refetching — show it. Seeding state
+  // from the prop alone kept the badge and the "Onayla" button stale after a
+  // status change until a full reload.
+  const [seenInitialOrder, setSeenInitialOrder] = useState(initialOrder);
+  if (seenInitialOrder !== initialOrder) {
+    setSeenInitialOrder(initialOrder);
+    setOrder(initialOrder);
+  }
 
   const editable = order.status === "pending" || order.status === "confirmed";
 
@@ -205,6 +215,7 @@ export function OrderDetailPanel({
           orderId={order.id}
           currentStatus={order.status}
           fulfillmentChannel={order.fulfillment_channel}
+          {...(onMutated ? { onChanged: onMutated } : {})}
         />
       </section>
 
@@ -218,7 +229,6 @@ export function OrderDetailPanel({
           customerPrices={customerPrices}
           onSaved={(fresh) => {
             setOrder(fresh);
-            router.refresh();
           }}
         />
       ) : (

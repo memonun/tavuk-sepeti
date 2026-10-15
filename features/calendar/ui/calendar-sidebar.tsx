@@ -8,7 +8,6 @@
 import { ChevronLeft, ChevronRight, Check, ListChecks, Pencil, Plus, Truck } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -150,7 +149,6 @@ export function CalendarSidebar({
   prefs: CalendarPrefs;
   onPrefsChange: (next: CalendarPrefs) => void;
 }) {
-  const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Calendar | null>(null);
 
@@ -238,7 +236,6 @@ export function CalendarSidebar({
             toast.error(result.error.message);
             return false;
           }
-          router.refresh();
           return true;
         }}
       />
@@ -256,7 +253,6 @@ export function CalendarSidebar({
             toast.error(result.error.message);
             return false;
           }
-          router.refresh();
           return true;
         }}
         onDelete={async () => {
@@ -267,7 +263,6 @@ export function CalendarSidebar({
             return false;
           }
           toast.success("Takvim silindi.");
-          router.refresh();
           return true;
         }}
       />

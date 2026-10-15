@@ -6,7 +6,6 @@
  *  template with history should use Durdur instead (spec §16). */
 import { Loader2, Pause, Pencil, Play, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -33,7 +32,6 @@ export function RecurringExpenseTemplateRowActions({
   template: RecurringExpenseTemplate;
   categories: readonly ExpenseCategoryNode[];
 }) {
-  const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startPending] = useTransition();
 
@@ -45,7 +43,6 @@ export function RecurringExpenseTemplateRowActions({
       });
       if (result.ok) {
         toast.success(template.active ? "Rutin gider durduruldu." : "Rutin gidere devam ediliyor.");
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }
@@ -58,7 +55,6 @@ export function RecurringExpenseTemplateRowActions({
       if (result.ok) {
         toast.success("Rutin gider silindi.");
         setDeleteOpen(false);
-        router.refresh();
       } else {
         // CONFLICT — template has generated expenses. Message already
         // points at Durdur; no need to duplicate it in a second toast.

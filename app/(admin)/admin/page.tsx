@@ -13,15 +13,14 @@ import { formatLongDate, todayInIstanbul } from "@/shared/utils/date";
 export default async function DashboardHome() {
   // Lazy materialization, same as the Finans pages (no cron — spec §14): this
   // is the landing page, so this month's rutin giderler are generated the
-  // first time anyone opens the panel in a new month. Must finish BEFORE the
-  // overview is read, so it isn't part of the Promise.all below.
+  // first time anyone opens the panel in a new month. It must finish BEFORE
+  // the recurring-expense overview is read, so the two are chained — but the
+  // order and customer counts don't touch expenses and start alongside.
   const today = todayInIstanbul();
-  await materializeDueRecurringExpenses(today);
-
   const [orderStats, activeCustomers, recurringOverview] = await Promise.all([
     getDashboardOrderStats(),
     countActiveCustomers(),
-    getRecurringExpenseOverview(today),
+    materializeDueRecurringExpenses(today).then(() => getRecurringExpenseOverview(today)),
   ]);
 
   // Each tile opens the screen where that work is done.

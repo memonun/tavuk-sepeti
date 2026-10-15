@@ -22,13 +22,20 @@ export function ReminderDueTicker() {
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    /** When the pending timer is meant to fire (epoch ms). */
+    let nextRunAt = 0;
 
     const schedule = (delayMs: number) => {
       if (timer) clearTimeout(timer);
+      nextRunAt = Date.now() + delayMs;
       timer = setTimeout(run, delayMs);
     };
 
     const run = async () => {
+      // Claim the slot up front so a visibility event mid-request doesn't
+      // start a second check — unless this one has hung for a full interval
+      // (dropped connection), in which case a fresh check is due anyway.
+      nextRunAt = Date.now() + SAFETY_INTERVAL_MS;
       let delay = SAFETY_INTERVAL_MS;
       try {
         const result = await checkDueRemindersAction();
@@ -42,9 +49,14 @@ export function ReminderDueTicker() {
       if (!cancelled) schedule(delay);
     };
 
-    // A backgrounded tab throttles timers; catch up the moment it is looked at.
+    // A backgrounded tab throttles timers; catch up the moment it is looked at
+    // — but only if the timer is actually overdue. In the Android app every
+    // switch back to the panel is a visibility change, and checking each time
+    // cost a server round trip for nothing.
     const onVisible = () => {
-      if (document.visibilityState === "visible") schedule(0);
+      if (document.visibilityState === "visible" && Date.now() >= nextRunAt) {
+        schedule(0);
+      }
     };
 
     schedule(0);

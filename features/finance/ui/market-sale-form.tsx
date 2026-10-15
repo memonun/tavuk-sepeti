@@ -23,7 +23,6 @@
  */
 import { Loader2 } from "lucide-react";
 import { type ReactElement, type ReactNode, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { MANUAL_PAYMENT_METHOD_LABELS, type ManualPaymentMethod } from "@/features/finance/domain/expense";
@@ -171,7 +170,6 @@ function MarketSaleFormBody({
   products: MarketProductOption[];
   onDone: () => void;
 }) {
-  const router = useRouter();
   const [fields, setFields] = useState<FieldsState>(() => initialFields(sale, locations[0]?.id));
   const [localLocations, setLocalLocations] = useState(locations);
   const [newLocationName, setNewLocationName] = useState("");
@@ -287,7 +285,6 @@ function MarketSaleFormBody({
       if (result.ok) {
         toast.success(mode === "create" ? "Pazar satışı eklendi." : "Pazar satışı güncellendi.");
         onDone();
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }

@@ -7,7 +7,6 @@
  *  dropdown menu item is a known-fragile combination best avoided). */
 import { CircleCheck, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { deleteExpenseAction, markExpensePaidAction } from "@/features/finance/application/expense-actions";
@@ -33,7 +32,6 @@ export function ExpenseRowActions({
   categories: readonly ExpenseCategoryNode[];
   categoryLabel: string;
 }) {
-  const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startPending] = useTransition();
 
@@ -42,7 +40,6 @@ export function ExpenseRowActions({
       const result = await markExpensePaidAction({ id: expense.id });
       if (result.ok) {
         toast.success("Gider ödendi olarak işaretlendi.");
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }
@@ -55,7 +52,6 @@ export function ExpenseRowActions({
       if (result.ok) {
         toast.success("Gider silindi.");
         setDeleteOpen(false);
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }

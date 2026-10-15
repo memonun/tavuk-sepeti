@@ -10,6 +10,7 @@
  * sits to the left of the filter builder in the toolbar row.
  */
 import { ChevronLeft, ChevronRight, Maximize2, Search, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -26,7 +27,6 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { OrderCardList } from "@/features/orders/ui/order-card-list";
-import { OrderDetailLoader } from "@/features/orders/ui/order-detail-loader";
 import { FilterBuilder } from "@/components/data-grid/filters/filter-builder";
 import {
   serializeFiltersToQueryParam,
@@ -51,6 +51,14 @@ import type { OrderListItem } from "@/features/orders/domain/order";
 import type { Product } from "@/features/products/application/list-products";
 import type { AppError } from "@/shared/errors/app-error";
 import type { Result } from "@/shared/result";
+
+// The detail Sheet's panel (order edit form, payments, gifts, timeline) loads
+// on the first row tap, not with the list — most visits to /orders never open
+// it. Same "Yükleniyor…" as the loader's own fetch state.
+const OrderDetailLoader = dynamic(
+  () => import("@/features/orders/ui/order-detail-loader").then((m) => m.OrderDetailLoader),
+  { loading: () => <p className="p-4 text-sm text-muted-foreground">Yükleniyor…</p> },
+);
 
 /** Columns the filter builder offers, with their filter `kind` (drives the
  *  operators + value editor). Keep in sync with the FILTERABLE_COLUMNS
