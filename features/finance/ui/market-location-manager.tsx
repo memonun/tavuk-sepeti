@@ -10,7 +10,6 @@
  * convention).
  */
 import { Loader2, MapPin, Settings2, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -39,7 +38,6 @@ export function MarketLocationManager({
 }: {
   locations: readonly MarketLocation[];
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -53,7 +51,6 @@ export function MarketLocationManager({
       if (result.ok) {
         toast.success(`${result.value.name} eklendi.`);
         setNewName("");
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }
@@ -67,7 +64,7 @@ export function MarketLocationManager({
         active: !location.active,
       });
       if (result.ok) {
-        router.refresh();
+        // The action's revalidatePath re-renders this page in its own response.
       } else {
         toast.error(result.error.message);
       }
@@ -80,7 +77,6 @@ export function MarketLocationManager({
       if (result.ok) {
         toast.success("Lokasyon silindi.");
         setConfirmDeleteId(null);
-        router.refresh();
       } else {
         // CONFLICT — location has recorded sales. Message already explains
         // "pasife alabilirsiniz"; no need to duplicate it in a second toast.

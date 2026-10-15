@@ -8,7 +8,6 @@
  */
 import { Loader2 } from "lucide-react";
 import { type ReactElement, type ReactNode, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { createProductAction } from "@/features/products/application/create-product";
@@ -87,7 +86,6 @@ export function ProductFormDialog({
   product?: Product;
   trigger: ReactNode;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [fields, setFields] = useState<FieldsState>(() =>
     initialFields(product),
@@ -141,7 +139,6 @@ export function ProductFormDialog({
         if (result.ok) {
           toast.success(`${fields.display_name} eklendi.`);
           setOpen(false);
-          router.refresh();
         } else {
           toast.error(result.error.message);
         }
@@ -155,7 +152,6 @@ export function ProductFormDialog({
       if (result.ok) {
         toast.success(`${fields.display_name} güncellendi.`);
         setOpen(false);
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }

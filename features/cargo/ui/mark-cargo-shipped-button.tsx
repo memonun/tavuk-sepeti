@@ -4,7 +4,6 @@
  *  transitionOrderAction the order detail panel's OrderStatusActions calls,
  *  so the state-machine/audit-log rules stay in one place. */
 import { Loader2, Package } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
@@ -12,15 +11,15 @@ import { transitionOrderAction } from "@/features/orders/application/transition-
 import { Button } from "@/components/ui/button";
 
 export function MarkCargoShippedButton({ orderId }: { orderId: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const markShipped = () => {
     startTransition(async () => {
       const result = await transitionOrderAction({ order_id: orderId, to_status: "shipped" });
       if (result.status === "success") {
+        // No router.refresh(): the action's revalidatePath already sends the
+        // re-rendered page back with its response; a refresh rendered it twice.
         toast.success("Kargolandı olarak işaretlendi.");
-        router.refresh();
       } else if (result.status === "error") {
         toast.error(result.message);
       }

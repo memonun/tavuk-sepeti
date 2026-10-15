@@ -23,7 +23,6 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -204,7 +203,6 @@ function DetailChip({ label, value }: { label: string; value: string }) {
 }
 
 function ProductCard({ product }: { product: Product }) {
-  const router = useRouter();
   const [toggling, startToggling] = useTransition();
   const [deleting, startDeleting] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -219,7 +217,7 @@ function ProductCard({ product }: { product: Product }) {
         ...patch,
       });
       if (result.ok) {
-        router.refresh();
+        // The action's revalidatePath re-renders this page in its own response.
       } else {
         toast.error(result.error.message);
       }
@@ -233,7 +231,7 @@ function ProductCard({ product }: { product: Product }) {
         sort_order: value,
       });
       if (result.ok) {
-        router.refresh();
+        // The action's revalidatePath re-renders this page in its own response.
       } else {
         toast.error(result.error.message);
       }
@@ -252,7 +250,6 @@ function ProductCard({ product }: { product: Product }) {
             ? `${product.display_name} geri yüklendi.`
             : `${product.display_name} arşivlendi.`,
         );
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }
@@ -265,7 +262,6 @@ function ProductCard({ product }: { product: Product }) {
       if (result.ok) {
         toast.success(`${product.display_name} silindi.`);
         setDeleteOpen(false);
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }

@@ -10,7 +10,6 @@
  */
 import { ImagePlusIcon, Loader2Icon, Trash2Icon } from "lucide-react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -34,7 +33,6 @@ export function ProductImageDropzone({
   imageAlt: string | null;
   displayName: string;
 }) {
-  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [busy, startBusy] = useTransition();
@@ -62,7 +60,6 @@ export function ProductImageDropzone({
       const result = await uploadProductImageAction(form);
       if (result.ok) {
         toast.success(`${displayName} görseli güncellendi.`);
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }
@@ -81,7 +78,6 @@ export function ProductImageDropzone({
       const result = await removeProductImageAction({ product_key: productKey });
       if (result.ok) {
         toast.success("Görsel kaldırıldı.");
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }

@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { getCustomerByIdAction } from "@/features/customers/application/get-customer-action";
+import { getCustomerDetailAction } from "@/features/customers/application/get-customer-detail-action";
 import { CustomerDetailPanel } from "@/features/customers/ui/customer-detail-panel";
-import { listCustomerOrdersAction } from "@/features/orders/application/list-customer-orders";
 import { formatTRY } from "@/shared/utils/money";
 
-import type { Customer } from "@/features/customers/domain/customer";
+import type { CustomerDetail } from "@/features/customers/application/get-customer-detail-action";
 import type { CustomerOrdersResult } from "@/features/orders/application/list-customer-orders";
 import type { OrderListItem } from "@/features/orders/application/list-orders";
 
@@ -24,13 +23,15 @@ interface CustomerDetailLoaderProps {
  *  fetch (or a freshly-changed id) is ignored when rendering. */
 type LoadState =
   | { kind: "loading"; id: string }
-  | { kind: "ok"; id: string; customer: Customer }
+  | { kind: "ok"; id: string; detail: CustomerDetail }
   | { kind: "error"; id: string; message: string };
 
 /**
- * Client loader for the grid's detail Sheet: fetches a single customer via
- * the Server Action when the Sheet opens, then renders the shared
- * <CustomerDetailPanel>. Shows loading + error states inline.
+ * Client loader for the grid's detail Sheet: fetches the customer AND their
+ * orders in one Server Action when the Sheet opens (see
+ * get-customer-detail-action.ts — the orders used to be a second round trip
+ * after the first render), then renders the shared <CustomerDetailPanel>.
+ * Shows loading + error states inline.
  *
  * State carries its `id` so we never need a synchronous reset-to-loading
  * setState inside the effect — the render simply treats a state whose id
@@ -45,10 +46,9 @@ export function CustomerDetailLoader({
 
   useEffect(() => {
     let active = true;
-    void getCustomerByIdAction(id).then((result) => {
+    void getCustomerDetailAction(id).then((result) => {
       if (!active) return;
-      if (result.ok)
-        setState({ kind: "ok", id, customer: result.value });
+      if (result.ok) setState({ kind: "ok", id, detail: result.value });
       else setState({ kind: "error", id, message: result.error.message });
     });
     return () => {
@@ -64,9 +64,14 @@ export function CustomerDetailLoader({
     return <p className="p-4 text-sm text-destructive">{state.message}</p>;
   return (
     <CustomerDetailPanel
-      customer={state.customer}
+      customer={state.detail.customer}
       mapsKey={mapsKey}
-      ordersSlot={<SheetCustomerOrders customerId={state.customer.id} />}
+      ordersSlot={
+        <SheetCustomerOrders
+          customerId={state.detail.customer.id}
+          result={state.detail.orders}
+        />
+      }
       {...(onDeleted ? { onDeleted } : {})}
     />
   );
@@ -79,26 +84,16 @@ export function CustomerDetailLoader({
  * only the action + the OrderListItem type from orders/application (the public
  * cross-feature surface). Keep the two in sync if the markup changes.
  */
-function SheetCustomerOrders({ customerId }: { customerId: string }) {
-  const [result, setResult] = useState<CustomerOrdersResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void listCustomerOrdersAction(customerId).then((r) => {
-      if (!active) return;
-      if (r.ok) setResult(r.value);
-      else setError(r.error.message);
-    });
-    return () => {
-      active = false;
-    };
-  }, [customerId]);
-
-  if (error)
-    return <p className="text-sm text-destructive">Siparişler yüklenemedi.</p>;
+function SheetCustomerOrders({
+  customerId,
+  result,
+}: {
+  customerId: string;
+  /** null = the orders read failed (fetched together with the customer). */
+  result: CustomerOrdersResult | null;
+}) {
   if (!result)
-    return <p className="text-sm text-muted-foreground">Yükleniyor…</p>;
+    return <p className="text-sm text-destructive">Siparişler yüklenemedi.</p>;
 
   const { items, total } = result;
 

@@ -9,10 +9,10 @@
  * eslint.config.mjs) — shared across admin routes from here.
  */
 import { UserPlus } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { CustomerForm } from "@/features/customers/ui/customer-form";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -21,6 +21,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+
+// Loaded on first open, not with the page: the form brings the Google Maps
+// client and the address pickers, which every page showing this button
+// (/orders, /orders/new) used to download up front for a sheet most visits
+// never open.
+const CustomerForm = dynamic(
+  () => import("@/features/customers/ui/customer-form").then((m) => m.CustomerForm),
+  { loading: () => <p className="text-sm text-muted-foreground">Yükleniyor…</p> },
+);
 
 interface NewCustomerActionProps {
   mapsBrowserKey: string;

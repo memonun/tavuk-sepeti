@@ -2,7 +2,6 @@
 
 import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -32,7 +31,6 @@ export function MarketSaleRowActions({
   locations: MarketLocation[];
   products: MarketProductOption[];
 }) {
-  const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [detail, setDetail] = useState<MarketSale | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -56,7 +54,6 @@ export function MarketSaleRowActions({
       if (result.ok) {
         toast.success("Pazar satışı silindi.");
         setDeleteOpen(false);
-        router.refresh();
       } else {
         toast.error(result.error.message);
       }

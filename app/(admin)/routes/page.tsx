@@ -152,15 +152,14 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
       ? ({ kind: "location", lat: destLat, lng: destLng, name: destName ?? "Varış" } as const)
       : undefined;
 
-  // Lazy materialization: generate any due recurring orders before fetching.
-  // Never throws — failures are logged internally and the route page continues.
-  await materializeDueRecurring(date);
-
-  // Always fetch the day's orders + saved locations for the list/header/picker.
+  // Lazy materialization: generate any due recurring orders before fetching
+  // the day's orders (it creates them). Never throws — failures are logged
+  // internally and the route page continues. Saved locations don't depend on
+  // it, so they load alongside instead of waiting.
   // If the user has clicked Optimize AND chosen an origin, run that too —
   // separate fetches keep the UI robust when Google fails.
   const [ordersResult, savedLocationsResult] = await Promise.all([
-    getDayOrders(date),
+    materializeDueRecurring(date).then(() => getDayOrders(date)),
     listSavedLocations(),
   ]);
   if (!ordersResult.ok) {
@@ -173,19 +172,19 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
   const dayOrders = ordersResult.value;
   const savedLocations = savedLocationsResult.ok ? savedLocationsResult.value : [];
 
-  // Load manifest is available straight away (no optimize needed) — it only
-  // needs the day's orders + their items.
-  const manifest = await buildDayLoadManifest(dayOrders);
-
   // Already-delivered orders, so the stop list shows their delivered state
   // (not an active "Teslim Edildi" action) — matching the manifest's counts.
   const deliveredOrderIds = new Set(
     dayOrders.filter((o) => o.status === "delivered").map((o) => o.order_id),
   );
 
-  const routeResult =
+  // The load manifest (always shown — it only needs the day's orders + their
+  // items) and the optimized route (only after Optimize) are independent, so
+  // they run together rather than one after the other.
+  const [manifest, routeResult] = await Promise.all([
+    buildDayLoadManifest(dayOrders),
     wantsOptimize && origin && dayOrders.length > 0
-      ? await getDayRoute(date, {
+      ? getDayRoute(date, {
           startTimeIso,
           origin,
           ...(destination ? { destination } : {}),
@@ -195,7 +194,8 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
           // only on an explicit Optimize click, never on a passive refresh.
           excludeOrderIds: Array.from(deliveredOrderIds),
         })
-      : null;
+      : null,
+  ]);
   const optimized = routeResult?.ok ? routeResult.value : null;
   // DirectionsApiError's message is a fixed customer-safe string ("Rota
   // servisine ulaşılamadı") on purpose — the real cause (Google's status code
