@@ -5,6 +5,7 @@ import RecipePage, {
 } from "@/app/(shop)/tarifler/[slug]/page";
 import sitemap from "@/app/sitemap";
 import { RECIPES } from "@/features/content/domain/recipes";
+import { TRUST_PAGES_PUBLISHED } from "@/features/content/application/trust-pages-visibility";
 import { getRecipeProducts } from "@/features/content/application/get-recipe-products";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { ExternalApiError } from "@/shared/errors/app-error";
@@ -82,7 +83,7 @@ describe("recipe routes", () => {
 
 describe("recipe and trust sitemap URLs", () => {
   it.each(["available", "failed", "throws"])(
-    "includes recipes and trust pages when the catalog is %s",
+    "includes recipes, and trust pages only when published, when the catalog is %s",
     async (state) => {
       const failure = new ExternalApiError();
       if (state === "available")
@@ -107,10 +108,10 @@ describe("recipe and trust sitemap URLs", () => {
       expect(new Set(entries.map((entry) => entry.url)).size).toBe(
         entries.length,
       );
+      // Trust pages follow their publish switch in every catalog state.
       for (const path of ["/hakkimizda", "/ciftligimiz"]) {
-        expect(entries).toContainEqual(expect.objectContaining({
-          url: `https://apuhanciftligi.com${path}`,
-        }));
+        const listed = entries.some((entry) => entry.url === `https://apuhanciftligi.com${path}`);
+        expect(listed, path).toBe(TRUST_PAGES_PUBLISHED);
       }
       expect(entries.some((entry) => entry.url.endsWith("/sss"))).toBe(false);
     },

@@ -16,7 +16,9 @@ function pageFileFor(path: string): string {
 }
 
 describe("buildStorefrontSitemapEntries", () => {
-  const entries = buildStorefrontSitemapEntries();
+  // Trust pages included as if published, so the canonical check below keeps
+  // covering them while they are switched off on the live site.
+  const entries = buildStorefrontSitemapEntries([], [], [{ slug: "hakkimizda" }, { slug: "ciftligimiz" }]);
 
   it("lists the shop, the public pages and every legal text exactly once", () => {
     const paths = entries.map((e) => e.path);
@@ -24,9 +26,16 @@ describe("buildStorefrontSitemapEntries", () => {
     expect(paths).toContain("/");
     expect(paths).toContain("/siparis-sorgula");
     expect(paths).toContain("/duzenli-siparis");
-    expect(paths).toContain("/hakkimizda");
-    expect(paths).toContain("/ciftligimiz");
     for (const doc of LEGAL_DOCS) expect(paths).toContain(`/${doc.slug}`);
+  });
+
+  it("lists the trust pages only when they are passed in as published", () => {
+    const hidden = buildStorefrontSitemapEntries([], [], []).map((e) => e.path);
+    expect(hidden).not.toContain("/hakkimizda");
+    expect(hidden).not.toContain("/ciftligimiz");
+    const shown = buildStorefrontSitemapEntries([], [], [{ slug: "hakkimizda" }, { slug: "ciftligimiz" }]).map((e) => e.path);
+    expect(shown).toContain("/hakkimizda");
+    expect(shown).toContain("/ciftligimiz");
   });
 
   it("builds absolute URLs on the canonical origin", () => {
