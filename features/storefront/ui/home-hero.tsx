@@ -17,8 +17,9 @@ import { HomeHeroIntroMarker } from "@/features/storefront/ui/home-hero-intro-ma
  * shop layout (`HOME_INTRO_SKIP_SCRIPT`); the marker below records the visit.
  *
  * The frame is cropped tighter than the photograph on phones and tablets;
- * the sign sits in the middle 60% of the picture's height, which every crop
- * here keeps.
+ * the table with the two chalkboards sits in the lower-middle of the picture
+ * (roughly 40–80% of its height), so the crop is anchored at 72% to keep it
+ * in view at every width.
  *
  * Referenced by URL, not as a static import: the `*.webp` module types come
  * from the generated (git-ignored) next-env.d.ts, which does not exist when
@@ -34,12 +35,12 @@ export function HomeHero({ className }: { className?: string | undefined }) {
       )}
     >
       <Image
-        src="/brand/apuhan-acilis.webp"
-        alt="Kayısı ağacının altında, üzerinde apuhanciftligi.com yazan ahşap tabela ve taze kayısılar"
+        src="/brand/apuhan-acilis-masa.webp"
+        alt="Bahçede, Apuhan Çiftliği kara tahtası önünde kuru kayısı, badem ve dut dolu masa"
         fill
         priority
         sizes="(max-width: 1023px) 100vw, 480px"
-        className="shop-hero-media object-cover object-[50%_49%]"
+        className="shop-hero-media object-cover object-[50%_72%]"
       />
       <HomeHeroIntroMarker />
     </div>
