@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/brand/apuhan-logo.png" alt="Apuhan Çiftliği" width="112" />
+  <img src="public/brand/apuhan-ciftligi-logo.png" alt="Apuhan Çiftliği" width="112" />
 </p>
 
 # Apuhan Çiftliği
