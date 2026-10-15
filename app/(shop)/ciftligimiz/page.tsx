@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getTrustPage } from "@/features/content/application/get-trust-pages";
-import { TrustArticle } from "@/features/content/ui/trust-article";
+import { FarmStory } from "@/features/content/ui/farm-story";
 import { COMPANY } from "@/features/storefront/domain/legal";
 
 // 404 while the trust pages are unpublished (see trust-pages-visibility.ts).
@@ -38,5 +38,5 @@ export function generateMetadata(): Metadata {
 
 export default function FarmPage() {
   const page = resolvePage();
-  return <TrustArticle page={page} company={COMPANY} />;
+  return <FarmStory page={page} company={COMPANY} />;
 }

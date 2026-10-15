@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { buildAboutPageStructuredData, getTrustPage } from "@/features/content/application/get-trust-pages";
-import { TrustArticle } from "@/features/content/ui/trust-article";
+import { AboutLetter } from "@/features/content/ui/about-letter";
 import { COMPANY } from "@/features/storefront/domain/legal";
 
 // 404 while the trust pages are unpublished (see trust-pages-visibility.ts).
@@ -43,7 +43,7 @@ export default function AboutPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{
         __html: JSON.stringify(buildAboutPageStructuredData(page)).replace(/</g, "\\u003c"),
       }} />
-      <TrustArticle page={page} company={COMPANY} />
+      <AboutLetter page={page} company={COMPANY} />
     </>
   );
 }

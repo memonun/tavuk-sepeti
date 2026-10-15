@@ -2,7 +2,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { trustContentSchema, trustImageSchema, trustPageSchema, trustSourceSchema } from "./trust-page.schema";
+import {
+  trustContentSchema,
+  trustImageSchema,
+  trustPageImages,
+  trustPageSchema,
+  trustPageTexts,
+  trustSourceSchema,
+} from "./trust-page.schema";
 import { TRUST_CONTENT } from "./trust-pages";
 
 const page = TRUST_CONTENT.pages[0]!;
@@ -16,12 +23,9 @@ describe("trust content", () => {
     expect(new Set(TRUST_CONTENT.pages.map((item) => item.slug)).size).toBe(2);
     for (const item of TRUST_CONTENT.pages) {
       expect(item.sections.length).toBeGreaterThan(0);
-      for (const section of item.sections) {
-        expect(section.paragraphs.length).toBeGreaterThan(0);
-        for (const paragraph of section.paragraphs) {
-          expect(paragraph.text.trim()).not.toBe("");
-          expect(paragraph.sourceIds.length).toBeGreaterThan(0);
-        }
+      for (const text of trustPageTexts(item)) {
+        expect(text.text.trim()).not.toBe("");
+        expect(text.sourceIds.length).toBeGreaterThan(0);
       }
     }
   });
@@ -36,21 +40,31 @@ describe("trust content", () => {
     }
   });
 
-  it("ships local WebP files with alt text and a dated Instagram source in the image table", () => {
+  it("cites every post and owner record it lists, so the doc holds no stale facts", () => {
+    const cited = new Set(TRUST_CONTENT.pages.flatMap((item) => [...trustPageTexts(item), ...trustPageImages(item)].flatMap((entry) => entry.sourceIds)));
+    for (const source of TRUST_CONTENT.sources.filter((item) => item.kind !== "company")) {
+      expect(cited.has(source.id), source.id).toBe(true);
+    }
+  });
+
+  it("ships local metadata-free WebP files with alt text and a dated source in the image table", () => {
     for (const item of TRUST_CONTENT.pages) {
-      const images = [item.hero, ...item.sections.flatMap((section) => section.image ? [section.image] : [])];
-      for (const image of images) {
+      for (const image of trustPageImages(item)) {
         expect(existsSync(join(process.cwd(), "public", image.src)), image.src).toBe(true);
         const file = readFileSync(join(process.cwd(), "public", image.src));
         expect(file.subarray(0, 4).toString()).toBe("RIFF");
         expect(file.subarray(8, 12).toString()).toBe("WEBP");
+        // EXIF carries the phone's GPS position; the farmhouse location must not ship.
+        // Only the extended (VP8X) format can hold metadata, flagged in its header.
+        const extended = file.subarray(12, 16).toString() === "VP8X";
+        expect(extended && (file[20]! & (0x08 | 0x04)) !== 0, image.src).toBe(false);
         expect(image.alt.trim()).not.toBe("");
         const filename = image.src.split("/").at(-1)!;
         const row = docRows.find((line) => line.startsWith(`| \`${filename}\` |`));
         expect(row, image.src).toBeDefined();
         for (const id of image.sourceIds) {
           const source = TRUST_CONTENT.sources.find((candidate) => candidate.id === id)!;
-          expect(source.kind, image.src).toBe("instagram");
+          expect(["instagram", "owner"], image.src).toContain(source.kind);
           expect(row, image.src).toContain(source.reference);
           expect(row, image.src).toContain(source.date);
         }
@@ -58,21 +72,23 @@ describe("trust content", () => {
     }
   });
 
-  it("has enough distinct farm information and photos for a separate farm page", () => {
+  it("gives the farm page its own facts and at least three distinct photos", () => {
     const farm = TRUST_CONTENT.pages.find((item) => item.slug === "ciftligimiz")!;
     const factIds = new Set(farm.sections.flatMap((section) => section.paragraphs.flatMap((paragraph) => paragraph.sourceIds)));
     expect(factIds.size).toBeGreaterThanOrEqual(4);
-    expect([...factIds].every((id) => TRUST_CONTENT.sources.some((source) => source.id === id && source.kind === "instagram"))).toBe(true);
-    const photos = [farm.hero, ...farm.sections.flatMap((section) => section.image ? [section.image] : [])];
-    expect(new Set(photos.map((image) => image.src)).size).toBeGreaterThanOrEqual(3);
+    expect([...factIds].every((id) => TRUST_CONTENT.sources.some((source) => source.id === id && source.kind !== "company"))).toBe(true);
+    expect(new Set(trustPageImages(farm).map((image) => image.src)).size).toBeGreaterThanOrEqual(3);
   });
 
-  it("keeps editorial biography notes distinct from published evidence", () => {
-    for (const source of TRUST_CONTENT.sources.filter((item) => item.id.startsWith("bio-"))) {
-      expect(source.kind).toBe("editorial");
-      expect(source.reference).toBe("biyografi-notu-2026-10-15");
+  it("points every owner record at the dated owner letter or photo set", () => {
+    for (const source of TRUST_CONTENT.sources.filter((item) => item.kind === "owner")) {
+      expect(["sahip-metni-2026-10-15", "sahip-fotograflari-2026-10-15"]).toContain(source.reference);
       expect(source.date).toBe("2026-10-15");
     }
+  });
+
+  it("closes the letter with the owner's sign-off", () => {
+    expect(page.closing.signOff).toBe("Sevgi ve saygılarımla,");
   });
 
   it("does not publish prohibited claims or placeholders", () => {
@@ -90,10 +106,12 @@ describe("trust content", () => {
 
   it("rejects missing source records and unattributed or empty content", () => {
     expect(trustContentSchema.safeParse({ ...TRUST_CONTENT, sources: [] }).success).toBe(false);
-    expect(trustContentSchema.safeParse({ ...TRUST_CONTENT, sources: TRUST_CONTENT.sources.filter((source) => source.id !== "bio-family") }).success).toBe(false);
+    expect(trustContentSchema.safeParse({ ...TRUST_CONTENT, sources: TRUST_CONTENT.sources.filter((source) => source.id !== "owner-founding") }).success).toBe(false);
     expect(trustPageSchema.safeParse({ ...page, sections: [] }).success).toBe(false);
-    expect(trustPageSchema.safeParse({ ...page, introduction: { text: " ", sourceIds: ["bio-family"] } }).success).toBe(false);
-    expect(trustPageSchema.safeParse({ ...page, introduction: { text: "Bir metin.", sourceIds: [] } }).success).toBe(false);
+    expect(trustPageSchema.safeParse({ ...page, lead: [] }).success).toBe(false);
+    expect(trustPageSchema.safeParse({ ...page, lead: [{ text: " ", sourceIds: ["owner-founding"] }] }).success).toBe(false);
+    expect(trustPageSchema.safeParse({ ...page, lead: [{ text: "Bir metin.", sourceIds: [] }] }).success).toBe(false);
+    expect(trustPageSchema.safeParse({ ...page, closing: { paragraphs: [] } }).success).toBe(false);
     expect(trustPageSchema.safeParse({ ...page, sections: [{ id: "aile", heading: "Aile", paragraphs: [] }] }).success).toBe(false);
   });
 
@@ -107,10 +125,10 @@ describe("trust content", () => {
     expect(trustImageSchema.safeParse({ ...page.hero, height: 0 }).success).toBe(false);
   });
 
-  it("rejects an editorial note being used as a photo source", () => {
+  it("rejects the company record being used as a photo source", () => {
     expect(trustContentSchema.safeParse({
       ...TRUST_CONTENT,
-      pages: [{ ...page, hero: { ...page.hero, sourceIds: ["bio-family"] } }],
+      pages: [{ ...page, hero: { ...page.hero, sourceIds: ["company-identity"] } }],
     }).success).toBe(false);
   });
 
@@ -119,5 +137,11 @@ describe("trust content", () => {
     expect(trustSourceSchema.safeParse({ ...source, reference: "https://www.instagram.com/another-account/reel/example/" }).success).toBe(false);
     expect(trustSourceSchema.safeParse({ ...source, date: null }).success).toBe(false);
     expect(trustSourceSchema.safeParse({ ...source, date: "2026-02-30" }).success).toBe(false);
+  });
+
+  it("requires owner material to name a dated owner record", () => {
+    const source = TRUST_CONTENT.sources.find((item) => item.kind === "owner")!;
+    expect(trustSourceSchema.safeParse({ ...source, reference: "bir-yerden-duydum" }).success).toBe(false);
+    expect(trustSourceSchema.safeParse({ ...source, date: null }).success).toBe(false);
   });
 });

@@ -75,6 +75,11 @@
   --shop-green-soft: #e4eedd;
   --shop-red-soft: #fbedea;
   --shop-field-border: #8c7b66;
+  /* The farm's own chalkboard (the stand's "Apuhan Çiftliği" sign), used for
+     the contact panel on /hakkimizda and /ciftligimiz. Chalk on board is
+     11.20:1; the board itself carries no text colour of its own. */
+  --shop-chalkboard: #2f332e;
+  --shop-chalk: #f3efe6;
   --shop-shadow-sm: 0 1px 2px rgb(42 28 18 / 0.08);
   --shop-shadow-md: 0 6px 20px -6px rgb(42 28 18 / 0.18), 0 2px 4px rgb(42 28 18 / 0.06);
   --shop-shadow-lg: 0 18px 40px -12px rgb(42 28 18 / 0.28);
@@ -507,6 +512,25 @@
     @starting-style {
       :root:not([data-shop-intro-seen]) .shop-hero-media {
         opacity: 1;
+        transform: none;
+      }
+    }
+  }
+
+  /* The /ciftligimiz opening picture eases back 3% to its real size on load.
+     Transform only: the picture is the page's largest paint, and fading it
+     up from transparent would hold back when it counts as shown. */
+  .shop-farm-hero-media {
+    transition: transform 900ms var(--shop-ease-out);
+  }
+  @starting-style {
+    .shop-farm-hero-media {
+      transform: scale(1.03);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    @starting-style {
+      .shop-farm-hero-media {
         transform: none;
       }
     }
