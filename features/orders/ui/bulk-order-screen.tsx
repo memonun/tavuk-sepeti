@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { Gift } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -112,7 +113,9 @@ export function BulkOrderScreen({
     };
   }, [selectedArray, priceOverrides]);
 
-  const commit = () => {
+  // `gift`: create every order free (0 ₺ lines, no delivery fee) — the
+  // "Hediye olarak oluştur" button. The server enforces both.
+  const commit = (gift: boolean) => {
     // Build the bulkOrderSchema-shaped orders from non-empty assignments.
     const orders = Object.entries(batch.assignments)
       .filter(([, lines]) => lines.length > 0)
@@ -125,7 +128,7 @@ export function BulkOrderScreen({
       toast.error("En az bir müşteriye ürün ekle.");
       return;
     }
-    if (!feeValid) {
+    if (!gift && !feeValid) {
       toast.error("Teslimat ücreti geçerli bir tutar olmalı (ör. 50,00).");
       return;
     }
@@ -146,7 +149,8 @@ export function BulkOrderScreen({
         scheduled_for: batch.scheduledFor,
         time_slot: batch.defaults.timeSlot,
         payment_method: batch.defaults.paymentMethod,
-        delivery_fee_minor: effectiveFeeMinor,
+        delivery_fee_minor: gift ? 0 : effectiveFeeMinor,
+        is_gift: gift,
         orders,
       };
       const fd = new FormData();
@@ -157,7 +161,11 @@ export function BulkOrderScreen({
 
       switch (result.status) {
         case "success":
-          toast.success(`${result.created} sipariş oluşturuldu.`);
+          toast.success(
+            gift
+              ? `${result.created} hediye sipariş oluşturuldu (ücretsiz).`
+              : `${result.created} sipariş oluşturuldu.`,
+          );
           reset(today);
           setSelectedIds(new Set());
           router.push("/orders");
@@ -292,9 +300,21 @@ export function BulkOrderScreen({
             </span>
           )}
         </span>
-        <Button type="button" onClick={commit} disabled={pending || orderCount === 0 || !feeValid}>
-          {pending ? "Oluşturuluyor…" : "Siparişleri Oluştur"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => commit(true)}
+            disabled={pending || orderCount === 0}
+            title="Tüm ürünler 0 ₺, teslimat ücreti yok; sipariş ödenmiş sayılır."
+          >
+            <Gift aria-hidden />
+            Hediye olarak oluştur
+          </Button>
+          <Button type="button" onClick={() => commit(false)} disabled={pending || orderCount === 0 || !feeValid}>
+            {pending ? "Oluşturuluyor…" : "Siparişleri Oluştur"}
+          </Button>
+        </div>
       </div>
     </div>
   );

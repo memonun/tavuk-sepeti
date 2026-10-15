@@ -28,6 +28,12 @@ export function groupOverridesByCustomer(
   return map;
 }
 
+/**
+ * `gift`: the whole order is free — every line is priced at 0 and the
+ * customer's saved special prices are ignored. A zero-total order is marked
+ * paid by the DB on creation (20260915120000_zero_total_orders_paid) and shows
+ * the "Hediye" badge, the same as a gift made by hand with 0 ₺ special prices.
+ */
 export function enrichBulkOrders(
   orders: ReadonlyArray<{
     customer_id: string;
@@ -35,6 +41,7 @@ export function enrichBulkOrders(
   }>,
   products: ReadonlyArray<Product>,
   overridesByCustomer: ReadonlyMap<string, Record<string, number>>,
+  { gift = false }: { gift?: boolean } = {},
 ): Result<BulkEnrichedOrder[], ValidationError> {
   const out: BulkEnrichedOrder[] = [];
 
@@ -42,7 +49,7 @@ export function enrichBulkOrders(
     const overrides = overridesByCustomer.get(order.customer_id) ?? {};
 
     const withPrices = order.items.map((item) => {
-      const override = overrides[item.product_key];
+      const override = gift ? 0 : overrides[item.product_key];
       // Omit unit_price_minor entirely when absent (exactOptionalPropertyTypes).
       return override != null
         ? {

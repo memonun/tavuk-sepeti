@@ -21,6 +21,13 @@ describe("bulkOrderSchema", () => {
     expect(parsed.success).toBe(true);
   });
 
+  it("is not a gift unless asked, so an older client keeps charging", () => {
+    const parsed = bulkOrderSchema.parse(valid);
+    expect(parsed.is_gift).toBe(false);
+    expect(bulkOrderSchema.parse({ ...valid, is_gift: true }).is_gift).toBe(true);
+    expect(bulkOrderSchema.safeParse({ ...valid, is_gift: "yes" }).success).toBe(false);
+  });
+
   it("accepts null time_slot", () => {
     expect(bulkOrderSchema.safeParse({ ...valid, time_slot: null }).success).toBe(true);
   });

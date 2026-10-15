@@ -49,8 +49,9 @@ export async function createOrdersBulkAction(
     };
   }
 
-  const { scheduled_for, time_slot, payment_method, delivery_fee_minor, orders } =
-    parsed.data;
+  const { scheduled_for, time_slot, payment_method, is_gift, orders } = parsed.data;
+  // A gift is free end to end: no delivery fee either, whatever the fee box said.
+  const delivery_fee_minor = is_gift ? 0 : parsed.data.delivery_fee_minor;
   const customerIds = orders.map((o) => o.customer_id);
 
   // Pre-flight: address-less customers come back as a clean list (no failed tx).
@@ -67,7 +68,9 @@ export async function createOrdersBulkAction(
   const overrideRows = await getCustomerProductPricesBatchAction(customerIds);
   const overridesByCustomer = groupOverridesByCustomer(overrideRows);
 
-  const enriched = enrichBulkOrders(orders, productsResult.value, overridesByCustomer);
+  const enriched = enrichBulkOrders(orders, productsResult.value, overridesByCustomer, {
+    gift: is_gift,
+  });
   if (!enriched.ok) {
     return {
       status: "validation_error",
@@ -100,6 +103,7 @@ export async function createOrdersBulkAction(
     entity_id: created.value[0]?.order_id ?? "batch",
     after: {
       scheduled_for,
+      is_gift,
       count: created.value.length,
       order_numbers: created.value.map((r) => r.order_number),
     },
