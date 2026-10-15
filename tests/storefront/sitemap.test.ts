@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import sitemap from "@/app/sitemap";
 import { getRecipesNewestFirst } from "@/features/content/application/get-recipes";
+import { getPublishedTrustPages } from "@/features/content/application/get-trust-pages";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { buildStorefrontSitemapEntries } from "@/features/storefront/domain/sitemap-entries";
 import { ExternalApiError } from "@/shared/errors/app-error";
@@ -15,7 +16,8 @@ vi.mock("@/features/storefront/application/get-catalog", () => ({
 vi.mock("@/shared/logger", () => ({ logger: { error: vi.fn() } }));
 beforeEach(() => vi.resetAllMocks());
 
-const staticUrls = buildStorefrontSitemapEntries().map((entry) => entry.url);
+// Static pages as the sitemap lists them right now: the trust pages follow their publish switch.
+const staticUrls = buildStorefrontSitemapEntries([], [], getPublishedTrustPages()).map((entry) => entry.url);
 const recipeUrls = getRecipesNewestFirst().map((recipe) => `https://apuhanciftligi.com/tarifler/${recipe.slug}`);
 const urlsOf = (items: Awaited<ReturnType<typeof sitemap>>) => items.map((item) => item.url);
 

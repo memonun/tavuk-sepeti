@@ -2,61 +2,64 @@
 
 İçerik inceleme tarihi: **15.10.2026**. Sayfalar: `/hakkimizda`, `/ciftligimiz`.
 
-## Hesabın doğrulanması ve inceleme kapsamı
+Bu tarihte sayfaların metni baştan değiştirildi. Önceki sürümdeki editöryel biyografi notları (çiftçi aile, babaanne ve babayla çalışma, Çevre Mühendisliği, haftalık İstanbul–Malatya düzeni) işletme sahibinin kendi metniyle çeliştiği için kaldırıldı. O sürüm git geçmişindedir.
 
-Kullanılacak hesap: [Hamit Apuhan — @mr.apuhan](https://www.instagram.com/mr.apuhan/).
-Profilde Malatya–İstanbul ve İTÜ bilgileri bulunuyor. [19 Ağustos 2026 tarihli paylaşım](https://www.instagram.com/mr.apuhan/reel/DcOzC4ROtlf/), apuhanciftligi.com adresine yönlendiriyor ve işletmenin telefonuyla eşleşen WhatsApp numarasını içeriyor. Hesap, işletme bağlantısıyla doğrulandı. Sayfalarda ad ve iletişim bilgileri bu paylaşımdan kopyalanmadı; yalnızca `COMPANY` kullanıldı.
+## İşletme sahibinin metni — 2026-10-15
 
-Profilden erişilebilen 73 gönderinin açıklaması tarandı. Kullanılacak gönderilerin tarihleri, açıklamaları ve görüntüleri ayrıca incelendi; tavuk ve sipariş öne çıkanları kontrol edildi. Müşteri yorumları ve kullanıcı adları içerik kaynağı olarak kullanılmadı. Kaynaklar salt okunur incelendi; beğeni, takip, yorum veya mesaj gönderilmedi.
+<a id="sahip-metni-2026-10-15"></a>
 
-## Biyografi notu — 2026-10-15
+**Hamit Apuhan’ın kendi yazdığı metin — 15.10.2026.** Sayfalar için sohbet üzerinden gönderildi. Metin, sahibinin sözleriyle yayımlanır. Yalnızca kesme işaretleri tipografik hâle getirildi ve “İstanbuldaki” yazımı “İstanbul’daki” olarak düzeltildi. `/ciftligimiz` sayfasındaki tavuk, inek ve bahçe bölümleri, sahibinin “Gezen tavuklarımızdan günlük yumurtalarımızı topluyor, ineklerimizin sütünden peynir yapıyoruz…” cümlesinin bölümlere ayrılmış hâlidir.
 
-<a id="biyografi-notu-2026-10-15"></a>
+“Dut pekmezini babaannem hazırlıyor.” cümlesi aşağıdaki Instagram paylaşımına dayanır ve sahibi tarafından 15.10.2026’da ayrıca doğrulandı.
 
-**Editöryel biyografi notu — 15.10.2026.** Aşağıdaki biyografi bilgileri metnin hazırlanması için sağlanan notlardır. Instagram’da yayımlanmış açıklamalar veya doğrudan alıntılar olarak sunulmaz. Metin, birinci tekil anlatımla hazırlandı; Hamit ile sonraki içerik revizyonuna açıktır. Eğitim durumu ve haftalık düzen bu inceleme tarihindeki durumu anlatır. Kesin taşınma/kuruluş yılı belirtilmedi.
+## İşletme sahibinin fotoğrafları — 2026-10-15
+
+<a id="sahip-fotograflari-2026-10-15"></a>
+
+**Hamit Apuhan’ın gönderdiği fotoğraflar — 15.10.2026.** Beş HEIC dosyası ve bir ekran görüntüsü. İnek fotoğrafının özgün dosyası yok; sahibinin gönderdiği telefon ekran görüntüsü kullanıldı.
 
 ## Kullanılan bilgiler
 
-`Kaynak kimliği`, içerik modülündeki `sourceIds` alanıyla eşleşir. Bir paragraf birden çok bilgi içeriyorsa ilgili kimliklerin tamamını taşır. Başlıklar metni düzenler; sayfa açıklamaları, girişler, paragraflar ve fotoğraf açıklamaları aşağıdaki kayıtlara dayanır.
+`Kaynak kimliği`, içerik modülündeki `sourceIds` alanıyla eşleşir. Bir paragraf birden çok bilgi içeriyorsa ilgili kimliklerin tamamını taşır.
 
 | Kaynak kimliği | Kullanılan bilgi | Kaynak türü | Kaynak paylaşım / kayıt | Paylaşım / not tarihi |
 | --- | --- | --- | --- | --- |
-| `bio-family` | Bir çiftçi ailesinden geliyor. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-grandmother` | Babaannesi çiftlikte birlikte çalışmaya devam ediyor. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-father` | Babası da kendisiyle çiftlikte çalışıyor. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-move` | Tarım yapmak için Malatya’ya taşındı. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-first-chickens` | Tarım işine başlamadan önce tavuğa dokunamıyordu. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-study` | İstanbul Teknik Üniversitesi Çevre Mühendisliği son sınıf öğrencisi. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-education` | Tarım işine başladığı için eğitim süresi uzadı. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-week` | Haftanın üç günü okul için İstanbul’da, dört günü Malatya’da çalışıyor. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-field` | Malatya’da tarlada çalışıyor. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `bio-delivery` | Ürünlerin dağıtımını da kendisi yapıyor. | Editöryel biyografi notu | [Biyografi notu](#biyografi-notu-2026-10-15) | 2026-10-15 |
-| `farm-hens` | Çiftlikte tavuk yetiştiriliyor; paylaşımda kümesin içindeki tavuklar gösteriliyor. | Instagram | https://www.instagram.com/mr.apuhan/reel/DIy266PI0R9/ | 2025-04-23 |
-| `farm-perches` | Kümesin içine tavuklar için tünekler yapıldı. | Instagram | https://www.instagram.com/mr.apuhan/reel/DSDE4_TiOs4/ | 2025-12-09 |
-| `farm-packing` | Yumurtaların paketlendiği anlar paylaşılıyor. | Instagram | https://www.instagram.com/mr.apuhan/reel/DO1PEIjiOYl/ | 2025-09-20 |
+| `owner-founding` | Apuhan Çiftliği 14 Mart 2025’te Malatya’nın Akçadağ ilçesine bağlı Bahri Mahallesi’nde kuruldu. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-move` | Hamit Apuhan İstanbul’daki şehir hayatını bırakıp köye taşındı. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-learning` | Çiftçiliği sonradan öğrendi; ilk zamanlarda bir tavuğa dokunmaya korkuyordu. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-farm-life` | Küçük bir aile çiftliği; işler mevsimlere ve hayvanların ihtiyaçlarına göre yürüyor. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-hens` | Gezen tavuklardan günlük yumurta toplanıyor. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-cows` | İneklerin sütünden peynir yapılıyor. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-orchard` | Bahçede yetişen kayısı ve duttan kurutulmuş meyve ve pekmez hazırlanıyor. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-honesty` | Başkasına gönül rahatlığıyla sunulamayacak bir ürün üretilip satılmıyor. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-music` | Müzisyen ve piyanist olarak Türkiye’de ve yurt dışında yüzlerce konserde sahne aldı. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-study` | İstanbul Teknik Üniversitesi’nde son sınıf öğrencisi. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-goal` | Amaç, güvenilen ve samimiyetini koruyan bir aile işletmesi olmak. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `owner-invitation` | Bahri Mahallesi’ne yolu düşenleri çaya davet ediyor. | İşletme sahibinin metni | [sahip-metni-2026-10-15](#sahip-metni-2026-10-15) | 2026-10-15 |
+| `photo-hens-open` | Çiftlikte açık alanda dolaşan tavuklar. | İşletme sahibinin fotoğrafı | [sahip-fotograflari-2026-10-15](#sahip-fotograflari-2026-10-15) | 2026-10-15 |
+| `photo-hens-cloudy` | Bulutlu bir günde çayırdaki tavuklar. | İşletme sahibinin fotoğrafı | [sahip-fotograflari-2026-10-15](#sahip-fotograflari-2026-10-15) | 2026-10-15 |
+| `photo-cow` | Çiftliğin ineği. | İşletme sahibinin fotoğrafı | [sahip-fotograflari-2026-10-15](#sahip-fotograflari-2026-10-15) | 2026-10-15 |
+| `photo-stand` | Çiftlik ürünlerinin kara tahtalı satış masası. | İşletme sahibinin fotoğrafı | [sahip-fotograflari-2026-10-15](#sahip-fotograflari-2026-10-15) | 2026-10-15 |
+| `photo-portrait` | Hamit Apuhan ve çiftliğin köpeği. | İşletme sahibinin fotoğrafı | [sahip-fotograflari-2026-10-15](#sahip-fotograflari-2026-10-15) | 2026-10-15 |
 | `farm-apricots` | Malatya’da gün kurusu kayısı hazırlanıyor; kayısıların çekirdekleri ayrılıyor. | Instagram | https://www.instagram.com/mr.apuhan/reel/Da2FgS5unqZ/ | 2026-07-16 |
 | `farm-molasses` | Dut pekmezini babaannesi hazırlıyor. | Instagram | https://www.instagram.com/mr.apuhan/reel/Db_IL6_hWEf/ | 2026-08-13 |
-| `image-eggs` | Paylaşımda bir elde üç kahverengi yumurta gösteriliyor. | Instagram | https://www.instagram.com/mr.apuhan/reel/DJ108r2IluE/ | 2025-05-19 |
-| `image-yard` | Paylaşımda kümes kapısından açık alana çıkan tavuklar gösteriliyor. | Instagram | https://www.instagram.com/mr.apuhan/reel/DeTtvQiuHIh/ | 2026-10-10 |
 | `company-identity` | İşletme sahibi, marka ve iletişim bilgileri COMPANY sabitinden alınır. | Repo içindeki işletme kimliği | `features/storefront/domain/legal.ts#COMPANY` | — |
 
 ## Kullanılan görseller
 
-Reels’ten kare seçimi içerik kapsamına dahil edildi. Görseller, tarayıcıda gözlenen özgün kamuya açık medya dosyalarından alınan gerçek karelerdir. Instagram arayüzü veya ekran görüntüsü kullanılmadı. Yalnızca kare seçimi, kırpma, küçültme ve WebP sıkıştırması yapıldı; sahneye öğe eklenmedi, görüntü içeriği üretilmedi. Tanınabilir kişiler ve altyazılar kırpmanın dışında bırakıldı. Yumurta karesinde bir el; kayısı karesinde eller, kollar ve gövdenin bir bölümü görünüyor. Yüz veya ayırt edici kişisel özellik görünmüyor.
+Dosyalar `public/hakkimizda/` altındadır. WebP dönüşümünde EXIF/GPS, XMP ve ICC metadata’sı korunmadı; renkler sRGB’ye çevrildi. iPhone fotoğrafları çiftliğin konumunu taşıdığı için bu kural test ile korunur. En uzun kenar en fazla 1600 piksel; küçük kaynaklar büyütülmedi. Sahneye öğe eklenmedi, görüntü içeriği üretilmedi.
 
-Dosyalar `public/hakkimizda/` altındadır. WebP dönüşümünde EXIF/GPS, XMP ve ICC metadata’sı korunmadı. En uzun kenar en fazla 1600 piksel; küçük kaynaklar büyütülmedi. CDN bağlantıları uygulamaya eklenmedi.
-
-| Dosya adı | Kaynak paylaşım URL’si | Paylaşım tarihi | Kaynak kimliği | Kare zamanı | İşlem ve boyut | Gösterdiği |
-| --- | --- | --- | --- | --- | --- | --- |
-| `ciftlik-avlusu.webp` | https://www.instagram.com/mr.apuhan/reel/DeTtvQiuHIh/ | 2026-10-10 | `image-yard` | 00:22.500 | 720×1280 kaynaktan x=0, y=270, 720×720 kırpma; çıktı 720×720 | Kümesin kırmızı kapısından çiftlik avlusuna çıkan kahverengi tavuklar. |
-| `kumes-tavuklar.webp` | https://www.instagram.com/mr.apuhan/reel/DIy266PI0R9/ | 2025-04-23 | `farm-hens` | 00:58.000 | 1080×1920 kaynaktan x=0, y=600, 1080×1080 kırpma; çıktı 1080×1080 | Kümesin içinde yemliklerin ve su hattının çevresindeki kahverengi tavuklar. |
-| `yumurtalar.webp` | https://www.instagram.com/mr.apuhan/reel/DJ108r2IluE/ | 2025-05-19 | `image-eggs` | 00:08.800 | 1080×1920 kaynaktan x=0, y=350, 1080×1080 kırpma; çıktı 1080×1080 | Bir elde üç kahverengi yumurta, arka planda kümesin zemini. |
-| `kayisi-hazirligi.webp` | https://www.instagram.com/mr.apuhan/reel/Da2FgS5unqZ/ | 2026-07-16 | `farm-apricots` | 00:02.000 | 1440×2560 kaynaktan x=0, y=400, 1440×1440 kırpma; çıktı 1080×1080 | Bir kasanın içindeki kayısıların çekirdeklerinin elle ayrılması. |
+| Dosya adı | Kaynak paylaşım / kayıt | Tarih | Kaynak kimliği | İşlem ve boyut | Gösterdiği |
+| --- | --- | --- | --- | --- | --- |
+| `hamit-ve-kopegi.webp` | sahip-fotograflari-2026-10-15 (IMG_1796.HEIC) | 2026-10-15 | `photo-portrait` | 2316×3088 kaynaktan küçültme; çıktı 1200×1600 | Hamit Apuhan, yanağını çiftliğin iri beyaz köpeğine yaslamış. |
+| `tezgah-kara-tahta.webp` | sahip-fotograflari-2026-10-15 (IMG_5511.HEIC) | 2026-10-15 | `photo-stand` | 3024×4032 kaynaktan küçültme; çıktı 1200×1600 | Keten örtülü masada “Apuhan Çiftliği” yazan kara tahta, kuru kayısı, badem ve dut kurusu. |
+| `tavuklar-acik-alan.webp` | sahip-fotograflari-2026-10-15 (IMG_0419.HEIC) | 2026-10-15 | `photo-hens-open` | 4032×3024 kaynaktan küçültme; çıktı 1600×1200 | Meyve ağaçlarıyla çevrili çayırda dolaşan tavuklar, arkada dağlar. |
+| `tavuklar-bulutlu-gun.webp` | sahip-fotograflari-2026-10-15 (83815741-….HEIC) | 2026-10-15 | `photo-hens-cloudy` | 4032×3024 kaynaktan küçültme; çıktı 1600×1200 | Bulutlu bir günde ağaçların altındaki çayırda eşinen tavuklar. |
+| `inek.webp` | sahip-fotograflari-2026-10-15 (telefon ekran görüntüsü) | 2026-10-15 | `photo-cow` | 923×2000 ekran görüntüsünden siyah bantlar atılarak x=0, y=250, 923×1231 kırpma; büyütülmedi | Ağaçların altında yularlı kızıl beyaz bir inek. |
+| `tezgah.webp` | sahip-fotograflari-2026-10-15 (IMG_5519.HEIC) | 2026-10-15 | `photo-stand` | 4032×3024 kaynaktan küçültme; çıktı 1600×1200 | Ağaçların önünde keten örtülü satış masası ve “Apuhan Çiftliği” kara tahtası. |
+| `kayisi-hazirligi.webp` | https://www.instagram.com/mr.apuhan/reel/Da2FgS5unqZ/ | 2026-07-16 | `farm-apricots` | Reels’in 00:02.000 karesi; 1440×2560 kaynaktan x=0, y=400, 1440×1440 kırpma; çıktı 1080×1080 | Bir kasanın içindeki kayısıların çekirdeklerinin elle ayrılması; eller ve kollar görünüyor, yüz görünmüyor. |
 
 ## Yayın öncesi içerik kontrolü
 
-- `/ciftligimiz` ayrı sayfa olarak hazırlandı: tavuk yetiştirme, tünek yapımı, yumurta paketleme, kayısı hazırlığı ve dut pekmezi için farklı kaynaklar; sayfada üç farklı fotoğraf var.
-- Yem içeriği, günlük yem düzeni, tavuk sayısı, yumurta toplama sıklığı, raf ömrü veya ürünlerin sağlık etkileri hakkında çıkarım yapılmadı.
-- Üretim ifadelerinin güncelliği ve gerekli sahibinin teyidi PR’daki **Onay gereken iddialar** bölümünde listelenir. Biyografi, istenen editöryel notlardan hazırlanır; bu notlar Instagram kanıtı olarak gösterilmez.
-- Eğitim ve İstanbul–Malatya düzeni sonraki revizyonda güncellenebilir. Kesin taşınma tarihi ve eksik üretim ayrıntıları **Hamit Bey’e sorular** bölümünde tutulur.
-- Kişilerin göründüğü ve kullanılmayan kareler PR açıklamasında kaynaklarıyla listelenir.
+- Yem içeriği, tavuk veya inek sayısı, yumurta toplama sıklığı, raf ömrü veya ürünlerin sağlık etkileri hakkında çıkarım yapılmadı. “Organik” gibi sertifika gerektiren ifadeler kullanılmadı.
+- Hakkımızda sayfasındaki tek kişi fotoğrafı, işletme sahibinin kendi gönderdiği fotoğraftır.
