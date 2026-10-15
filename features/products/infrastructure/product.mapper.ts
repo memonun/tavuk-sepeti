@@ -15,7 +15,9 @@ import { err, ok, type Result } from "@/shared/result";
 const productRowSchema = z.object({
   key: z.string().min(1),
   display_name: z.string(),
-  web_slug: productWebSlugSchema.nullable(),
+  // Checked per row below: a malformed slug must cost that product its page,
+  // never take the whole catalog (shop + admin order forms) down with it.
+  web_slug: z.string().nullable(),
   unit: productUnitSchema,
   unit_label: z.string(),
   package_size: z.coerce.number().positive(),
@@ -32,6 +34,17 @@ const productRowSchema = z.object({
   sort_order: z.coerce.number(),
   total_quantity_sold: z.coerce.number().optional(),
 });
+
+/**
+ * A stored slug that fails the URL rules (written outside the app, e.g. by
+ * hand in SQL) is treated as "no page" and logged, instead of failing the row.
+ */
+function toValidWebSlug(productKey: string, slug: string | null): string | null {
+  if (slug === null) return null;
+  if (productWebSlugSchema.safeParse(slug).success) return slug;
+  logger.warn({ productKey }, "invalid_product_web_slug_ignored");
+  return null;
+}
 
 /** Validate DB rows before they enter the product domain. */
 export function mapProductRows(
@@ -55,6 +68,7 @@ export function mapProductRows(
   return ok(
     parsed.data.map((row) => ({
       ...row,
+      web_slug: toValidWebSlug(row.key, row.web_slug),
       is_web_visible: row.is_web_visible ?? true,
       is_featured: row.is_featured ?? false,
       price_tiers: [...(tiersByProduct.get(row.key) ?? [])].sort(

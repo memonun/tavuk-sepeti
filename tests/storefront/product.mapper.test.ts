@@ -52,9 +52,18 @@ describe("product row mapping", () => {
     const result = mapProductRows([{ ...row, web_slug: null }], new Map());
     expect(result.ok && result.value[0]?.web_slug).toBe(null);
   });
-  it("rejects invalid database slugs at the boundary", () => {
-    expect(
-      mapProductRows([{ ...row, web_slug: "Yumurta?" }], new Map()).ok,
-    ).toBe(false);
+  // One malformed slug must not empty the shop and the admin order forms:
+  // the product stays (orderable), it just has no public page.
+  it("drops an invalid database slug but keeps the product", () => {
+    const result = mapProductRows(
+      [{ ...row, web_slug: "Yumurta?" }, { ...row, key: "milk", web_slug: "sut" }],
+      new Map(),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.map((p) => [p.key, p.web_slug])).toEqual([
+      [row.key, null],
+      ["milk", "sut"],
+    ]);
   });
 });

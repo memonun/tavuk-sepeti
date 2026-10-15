@@ -2,7 +2,6 @@ import "server-only";
 
 import { z } from "zod";
 import { mapProductRows } from "@/features/products/infrastructure/product.mapper";
-import { productWebSlugSchema } from "@/features/products/domain/product.schema";
 
 import { ExternalApiError } from "@/shared/errors/app-error";
 import { logger, newCorrelationId } from "@/shared/logger";
@@ -118,7 +117,7 @@ export async function listAllProducts(): Promise<
     logger.error({ correlationId, code: slugResult.error.code }, "list_product_slugs_failed");
     return err(new ExternalApiError({ message: slugResult.error.message, cause: slugResult.error, correlationId }));
   }
-  const slugs = z.array(z.object({ key: z.string(), web_slug: productWebSlugSchema.nullable() }))
+  const slugs = z.array(z.object({ key: z.string(), web_slug: z.string().nullable() }))
     .safeParse(slugResult.data ?? []);
   if (!slugs.success) {
     const correlationId = newCorrelationId();

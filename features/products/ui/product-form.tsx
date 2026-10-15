@@ -104,7 +104,9 @@ export function ProductFormDialog({
   const submit = () => {
     const base = {
       display_name: fields.display_name,
-      web_slug: fields.web_slug || deriveProductWebSlug(fields.display_name),
+      // Normalised on submit (not while typing, which would eat a trailing
+      // dash mid-word): "Köy Yumurtası" → "koy-yumurtasi".
+      web_slug: deriveProductWebSlug(fields.web_slug || fields.display_name),
       unit: fields.unit,
       unit_label: fields.unit_label,
       package_size: normalizeDecimal(fields.package_size),
@@ -195,8 +197,15 @@ export function ProductFormDialog({
               aria-describedby="pf-slug-help"
             />
             <p id="pf-slug-help" className="text-sm text-muted-foreground">
-              /urun/{fields.web_slug || deriveProductWebSlug(fields.display_name)}
+              /urun/{deriveProductWebSlug(fields.web_slug || fields.display_name)}
             </p>
+            {product?.web_slug &&
+            deriveProductWebSlug(fields.web_slug || fields.display_name) !== product.web_slug ? (
+              <p className="text-sm font-medium text-destructive">
+                Adres değişirse eski bağlantı (/urun/{product.web_slug}) çalışmaz ve
+                Google&apos;daki sıralama sıfırlanır. Gerekmedikçe değiştirmeyin.
+              </p>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
