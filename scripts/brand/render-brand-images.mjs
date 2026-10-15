@@ -11,6 +11,7 @@
 //   public/brand/apuhan-icon-192.png        web manifest (any)
 //   public/brand/apuhan-icon-512.png        web manifest (any)
 //   public/brand/apuhan-icon-maskable-512.png  web manifest (maskable, Android)
+//   public/brand/apuhan-email-logo.png      264 px, auth emails (shown at 88 px; email cannot use SVG)
 //   public/brand/apuhan-onizleme.jpg        1200x630 link preview, from apuhan-onizleme.html
 //                                           (JPEG: WhatsApp skips preview images over ~300 KB)
 //
@@ -102,6 +103,13 @@ await write("public/brand/apuhan-icon-512.png", await roundBadge(512));
 // Maskable: Android may cut the icon to any shape inside the central 80%
 // circle, so the badge sits at 78% on its own paper colour.
 await write("public/brand/apuhan-icon-maskable-512.png", await badgeOnSquare(512, 0.78));
+
+// Email: 3x the 88px display size, 8-bit palette to keep it light for mail
+// clients. Transparent corners sit on the template's cream background.
+await write(
+  "public/brand/apuhan-email-logo.png",
+  await sharp(await roundBadge(264)).png({ palette: true, quality: 95, effort: 10 }).toBuffer(),
+);
 
 const chrome =
   process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";

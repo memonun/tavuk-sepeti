@@ -1,15 +1,13 @@
-// Render the Apuhan Çiftliği brand mark to a PNG for use in transactional email.
+// LEGACY: redraws the original egg-on-honey mark (2026-07) at
+// public/brand/apuhan-logo.png. Nothing on the site or in new email uses it
+// any more; the file is kept only because auth emails sent before 2026-10
+// link to that exact URL. New email uses public/brand/apuhan-email-logo.png
+// and every current brand image comes from scripts/brand/render-brand-images.mjs.
 //
-// Usage:
+// Usage (only to restore that file):
 //   node scripts/render-email-logo.mjs
 //
-// This draws the ORIGINAL egg-on-honey mark (2026-07), which is still what
-// transactional email and the admin panel show. It used to mirror
-// app/icon.svg; since 2026-10 the tab icon is the farm-badge "A" and all
-// browser icons come from scripts/brand/render-brand-images.mjs instead.
-// Email cannot use SVG (Gmail strips it, Outlook never supported it), so this
-// keeps a raster copy at an absolute URL, drawn with a tiny hand-rolled PNG
-// encoder: zero dependencies, byte-for-byte reproducible.
+// Zero dependencies: a tiny hand-rolled PNG encoder, byte-for-byte reproducible.
 
 import fs from "node:fs";
 import path from "node:path";

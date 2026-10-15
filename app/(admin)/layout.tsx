@@ -61,12 +61,15 @@ export default async function AdminLayout({
         <header className="sticky top-0 z-30 flex h-[calc(3rem+env(safe-area-inset-top,0px))] shrink-0 items-center gap-2 border-b bg-background px-3 pt-[env(safe-area-inset-top,0px)]">
           <SidebarTrigger className="hidden md:inline-flex" />
           <div className="flex items-center gap-2 md:hidden">
+            {/* The tab icon's mark: the full farm badge is unreadable at 28px.
+                SVG needs `unoptimized`; the image optimizer rejects it. */}
             <Image
-              src="/brand/apuhan-logo.png"
+              src="/icon.svg"
               alt=""
               width={28}
               height={28}
-              className="size-7 shrink-0 rounded-full"
+              unoptimized
+              className="size-7 shrink-0"
             />
             <span className="text-base font-semibold tracking-tight">Apuhan Çiftliği</span>
           </div>

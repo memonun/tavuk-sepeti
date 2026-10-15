@@ -43,12 +43,15 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
+          {/* Same mark as the tab icon (app/icon.svg); the full badge is
+              unreadable at 32px, which is also the collapsed sidebar's size. */}
           <Image
-            src="/brand/apuhan-logo.png"
+            src="/icon.svg"
             alt="Apuhan Çiftliği"
             width={32}
             height={32}
-            className="h-8 w-8 shrink-0 rounded-md"
+            unoptimized
+            className="h-8 w-8 shrink-0"
           />
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold leading-tight">Apuhan Çiftliği</span>
