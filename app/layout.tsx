@@ -29,6 +29,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(CANONICAL_ORIGIN),
   title: "Apuhan Çiftliği — Admin",
   description: "Sipariş, müşteri ve teslimat yönetimi.",
+  // Default-deny: nothing is indexed unless a layout opts in. The storefront
+  // layout (app/(shop)/layout.tsx) turns indexing back on; the admin panel,
+  // /login, OAuth consent and any page added later outside the shop stay out
+  // of search results without anyone having to remember a flag.
+  robots: { index: false, follow: false },
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },

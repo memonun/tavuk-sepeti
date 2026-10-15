@@ -5,7 +5,11 @@ import { ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 import { MetaPaymentFailedTracker } from "@/features/storefront/ui/meta-payment-failed-tracker";
 import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 
-export const metadata: Metadata = { title: "Ödeme tamamlanamadı" };
+// Account / checkout page: crawlable (so Google sees this) but never indexed.
+export const metadata: Metadata = {
+  title: "Ödeme tamamlanamadı",
+  robots: { index: false, follow: true },
+};
 
 export default async function PaymentFailedPage({
   searchParams,

@@ -1,30 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isAdminPath } from "@/shared/routes/admin-route-prefixes";
 import { refreshSupabaseSession } from "@/shared/supabase/session";
 
 const LOGIN_PATH = "/login";
 const ADMIN_HOME = "/admin";
 
-// Admin-only route prefixes. Everything else — the public storefront at `/` and
-// its sub-pages (/giris, /kayit, /hesap, /odeme, /auth/*, …) — is open to
-// anonymous visitors. Keep this list in sync with the admin nav (admin-sidebar).
-const ADMIN_PREFIXES = [
-  "/admin",
-  "/orders",
-  "/customers",
-  "/products",
-  "/map",
-  "/routes",
-  "/recurring",
-  "/takvim",
-  "/animsaticilar",
-];
-
-function isAdminPath(pathname: string): boolean {
-  return ADMIN_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-}
+// Admin-only route prefixes live in shared/routes/admin-route-prefixes.ts (a
+// test keeps them in step with app/(admin)/). Everything else — the public
+// storefront at `/` and its sub-pages (/giris, /kayit, /hesap, /odeme,
+// /auth/*, …) — is open to anonymous visitors.
 
 /**
  * Carry any session cookies `refreshSupabaseSession` just rotated onto a

@@ -19,7 +19,11 @@ import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
 import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 
-export const metadata: Metadata = { title: "Hesabım" };
+// Account / checkout page: crawlable (so Google sees this) but never indexed.
+export const metadata: Metadata = {
+  title: "Hesabım",
+  robots: { index: false, follow: true },
+};
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Bekliyor",

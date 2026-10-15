@@ -4,6 +4,7 @@ import { LegalArticle } from "@/features/storefront/ui/legal-article";
 
 export const metadata: Metadata = {
   title: "Gizlilik Politikası",
+  alternates: { canonical: "/gizlilik-politikasi" },
   description:
     "Apuhan Çiftliği'nin kişisel verilerin işlenmesi, sipariş, ödeme, teslimat, çerezler ve KVKK kapsamındaki kullanıcı haklarına ilişkin bilgilendirme metni.",
 };

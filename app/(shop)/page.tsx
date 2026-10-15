@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { MapPinIcon, TruckIcon } from "lucide-react";
 
@@ -26,6 +27,13 @@ import { StorefrontScopeSync } from "@/features/storefront/ui/storefront-scope-s
 import { SupportContactCard } from "@/features/storefront/ui/support-contact-card";
 import { TrustHighlights } from "@/features/storefront/ui/trust-highlights";
 import { formatTRY } from "@/shared/utils/money";
+
+// Title/description come from the shop layout. The canonical lives here, not
+// in the layout (a layout canonical would be inherited by every page); it
+// folds the `?teslimat=` browsing variants into the one indexable home page.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 /**
  * Storefront home. Products first: the header already says who this is, so

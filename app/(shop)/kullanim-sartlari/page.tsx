@@ -4,6 +4,7 @@ import { LegalArticle } from "@/features/storefront/ui/legal-article";
 
 export const metadata: Metadata = {
   title: "Kullanım Şartları",
+  alternates: { canonical: "/kullanim-sartlari" },
   description:
     "Apuhan Çiftliği internet sitesinin kullanım esasları, sipariş süreçleri, ürün ve teslimat bilgileri ile kullanıcı sorumluluklarına ilişkin kullanım şartları.",
 };

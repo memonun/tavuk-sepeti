@@ -30,7 +30,7 @@ preview-per-PR + edge network. Sıfır config — repo'yu bağla, deploy başlar
 | `GOOGLE_MAPS_SERVER_KEY` | `.env`'den — **secret** |
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | `.env`'den (referrer-restricted, görünür olması ok) |
 | `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | `.env`'den |
-| `NEXT_PUBLIC_APP_URL` | **Şimdilik:** `https://tavuk-sepeti.vercel.app` (Vercel default) — sonra custom domain'e güncellenir |
+| `NEXT_PUBLIC_APP_URL` | Production'da **tam olarak** `https://apuhanciftligi.com` (www yok — PayTR ve canonical/sitemap bu adrese kilitli, bkz. `shared/canonical-origin.ts`) |
 | `WAREHOUSE_LAT`, `WAREHOUSE_LNG` | `.env`'den |
 | `GEOCODING_DAILY_LIMIT` | `2000` |
 | `LOG_LEVEL` | `info` |
@@ -84,8 +84,7 @@ zaten browser'a sızdırmaz). Quota guard + bütçe alarmı koruma yeter.
 ### 4d. `NEXT_PUBLIC_APP_URL`'i gerçek URL'ye güncelle
 
 Vercel Dashboard → Project → Settings → Environment Variables →
-`NEXT_PUBLIC_APP_URL` = `https://tavuk-sepeti.vercel.app` (veya custom
-domain). Save → redeploy bir sonraki commit'te otomatik olur, ya da
+`NEXT_PUBLIC_APP_URL` = `https://apuhanciftligi.com` (www yok). Save → redeploy bir sonraki commit'te otomatik olur, ya da
 "Redeploy" butonuyla manuel.
 
 ## 5. Custom domain (opsiyonel)

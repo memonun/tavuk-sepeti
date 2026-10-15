@@ -24,7 +24,11 @@ import { MetaCheckoutTracker } from "@/features/storefront/ui/meta-checkout-trac
 import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { env } from "@/shared/env";
 
-export const metadata: Metadata = { title: "Siparişi tamamla" };
+// Account / checkout page: crawlable (so Google sees this) but never indexed.
+export const metadata: Metadata = {
+  title: "Siparişi tamamla",
+  robots: { index: false, follow: true },
+};
 
 /** "Today" as a YYYY-MM-DD calendar day in Europe/Istanbul. */
 function todayInIstanbul(): string {

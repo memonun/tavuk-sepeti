@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { getReturnPaymentState } from "@/features/storefront/application/get-order-payment-status";
 import { PaymentSuccess } from "@/features/storefront/ui/payment-success";
 
-export const metadata: Metadata = { title: "Ödeme sonucu" };
+// Account / checkout page: crawlable (so Google sees this) but never indexed.
+export const metadata: Metadata = {
+  title: "Ödeme sonucu",
+  robots: { index: false, follow: true },
+};
 
 export default async function PaymentSuccessPage({
   searchParams,

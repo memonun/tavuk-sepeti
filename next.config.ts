@@ -43,6 +43,17 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // API responses (JSON, webhooks, the MCP endpoint) are never search results.
+  // robots.txt also disallows /api/, but a header keeps them out even when a
+  // crawler reaches one through an external link.
+  async headers() {
+    return [
+      {
+        source: "/api/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+    ];
+  },
   // Pin Turbopack's notion of the workspace root to this repo so it doesn't
   // walk up the filesystem and pick up an unrelated lockfile in the user's
   // home directory.

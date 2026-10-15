@@ -4,6 +4,7 @@ import { LegalArticle } from "@/features/storefront/ui/legal-article";
 
 export const metadata: Metadata = {
   title: "İşlem Rehberi",
+  alternates: { canonical: "/islem-rehberi" },
   description:
     "Apuhan Çiftliği'nde sipariş oluşturma, sözleşmeler, sipariş sonrası erişim ve kişisel veriler hakkında işlem rehberi.",
 };
