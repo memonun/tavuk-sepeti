@@ -17,6 +17,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
+  BookOpenIcon,
   ChevronRightIcon,
   HouseIcon,
   LayoutDashboardIcon,
@@ -84,6 +85,9 @@ export function MobileNavSheet({
           </DrawerLink>
           <DrawerLink href="/#urunler" onNavigate={close} icon={<LayoutGridIcon aria-hidden />}>
             Ürünler
+          </DrawerLink>
+          <DrawerLink href="/tarifler" onNavigate={close} icon={<BookOpenIcon aria-hidden />}>
+            Tarifler
           </DrawerLink>
           <DrawerLink href="/duzenli-siparis" onNavigate={close} icon={<RepeatIcon aria-hidden />}>
             Düzenli Sipariş

@@ -1,0 +1,42 @@
+# Tarif içeriğini güncelleme
+
+Tarifler `features/content/domain/recipes.ts` içinde tutulur. Veritabanı veya
+admin editörü gerekmez. Liste `/tarifler` adresinde yayın tarihine göre yeniden
+eskiye sıralanır. Aynı gün yayınlanan tarifler dosyadaki sırasını korur.
+
+Yeni tarif eklerken benzersiz bir ASCII `slug`, `YYYY-MM-DD` biçiminde gerçek
+bir yayın tarihi, malzemeler, yapılış adımları, süreler ve porsiyon sayısı yazın.
+Görseli `public/tarifler/` altına koyun; `image` değerinde `/tarifler/...` yolunu
+ve görseli açıklayan `imageAlt` metnini kullanın. Schema, statik parametreler,
+metadata, Recipe/BreadcrumbList JSON-LD ve sitemap bu kaydı kullanır.
+
+`productSlugs` alanında ürünün kalıcı anahtarını değil, `products.web_slug`
+değerini kullanın. Canlı vitrindeki yumurta adresi `/urun/yumurta` olarak
+doğrulandı. Süt için `sut` tanımlıdır; bu slug vitrinde bulunmadığında kart
+gösterilmez. Yayından kaldırılan, fiyatı olmayan veya slug'ı değişen ürünler de
+aynı şekilde atlanır. Slug'ları ürünün mevcut web adresiyle eşleştirin.
+
+Hazırlık ve pişirme süreleri dakika cinsindendir. Yoğurdun mayalanma ve
+buzdolabında dinlenme süreleri ayrıca yapılış adımlarında belirtilmiştir.
+
+## Fotoğraflar
+
+TODO: Üç tarifin de bitmiş yemek fotoğrafını çekip
+`public/tarifler/tarif-placeholder.png` yerine ayrı görseller kullanın.
+Geçici görsel repodaki Apuhan Çiftliği marka görselinin kopyasıdır; tarif
+fotoğrafı gibi sunulmaz. Fotoğraf eklenince `imageAlt` değerini de değiştirin.
+
+## Kontrol
+
+`pnpm typecheck && pnpm lint && pnpm test`
+
+Testler benzersiz slug'ları, geçerli takvim tarihlerini, boş olmayan malzeme ve
+adımları, yerel görselleri, JSON-LD'yi, metadata/404 davranışını, eksik ürünleri
+ve katalog kullanılamadığında da sitemap'te tariflerin kalmasını denetler.
+
+## Sonraki yazı fikirleri
+
+- Köy yumurtası ile market yumurtası farkı
+- Yumurta kodu nasıl okunur (0-TR-…)
+- Yumurta nasıl saklanır ve tazelik testi
+- Malatya kayısısı

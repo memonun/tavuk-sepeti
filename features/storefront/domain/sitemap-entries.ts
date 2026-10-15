@@ -19,7 +19,7 @@ export interface StorefrontSitemapEntry {
   readonly path: string;
   /** Absolute URL on the canonical origin. */
   readonly url: string;
-  /** YYYY-MM-DD, when the page's content is versioned (legal texts). */
+  /** YYYY-MM-DD, for versioned legal texts and published recipes. */
   readonly lastModified?: string;
   readonly changeFrequency: "daily" | "weekly" | "monthly" | "yearly";
   readonly priority: number;
@@ -43,14 +43,17 @@ function entry(
 /** Products are supplied by the filtered storefront catalog. */
 export function buildStorefrontSitemapEntries(
   products: readonly { readonly web_slug: string | null }[] = [],
+  recipes: readonly { readonly slug: string; readonly publishedAt: string }[] = [],
 ): StorefrontSitemapEntry[] {
   return [
     // The shop itself: prices and stock change daily.
     entry("/", "daily", 1),
+    entry("/tarifler", "weekly", 0.7),
     entry("/duzenli-siparis", "monthly", 0.6),
     entry("/siparis-sorgula", "yearly", 0.3),
     ...LEGAL_DOCS.map((doc) => entry(`/${doc.slug}`, "yearly", 0.2, doc.updated)),
     ...[...new Set(products.flatMap((product) => product.web_slug ? [product.web_slug] : []))]
       .map((slug) => entry(`/urun/${slug}`, "daily", 0.8)),
+    ...recipes.map((recipe) => entry(`/tarifler/${recipe.slug}`, "monthly", 0.7, recipe.publishedAt)),
   ];
 }

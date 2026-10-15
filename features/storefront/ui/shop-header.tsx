@@ -66,6 +66,9 @@ export function ShopHeader({
             <ShopLinkButton href="/" variant="plain">
               Ana Sayfa
             </ShopLinkButton>
+            <ShopLinkButton href="/tarifler" variant="plain">
+              Tarifler
+            </ShopLinkButton>
             <ShopLinkButton href="/siparis-sorgula" variant="plain">
               Sipariş Sorgula
             </ShopLinkButton>
