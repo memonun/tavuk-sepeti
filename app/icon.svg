@@ -1,24 +1,15 @@
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="ac-bg" x1="32" y1="2" x2="32" y2="62" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#E7AB50" />
-      <stop offset="1" stop-color="#BE7C2A" />
-    </linearGradient>
-    <linearGradient id="ac-egg" x1="24" y1="14" x2="40" y2="50" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFFCF5" />
-      <stop offset="1" stop-color="#F1E3C8" />
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="16" fill="url(#ac-bg)" />
+  <!-- Tab icon: the round farm badge (public/brand/apuhan-ciftligi-logo.png)
+       reduced to what survives at 16px: its green disc, its thin inner ring
+       and the slab "A" of the APUHAN wordmark. The cream rim keeps the disc
+       visible on dark tab bars. -->
+  <circle cx="32" cy="32" r="32" fill="#FCFBF4" />
+  <circle cx="32" cy="32" r="30" fill="#16411C" />
+  <circle cx="32" cy="32" r="25.5" stroke="#FCFBF4" stroke-opacity="0.55" stroke-width="1.5" />
   <path
-    d="M32 12c6 0 12 10 12 22 0 10-5 17-12 17s-12-7-12-17c0-12 6-22 12-22Z"
-    fill="url(#ac-egg)"
-  />
-  <path
-    d="M26.6 22.5c-2.2 1.8-3.6 4.6-3.9 7.7"
-    stroke="#FFFFFF"
-    stroke-opacity="0.55"
-    stroke-width="2.4"
-    stroke-linecap="round"
+    transform="translate(32 33) scale(0.86) translate(-32 -32)"
+    fill="#FCFBF4"
+    fill-rule="evenodd"
+    d="M28.5 13H35.5L46.5 47H51V51H37V47H40.6L38 40H26L23.4 47H27V51H13V47H17.5L28.5 13ZM32 21.5L36.2 34H27.8L32 21.5Z"
   />
 </svg>

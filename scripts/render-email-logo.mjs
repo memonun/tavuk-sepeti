@@ -3,16 +3,13 @@
 // Usage:
 //   node scripts/render-email-logo.mjs
 //
-// Why a script and not the SVG: `app/icon.svg` is the source of truth for the
-// brand mark, but no mail client renders inline or linked SVG (Gmail strips it,
-// Outlook never supported it), so email needs a raster copy at an absolute URL.
-// macOS has no reliable SVG rasterizer preinstalled — qlmanage crops — and
-// adding sharp/imagemagick just for one asset is not worth the dependency, so
-// this redraws the same shapes (rounded square + egg + highlight arc, same
-// gradients) with a tiny hand-rolled PNG encoder: zero dependencies, byte-for-
-// byte reproducible.
-//
-// Re-run this if app/icon.svg changes, then commit the PNG.
+// This draws the ORIGINAL egg-on-honey mark (2026-07), which is still what
+// transactional email and the admin panel show. It used to mirror
+// app/icon.svg; since 2026-10 the tab icon is the farm-badge "A" and all
+// browser icons come from scripts/brand/render-brand-images.mjs instead.
+// Email cannot use SVG (Gmail strips it, Outlook never supported it), so this
+// keeps a raster copy at an absolute URL, drawn with a tiny hand-rolled PNG
+// encoder: zero dependencies, byte-for-byte reproducible.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -29,9 +26,9 @@ const OUT = path.resolve(
 const SIZE = 256; // final pixels; displayed at 56px in email (4.5x for retina)
 const SS = 3; // supersampling factor for anti-aliasing
 const W = SIZE * SS;
-const k = W / 64; // app/icon.svg uses a 64-unit viewBox
+const k = W / 64; // the mark is drawn on a 64-unit grid
 
-// --- palette (identical to app/icon.svg) --------------------------------
+// --- palette of the original egg mark -------------------------------------
 const BG_TOP = [0xe7, 0xab, 0x50];
 const BG_BOTTOM = [0xbe, 0x7c, 0x2a];
 const EGG_TOP = [0xff, 0xfc, 0xf5];

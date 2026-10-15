@@ -13,6 +13,16 @@ export const metadata: Metadata = {
     description:
       "Köy yumurtası ve taze sütle hazırlanan, adım adım ev tarifleri.",
     url: "/tarifler",
+    // A page-level openGraph replaces the layout's whole block, image included.
+    images: [
+      {
+        url: "/brand/apuhan-onizleme.jpg",
+        type: "image/jpeg",
+        width: 1200,
+        height: 630,
+        alt: "Apuhan Çiftliği logosu ve “Çiftlikten sofranıza” yazısı",
+      },
+    ],
   },
 };
 

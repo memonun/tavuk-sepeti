@@ -63,11 +63,11 @@ export const metadata: Metadata = {
     url: CANONICAL_ORIGIN,
     images: [
       {
-        url: "/brand/apuhan-og.png",
-        type: "image/png",
+        url: "/brand/apuhan-onizleme.jpg",
+        type: "image/jpeg",
         width: 1200,
         height: 630,
-        alt: "Apuhan Çiftliği — Taze ürünler, kapınızda",
+        alt: "Apuhan Çiftliği logosu ve “Çiftlikten sofranıza” yazısı",
       },
     ],
   },
@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Apuhan Çiftliği — Taze ürünler, kapınızda",
     description: STOREFRONT_DESCRIPTION,
-    images: ["/brand/apuhan-og.png"],
+    images: ["/brand/apuhan-onizleme.jpg"],
   },
 };
 
