@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import sitemap from "@/app/sitemap";
+import { getRecipesNewestFirst } from "@/features/content/application/get-recipes";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { buildStorefrontSitemapEntries } from "@/features/storefront/domain/sitemap-entries";
 import { ExternalApiError } from "@/shared/errors/app-error";
@@ -15,6 +16,7 @@ vi.mock("@/shared/logger", () => ({ logger: { error: vi.fn() } }));
 beforeEach(() => vi.resetAllMocks());
 
 const staticUrls = buildStorefrontSitemapEntries().map((entry) => entry.url);
+const recipeUrls = getRecipesNewestFirst().map((recipe) => `https://apuhanciftligi.com/tarifler/${recipe.slug}`);
 const urlsOf = (items: Awaited<ReturnType<typeof sitemap>>) => items.map((item) => item.url);
 
 describe("sitemap", () => {
@@ -25,6 +27,7 @@ describe("sitemap", () => {
     expect(urlsOf(await sitemap())).toEqual([
       ...staticUrls,
       "https://apuhanciftligi.com/urun/yumurta",
+      ...recipeUrls,
     ]);
   });
 
@@ -39,13 +42,13 @@ describe("sitemap failure recovery", () => {
     vi.mocked(getStorefrontCatalog).mockResolvedValue(
       err(new ExternalApiError()),
     );
-    expect(urlsOf(await sitemap())).toEqual(staticUrls);
+    expect(urlsOf(await sitemap())).toEqual([...staticUrls, ...recipeUrls]);
   });
   it("keeps static pages when an unexpected error is thrown", async () => {
     vi.mocked(getStorefrontCatalog).mockRejectedValue(
       new Error("network unavailable"),
     );
-    expect(urlsOf(await sitemap())).toEqual(staticUrls);
+    expect(urlsOf(await sitemap())).toEqual([...staticUrls, ...recipeUrls]);
   });
   // Next signals "this route is dynamic" / redirects by throwing; swallowing
   // those would make the build prerender a sitemap with no products.

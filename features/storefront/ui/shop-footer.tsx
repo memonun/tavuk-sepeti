@@ -43,6 +43,10 @@ export function ShopFooter() {
           </nav>
 
           <div className="flex flex-col">
+            <nav aria-label="Keşfet" className="mb-6">
+              <p className="mb-1 text-lg font-bold text-foreground">Keşfet</p>
+              <Link href="/tarifler" className={footerLinkClass}>Tarifler</Link>
+            </nav>
             <p className="mb-1 text-lg font-bold text-foreground">Güvenli Ödeme</p>
             <p className="py-1.5 text-base text-muted-foreground">
               Kredi ve banka kartıyla 3D Secure güvenli ödeme (PayTR altyapısı).
