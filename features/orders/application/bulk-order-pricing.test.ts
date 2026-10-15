@@ -97,6 +97,37 @@ describe("enrichBulkOrders", () => {
     expect(result.value[0]!.items[0]!.line_total_minor).toBe(9000);
   });
 
+  it("prices every line at 0 for a gift, ignoring saved special prices", () => {
+    const overrides = new Map<string, Record<string, number>>([["c1", { milk: 4500 }]]);
+    const result = enrichBulkOrders(
+      [
+        { customer_id: "c1", items: [{ product_key: "milk", quantity: 2 }, { product_key: "eggs", quantity: 1 }] },
+        { customer_id: "c2", items: [{ product_key: "cheese", quantity: 1.5 }] },
+      ],
+      CATALOG,
+      overrides,
+      { gift: true },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const lines = result.value.flatMap((order) => order.items);
+    expect(lines).toHaveLength(3);
+    for (const line of lines) {
+      expect(line.unit_price_minor).toBe(0);
+      expect(line.line_total_minor).toBe(0);
+    }
+  });
+
+  it("still enforces the quantity step on a gift", () => {
+    const result = enrichBulkOrders(
+      [{ customer_id: "c9", items: [{ product_key: "cheese", quantity: 0.3 }] }],
+      CATALOG,
+      new Map(),
+      { gift: true },
+    );
+    expect(result.ok).toBe(false);
+  });
+
   it("rejects with a customer-tagged ValidationError on a bad step", () => {
     const result = enrichBulkOrders(
       [{ customer_id: "c9", items: [{ product_key: "cheese", quantity: 0.3 }] }],

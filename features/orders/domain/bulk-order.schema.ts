@@ -23,6 +23,8 @@ export const bulkOrderSchema = z.object({
   // would put an unusable option on the bulk screen.
   payment_method: z.enum(["cash_on_delivery", "bank_transfer"]),
   delivery_fee_minor: z.coerce.number().int().nonnegative().default(0),
+  /** "Hediye olarak oluştur": every order free — 0 ₺ lines, no delivery fee. */
+  is_gift: z.boolean().default(false),
   orders: z
     .array(bulkCustomerOrderSchema)
     .min(1, "En az bir müşteri seç.")
