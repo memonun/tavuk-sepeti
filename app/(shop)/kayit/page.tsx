@@ -5,7 +5,11 @@ import { getCurrentUser } from "@/features/auth/application/get-session";
 import { CustomerAuthForm } from "@/features/storefront/ui/customer-auth-form";
 import { safeNextPath } from "@/shared/utils/next-path";
 
-export const metadata: Metadata = { title: "Hesap oluştur" };
+// Account / checkout page: crawlable (so Google sees this) but never indexed.
+export const metadata: Metadata = {
+  title: "Hesap oluştur",
+  robots: { index: false, follow: true },
+};
 
 export default async function CustomerSignUpPage({
   searchParams,

@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { PasswordResetRequestForm } from "@/features/storefront/ui/password-reset-request-form";
 
-export const metadata: Metadata = { title: "Şifremi unuttum" };
+// Account / checkout page: crawlable (so Google sees this) but never indexed.
+export const metadata: Metadata = {
+  title: "Şifremi unuttum",
+  robots: { index: false, follow: true },
+};
 
 export default function ForgotPasswordPage() {
   return (

@@ -17,7 +17,8 @@ import {
 /**
  * Single source for the panel's destinations. The desktop sidebar, the phone
  * tab bar and the phone menu all read from here, so a new page shows up in all
- * three (keep proxy.ts ADMIN_PREFIXES in sync as before).
+ * three (a new top-level section also goes in
+ * shared/routes/admin-route-prefixes.ts — a test enforces it).
  */
 export interface AdminNavItem {
   readonly href: string;

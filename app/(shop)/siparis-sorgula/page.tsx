@@ -5,6 +5,7 @@ import { FindOrderForm } from "@/features/storefront/ui/find-order-form";
 export const metadata: Metadata = {
   // The shop layout's template appends "| Apuhan Çiftliği".
   title: "Sipariş sorgula",
+  alternates: { canonical: "/siparis-sorgula" },
   description:
     "Sipariş numaranız ve telefonunuzla siparişinizin durumunu görün, ödemesini tamamlayın.",
 };

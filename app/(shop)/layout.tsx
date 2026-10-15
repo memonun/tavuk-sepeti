@@ -4,6 +4,10 @@ import { getViewer } from "@/features/auth/application/get-viewer";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { COMPANY } from "@/features/storefront/domain/legal";
+import {
+  buildStorefrontStructuredData,
+  STOREFRONT_DESCRIPTION,
+} from "@/features/storefront/domain/structured-data";
 import { CartProvider } from "@/features/storefront/ui/cart-provider";
 import { HOME_INTRO_SKIP_SCRIPT } from "@/features/storefront/ui/home-hero-intro";
 import { MetaContactTracker } from "@/features/storefront/ui/meta-contact-tracker";
@@ -13,6 +17,7 @@ import { ShopFooter } from "@/features/storefront/ui/shop-footer";
 import { ShopHeader } from "@/features/storefront/ui/shop-header";
 import { WhatsAppSupportButton } from "@/features/storefront/ui/whatsapp-support-button";
 import { Toaster } from "@/components/ui/sonner";
+import { getGoogleSiteVerification } from "@/shared/analytics/google-site-verification";
 import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
@@ -35,21 +40,26 @@ export const viewport: Viewport = {
   themeColor: "#fffdf9",
 };
 
+const googleSiteVerification = getGoogleSiteVerification();
+
 export const metadata: Metadata = {
+  // The root layout is noindex by default (admin, /login, anything outside the
+  // shop); the storefront opts back in. Account/checkout pages under this
+  // layout set noindex again on their own metadata.
+  robots: { index: true, follow: true },
+  ...(googleSiteVerification ? { verification: { google: googleSiteVerification } } : {}),
   title: {
     default: "Apuhan Çiftliği — Taze ürünler, kapınızda",
     template: "%s | Apuhan Çiftliği",
   },
-  description:
-    "Çiftlikten sofranıza taze yumurta ve süt ürünleri. Online sipariş verin, biz getirelim.",
+  description: STOREFRONT_DESCRIPTION,
   applicationName: COMPANY.brand,
   openGraph: {
     type: "website",
     locale: "tr_TR",
     siteName: COMPANY.brand,
     title: "Apuhan Çiftliği — Taze ürünler, kapınızda",
-    description:
-      "Çiftlikten sofranıza taze yumurta ve süt ürünleri. Online sipariş verin, biz getirelim.",
+    description: STOREFRONT_DESCRIPTION,
     url: CANONICAL_ORIGIN,
     images: [
       {
@@ -64,39 +74,12 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Apuhan Çiftliği — Taze ürünler, kapınızda",
-    description:
-      "Çiftlikten sofranıza taze yumurta ve süt ürünleri. Online sipariş verin, biz getirelim.",
+    description: STOREFRONT_DESCRIPTION,
     images: ["/brand/apuhan-og.png"],
   },
 };
 
-const publicStructuredData = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": `${CANONICAL_ORIGIN}/#organization`,
-      name: COMPANY.brand,
-      url: CANONICAL_ORIGIN,
-      logo: {
-        "@type": "ImageObject",
-        url: `${CANONICAL_ORIGIN}/brand/apuhan-ciftligi-logo.png`,
-        width: 512,
-        height: 512,
-      },
-    },
-    {
-      "@type": "WebSite",
-      "@id": `${CANONICAL_ORIGIN}/#website`,
-      url: CANONICAL_ORIGIN,
-      name: COMPANY.brand,
-      description:
-        "Çiftlikten sofranıza taze yumurta ve süt ürünleri. Online sipariş verin, biz getirelim.",
-      inLanguage: "tr-TR",
-      publisher: { "@id": `${CANONICAL_ORIGIN}/#organization` },
-    },
-  ],
-} as const;
+const publicStructuredData = buildStorefrontStructuredData();
 
 /**
  * Public storefront shell (`/`). Nests inside the root layout but scopes

@@ -15,6 +15,7 @@ import { RecurringOrderForm } from "@/features/storefront/ui/recurring-order-for
 export const metadata: Metadata = {
   // The shop layout's template appends "| Apuhan Çiftliği".
   title: "Düzenli Sipariş",
+  alternates: { canonical: "/duzenli-siparis" },
   description:
     "Her hafta düzenli aldığınız ürünleri tekrar tekrar sipariş vermeden planlayın. Teslimat alt limiti: 250 ₺",
 };

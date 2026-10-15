@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 
 import { LegalArticle } from "@/features/storefront/ui/legal-article";
 
-export const metadata: Metadata = { title: "İptal ve İade Koşulları" };
+export const metadata: Metadata = {
+  title: "İptal ve İade Koşulları",
+  alternates: { canonical: "/iptal-iade-kosullari" },
+};
 
 export default function Page() {
   return <LegalArticle slug="iptal-iade-kosullari" />;
