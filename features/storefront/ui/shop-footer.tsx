@@ -45,6 +45,8 @@ export function ShopFooter() {
           <div className="flex flex-col">
             <nav aria-label="Keşfet" className="mb-6">
               <p className="mb-1 text-lg font-bold text-foreground">Keşfet</p>
+              <Link href="/hakkimizda" className={footerLinkClass}>Hakkımızda</Link>
+              <Link href="/ciftligimiz" className={footerLinkClass}>Çiftliğimiz</Link>
               <Link href="/tarifler" className={footerLinkClass}>Tarifler</Link>
             </nav>
             <p className="mb-1 text-lg font-bold text-foreground">Güvenli Ödeme</p>
