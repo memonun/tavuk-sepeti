@@ -96,11 +96,6 @@ export function RecipeDetails({
                 className="object-cover"
               />
             </div>
-            {recipe.image === "/tarifler/tarif-placeholder.png" ? (
-              <figcaption className="mt-2 text-base text-muted-foreground">
-                Tarif fotoğrafı yakında eklenecek.
-              </figcaption>
-            ) : null}
           </figure>
         </header>
         <div className="mt-12 grid gap-10 md:grid-cols-[1fr_2fr] lg:gap-16">

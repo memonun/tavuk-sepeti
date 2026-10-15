@@ -24,10 +24,12 @@ elle bir şey yapılmayan süredir. Google'a giden toplam süreye eklenir, sayfa
 
 ## Fotoğraflar
 
-TODO: Üç tarifin de bitmiş yemek fotoğrafını çekip
-`public/tarifler/tarif-placeholder.png` yerine ayrı görseller kullanın.
-Geçici görsel repodaki Apuhan Çiftliği marka görselinin kopyasıdır; tarif
-fotoğrafı gibi sunulmaz. Fotoğraf eklenince `imageAlt` değerini de değiştirin.
+Üç tarifin her biri `public/tarifler/` altında ayrı bir WebP görseli kullanır.
+Bu görseller yapay zekâyla üretildi; üretim yöntemi ve kullanılan prompt'lar
+`docs/tarif-gorselleri.md` dosyasında kayıtlıdır. Gerçek çiftlik çekimi değildir.
+İleride kendi yemek fotoğraflarınızla değiştirebilirsiniz; görseli değiştirirken
+`imageAlt` değerini de güncelleyin. Aynı görsel indeks, detay, OG/Twitter ve
+Recipe JSON-LD çıktısında kullanılır.
 
 ## Kontrol
 

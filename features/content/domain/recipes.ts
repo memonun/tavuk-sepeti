@@ -1,8 +1,7 @@
 import { recipeCollectionSchema } from "./recipe.schema";
 import type { Recipe } from "./recipe";
 
-// TODO: Her tarif için bitmiş yemeğin özgün fotoğrafını public/tarifler/'e
-// ekle; image ve imageAlt alanlarını güncelle. Şimdilik marka görseli kullanılır.
+// Tarif görselleri yapay zekâyla üretildi; üretim notları docs/tarif-gorselleri.md'de.
 export const RECIPES: readonly Recipe[] = recipeCollectionSchema.parse([
   {
     slug: "koy-yumurtali-menemen",
@@ -10,9 +9,9 @@ export const RECIPES: readonly Recipe[] = recipeCollectionSchema.parse([
     description:
       "Köy yumurtası, olgun domates ve yeşil biberle kahvaltılık menemen. Domatesin suyunu dengede tutan, iki kişilik kolay bir tava tarifi.",
     publishedAt: "2026-10-15",
-    image: "/tarifler/tarif-placeholder.png",
+    image: "/tarifler/koy-yumurtali-menemen.webp",
     imageAlt:
-      "Apuhan Çiftliği marka görseli; menemen fotoğrafı yakında eklenecek",
+      "Demir tavada domates ve yeşil biberle hazırlanmış köy yumurtalı menemen",
     prepMinutes: 10,
     cookMinutes: 15,
     restMinutes: 0,
@@ -40,9 +39,9 @@ export const RECIPES: readonly Recipe[] = recipeCollectionSchema.parse([
     description:
       "Önce kızaran patatesler, ardından köy yumurtası: kahvaltı ya da hafif akşam yemeği için dört kişilik fırında yumurtalı patates tarifi.",
     publishedAt: "2026-10-15",
-    image: "/tarifler/tarif-placeholder.png",
+    image: "/tarifler/firinda-yumurtali-patates.webp",
     imageAlt:
-      "Apuhan Çiftliği marka görseli; yumurtalı patates fotoğrafı yakında eklenecek",
+      "Fırın kabında kızarmış patatesler arasında dört yumurta ve maydanoz",
     prepMinutes: 15,
     cookMinutes: 40,
     restMinutes: 0,
@@ -72,9 +71,9 @@ export const RECIPES: readonly Recipe[] = recipeCollectionSchema.parse([
     description:
       "Taze sütle evde yoğurt nasıl mayalanır? Sütü ısıtma, mayalama ve dinlendirme adımlarını anlatan, bir litre sütle hazırlanan sade yoğurt tarifi.",
     publishedAt: "2026-10-15",
-    image: "/tarifler/tarif-placeholder.png",
+    image: "/tarifler/ev-yapimi-yogurt.webp",
     imageAlt:
-      "Apuhan Çiftliği marka görseli; ev yapımı yoğurt fotoğrafı yakında eklenecek",
+      "Seramik kasede kaşıkla alınmış sade ev yoğurdu ve yanında süt sürahisi",
     prepMinutes: 30,
     cookMinutes: 20,
     // En az 4 saat mayalanma + en az 6 saat buzdolabında dinlenme.

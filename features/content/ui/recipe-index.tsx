@@ -25,7 +25,7 @@ export function RecipeIndex({ recipes }: { recipes: readonly Recipe[] }) {
                   src={recipe.image}
                   alt={recipe.imageAlt}
                   fill
-                  loading={index === 0 ? "eager" : "lazy"}
+                  loading={index < 3 ? "eager" : "lazy"}
                   sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 360px"
                   className="object-cover"
                 />
