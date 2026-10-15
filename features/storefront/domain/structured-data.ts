@@ -48,7 +48,7 @@ export function buildStorefrontStructuredData() {
           width: 512,
           height: 512,
         },
-        image: `${CANONICAL_ORIGIN}/brand/apuhan-og.png`,
+        image: `${CANONICAL_ORIGIN}/brand/apuhan-onizleme.jpg`,
         telephone: toE164(COMPANY.phone),
         email: COMPANY.email,
         address: { "@type": "PostalAddress", ...COMPANY_POSTAL_ADDRESS },

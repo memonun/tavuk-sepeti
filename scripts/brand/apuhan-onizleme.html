@@ -1,0 +1,103 @@
+<!doctype html>
+<!--
+  Source of public/brand/apuhan-onizleme.jpg, the 1200x630 link preview
+  (WhatsApp, Facebook, X, Google). Render it with:
+
+    node scripts/brand/render-brand-images.mjs
+
+  Fonts are the storefront's own (app/(shop)/fonts.ts). Copy is evergreen on
+  purpose: no products or prices, so the preview never goes stale.
+-->
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600&family=Bricolage+Grotesque:opsz,wght@96,700&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --field: #1b4a26; /* storefront primary */
+        --badge-green: #16411c; /* logo ring and wordmark */
+        --paper: #fcfbf4; /* logo paper */
+        --paper-soft: #d8dcc9;
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: var(--field);
+      }
+      .card {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        display: flex;
+        align-items: center;
+        gap: 72px;
+        padding-left: 70px;
+        color: var(--paper);
+        font-family: "Atkinson Hyperlegible Next", sans-serif;
+      }
+      /* The seal: the badge plus one faint ring around it, like a stamp. */
+      .seal {
+        position: relative;
+        flex: none;
+        width: 470px;
+        height: 470px;
+      }
+      .seal::before {
+        content: "";
+        position: absolute;
+        inset: -34px;
+        border-radius: 50%;
+        border: 2px solid rgb(252 251 244 / 0.28);
+      }
+      .seal img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        display: block;
+      }
+      h1 {
+        font-family: "Bricolage Grotesque", sans-serif;
+        font-variation-settings: "opsz" 96;
+        font-weight: 700;
+        font-size: 88px;
+        line-height: 0.98;
+        letter-spacing: -0.02em;
+      }
+      .delivery {
+        margin-top: 30px;
+        font-size: 32px;
+        line-height: 1.35;
+        color: var(--paper-soft);
+      }
+      .site {
+        margin-top: 44px;
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="seal">
+        <img src="../../public/brand/apuhan-ciftligi-logo.png" alt="" />
+      </div>
+      <div>
+        <h1>Çiftlikten<br />sofranıza</h1>
+        <p class="delivery">Malatya’ya eve teslim,<br />Türkiye geneline kargo.</p>
+        <p class="site">apuhanciftligi.com</p>
+      </div>
+    </div>
+  </body>
+</html>

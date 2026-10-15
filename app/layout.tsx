@@ -34,13 +34,9 @@ export const metadata: Metadata = {
   // /login, OAuth consent and any page added later outside the shop stay out
   // of search results without anyone having to remember a flag.
   robots: { index: false, follow: false },
-  icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/brand/apuhan-logo.png", type: "image/png", sizes: "256x256" },
-    ],
-    apple: "/brand/apuhan-logo.png",
-  },
+  // Icons come from Next's file conventions (app/favicon.ico, app/icon.svg,
+  // app/apple-icon.png), which add a content hash so browsers drop a cached
+  // old icon. Regenerate them with scripts/brand/render-brand-images.mjs.
   manifest: "/manifest.webmanifest",
 };
 
