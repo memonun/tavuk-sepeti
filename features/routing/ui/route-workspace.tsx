@@ -14,12 +14,13 @@ import { Navigation } from "lucide-react";
 import { useState } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
-import { buildGoogleMapsDirectionsUrl } from "@/features/routing/domain/google-maps-directions-url";
+import { buildGoogleMapsDirectionsLegs } from "@/features/routing/domain/google-maps-directions-url";
 import { RouteList } from "@/features/routing/ui/route-list";
 import { RouteMap } from "@/features/routing/ui/route-map";
 import { RouteStopPanel } from "@/features/routing/ui/route-stop-panel";
 import { cn } from "@/lib/utils";
 
+import type { GoogleMapsLeg } from "@/features/routing/domain/google-maps-directions-url";
 import type { OptimizedRoute } from "@/features/routing/domain/route";
 
 interface RouteWorkspaceProps {
@@ -34,15 +35,7 @@ export function RouteWorkspace({ apiKey, route }: RouteWorkspaceProps) {
 
   return (
     <div className="space-y-4">
-      <a
-        href={buildGoogleMapsDirectionsUrl(route)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full gap-1.5 sm:w-auto")}
-      >
-        <Navigation className="h-3.5 w-3.5" />
-        Google Maps&apos;te Aç
-      </a>
+      <GoogleMapsLinks legs={buildGoogleMapsDirectionsLegs(route)} />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="lg:flex-1">
@@ -82,6 +75,54 @@ export function RouteWorkspace({ apiKey, route }: RouteWorkspaceProps) {
         {selected
           ? `Seçildi: ${selected.sequence}. durak — ${selected.customer_name}`
           : ""}
+      </div>
+    </div>
+  );
+}
+
+const linkClass = cn(
+  buttonVariants({ variant: "outline", size: "sm" }),
+  "w-full gap-1.5 sm:w-auto",
+);
+
+function legLabel(leg: GoogleMapsLeg): string {
+  const tail = leg.endsAtRouteEnd ? " + dönüş" : "";
+  if (leg.firstStop === null || leg.lastStop === null) return "Dönüş";
+  if (leg.firstStop === leg.lastStop) return `${leg.firstStop}. durak${tail}`;
+  return `${leg.firstStop}–${leg.lastStop}. durak${tail}`;
+}
+
+/** Google Maps links take at most 9 waypoints, so a long route opens as
+ *  several consecutive legs — one button each, in driving order. */
+function GoogleMapsLinks({ legs }: { legs: readonly GoogleMapsLeg[] }) {
+  const [only] = legs;
+  if (legs.length === 1 && only) {
+    return (
+      <a href={only.url} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        <Navigation className="h-3.5 w-3.5" />
+        Google Maps&apos;te Aç
+      </a>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-muted-foreground">
+        Google Maps tek linkte en fazla 9 ara durak kabul ediyor — rota {legs.length} parçaya
+        bölündü, sırayla aç:
+      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {legs.map((leg, i) => (
+          <a
+            key={leg.url}
+            href={leg.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkClass}
+          >
+            <Navigation className="h-3.5 w-3.5" />
+            {i + 1}. parça · {legLabel(leg)}
+          </a>
+        ))}
       </div>
     </div>
   );

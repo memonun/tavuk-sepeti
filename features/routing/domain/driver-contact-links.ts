@@ -12,7 +12,7 @@
 export function whatsAppDeliveryMessage(delivered: boolean): string {
   return delivered
     ? "Merhabalar, Apuhan Çiftliği siparişiniz teslim edilmiştir."
-    : "Siparişiniz 30 dk içerisinde teslim edilecektir.";
+    : "Merhabalar, Apuhan Çiftliği'nden yazıyoruz. Siparişiniz 30 dk içerisinde teslim edilecektir.";
 }
 
 export function buildWhatsAppLink(phoneE164: string, delivered: boolean): string {

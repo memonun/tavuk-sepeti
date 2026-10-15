@@ -14,7 +14,7 @@ describe("whatsAppDeliveryMessage", () => {
 
   it("says in progress otherwise", () => {
     expect(whatsAppDeliveryMessage(false)).toBe(
-      "Siparişiniz 30 dk içerisinde teslim edilecektir.",
+      "Merhabalar, Apuhan Çiftliği'nden yazıyoruz. Siparişiniz 30 dk içerisinde teslim edilecektir.",
     );
   });
 });
