@@ -27,6 +27,8 @@ import {
   PhoneIcon,
   RepeatIcon,
   SearchIcon,
+  SproutIcon,
+  UsersRoundIcon,
   UserRoundIcon,
 } from "lucide-react";
 
@@ -88,6 +90,12 @@ export function MobileNavSheet({
           </DrawerLink>
           <DrawerLink href="/tarifler" onNavigate={close} icon={<BookOpenIcon aria-hidden />}>
             Tarifler
+          </DrawerLink>
+          <DrawerLink href="/hakkimizda" onNavigate={close} icon={<UsersRoundIcon aria-hidden />}>
+            Hakkımızda
+          </DrawerLink>
+          <DrawerLink href="/ciftligimiz" onNavigate={close} icon={<SproutIcon aria-hidden />}>
+            Çiftliğimiz
           </DrawerLink>
           <DrawerLink href="/duzenli-siparis" onNavigate={close} icon={<RepeatIcon aria-hidden />}>
             Düzenli Sipariş

@@ -80,9 +80,9 @@ describe("recipe routes", () => {
   });
 });
 
-describe("recipe sitemap URLs", () => {
+describe("recipe and trust sitemap URLs", () => {
   it.each(["available", "failed", "throws"])(
-    "includes recipes when the catalog is %s",
+    "includes recipes and trust pages when the catalog is %s",
     async (state) => {
       const failure = new ExternalApiError();
       if (state === "available")
@@ -107,9 +107,12 @@ describe("recipe sitemap URLs", () => {
       expect(new Set(entries.map((entry) => entry.url)).size).toBe(
         entries.length,
       );
-      expect(
-        entries.some((entry) => /\/hakkimizda|\/sss/.test(entry.url)),
-      ).toBe(false);
+      for (const path of ["/hakkimizda", "/ciftligimiz"]) {
+        expect(entries).toContainEqual(expect.objectContaining({
+          url: `https://apuhanciftligi.com${path}`,
+        }));
+      }
+      expect(entries.some((entry) => entry.url.endsWith("/sss"))).toBe(false);
     },
   );
 });

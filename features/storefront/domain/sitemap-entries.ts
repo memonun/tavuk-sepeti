@@ -49,6 +49,8 @@ export function buildStorefrontSitemapEntries(
     // The shop itself: prices and stock change daily.
     entry("/", "daily", 1),
     entry("/tarifler", "weekly", 0.7),
+    entry("/hakkimizda", "monthly", 0.6),
+    entry("/ciftligimiz", "monthly", 0.6),
     entry("/duzenli-siparis", "monthly", 0.6),
     entry("/siparis-sorgula", "yearly", 0.3),
     ...LEGAL_DOCS.map((doc) => entry(`/${doc.slug}`, "yearly", 0.2, doc.updated)),
