@@ -60,3 +60,18 @@ describe("buildStorefrontSitemapEntries", () => {
     }
   });
 });
+
+describe("product sitemap entries", () => {
+  it("adds each catalog slug once, skipping nullable URLs", () => {
+    const entries = buildStorefrontSitemapEntries([
+      { web_slug: "koy-yumurtasi" }, { web_slug: "sut" },
+      { web_slug: null }, { web_slug: "sut" },
+    ]);
+    const products = entries.filter((entry) => entry.path.startsWith("/urun/"));
+    expect(products.map((entry) => entry.url)).toEqual([
+      "https://apuhanciftligi.com/urun/koy-yumurtasi",
+      "https://apuhanciftligi.com/urun/sut",
+    ]);
+    expect(products.every((entry) => entry.changeFrequency === "daily")).toBe(true);
+  });
+});

@@ -29,6 +29,8 @@ import type { Product } from "@/features/products/application/list-products";
 const eggs: Product = {
   key: "eggs",
   display_name: "Yumurta",
+  web_slug: null,
+  web_long_description: null,
   unit: "piece",
   unit_label: "adet",
   package_size: 1,
@@ -50,6 +52,8 @@ const eggs: Product = {
 const cheese: Product = {
   key: "cheese",
   display_name: "Peynir",
+  web_slug: null,
+  web_long_description: null,
   unit: "kilogram",
   unit_label: "kg",
   package_size: 0.5,

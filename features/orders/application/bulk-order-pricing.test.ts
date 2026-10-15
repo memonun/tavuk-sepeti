@@ -11,6 +11,8 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
   return {
     key: "eggs",
     display_name: "Yumurta",
+    web_slug: null,
+    web_long_description: null,
     unit: "package",
     unit_label: "paket",
     package_size: 15,

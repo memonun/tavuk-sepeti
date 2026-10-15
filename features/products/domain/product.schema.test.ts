@@ -102,3 +102,35 @@ describe("updateProductMetadataSchema", () => {
     ).toBe(true);
   });
 });
+
+describe("web_long_description", () => {
+  it("stays undefined when omitted, so an update never wipes stored text", () => {
+    expect(productMetadataSchema.parse(validMetadata).web_long_description).toBeUndefined();
+  });
+
+  it("trims text and maps an emptied field to null (clear)", () => {
+    expect(
+      productMetadataSchema.parse({ ...validMetadata, web_long_description: "  Taze.  " })
+        .web_long_description,
+    ).toBe("Taze.");
+    expect(
+      productMetadataSchema.parse({ ...validMetadata, web_long_description: "   " })
+        .web_long_description,
+    ).toBeNull();
+    expect(
+      productMetadataSchema.parse({ ...validMetadata, web_long_description: null })
+        .web_long_description,
+    ).toBeNull();
+  });
+
+  it("rejects text over the DB limit of 4000 characters", () => {
+    expect(
+      productMetadataSchema.safeParse({ ...validMetadata, web_long_description: "a".repeat(4000) })
+        .success,
+    ).toBe(true);
+    expect(
+      productMetadataSchema.safeParse({ ...validMetadata, web_long_description: "a".repeat(4001) })
+        .success,
+    ).toBe(false);
+  });
+});

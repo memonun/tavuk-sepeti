@@ -15,9 +15,11 @@ import { createProductAction } from "@/features/products/application/create-prod
 import { updateProductMetadataAction } from "@/features/products/application/update-product-metadata";
 import {
   FULFILLMENT_TYPE_OPTIONS,
+  PRODUCT_LONG_DESCRIPTION_MAX,
   PRODUCT_UNIT_OPTIONS,
 } from "@/features/products/domain/product.schema";
 import { normalizeDecimal, parseTRY2 } from "@/features/products/ui/money";
+import { deriveProductWebSlug } from "@/features/products/domain/product-web-slug";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,12 +50,14 @@ import type {
 
 interface FieldsState {
   display_name: string;
+  web_slug: string;
   unit: ProductUnit;
   unit_label: string;
   package_size: string;
   min_qty: string;
   fulfillment_type: FulfillmentType;
   web_description: string;
+  web_long_description: string;
   image_alt: string;
   base_price: string; // TRY — create only
 }
@@ -61,12 +65,14 @@ interface FieldsState {
 function initialFields(product?: Product): FieldsState {
   return {
     display_name: product?.display_name ?? "",
+    web_slug: product?.web_slug ?? (product ? deriveProductWebSlug(product.display_name) : ""),
     unit: product?.unit ?? "package",
     unit_label: product?.unit_label ?? "",
     package_size: product ? String(product.package_size) : "1",
     min_qty: product ? String(product.min_qty) : "1",
     fulfillment_type: product?.fulfillment_type ?? "delivery",
     web_description: product?.web_description ?? "",
+    web_long_description: product?.web_long_description ?? "",
     image_alt: product?.image_alt ?? "",
     base_price: "",
   };
@@ -101,6 +107,9 @@ export function ProductFormDialog({
   const submit = () => {
     const base = {
       display_name: fields.display_name,
+      // Normalised on submit (not while typing, which would eat a trailing
+      // dash mid-word): "Köy Yumurtası" → "koy-yumurtasi".
+      web_slug: deriveProductWebSlug(fields.web_slug || fields.display_name),
       unit: fields.unit,
       unit_label: fields.unit_label,
       package_size: normalizeDecimal(fields.package_size),
@@ -113,6 +122,7 @@ export function ProductFormDialog({
       step: normalizeDecimal(fields.min_qty),
       fulfillment_type: fields.fulfillment_type,
       web_description: fields.web_description,
+      web_long_description: fields.web_long_description,
       image_alt: fields.image_alt,
     };
 
@@ -176,6 +186,30 @@ export function ProductFormDialog({
               placeholder="ör. Köy Yumurtası"
               autoFocus
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pf-slug">Web adresi (slug)</Label>
+            <Input
+              id="pf-slug"
+              value={fields.web_slug}
+              onChange={(e) => set({ web_slug: e.target.value })}
+              placeholder={deriveProductWebSlug(fields.display_name)}
+              maxLength={80}
+              autoCapitalize="none"
+              spellCheck={false}
+              aria-describedby="pf-slug-help"
+            />
+            <p id="pf-slug-help" className="text-sm text-muted-foreground">
+              /urun/{deriveProductWebSlug(fields.web_slug || fields.display_name)}
+            </p>
+            {product?.web_slug &&
+            deriveProductWebSlug(fields.web_slug || fields.display_name) !== product.web_slug ? (
+              <p className="text-sm font-medium text-destructive">
+                Adres değişirse eski bağlantı (/urun/{product.web_slug}) çalışmaz ve
+                Google&apos;daki sıralama sıfırlanır. Gerekmedikçe değiştirmeyin.
+              </p>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -269,6 +303,26 @@ export function ProductFormDialog({
             />
             <p className="text-xs text-muted-foreground">
               Mağaza kartında ürün adının altında görünür.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pf-long-desc">
+              Ürün sayfası açıklaması (detaylı) — opsiyonel
+            </Label>
+            <Textarea
+              id="pf-long-desc"
+              value={fields.web_long_description}
+              onChange={(e) => set({ web_long_description: e.target.value })}
+              placeholder={"Ürünün hikâyesi: nasıl üretiliyor, neden taze, nasıl saklanır, kargoda nasıl paketleniyor…\n\nParagrafları boş bir satırla ayırın."}
+              rows={7}
+              maxLength={PRODUCT_LONG_DESCRIPTION_MAX}
+              aria-describedby="pf-long-desc-help"
+            />
+            <p id="pf-long-desc-help" className="text-xs text-muted-foreground">
+              Yalnızca ürün sayfasında (/urun/…) “Ürün hakkında” başlığıyla görünür.
+              Google için 2–3 paragraf idealdir. {fields.web_long_description.length}/
+              {PRODUCT_LONG_DESCRIPTION_MAX}
             </p>
           </div>
 

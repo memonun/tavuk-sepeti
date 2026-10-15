@@ -10,6 +10,7 @@ import { PRODUCT_IMAGE_BUCKET } from "@/features/products/domain/product-image";
 import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
 import type { ProductMetadata } from "@/features/products/domain/product.schema";
 import { slugifyProductKey } from "@/features/products/domain/product-key";
+import { deriveProductWebSlug } from "@/features/products/domain/product-web-slug";
 
 /** Postgres unique-violation SQLSTATE — a key collision on insert. */
 const PG_UNIQUE_VIOLATION = "23505";
@@ -35,18 +36,15 @@ export async function createProduct(
   const now = new Date().toISOString();
 
   for (let attempt = 1; attempt <= MAX_KEY_ATTEMPTS; attempt += 1) {
-    let candidate: string;
-    if (attempt === 1) {
-      candidate = base;
-    } else if (attempt < MAX_KEY_ATTEMPTS) {
-      candidate = `${base}-${attempt}`;
-    } else {
-      // Final attempt: random suffix so a busy collision still resolves.
-      candidate = `${base}-${Math.random().toString(36).slice(2, 7)}`;
-    }
+    // Key and URL have independent bases; neither is derived from the other.
+    // A final random suffix resolves concurrent key or URL collisions.
+    const suffix = attempt === 1 ? "" : attempt < MAX_KEY_ATTEMPTS
+      ? String(attempt) : Math.random().toString(36).slice(2, 7);
+    const candidate = suffix ? `${base}-${suffix}` : base;
 
     const { error } = await supabase.from("products").insert({
       key: candidate,
+      web_slug: deriveProductWebSlug(input.web_slug ?? input.display_name, suffix),
       display_name: input.display_name,
       unit: input.unit,
       unit_label: input.unit_label,
@@ -55,6 +53,7 @@ export async function createProduct(
       step: input.step,
       fulfillment_type: input.fulfillment_type,
       web_description: input.web_description,
+      web_long_description: input.web_long_description ?? null,
       image_alt: input.image_alt,
       current_unit_price_minor: input.base_price_minor,
       created_at: now,
@@ -92,6 +91,11 @@ export async function updateProductMetadata(
   const { error } = await supabase
     .from("products")
     .update({
+      ...(fields.web_slug === undefined ? {} : { web_slug: fields.web_slug }),
+      // Omitted (undefined) = keep the stored text; null = clear it.
+      ...(fields.web_long_description === undefined
+        ? {}
+        : { web_long_description: fields.web_long_description }),
       display_name: fields.display_name,
       unit: fields.unit,
       unit_label: fields.unit_label,
@@ -109,7 +113,12 @@ export async function updateProductMetadata(
       { productKey, code: error.code },
       "update_product_metadata_failed",
     );
-    return err(new ExternalApiError({ message: error.message, cause: error }));
+    return err(new ExternalApiError({
+      message: error.code === PG_UNIQUE_VIOLATION
+        ? "Bu web adresi başka bir üründe kullanılıyor. Farklı bir adres seçin."
+        : error.message,
+      cause: error,
+    }));
   }
   return ok(undefined);
 }
@@ -327,8 +336,7 @@ export async function updateProductBasePrice(
  * rows, then deletes any stale tiers for that product whose min_qty is no
  * longer present — so there's never a window where the product has zero tiers.
  *
- * `product_price_tiers` isn't in the generated Database type yet, so this uses
- * the un-generated-table cast pattern used elsewhere in the codebase.
+ * Uses the generated product_price_tiers table type.
  */
 export async function replaceProductTiers(
   productKey: string,
@@ -338,8 +346,7 @@ export async function replaceProductTiers(
   const now = new Date().toISOString();
 
   if (tiers.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: upsertError } = await (supabase as any)
+    const { error: upsertError } = await supabase
       .from("product_price_tiers")
       .upsert(
         tiers.map((t) => ({
@@ -358,8 +365,7 @@ export async function replaceProductTiers(
 
   // Drop tiers that are no longer in the set.
   const keepMins = tiers.map((t) => t.min_qty);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let del = (supabase as any)
+  let del = supabase
     .from("product_price_tiers")
     .delete()
     .eq("product_key", productKey);

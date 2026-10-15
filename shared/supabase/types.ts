@@ -1014,6 +1014,8 @@ export type Database = {
           unit_label: string
           updated_at: string
           web_description: string | null
+          web_long_description: string | null
+          web_slug: string | null
         }
         Insert: {
           active?: boolean
@@ -1034,6 +1036,8 @@ export type Database = {
           unit_label: string
           updated_at?: string
           web_description?: string | null
+          web_long_description?: string | null
+          web_slug?: string | null
         }
         Update: {
           active?: boolean
@@ -1054,6 +1058,8 @@ export type Database = {
           unit_label?: string
           updated_at?: string
           web_description?: string | null
+          web_long_description?: string | null
+          web_slug?: string | null
         }
         Relationships: []
       }

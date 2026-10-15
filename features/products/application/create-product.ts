@@ -17,9 +17,6 @@ import { err, ok, type Result } from "@/shared/result";
 export async function createProductAction(
   raw: unknown,
 ): Promise<Result<{ key: string }, AppError>> {
-  const auth = await assertAdmin();
-  if (!auth.ok) return err(auth.error);
-
   const parsed = createProductSchema.safeParse(raw);
   if (!parsed.success) {
     return err(
@@ -29,6 +26,9 @@ export async function createProductAction(
       }),
     );
   }
+
+  const auth = await assertAdmin();
+  if (!auth.ok) return err(auth.error);
 
   const created = await createProduct(parsed.data);
   if (!created.ok) return err(created.error);
@@ -47,5 +47,6 @@ export async function createProductAction(
 
   revalidatePath("/products");
   revalidatePath("/orders/new");
+  revalidatePath("/sitemap.xml");
   return ok({ key: created.value });
 }
