@@ -13,13 +13,13 @@
 | Aşama | Kim | Ne zaman |
 |---|---|---|
 | 0. Google hesapları | Hamit Bey | Hemen |
-| 1. Teknik temel | Claude (PR `feat/seo-foundation`) | Hemen |
-| 2. Ürün sayfaları | Codex: Prompt P2 | Aşama 1 ile aynı anda olabilir |
-| 3. Güven ve bölge sayfaları | Codex: Prompt P3 | Aşama 1 yayınlandıktan sonra |
-| 4. Tarifler / blog | Codex: Prompt P4 | P3 merge olduktan sonra |
+| 1. Teknik temel | Claude (PR `feat/seo-foundation`) | Yayınlandı (#219) |
+| 2. Ürün sayfaları | Codex: Prompt P2 | PR #220 açık |
+| 3. Güven ve bölge sayfaları | Codex: Prompt P3 | Ertelendi; P4 merge olduktan sonra yapılabilir |
+| 4. Tarifler / blog | Codex: Prompt P4 | P2 merge olup `DB Yayın` bittikten sonra |
 | 5. Büyüme (Merchant Center, yorumlar) | Codex: Prompt P5 | P2 yayınlandıktan sonra |
 
-Codex PR'larını aynı dosyalara aynı anda dokundurmayın. P3 ile P4 ikisi de sitemap'e ve footer'a yazar, o yüzden sırayla gitmeliler.
+Codex PR'larını aynı dosyalara aynı anda dokundurmayın. P2, P3 ve P4'ün üçü de sitemap'e yazar; P3 ile P4 footer'a da yazar. O yüzden sırayla gitmeliler. P4, P3'e bağlı değil ama P2'ye bağlı: tarifler ürün sayfalarına (`/urun/<slug>`) link veriyor.
 
 ## Aşama 0: Google hesapları (kod yok, yaklaşık 1 saat)
 
@@ -93,14 +93,14 @@ Done = `pnpm typecheck && pnpm lint && pnpm test` green, branch feat/info-pages,
 ### P4: Tarifler / blog
 
 ```text
-Repo: apuhanciftligi.com storefront. Read CLAUDE.md and follow it. Start from main after the info-pages PR is merged.
+Repo: apuhanciftligi.com storefront. Read CLAUDE.md and follow it. Start from main AFTER the product-pages PR (feat/product-pages, #220) is merged. The info-pages (P3) work was skipped: do not assume /hakkimizda, /sss etc. exist.
 
 Goal: a recipes section that brings long-tail Google traffic and links to product pages. Content lives in the repo (no DB, no admin editor).
 
 1. features/content/domain/recipe.ts: a Recipe type (slug, title, description, publishedAt YYYY-MM-DD, image path under public/tarifler/, imageAlt, prepMinutes, cookMinutes, servings, ingredients[], steps[], productSlugs[] linking to /urun/<slug>) plus a Zod schema. features/content/domain/recipes.ts holds the list. Unit tests: unique slugs, valid dates, non-empty ingredients and steps, and every image file exists in public/.
 2. Pages: app/(shop)/tarifler/page.tsx (index, newest first) and app/(shop)/tarifler/[slug]/page.tsx. Zod-parse params, notFound(), generateStaticParams, generateMetadata with canonical, OG image = the recipe image. next/image everywhere.
 3. JSON-LD: a pure builder with tests for schema.org Recipe (name, image, description, datePublished, prepTime/cookTime/totalTime as ISO-8601 durations, recipeYield, recipeIngredient, recipeInstructions as HowToStep[], author = Organization "Apuhan Çiftliği") and BreadcrumbList.
-4. Each recipe shows "Bu tarifte kullanılan ürünler" cards linking to /urun/<slug>. Add "Tarifler" to the header/footer nav and add recipe URLs to the sitemap entries.
+4. Each recipe shows "Bu tarifte kullanılan ürünler" cards linking to /urun/<slug>. Product slugs live in the DB (products.web_slug), so resolve each productSlugs entry with getStorefrontProductBySlug and silently skip any that return null; never render a dead /urun/ link. Add "Tarifler" to the header/footer nav and add recipe URLs to the sitemap entries.
 5. Write 3 starter recipes in natural Turkish, original text (no copying): "Köy yumurtalı menemen", "Fırında yumurtalı patates", and "Ev yapımı yoğurt" (taze sütle). Use a placeholder image and add a TODO for real photos.
 
 Done = `pnpm typecheck && pnpm lint && pnpm test` green, branch feat/recipes, PR in Turkish.
