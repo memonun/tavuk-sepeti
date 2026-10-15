@@ -35,6 +35,7 @@ import { listAllProducts } from "@/features/products/application/list-products";
 import { logger } from "@/shared/logger";
 
 import { registerAdminMiscTools } from "./tools/admin-misc-tools";
+import { registerAdsTools } from "./tools/ads-tools";
 import { registerCalendarTools } from "./tools/calendar-tools";
 import { registerFinanceAdminTools } from "./tools/finance-admin-tools";
 import { registerFinanceTools } from "./tools/finance-tools";
@@ -255,4 +256,5 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
   registerOrderExtraTools(server);
   registerRecurringOrderTools(server);
   registerAdminMiscTools(server);
+  registerAdsTools(server);
 }

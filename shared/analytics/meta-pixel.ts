@@ -78,6 +78,7 @@ const NEVER_REPORT_PREFIXES: ReadonlyArray<string> = [
   "/orders",
   "/products",
   "/recurring",
+  "/reklam",
   "/routes",
   "/takvim",
 ];

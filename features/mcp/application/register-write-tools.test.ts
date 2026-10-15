@@ -131,6 +131,12 @@ vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductT
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: (...a: unknown[]) => m.getStorefrontSettings(...a) }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: (...a: unknown[]) => m.updateStorefrontSettingsAction(...a) }));
+// Meta ad tools: covered in register-panel-tools.test.ts; stubbed here so the
+// ads feature (and the env it reads) never loads.
+vi.mock("@/features/ads/application/get-ads-overview", () => ({ getAdsOverview: vi.fn() }));
+vi.mock("@/features/ads/application/ads-settings-actions", () => ({ listAdsChangesAction: vi.fn() }));
+vi.mock("@/features/ads/application/change-ads", () => ({ changeAdBudget: vi.fn(), setAdStatus: vi.fn() }));
+vi.mock("@/features/ads/application/create-ads", () => ({ createAdsCampaign: vi.fn(), createAdsAdSet: vi.fn(), createAdsAd: vi.fn() }));
 vi.mock("@/features/reminders/application/reminder-actions", () => ({
   createReminderAction: (...a: unknown[]) => m.createReminderAction(...a),
   updateReminderAction: (...a: unknown[]) => m.updateReminderAction(...a),

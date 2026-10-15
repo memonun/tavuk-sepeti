@@ -21,6 +21,7 @@ export const ADMIN_ROUTE_PREFIXES: ReadonlyArray<string> = [
   "/orders",
   "/products",
   "/recurring",
+  "/reklam",
   "/routes",
   "/takvim",
 ];

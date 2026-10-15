@@ -58,6 +58,9 @@ export type AuditAction =
   // Shop rules the owner edits (delivery days, cargo order floor). Worth an
   // audit row: a changed delivery day silently reshapes every future checkout.
   | "storefront_settings.updated"
+  // Meta ad spending limits (features/ads). Ad changes themselves are logged
+  // in their own meta_ads_changes table: Meta ids are not uuids.
+  | "meta_ads_settings.updated"
   // Finans — expenses and market-stall sales are money records entered
   // entirely by hand (no ledger trigger backs them the way order_payments
   // backs orders), so auditing every mutation matters more here than on
@@ -114,6 +117,7 @@ export type AuditEntityType =
   | "product"
   | "recurring_template"
   | "storefront_settings"
+  | "meta_ads_settings"
   | "expense"
   | "expense_category"
   | "recurring_expense_template"

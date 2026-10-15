@@ -139,6 +139,18 @@ vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductT
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: vi.fn() }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: vi.fn() }));
+const changeAdBudget = vi.fn();
+vi.mock("@/features/ads/application/get-ads-overview", () => ({ getAdsOverview: vi.fn() }));
+vi.mock("@/features/ads/application/ads-settings-actions", () => ({ listAdsChangesAction: vi.fn() }));
+vi.mock("@/features/ads/application/change-ads", () => ({
+  changeAdBudget: (...a: unknown[]) => changeAdBudget(...a),
+  setAdStatus: vi.fn(),
+}));
+vi.mock("@/features/ads/application/create-ads", () => ({
+  createAdsCampaign: vi.fn(),
+  createAdsAdSet: vi.fn(),
+  createAdsAd: vi.fn(),
+}));
 vi.mock("@/features/reminders/application/reminder-actions", () => ({
   createReminderAction: vi.fn(),
   updateReminderAction: vi.fn(),
@@ -214,6 +226,8 @@ describe("panel MCP tools", () => {
         "list_cargo_orders",
         "list_notifications",
         "get_reminders",
+        "get_ads_overview",
+        "list_ads_changes",
         "list_recurring_orders",
       ].sort(),
     );
@@ -281,6 +295,11 @@ describe("panel MCP tools", () => {
         "update_calendar_event",
         "update_recurring_order",
         "update_storefront_settings",
+        "set_ad_budget",
+        "set_ad_status",
+        "create_ad_campaign",
+        "create_ad_set",
+        "create_ad",
       ].sort(),
     );
     // Nothing is unclassified.
@@ -369,5 +388,58 @@ describe("panel MCP tools", () => {
       arguments: { order_ids: [ORDER_ID, "7c9e6679-7425-40de-944b-e07fc1f90ae7"] },
     });
     expect(JSON.parse(firstText(res))).toMatchObject({ ok: true, requested: 2, confirmed: 1 });
+  });
+});
+
+describe("Meta ad tools", () => {
+  beforeEach(() => changeAdBudget.mockReset());
+
+  it("takes the budget in lira and hands kuruş to the ads feature, tagged source=mcp", async () => {
+    changeAdBudget.mockResolvedValue(ok({ id: "123", afterDailyBudgetMinor: 25_050 }));
+    const client = await connect();
+    const res = await client.callTool({
+      name: "set_ad_budget",
+      arguments: { entity_id: "123", daily_budget_try: 250.5, reason: "Dün 4 satış, maliyet düşük" },
+    });
+    expect(res.isError).toBeFalsy();
+    expect(changeAdBudget).toHaveBeenCalledWith({
+      entityId: "123",
+      newDailyBudgetMinor: 25_050,
+      reason: "Dün 4 satış, maliyet düşük",
+      source: "mcp",
+    });
+  });
+
+  it("passes a limit refusal back verbatim so the model can adjust", async () => {
+    const { AppError } = await import("@/shared/errors/app-error");
+    const { err } = await import("@/shared/result");
+    changeAdBudget.mockResolvedValue(
+      err(new AppError("BUSINESS_RULE_VIOLATION", { message: "Tek seferde en fazla %50 artış yapılabilir." })),
+    );
+    const client = await connect();
+    const res = await client.callTool({
+      name: "set_ad_budget",
+      arguments: { entity_id: "123", daily_budget_try: 900, reason: "Satışlar iyi gidiyor" },
+    });
+    expect(res.isError).toBe(true);
+    expect(JSON.stringify(res.content)).toContain("%50");
+  });
+
+  it("refuses a missing reason or a non-numeric id before reaching Meta", async () => {
+    const client = await connect();
+    const noReason = await client.callTool({ name: "set_ad_budget", arguments: { entity_id: "123", daily_budget_try: 100 } });
+    const badId = await client.callTool({ name: "set_ad_budget", arguments: { entity_id: "act_1", daily_budget_try: 100, reason: "deneme amaçlı" } });
+    expect(noReason.isError).toBe(true);
+    expect(badId.isError).toBe(true);
+    expect(changeAdBudget).not.toHaveBeenCalled();
+  });
+
+  it("marks every ad write as touching an outside system", async () => {
+    const { tools } = await (await connect()).listTools();
+    for (const name of ["set_ad_budget", "set_ad_status", "create_ad_campaign", "create_ad_set", "create_ad"]) {
+      const tool = tools.find((t) => t.name === name);
+      expect(tool?.annotations?.readOnlyHint, name).toBe(false);
+      expect(tool?.annotations?.openWorldHint, name).toBe(true);
+    }
   });
 });
