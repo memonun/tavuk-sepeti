@@ -15,7 +15,7 @@ export function buildRecipeStructuredData(recipe: Recipe) {
         datePublished: recipe.publishedAt,
         prepTime: `PT${recipe.prepMinutes}M`,
         cookTime: `PT${recipe.cookMinutes}M`,
-        totalTime: `PT${recipe.prepMinutes + recipe.cookMinutes}M`,
+        totalTime: `PT${recipe.prepMinutes + recipe.cookMinutes + recipe.restMinutes}M`,
         recipeYield: `${recipe.servings} porsiyon`,
         recipeIngredient: [...recipe.ingredients],
         recipeInstructions: recipe.steps.map((text, index) => ({

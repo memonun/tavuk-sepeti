@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { Recipe } from "../domain/recipe";
+import { formatRecipeMinutes } from "../domain/recipe-duration";
 
 export function RecipeIndex({ recipes }: { recipes: readonly Recipe[] }) {
   return (
@@ -34,7 +35,12 @@ export function RecipeIndex({ recipes }: { recipes: readonly Recipe[] }) {
               </h2>
             </Link>
             <p className="mt-2 text-base text-muted-foreground">
-              {recipe.prepMinutes + recipe.cookMinutes} dk hazırlık ve pişirme ·{" "}
+              {formatRecipeMinutes(recipe.prepMinutes + recipe.cookMinutes)}{" "}
+              hazırlık ve pişirme
+              {recipe.restMinutes > 0
+                ? ` + ${formatRecipeMinutes(recipe.restMinutes)} bekleme`
+                : ""}{" "}
+              ·{" "}
               {recipe.servings} porsiyon
             </p>
             <p className="mt-3 text-base leading-relaxed text-muted-foreground">

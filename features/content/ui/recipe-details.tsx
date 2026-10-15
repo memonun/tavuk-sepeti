@@ -5,6 +5,7 @@ import { productImagePublicUrl } from "@/features/products/application/product-i
 import type { Product } from "@/features/storefront/application/get-catalog";
 import { env } from "@/shared/env";
 import type { Recipe } from "../domain/recipe";
+import { formatRecipeMinutes } from "../domain/recipe-duration";
 
 export function RecipeDetails({
   recipe,
@@ -53,15 +54,31 @@ export function RecipeDetails({
                 )}
               </time>
             </p>
-            <dl className="mt-6 grid grid-cols-3 gap-3 border-y border-border py-5 text-base">
+            <dl
+              className={`mt-6 grid gap-3 border-y border-border py-5 text-base ${
+                recipe.restMinutes > 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"
+              }`}
+            >
               <div>
                 <dt className="text-muted-foreground">Hazırlık</dt>
-                <dd className="mt-1 font-bold">{recipe.prepMinutes} dk</dd>
+                <dd className="mt-1 font-bold">
+                  {formatRecipeMinutes(recipe.prepMinutes)}
+                </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Pişirme</dt>
-                <dd className="mt-1 font-bold">{recipe.cookMinutes} dk</dd>
+                <dd className="mt-1 font-bold">
+                  {formatRecipeMinutes(recipe.cookMinutes)}
+                </dd>
               </div>
+              {recipe.restMinutes > 0 ? (
+                <div>
+                  <dt className="text-muted-foreground">Bekleme</dt>
+                  <dd className="mt-1 font-bold">
+                    {formatRecipeMinutes(recipe.restMinutes)}
+                  </dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-muted-foreground">Porsiyon</dt>
                 <dd className="mt-1 font-bold">{recipe.servings} kişilik</dd>

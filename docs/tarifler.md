@@ -16,8 +16,11 @@ doğrulandı. Süt için `sut` tanımlıdır; bu slug vitrinde bulunmadığında
 gösterilmez. Yayından kaldırılan, fiyatı olmayan veya slug'ı değişen ürünler de
 aynı şekilde atlanır. Slug'ları ürünün mevcut web adresiyle eşleştirin.
 
-Hazırlık ve pişirme süreleri dakika cinsindendir. Yoğurdun mayalanma ve
-buzdolabında dinlenme süreleri ayrıca yapılış adımlarında belirtilmiştir.
+Hazırlık (`prepMinutes`), pişirme (`cookMinutes`) ve bekleme (`restMinutes`)
+süreleri dakika cinsindendir. Bekleme; mayalanma, buzdolabında dinlenme gibi
+elle bir şey yapılmayan süredir. Google'a giden toplam süreye eklenir, sayfada
+"Bekleme" olarak görünür. Beklemesi olmayan tarifte `0` yazın. Yoğurtta en az
+4 saat mayalanma ve 6 saat dinlenme için `600` kullanılır.
 
 ## Fotoğraflar
 

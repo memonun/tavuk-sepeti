@@ -83,7 +83,12 @@ describe("repo recipes", () => {
     expect(recipeSchema.safeParse({ ...example, image }).success).toBe(false);
   });
 
-  it.each([{ prepMinutes: -1 }, { cookMinutes: 1.5 }, { servings: 0 }])(
+  it.each([
+    { prepMinutes: -1 },
+    { cookMinutes: 1.5 },
+    { restMinutes: -1 },
+    { servings: 0 },
+  ])(
     "rejects invalid quantities %j",
     (values) => {
       expect(recipeSchema.safeParse({ ...example, ...values }).success).toBe(

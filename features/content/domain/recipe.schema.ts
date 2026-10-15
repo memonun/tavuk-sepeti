@@ -32,6 +32,9 @@ export const recipeSchema = z.object({
   imageAlt: textSchema,
   prepMinutes: z.number().int().nonnegative(),
   cookMinutes: z.number().int().nonnegative(),
+  // Hands-off waiting (fermenting, chilling). Counted in JSON-LD totalTime so
+  // Google never sees a 50-minute yogurt that really takes half a day.
+  restMinutes: z.number().int().nonnegative(),
   servings: z.number().int().positive(),
   ingredients: z.array(textSchema).min(1),
   steps: z.array(textSchema).min(1),

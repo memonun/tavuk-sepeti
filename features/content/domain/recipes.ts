@@ -15,6 +15,7 @@ export const RECIPES: readonly Recipe[] = recipeCollectionSchema.parse([
       "Apuhan Çiftliği marka görseli; menemen fotoğrafı yakında eklenecek",
     prepMinutes: 10,
     cookMinutes: 15,
+    restMinutes: 0,
     servings: 2,
     ingredients: [
       "3 köy yumurtası",
@@ -44,6 +45,7 @@ export const RECIPES: readonly Recipe[] = recipeCollectionSchema.parse([
       "Apuhan Çiftliği marka görseli; yumurtalı patates fotoğrafı yakında eklenecek",
     prepMinutes: 15,
     cookMinutes: 40,
+    restMinutes: 0,
     servings: 4,
     ingredients: [
       "4 köy yumurtası",
@@ -75,6 +77,8 @@ export const RECIPES: readonly Recipe[] = recipeCollectionSchema.parse([
       "Apuhan Çiftliği marka görseli; ev yapımı yoğurt fotoğrafı yakında eklenecek",
     prepMinutes: 30,
     cookMinutes: 20,
+    // En az 4 saat mayalanma + en az 6 saat buzdolabında dinlenme.
+    restMinutes: 600,
     servings: 6,
     ingredients: [
       "1 litre taze süt (tercihen pastörize)",

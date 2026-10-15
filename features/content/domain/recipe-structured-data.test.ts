@@ -47,6 +47,25 @@ describe("buildRecipeStructuredData", () => {
     },
   );
 
+  it("counts hands-off waiting in totalTime but not in prep or cook time", () => {
+    const data = buildRecipeStructuredData({
+      ...recipe,
+      prepMinutes: 30,
+      cookMinutes: 20,
+      restMinutes: 600,
+    })["@graph"][0];
+    expect(data.prepTime).toBe("PT30M");
+    expect(data.cookTime).toBe("PT20M");
+    expect(data.totalTime).toBe("PT650M");
+  });
+
+  it("does not advertise yogurt as a 50-minute recipe", () => {
+    const yogurt = RECIPES.find((item) => item.slug === "ev-yapimi-yogurt")!;
+    expect(buildRecipeStructuredData(yogurt)["@graph"][0].totalTime).toBe(
+      "PT650M",
+    );
+  });
+
   it("links ordered breadcrumbs only to existing routes", () => {
     expect(buildRecipeStructuredData(recipe)["@graph"][1]).toEqual({
       "@type": "BreadcrumbList",
