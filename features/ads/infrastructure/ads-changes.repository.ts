@@ -6,6 +6,7 @@ import "server-only";
  */
 import { z } from "zod";
 
+import { adsChangeRowSchema, type AdsChangeRow } from "@/features/ads/domain/ads-change";
 import { AppError } from "@/shared/errors/app-error";
 import { ErrorCode } from "@/shared/errors/error-codes";
 import { logger } from "@/shared/logger";
@@ -31,19 +32,7 @@ export interface NewAdsChange {
   readonly actorId: string;
 }
 
-const changeRowSchema = z.object({
-  id: z.string().uuid(),
-  entity_id: z.string(),
-  entity_level: z.enum(["campaign", "adset", "ad"]),
-  entity_name: z.string(),
-  action: z.enum(["budget", "pause", "resume", "create"]),
-  before_daily_budget_minor: z.coerce.number().nullable(),
-  after_daily_budget_minor: z.coerce.number().nullable(),
-  reason: z.string(),
-  source: z.enum(["mcp", "panel"]),
-  created_at: z.string(),
-});
-export type AdsChangeRow = z.infer<typeof changeRowSchema>;
+export type { AdsChangeRow };
 
 const COLUMNS =
   "id, entity_id, entity_level, entity_name, action, before_daily_budget_minor, after_daily_budget_minor, reason, source, created_at";
@@ -117,7 +106,7 @@ export async function listAdsChanges(opts: { readonly limit?: number; readonly s
     logger.error({ code: error.code }, "meta_ads_change_list_failed");
     return err(dbError("Değişiklik geçmişi okunamadı.", error));
   }
-  const rows = z.array(changeRowSchema).safeParse(data ?? []);
+  const rows = z.array(adsChangeRowSchema).safeParse(data ?? []);
   if (!rows.success) {
     logger.error({ issues: rows.error.issues.map((issue) => issue.path.join(".")) }, "meta_ads_change_rows_invalid");
     return err(dbError("Değişiklik geçmişi okunamadı.", null));

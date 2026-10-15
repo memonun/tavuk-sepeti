@@ -6,7 +6,8 @@ import "server-only";
  */
 import { assertAdmin } from "@/features/auth/application/assert-admin";
 import type { AdsSettings } from "@/features/ads/domain/ads-settings";
-import { listAdsChanges, type AdsChangeRow } from "@/features/ads/infrastructure/ads-changes.repository";
+import type { AdsChangeRow } from "@/features/ads/domain/ads-change";
+import { listAdsChanges } from "@/features/ads/infrastructure/ads-changes.repository";
 import { fetchAdsSettings } from "@/features/ads/infrastructure/ads-settings.repository";
 import { getMetaAdsConfig } from "@/features/ads/infrastructure/meta-ads-config";
 import { getMetaPixelId } from "@/shared/analytics/meta-pixel-config";

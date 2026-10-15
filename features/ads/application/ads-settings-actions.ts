@@ -8,7 +8,8 @@ import { revalidatePath } from "next/cache";
 
 import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { adsSettingsSchema, type AdsSettings } from "@/features/ads/domain/ads-settings";
-import { listAdsChanges, type AdsChangeRow } from "@/features/ads/infrastructure/ads-changes.repository";
+import type { AdsChangeRow } from "@/features/ads/domain/ads-change";
+import { listAdsChanges } from "@/features/ads/infrastructure/ads-changes.repository";
 import { fetchAdsSettings, saveAdsSettings } from "@/features/ads/infrastructure/ads-settings.repository";
 import { logAudit, SINGLETON_ENTITY_ID } from "@/shared/audit/log-audit";
 import type { AppError } from "@/shared/errors/app-error";
@@ -78,4 +79,3 @@ export async function updateAdsSettingsAction(
   return { status: "success", savedAt: Date.now() };
 }
 
-export type { AdsChangeRow };

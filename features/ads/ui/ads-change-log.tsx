@@ -2,7 +2,7 @@
  * The report: every change made to the ads, newest first, with the reason
  * given for it. Server Component — nothing here is interactive.
  */
-import type { AdsChangeRow } from "@/features/ads/application/ads-settings-actions";
+import type { AdsChangeRow } from "@/features/ads/domain/ads-change";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
