@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { Product } from "@/features/products/application/list-products";
+import { splitDescriptionParagraphs } from "@/features/storefront/domain/product-description";
 import { productPageDescription } from "@/features/storefront/domain/product-structured-data";
 import { PriceTag } from "@/features/storefront/ui/kit/price-tag";
 import {
@@ -23,6 +24,7 @@ export function ProductDetails({
   imageUrl: string | null;
   related: readonly Product[];
 }) {
+  const longParagraphs = splitDescriptionParagraphs(product.web_long_description);
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       <nav
@@ -112,6 +114,18 @@ export function ProductDetails({
           <ProductPurchaseControls product={product} />
         </div>
       </article>
+      {longParagraphs.length > 0 ? (
+        <section className="mt-14 max-w-3xl" aria-labelledby="product-about">
+          <h2 id="product-about" className="mb-4 font-display text-3xl">
+            Ürün hakkında
+          </h2>
+          <div className="flex flex-col gap-4 text-lg leading-relaxed text-foreground">
+            {longParagraphs.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {related.length > 0 ? (
         <section className="mt-14" aria-labelledby="related-products">
           <h2 id="related-products" className="mb-6 font-display text-3xl">

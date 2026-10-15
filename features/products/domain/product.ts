@@ -22,6 +22,8 @@ export interface Product {
   readonly display_name: string;
   /** Editable public URL, independent of the permanent product key. */
   readonly web_slug: string | null;
+  /** Optional long product-page text (plain, paragraphs split by blank lines). */
+  readonly web_long_description: string | null;
   readonly unit: ProductUnit;
   readonly unit_label: string;
   readonly package_size: number;

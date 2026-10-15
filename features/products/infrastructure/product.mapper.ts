@@ -29,6 +29,8 @@ const productRowSchema = z.object({
   is_web_visible: z.boolean().nullable(),
   is_featured: z.boolean().nullable(),
   web_description: z.string().nullable(),
+  // Optional: the admin RPC row predates the column (merged in separately).
+  web_long_description: z.string().nullable().optional(),
   image_path: z.string().nullable(),
   image_alt: z.string().nullable(),
   sort_order: z.coerce.number(),
@@ -69,6 +71,7 @@ export function mapProductRows(
     parsed.data.map((row) => ({
       ...row,
       web_slug: toValidWebSlug(row.key, row.web_slug),
+      web_long_description: row.web_long_description ?? null,
       is_web_visible: row.is_web_visible ?? true,
       is_featured: row.is_featured ?? false,
       price_tiers: [...(tiersByProduct.get(row.key) ?? [])].sort(

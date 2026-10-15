@@ -1,3 +1,4 @@
+import { splitDescriptionParagraphs } from "@/features/storefront/domain/product-description";
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
 export function productPageDescription(product: {
@@ -14,6 +15,8 @@ export interface ProductStructuredDataInput {
   readonly key: string;
   readonly display_name: string;
   readonly web_description: string | null;
+  /** Long product-page text; when set it is the richer Product description. */
+  readonly web_long_description?: string | null;
   readonly slug: string;
   readonly image: string | null;
   /** The same minimum-quantity unit price displayed on the page, in kuruş. */
@@ -31,7 +34,9 @@ export function buildProductStructuredData(
       {
         "@type": "Product",
         name: product.display_name,
-        description: productPageDescription(product),
+        description:
+          splitDescriptionParagraphs(product.web_long_description).join(" ") ||
+          productPageDescription(product),
         ...(product.image ? { image: product.image } : {}),
         sku: product.key,
         brand: { "@type": "Brand", name: "Apuhan Çiftliği" },

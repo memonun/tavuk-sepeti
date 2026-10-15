@@ -48,6 +48,13 @@ describe("product row mapping", () => {
       1, 3,
     ]);
   });
+  it("defaults a missing long description (admin RPC row) to null", () => {
+    const { web_long_description: _long, ...withoutLong } = { ...row, web_long_description: undefined };
+    const result = mapProductRows([withoutLong], new Map());
+    expect(result.ok && result.value[0]?.web_long_description).toBe(null);
+    const withLong = mapProductRows([{ ...row, web_long_description: "Uzun." }], new Map());
+    expect(withLong.ok && withLong.value[0]?.web_long_description).toBe("Uzun.");
+  });
   it("preserves a nullable URL for legacy inserts", () => {
     const result = mapProductRows([{ ...row, web_slug: null }], new Map());
     expect(result.ok && result.value[0]?.web_slug).toBe(null);

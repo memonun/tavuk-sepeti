@@ -53,6 +53,7 @@ export async function createProduct(
       step: input.step,
       fulfillment_type: input.fulfillment_type,
       web_description: input.web_description,
+      web_long_description: input.web_long_description ?? null,
       image_alt: input.image_alt,
       current_unit_price_minor: input.base_price_minor,
       created_at: now,
@@ -91,6 +92,10 @@ export async function updateProductMetadata(
     .from("products")
     .update({
       ...(fields.web_slug === undefined ? {} : { web_slug: fields.web_slug }),
+      // Omitted (undefined) = keep the stored text; null = clear it.
+      ...(fields.web_long_description === undefined
+        ? {}
+        : { web_long_description: fields.web_long_description }),
       display_name: fields.display_name,
       unit: fields.unit,
       unit_label: fields.unit_label,

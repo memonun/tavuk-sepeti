@@ -25,7 +25,7 @@ export type {
 // as a dedicated follow-up so a stale cache can't ever serve a wrong price.
 
 const PRODUCT_COLUMNS =
-  "key, display_name, web_slug, unit, unit_label, package_size, min_qty, step, current_unit_price_minor, active, fulfillment_type, is_web_visible, is_featured, web_description, image_path, image_alt, sort_order";
+  "key, display_name, web_slug, unit, unit_label, package_size, min_qty, step, current_unit_price_minor, active, fulfillment_type, is_web_visible, is_featured, web_description, web_long_description, image_path, image_alt, sort_order";
 
 /**
  * Load every product's volume tiers, grouped by product key. Tiers live in
@@ -101,10 +101,11 @@ export async function listAllProducts(): Promise<
   // The RPC returns the catalog already ordered (active first, sort_order,
   // display_name) with total_quantity_sold attached.
   // Keep the existing RPC contract compatible with the previous app release.
-  // Slugs are fetched once for the whole admin list, never per product.
+  // Slugs (and the long page text, which the RPC also predates) are fetched
+  // once for the whole admin list, never per product.
   const [{ data, error }, slugResult] = await Promise.all([
     supabase.rpc("list_products_with_sales"),
-    supabase.from("products").select("key, web_slug"),
+    supabase.from("products").select("key, web_slug, web_long_description"),
   ]);
 
   if (error) {
@@ -117,17 +118,22 @@ export async function listAllProducts(): Promise<
     logger.error({ correlationId, code: slugResult.error.code }, "list_product_slugs_failed");
     return err(new ExternalApiError({ message: slugResult.error.message, cause: slugResult.error, correlationId }));
   }
-  const slugs = z.array(z.object({ key: z.string(), web_slug: z.string().nullable() }))
+  const slugs = z.array(z.object({
+    key: z.string(),
+    web_slug: z.string().nullable(),
+    web_long_description: z.string().nullable(),
+  }))
     .safeParse(slugResult.data ?? []);
   if (!slugs.success) {
     const correlationId = newCorrelationId();
     logger.error({ correlationId, issueCount: slugs.error.issues.length }, "invalid_product_slugs");
     return err(new ExternalApiError({ message: "Ürün web adresleri doğrulanamadı.", correlationId }));
   }
-  const slugByKey = new Map(slugs.data.map((row) => [row.key, row.web_slug]));
+  const extrasByKey = new Map(slugs.data.map((row) => [row.key, row]));
   const tiersByProduct = await loadTiersByProduct();
   return mapProductRows((data ?? []).map((row) => ({
     ...row,
-    web_slug: slugByKey.get(row.key) ?? null,
+    web_slug: extrasByKey.get(row.key)?.web_slug ?? null,
+    web_long_description: extrasByKey.get(row.key)?.web_long_description ?? null,
   })), tiersByProduct);
 }

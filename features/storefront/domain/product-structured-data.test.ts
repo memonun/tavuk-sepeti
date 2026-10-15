@@ -66,6 +66,13 @@ describe("buildProductStructuredData", () => {
     });
   });
 
+  it("prefers the long product-page text, flattened to one line", () => {
+    const product = buildProductStructuredData({
+      ...input,
+      web_long_description: "Serbest dolaşan tavuklar.\n\nHer sabah toplanır.",
+    })["@graph"][0];
+    expect(product.description).toBe("Serbest dolaşan tavuklar. Her sabah toplanır.");
+  });
   it("uses a Turkish fallback description and omits an unavailable image", () => {
     const product = buildProductStructuredData({
       ...input,

@@ -13,6 +13,7 @@ vi.mock("@/features/storefront/application/get-catalog", () => ({
 const product: Product = {
   key: "eggs",
   web_slug: "koy-yumurtasi",
+  web_long_description: null,
   display_name: "Köy Yumurtası",
   unit: "package",
   unit_label: "paket",

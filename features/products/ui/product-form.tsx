@@ -15,6 +15,7 @@ import { createProductAction } from "@/features/products/application/create-prod
 import { updateProductMetadataAction } from "@/features/products/application/update-product-metadata";
 import {
   FULFILLMENT_TYPE_OPTIONS,
+  PRODUCT_LONG_DESCRIPTION_MAX,
   PRODUCT_UNIT_OPTIONS,
 } from "@/features/products/domain/product.schema";
 import { normalizeDecimal, parseTRY2 } from "@/features/products/ui/money";
@@ -56,6 +57,7 @@ interface FieldsState {
   min_qty: string;
   fulfillment_type: FulfillmentType;
   web_description: string;
+  web_long_description: string;
   image_alt: string;
   base_price: string; // TRY — create only
 }
@@ -70,6 +72,7 @@ function initialFields(product?: Product): FieldsState {
     min_qty: product ? String(product.min_qty) : "1",
     fulfillment_type: product?.fulfillment_type ?? "delivery",
     web_description: product?.web_description ?? "",
+    web_long_description: product?.web_long_description ?? "",
     image_alt: product?.image_alt ?? "",
     base_price: "",
   };
@@ -119,6 +122,7 @@ export function ProductFormDialog({
       step: normalizeDecimal(fields.min_qty),
       fulfillment_type: fields.fulfillment_type,
       web_description: fields.web_description,
+      web_long_description: fields.web_long_description,
       image_alt: fields.image_alt,
     };
 
@@ -299,6 +303,26 @@ export function ProductFormDialog({
             />
             <p className="text-xs text-muted-foreground">
               Mağaza kartında ürün adının altında görünür.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="pf-long-desc">
+              Ürün sayfası açıklaması (detaylı) — opsiyonel
+            </Label>
+            <Textarea
+              id="pf-long-desc"
+              value={fields.web_long_description}
+              onChange={(e) => set({ web_long_description: e.target.value })}
+              placeholder={"Ürünün hikâyesi: nasıl üretiliyor, neden taze, nasıl saklanır, kargoda nasıl paketleniyor…\n\nParagrafları boş bir satırla ayırın."}
+              rows={7}
+              maxLength={PRODUCT_LONG_DESCRIPTION_MAX}
+              aria-describedby="pf-long-desc-help"
+            />
+            <p id="pf-long-desc-help" className="text-xs text-muted-foreground">
+              Yalnızca ürün sayfasında (/urun/…) “Ürün hakkında” başlığıyla görünür.
+              Google için 2–3 paragraf idealdir. {fields.web_long_description.length}/
+              {PRODUCT_LONG_DESCRIPTION_MAX}
             </p>
           </div>
 

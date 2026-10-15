@@ -43,6 +43,7 @@ export async function updateProductMetadataAction(
     after: {
       display_name: metadata.display_name,
       web_slug: metadata.web_slug,
+      web_long_description: metadata.web_long_description,
       unit: metadata.unit,
       unit_label: metadata.unit_label,
       package_size: metadata.package_size,

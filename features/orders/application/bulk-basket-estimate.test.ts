@@ -9,6 +9,7 @@ const EGGS: Product = {
   key: "eggs",
   display_name: "Yumurta",
   web_slug: null,
+  web_long_description: null,
   unit: "package",
   unit_label: "paket",
   package_size: 15,

@@ -53,6 +53,23 @@ const nullableText = (max: number, message: string) =>
     .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 
+/** Long product-page text cap; mirrors the DB check constraint. */
+export const PRODUCT_LONG_DESCRIPTION_MAX = 4000;
+
+/**
+ * Like `nullableText`, but `undefined` stays `undefined` (= "leave the stored
+ * value alone"), so a caller that predates this field — or the MCP tool that
+ * sends only what changed — can never wipe it. Empty string → null (clear).
+ */
+const optionalClearableText = (max: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, message)
+    .nullable()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v && v.length > 0 ? v : null));
+
 export const productWebSlugSchema = z.string()
   .min(1, "Web adresi gerekli.")
   .max(80, "Web adresi en fazla 80 karakter olabilir.")
@@ -82,6 +99,10 @@ export const productMetadataSchema = z.object({
   step: z.coerce.number().positive("Adım 0'dan büyük olmalı."),
   fulfillment_type: fulfillmentTypeSchema.default("delivery"),
   web_description: nullableText(500, "En fazla 500 karakter olabilir."),
+  web_long_description: optionalClearableText(
+    PRODUCT_LONG_DESCRIPTION_MAX,
+    `En fazla ${PRODUCT_LONG_DESCRIPTION_MAX} karakter olabilir.`,
+  ),
   image_alt: nullableText(200, "En fazla 200 karakter olabilir."),
 });
 

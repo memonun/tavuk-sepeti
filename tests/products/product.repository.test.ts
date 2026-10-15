@@ -63,6 +63,18 @@ describe("product web slug persistence", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.message).toContain("başka bir üründe");
   });
+  it("keeps the long description when omitted and clears it on null", async () => {
+    await updateProductMetadata("eggs", { ...input, web_long_description: undefined });
+    expect(update.mock.calls[0]?.[0]).not.toHaveProperty("web_long_description");
+    await updateProductMetadata("eggs", { ...input, web_long_description: null });
+    expect(update.mock.calls[1]?.[0]).toMatchObject({ web_long_description: null });
+    await updateProductMetadata("eggs", { ...input, web_long_description: "Uzun metin." });
+    expect(update.mock.calls[2]?.[0]).toMatchObject({ web_long_description: "Uzun metin." });
+  });
+  it("inserts a new product's long description, or null when not given", async () => {
+    await createProduct(input);
+    expect(insert.mock.calls[0]?.[0]).toMatchObject({ web_long_description: null });
+  });
   it("preserves the URL when an existing caller omits the field", async () => {
     const { web_slug: _slug, ...metadata } = input;
     await updateProductMetadata("eggs", metadata);
