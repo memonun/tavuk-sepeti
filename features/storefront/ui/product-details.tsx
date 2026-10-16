@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { Product } from "@/features/products/application/list-products";
+import { getProductDescriptionReferences } from "@/features/storefront/application/get-product-description-references";
 import { splitDescriptionParagraphs } from "@/features/storefront/domain/product-description";
 import { productPageDescription } from "@/features/storefront/domain/product-structured-data";
 import { PriceTag } from "@/features/storefront/ui/kit/price-tag";
@@ -25,6 +26,7 @@ export function ProductDetails({
   related: readonly Product[];
 }) {
   const longParagraphs = splitDescriptionParagraphs(product.web_long_description);
+  const references = getProductDescriptionReferences(product.key, product.web_description);
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       <nav
@@ -64,6 +66,28 @@ export function ProductDetails({
           <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
             {productPageDescription(product)}
           </p>
+          {references ? (
+            <div className="mt-3 text-base leading-relaxed text-muted-foreground">
+              <nav aria-label="Açıklama kaynakları" className="flex flex-wrap gap-x-4 gap-y-2">
+                {references.sources.map((source) => (
+                  <a
+                    key={source.href}
+                    href={source.kind === "catalog" && product.web_slug ? `/urun/${product.web_slug}` : source.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4 hover:text-foreground"
+                  >
+                    {source.label}
+                  </a>
+                ))}
+              </nav>
+              {references.sources.some((source) => source.kind === "nutrition") ? (
+                <p className="mt-2">
+                  Beslenme kaynakları gıdanın genel bileşimini gösterir; bu ürüne ait analiz sonucu değildir.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <PriceTag
             className="mt-6"
             amount={formatTRY(fromPriceMinor(product))}
