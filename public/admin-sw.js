@@ -42,6 +42,7 @@ const ADMIN_PREFIXES = [
   "/orders",
   "/products",
   "/recurring",
+  "/reklam",
   "/routes",
   "/takvim",
 ];
