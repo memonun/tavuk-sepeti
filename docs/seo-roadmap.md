@@ -1,5 +1,44 @@
 # SEO & Google Arama Yol Haritası — apuhanciftligi.com
 
+## Güncelleme (2026-10-17): Google'ın yapay zekâ arama rehberine göre
+
+Kaynak: [Google — AI optimization guide](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide). Özeti: AI Overviews ve AI Mode, normal Google aramasının sistemleriyle çalışır. Ayrı bir "AI SEO" yoktur. `llms.txt`, içeriği parçalara bölmek, AI için yeniden yazmak ve özel şema **gerekmez**. Sorgu varyasyonları için toplu sayfa üretmek ise spam sayılır. Bu yüzden ilçe başına ayrı sayfa açmıyoruz.
+
+**Durum:**
+- Teknik temel (robots, sitemap, canonical, JSON-LD) hazır.
+- Search Console kurulmadı. **İlk iş bu (Aşama 0).**
+- İşletme Profili onay bekliyor.
+- AI botları bilerek açık bırakıldı.
+
+**Sıra:**
+1. **Aşama 0, Hamit Bey:**
+   - Search Console + `sitemap.xml`.
+   - Ayarlar'da "Search generative AI features" dahil mi, kontrol.
+   - Bing Webmaster.
+   - İşletme Profili onayı.
+   - Merchant Center.
+2. **Teknik düzeltmeler (`fix/seo-metadata`):**
+   - "Süt ürünleri" iddiası kaldırıldı.
+   - Her sayfanın paylaşım (OG) bilgisi kendi adresini gösteriyor.
+   - Hukuki metinlere özgün açıklamalar eklendi.
+   - Hakkımızda/Çiftliğimiz için 1200×630 paylaşım görselleri eklendi.
+   - Footer'a Düzenli Sipariş ve Sipariş Sorgula linkleri eklendi.
+3. **Yapısal veri:**
+   - Ürünlere `shippingDetails` ve `hasMerchantReturnPolicy`.
+   - Organization'a `geo` ve `sameAs` (profil onaylanınca).
+   - Çiftliğimiz için JSON-LD, trust sayfalarına `BreadcrumbList`.
+4. **İlk elden içerik (rehberin 1 numaralı maddesi):**
+   - Ürün uzun açıklamaları, Hamit Bey'in anlatımıyla.
+   - `/sss` ve `/iletisim` sayfaları.
+   - Gerçek fotoğraflar.
+5. **Hız:**
+   - Önce PageSpeed ölçümü.
+   - Sonra fontlar, ana görsel boyutu ve mağaza önbelleği.
+6. **Merchant Center:** önce sitedeki yapısal veriden otomatik ürün; gerekirse ürün feed'i.
+7. **Ölçüm, aylık:** Search Console → Performance → Generative AI raporu.
+
+---
+
 **Durum (2026-10-15):** Sitenin temeli iyi: Türkçe başlık ve açıklama, paylaşım görseli, Organization şeması hazır. Ama Google siteyi hâlâ tam okuyamıyor:
 
 - `/robots.txt` ve `/sitemap.xml` yok (404).

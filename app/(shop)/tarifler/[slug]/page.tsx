@@ -9,6 +9,7 @@ import {
 } from "@/features/content/application/get-recipes";
 import { buildRecipeStructuredData } from "@/features/content/domain/recipe-structured-data";
 import { RecipeDetails } from "@/features/content/ui/recipe-details";
+import { buildPageMetadata } from "@/features/storefront/application/page-metadata";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -28,25 +29,13 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const recipe = await resolveRecipe(params);
-  return {
+  return buildPageMetadata({
     title: recipe.title,
     description: recipe.description,
-    alternates: { canonical: `/tarifler/${recipe.slug}` },
-    openGraph: {
-      type: "article",
-      title: recipe.title,
-      description: recipe.description,
-      url: `/tarifler/${recipe.slug}`,
-      publishedTime: recipe.publishedAt,
-      images: [{ url: recipe.image, alt: recipe.imageAlt }],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: recipe.title,
-      description: recipe.description,
-      images: [recipe.image],
-    },
-  };
+    canonical: `/tarifler/${recipe.slug}`,
+    image: { url: recipe.image, alt: recipe.imageAlt },
+    article: { publishedTime: recipe.publishedAt },
+  });
 }
 
 export default async function RecipePage({ params }: PageProps) {

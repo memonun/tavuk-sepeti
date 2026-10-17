@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { buildAboutPageStructuredData, getTrustPage } from "@/features/content/application/get-trust-pages";
 import { AboutLetter } from "@/features/content/ui/about-letter";
+import { buildPageMetadata } from "@/features/storefront/application/page-metadata";
 import { COMPANY } from "@/features/storefront/domain/legal";
 
 // 404 while the trust pages are unpublished (see trust-pages-visibility.ts).
@@ -14,26 +15,14 @@ function resolvePage() {
 
 export function generateMetadata(): Metadata {
   const page = resolvePage();
-  return {
+  return buildPageMetadata({
     title: page.title,
     description: page.description.text,
-    alternates: { canonical: "/hakkimizda" },
-    openGraph: {
-      type: "website",
-      locale: "tr_TR",
-      siteName: COMPANY.brand,
-      title: `${page.title} | ${COMPANY.brand}`,
-      description: page.description.text,
-      url: "/hakkimizda",
-      images: [{ url: page.hero.src, alt: page.hero.alt, width: page.hero.width, height: page.hero.height }],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: `${page.title} | ${COMPANY.brand}`,
-      description: page.description.text,
-      images: [page.hero.src],
-    },
-  };
+    canonical: "/hakkimizda",
+    // A 1200×630 JPEG crop of the hero: the hero .webp itself is too large
+    // (and the wrong shape) for WhatsApp/Facebook link previews.
+    image: { url: "/brand/og-hakkimizda.jpg", type: "image/jpeg", width: 1200, height: 630, alt: page.hero.alt },
+  });
 }
 
 export default function AboutPage() {

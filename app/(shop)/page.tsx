@@ -96,7 +96,7 @@ export default async function ShopHomePage({
             Çiftlikten sofranıza
           </h1>
           <p className="mt-2.5 hidden max-w-xl text-lg leading-relaxed text-muted-foreground sm:block">
-            Malatya&apos;daki çiftliğimizden. Seçin, sepete ekleyin, biz getirelim.
+            Akçadağ&apos;daki çiftliğimizden köy yumurtası, kayısı ve dut. Seçin, sepete ekleyin, biz getirelim.
           </p>
         </div>
         <HomeHero className="order-1 lg:order-2" />

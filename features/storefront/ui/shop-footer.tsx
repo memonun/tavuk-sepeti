@@ -53,6 +53,10 @@ export function ShopFooter() {
                 </>
               ) : null}
               <Link href="/tarifler" className={footerLinkClass}>Tarifler</Link>
+              {/* The mobile menu only renders its links while open, so these
+                  are the crawlable links to the two pages for most visitors. */}
+              <Link href="/duzenli-siparis" className={footerLinkClass}>Düzenli Sipariş</Link>
+              <Link href="/siparis-sorgula" className={footerLinkClass}>Sipariş Sorgula</Link>
             </nav>
             <p className="mb-1 text-lg font-bold text-foreground">Güvenli Ödeme</p>
             <p className="py-1.5 text-base text-muted-foreground">
