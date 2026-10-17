@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { TRUST_PAGES_PUBLISHED } from "@/features/content/application/trust-pages-visibility";
 import { AccountNav } from "@/features/storefront/ui/account-nav";
 import { CartSheet } from "@/features/storefront/ui/cart-sheet";
 import { ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
@@ -14,8 +15,13 @@ import type { Product } from "@/features/products/application/list-products";
  * customer, so nothing here has to be learned.
  *
  *   phone  (<640)      brand · "Menü"            (basket lives in the tab bar)
- *   tablet (640–1023)  brand · basket · "Menü"
- *   desktop (≥1024)    brand · links · account · basket
+ *   tablet (640–1279)  brand · basket · "Menü"
+ *   desktop (≥1280)    brand · links · account · basket
+ *
+ * The inline links wait for `xl`: with Çiftliğimiz and Hakkımızda there are
+ * seven of them, and below 1280 they no longer fit beside the name (measured
+ * on the live header). The header row is capped at `max-w-6xl`, so a wider
+ * screen buys no extra room — hence the tighter `px-3` on the links too.
  *
  * Every control carries its name in words; none is an icon alone. The bar is
  * a translucent layer the page scrolls under (`.shop-glass`), and pads itself
@@ -62,10 +68,20 @@ export function ShopHeader({
         </Link>
 
         <div className="flex shrink-0 items-center gap-2">
-          <nav aria-label="Ana gezinme" className="hidden items-center gap-1 lg:flex">
+          <nav aria-label="Ana gezinme" className="hidden items-center gap-1 xl:flex [&_.shop-btn]:px-3">
             <ShopLinkButton href="/" variant="plain">
               Ana Sayfa
             </ShopLinkButton>
+            {TRUST_PAGES_PUBLISHED ? (
+              <>
+                <ShopLinkButton href="/hakkimizda" variant="plain">
+                  Hakkımızda
+                </ShopLinkButton>
+                <ShopLinkButton href="/ciftligimiz" variant="plain">
+                  Çiftliğimiz
+                </ShopLinkButton>
+              </>
+            ) : null}
             <ShopLinkButton href="/tarifler" variant="plain">
               Tarifler
             </ShopLinkButton>

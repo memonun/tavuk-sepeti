@@ -61,7 +61,7 @@ export function MobileNavSheet({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
-        render={<ShopButton variant="quiet" className="lg:hidden" />}
+        render={<ShopButton variant="quiet" className="xl:hidden" />}
       >
         <MenuIcon aria-hidden />
         Menü
