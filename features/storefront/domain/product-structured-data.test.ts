@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { LEGAL_DOCS } from "@/features/storefront/domain/legal";
 import {
-  buildProductStructuredData,
+  buildProductStructuredData as buildWithRates,
   productPageDescription,
+  RETURN_WINDOW_DAYS,
+  type OfferShippingRates,
+  type ProductStructuredDataInput,
 } from "@/features/storefront/domain/product-structured-data";
 
 const input = {
@@ -12,7 +16,13 @@ const input = {
   image:
     "https://example.supabase.co/storage/v1/object/public/product-images/eggs.jpg",
   priceMinor: 12500,
-};
+  fulfillment_type: "delivery",
+} as const;
+
+const rates: OfferShippingRates = { homeDeliveryFeeMinor: 5_000, cargoFeeMinor: 0 };
+
+const buildProductStructuredData = (product: ProductStructuredDataInput) =>
+  buildWithRates(product, rates);
 
 describe("buildProductStructuredData", () => {
   it("uses the product content, permanent SKU and real image", () => {
@@ -36,7 +46,7 @@ describe("buildProductStructuredData", () => {
   ])("formats %s kuruş as %s TRY", (priceMinor, expected) => {
     expect(
       buildProductStructuredData({ ...input, priceMinor })["@graph"][0].offers,
-    ).toEqual({
+    ).toMatchObject({
       "@type": "Offer",
       price: expected,
       priceCurrency: "TRY",
@@ -84,5 +94,81 @@ describe("buildProductStructuredData", () => {
     );
     expect(product.description).toContain("Köy Yumurtası");
     expect(product).not.toHaveProperty("image");
+  });
+});
+
+describe("Offer shipping details", () => {
+  const malatya = (value: number) => ({
+    "@type": "OfferShippingDetails",
+    shippingLabel: "Malatya içi eve teslimat",
+    shippingRate: { "@type": "MonetaryAmount", value, currency: "TRY" },
+    shippingDestination: {
+      "@type": "DefinedRegion",
+      addressCountry: "TR",
+      addressRegion: "44",
+    },
+  });
+
+  it("gives a delivery-only product just the Malatya home-delivery rate", () => {
+    const offer = buildProductStructuredData(input)["@graph"][0].offers;
+    expect(offer.shippingDetails).toEqual([malatya(50)]);
+  });
+
+  it("gives a cargo product the Malatya rate plus nationwide cargo", () => {
+    const offer = buildWithRates(
+      { ...input, fulfillment_type: "shipping" },
+      { homeDeliveryFeeMinor: 5_000, cargoFeeMinor: 0 },
+    )["@graph"][0].offers;
+    expect(offer.shippingDetails).toEqual([
+      malatya(50),
+      {
+        "@type": "OfferShippingDetails",
+        shippingLabel: "Türkiye geneli kargo",
+        shippingRate: { "@type": "MonetaryAmount", value: 0, currency: "TRY" },
+        shippingDestination: { "@type": "DefinedRegion", addressCountry: "TR" },
+      },
+    ]);
+  });
+
+  it("follows the fees it is given, never a hard-coded one", () => {
+    const offer = buildWithRates(
+      { ...input, fulfillment_type: "shipping" },
+      { homeDeliveryFeeMinor: 7_550, cargoFeeMinor: 12_000 },
+    )["@graph"][0].offers;
+    expect(offer.shippingDetails.map((d) => d.shippingRate.value)).toEqual([
+      75.5, 120,
+    ]);
+    const free = buildWithRates(input, { homeDeliveryFeeMinor: 0, cargoFeeMinor: 0 })[
+      "@graph"
+    ][0].offers;
+    expect(free.shippingDetails).toEqual([malatya(0)]);
+  });
+
+  it("adds no price expiry, ratings or reviews", () => {
+    const json = JSON.stringify(buildProductStructuredData(input));
+    expect(json).not.toMatch(/priceValidUntil|aggregateRating|review/);
+  });
+});
+
+describe("Offer return policy", () => {
+  it("is the 14-day mail-return window from the cancellation page", () => {
+    const offer = buildProductStructuredData(input)["@graph"][0].offers;
+    expect(offer.hasMerchantReturnPolicy).toEqual({
+      "@type": "MerchantReturnPolicy",
+      applicableCountry: "TR",
+      returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+      merchantReturnDays: 14,
+      returnMethod: "https://schema.org/ReturnByMail",
+      merchantReturnLink: "https://apuhanciftligi.com/iptal-iade-kosullari",
+    });
+    // Fees are still pending in the legal text, so none are claimed.
+    expect(offer.hasMerchantReturnPolicy).not.toHaveProperty("returnFees");
+  });
+
+  it("matches the withdrawal period the legal text states", () => {
+    const doc = LEGAL_DOCS.find((item) => item.slug === "iptal-iade-kosullari");
+    const text = doc?.sections.flatMap((section) => section.paragraphs).join(" ");
+    expect(RETURN_WINDOW_DAYS).toBe(14);
+    expect(text).toContain("malın tesliminden itibaren on dört gün içinde");
   });
 });

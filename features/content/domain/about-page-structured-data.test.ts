@@ -3,17 +3,21 @@ import { describe, expect, it } from "vitest";
 import { buildAboutPageStructuredData } from "./about-page-structured-data";
 import { TRUST_CONTENT } from "./trust-pages";
 
-const page = TRUST_CONTENT.pages.find((item) => item.slug === "hakkimizda")!;
+const pageFor = (slug: "hakkimizda" | "ciftligimiz") =>
+  TRUST_CONTENT.pages.find((item) => item.slug === slug)!;
 
-describe("AboutPage structured data", () => {
+describe.each(["hakkimizda", "ciftligimiz"] as const)("%s structured data", (slug) => {
+  const page = pageFor(slug);
+  const [webPage, breadcrumb] = buildAboutPageStructuredData(page)["@graph"];
+  const url = `https://apuhanciftligi.com/${slug}`;
+
   it("matches the visible story and canonical URL", () => {
-    const data = buildAboutPageStructuredData(page);
-    expect(data["@type"]).toBe("AboutPage");
-    expect(data.url).toBe("https://apuhanciftligi.com/hakkimizda");
-    expect(data["@id"]).toBe(`${data.url}#webpage`);
-    expect(data.name).toBe(page.title);
-    expect(data.description).toBe(page.description.text);
-    expect(data.primaryImageOfPage).toEqual({
+    expect(webPage["@type"]).toBe("AboutPage");
+    expect(webPage.url).toBe(url);
+    expect(webPage["@id"]).toBe(`${url}#webpage`);
+    expect(webPage.name).toBe(page.title);
+    expect(webPage.description).toBe(page.description.text);
+    expect(webPage.primaryImageOfPage).toEqual({
       "@type": "ImageObject",
       url: `https://apuhanciftligi.com${page.hero.src}`,
       caption: page.hero.alt,
@@ -23,11 +27,22 @@ describe("AboutPage structured data", () => {
   });
 
   it("references the existing organization without duplicating it or adding reviews", () => {
-    const data = buildAboutPageStructuredData(page);
-    expect(data.about).toEqual({ "@id": "https://apuhanciftligi.com/#organization" });
-    expect(data.mainEntity).toEqual(data.about);
+    expect(webPage.about).toEqual({ "@id": "https://apuhanciftligi.com/#organization" });
+    expect(webPage.mainEntity).toEqual(webPage.about);
     for (const field of ["sameAs", "review", "aggregateRating"]) {
-      expect(JSON.stringify(data)).not.toContain(field);
+      expect(JSON.stringify(buildAboutPageStructuredData(page))).not.toContain(field);
     }
+  });
+
+  it("mirrors the visible Ana sayfa / title breadcrumb", () => {
+    expect(breadcrumb).toEqual({
+      "@type": "BreadcrumbList",
+      "@id": `${url}#breadcrumb`,
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Ana sayfa", item: "https://apuhanciftligi.com" },
+        { "@type": "ListItem", position: 2, name: page.title, item: url },
+      ],
+    });
+    expect(webPage.breadcrumb).toEqual({ "@id": breadcrumb["@id"] });
   });
 });

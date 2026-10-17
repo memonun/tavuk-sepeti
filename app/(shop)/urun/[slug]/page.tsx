@@ -6,10 +6,12 @@ import { productImagePublicUrl } from "@/features/products/application/product-i
 import { productWebSlugSchema } from "@/features/products/application/product-web-slug";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { getStorefrontProductBySlug } from "@/features/storefront/application/get-product-by-slug";
+import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import {
   buildProductStructuredData,
   productPageDescription,
 } from "@/features/storefront/domain/product-structured-data";
+import { CARGO_FEE_MINOR } from "@/features/storefront/domain/storefront.config";
 import { fromPriceMinor } from "@/features/storefront/ui/line-pricing";
 import { ProductDetails } from "@/features/storefront/ui/product-details";
 import { env } from "@/shared/env";
@@ -60,7 +62,10 @@ export async function generateMetadata({
 
 export default async function ProductPage({ params }: PageProps) {
   const { product, slug } = await resolveProduct(params);
-  const catalog = await getStorefrontCatalog();
+  const [catalog, settings] = await Promise.all([
+    getStorefrontCatalog(),
+    getStorefrontSettings(),
+  ]);
   if (!catalog.ok) throw new Error(catalog.error.message);
   const related = catalog.value
     .filter((item) => item.key !== product.key && item.web_slug !== null)
@@ -79,6 +84,9 @@ export default async function ProductPage({ params }: PageProps) {
     slug,
     image: imageUrl,
     priceMinor: fromPriceMinor(product),
+  }, {
+    homeDeliveryFeeMinor: settings.homeDeliveryFeeMinor,
+    cargoFeeMinor: CARGO_FEE_MINOR,
   });
   return (
     <>
