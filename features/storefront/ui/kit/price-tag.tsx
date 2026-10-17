@@ -10,6 +10,7 @@ export function PriceTag({
   amount,
   unit,
   prefix,
+  reservePrefixLine = false,
   className,
 }: {
   /** Already formatted, e.g. "700,00 ₺". */
@@ -19,6 +20,9 @@ export function PriceTag({
   /** Optional lead-in shown above the tag, e.g. "Başlangıç fiyatı" for a
    *  volume-discounted product. */
   prefix?: string | undefined;
+  /** From `sm` up, keep the prefix line's height even when there is no
+   *  prefix, so tags line up across a grid row of cards. */
+  reservePrefixLine?: boolean | undefined;
   className?: string | undefined;
 }) {
   return (
@@ -28,6 +32,10 @@ export function PriceTag({
           two-line block. */}
       {prefix ? (
         <p className="text-base font-semibold text-muted-foreground">{prefix}</p>
+      ) : reservePrefixLine ? (
+        <p aria-hidden className="invisible hidden text-base font-semibold sm:block">
+          {"\u00a0"}
+        </p>
       ) : null}
       <p className="shop-price-tag max-w-full flex-wrap">
         <span className="shop-money text-[1.625rem] leading-tight font-extrabold whitespace-nowrap">
