@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { getTrustPage } from "@/features/content/application/get-trust-pages";
+import { buildAboutPageStructuredData, getTrustPage } from "@/features/content/application/get-trust-pages";
 import { FarmStory } from "@/features/content/ui/farm-story";
 import { buildPageMetadata } from "@/features/storefront/application/page-metadata";
 import { COMPANY } from "@/features/storefront/domain/legal";
@@ -27,5 +27,12 @@ export function generateMetadata(): Metadata {
 
 export default function FarmPage() {
   const page = resolvePage();
-  return <FarmStory page={page} company={COMPANY} />;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{
+        __html: JSON.stringify(buildAboutPageStructuredData(page)).replace(/</g, "\\u003c"),
+      }} />
+      <FarmStory page={page} company={COMPANY} />
+    </>
+  );
 }
