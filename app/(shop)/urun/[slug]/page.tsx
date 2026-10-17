@@ -6,6 +6,7 @@ import { productImagePublicUrl } from "@/features/products/application/product-i
 import { productWebSlugSchema } from "@/features/products/application/product-web-slug";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { getStorefrontProductBySlug } from "@/features/storefront/application/get-product-by-slug";
+import { buildPageMetadata } from "@/features/storefront/application/page-metadata";
 import {
   buildProductStructuredData,
   productPageDescription,
@@ -36,26 +37,13 @@ export async function generateMetadata({
     product.image_path,
     env.NEXT_PUBLIC_SUPABASE_URL,
   );
-  return {
+  return buildPageMetadata({
     title: product.display_name,
     description,
-    alternates: { canonical: `/urun/${slug}` },
-    openGraph: {
-      type: "website",
-      title: product.display_name,
-      description,
-      url: `/urun/${slug}`,
-      images: image
-        ? [{ url: image, alt: product.image_alt ?? product.display_name }]
-        : [],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: product.display_name,
-      description,
-      images: image ? [image] : [],
-    },
-  };
+    canonical: `/urun/${slug}`,
+    // No product photo → the site's default card, never an empty preview.
+    image: image ? { url: image, alt: product.image_alt ?? product.display_name } : null,
+  });
 }
 
 export default async function ProductPage({ params }: PageProps) {
