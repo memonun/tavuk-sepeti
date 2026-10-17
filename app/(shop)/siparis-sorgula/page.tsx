@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
+import { buildPageMetadata } from "@/features/storefront/application/page-metadata";
 import { FindOrderForm } from "@/features/storefront/ui/find-order-form";
 
-export const metadata: Metadata = {
-  // The shop layout's template appends "| Apuhan Çiftliği".
+export const metadata: Metadata = buildPageMetadata({
   title: "Sipariş sorgula",
-  alternates: { canonical: "/siparis-sorgula" },
   description:
     "Sipariş numaranız ve telefonunuzla siparişinizin durumunu görün, ödemesini tamamlayın.",
-};
+  canonical: "/siparis-sorgula",
+});
 
 export default function FindOrderPage() {
   return (

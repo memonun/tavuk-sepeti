@@ -1090,7 +1090,7 @@ function OrderSummary({
 
       <p className="rounded-2xl bg-muted px-4 py-3 text-base leading-relaxed text-foreground">
         {mode === "route"
-          ? `Yumurta ve süt ürünleri yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`
+          ? `Yumurta gibi taze ürünler yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`
           : channel === "delivery"
             ? deliveryFeeNotice(feeMinor)
             : CARGO_FREE_SHIPPING_NOTICE}

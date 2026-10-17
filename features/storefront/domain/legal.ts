@@ -78,6 +78,8 @@ export interface LegalDoc {
   readonly title: string;
   /** Longer <title>/heading. */
   readonly longTitle: string;
+  /** Meta description: one plain sentence on what this document covers. */
+  readonly description: string;
   readonly updated: string; // YYYY-MM-DD, shown as "son güncelleme"
   readonly sections: readonly LegalSection[];
   /** Slugs of other legal docs to cross-link at the bottom of the page
@@ -176,6 +178,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "mesafeli-satis-sozlesmesi",
     title: "Mesafeli Satış Sözleşmesi",
     longTitle: "Mesafeli Satış Sözleşmesi",
+    description:
+      "Apuhan Çiftliği'nden internet üzerinden verilen siparişlerde alıcı ile satıcının hak ve yükümlülüklerini düzenleyen mesafeli satış sözleşmesi.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "on-bilgilendirme-formu",
@@ -238,6 +242,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "on-bilgilendirme-formu",
     title: "Ön Bilgilendirme Formu",
     longTitle: "Ön Bilgilendirme Formu",
+    description:
+      "Sipariş vermeden önce satıcı, ürünler, toplam fiyat, ödeme, teslimat ve cayma hakkı hakkında bilmeniz gerekenleri anlatan ön bilgilendirme formu.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "mesafeli-satis-sozlesmesi",
@@ -282,6 +288,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "gizlilik-politikasi",
     title: "Gizlilik Politikası",
     longTitle: "Gizlilik Politikası",
+    description:
+      "Apuhan Çiftliği'nin kişisel verilerin işlenmesi, sipariş, ödeme, teslimat, çerezler ve KVKK kapsamındaki kullanıcı haklarına ilişkin bilgilendirme metni.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "kvkk",
@@ -387,6 +395,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "kvkk",
     title: "KVKK Aydınlatma Metni",
     longTitle: "KVKK Aydınlatma Metni",
+    description:
+      "Apuhan Çiftliği'nin hangi kişisel verileri hangi amaçla işlediğini ve 6698 sayılı KVKK kapsamındaki haklarınızı anlatan aydınlatma metni.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "mesafeli-satis-sozlesmesi",
@@ -434,6 +444,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "cerez-politikasi",
     title: "Çerez Politikası",
     longTitle: "Çerez (Cookie) Politikası",
+    description:
+      "Sitemizde yalnızca oturum için zorunlu çerez kullanılır, reklam çerezi yoktur. Sepetin nerede tutulduğu ve çerezleri nasıl yönetebileceğiniz.",
     updated: UPDATED_2,
     sections: [
       p(
@@ -457,6 +469,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "iptal-iade-kosullari",
     title: "İptal ve İade Koşulları",
     longTitle: "İptal, İade ve Cayma Koşulları",
+    description:
+      "Apuhan Çiftliği siparişlerinde iptal talebi, cayma hakkı ve istisnaları, iade gönderimi, hasarlı veya ayıplı ürün ve geri ödeme süreci.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "mesafeli-satis-sozlesmesi",
@@ -503,6 +517,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "teslimat-kosullari",
     title: "Teslimat Koşulları",
     longTitle: "Teslimat ve Kargo Koşulları",
+    description:
+      "Malatya'da eve teslimat ve Türkiye geneline kargo: teslimat günleri, sipariş tutarı, adres bilgisi ve kargo teslimiyle ilgili koşullar.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "mesafeli-satis-sozlesmesi",
@@ -536,6 +552,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "duzenli-siparis-kosullari",
     title: "Düzenli Sipariş Koşulları",
     longTitle: "Düzenli Sipariş Koşulları",
+    description:
+      "Haftalık veya iki haftada bir düzenli sipariş talebinin nasıl onaylandığı, fiyatların nasıl hesaplandığı, ödeme yöntemleri ve iptal koşulları.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "mesafeli-satis-sozlesmesi",
@@ -569,6 +587,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "islem-rehberi",
     title: "İşlem Rehberi",
     longTitle: "İşlem Rehberi",
+    description:
+      "Apuhan Çiftliği'nde sipariş oluşturma, sözleşmeler, sipariş sonrası erişim ve kişisel veriler hakkında işlem rehberi.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "on-bilgilendirme-formu",
@@ -642,6 +662,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     slug: "kullanim-sartlari",
     title: "Kullanım Şartları",
     longTitle: "Kullanım Şartları",
+    description:
+      "Apuhan Çiftliği internet sitesinin kullanım esasları, sipariş süreçleri, ürün ve teslimat bilgileri ile kullanıcı sorumluluklarına ilişkin kullanım şartları.",
     updated: SALES_LEGAL_UPDATED,
     relatedSlugs: [
       "mesafeli-satis-sozlesmesi",

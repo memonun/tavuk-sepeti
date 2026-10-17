@@ -1,13 +1,13 @@
 import type { MetadataRoute } from "next";
 
 import { COMPANY } from "@/features/storefront/domain/legal";
+import { STOREFRONT_DESCRIPTION } from "@/features/storefront/domain/structured-data";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: COMPANY.brand,
     short_name: COMPANY.brand,
-    description:
-      "Çiftlikten sofranıza taze yumurta ve süt ürünleri. Online sipariş verin, biz getirelim.",
+    description: STOREFRONT_DESCRIPTION,
     start_url: "/",
     display: "standalone",
     background_color: "#fffdf9",

@@ -13,7 +13,7 @@ import { COMPANY } from "@/features/storefront/domain/legal";
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
 export const STOREFRONT_DESCRIPTION =
-  "Çiftlikten sofranıza taze yumurta ve süt ürünleri. Online sipariş verin, biz getirelim.";
+  "Akçadağ'daki çiftliğimizden köy yumurtası, kayısı, dut kurusu ve dut pekmezi. Malatya'da kapınıza getiriyor, kargoya uygun ürünleri Türkiye geneline gönderiyoruz.";
 
 /**
  * COMPANY.address split into schema.org PostalAddress parts. A test checks

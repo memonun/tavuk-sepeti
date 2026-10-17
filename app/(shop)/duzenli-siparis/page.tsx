@@ -5,6 +5,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { getMyAccount } from "@/features/storefront/application/get-account";
+import { buildPageMetadata } from "@/features/storefront/application/page-metadata";
 import { ensureCustomerProfile } from "@/features/storefront/application/ensure-customer-profile";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { listMyRecurringTemplatesAction } from "@/features/storefront/application/recurring-order-request";
@@ -12,13 +13,13 @@ import { buildWhatsAppLink, SUPPORT_WHATSAPP_E164 } from "@/features/storefront/
 import { MyRecurringOrders } from "@/features/storefront/ui/my-recurring-orders";
 import { RecurringOrderForm } from "@/features/storefront/ui/recurring-order-form";
 
-export const metadata: Metadata = {
-  // The shop layout's template appends "| Apuhan Çiftliği".
+export const metadata: Metadata = buildPageMetadata({
   title: "Düzenli Sipariş",
-  alternates: { canonical: "/duzenli-siparis" },
+  // No fixed amounts here: the delivery minimum is a store setting.
   description:
-    "Her hafta düzenli aldığınız ürünleri tekrar tekrar sipariş vermeden planlayın. Teslimat alt limiti: 250 ₺",
-};
+    "Her hafta veya iki haftada bir aldığınız ürünleri tekrar tekrar sipariş vermeden planlayın. Talebinizi onaylıyoruz, ürünleriniz seçtiğiniz günde hazır oluyor.",
+  canonical: "/duzenli-siparis",
+});
 
 const STEPS = [
   {

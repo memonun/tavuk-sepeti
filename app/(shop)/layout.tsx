@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { getViewer } from "@/features/auth/application/get-viewer";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
+import { STOREFRONT_SHARE_IMAGE } from "@/features/storefront/application/page-metadata";
 import { COMPANY } from "@/features/storefront/domain/legal";
 import {
   buildStorefrontStructuredData,
@@ -61,21 +62,13 @@ export const metadata: Metadata = {
     title: "Apuhan Çiftliği — Taze ürünler, kapınızda",
     description: STOREFRONT_DESCRIPTION,
     url: CANONICAL_ORIGIN,
-    images: [
-      {
-        url: "/brand/apuhan-onizleme.jpg",
-        type: "image/jpeg",
-        width: 1200,
-        height: 630,
-        alt: "Apuhan Çiftliği logosu ve “Çiftlikten sofranıza” yazısı",
-      },
-    ],
+    images: [STOREFRONT_SHARE_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "Apuhan Çiftliği — Taze ürünler, kapınızda",
     description: STOREFRONT_DESCRIPTION,
-    images: ["/brand/apuhan-onizleme.jpg"],
+    images: [STOREFRONT_SHARE_IMAGE.url],
   },
 };
 
