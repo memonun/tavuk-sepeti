@@ -12,6 +12,22 @@ export function productPageDescription(product: {
   );
 }
 
+/**
+ * The description Google gets for a product: the long product-page text when
+ * there is one, else the short card text (or its fallback). Shared by the
+ * Product JSON-LD and the Merchant Center feed so the two never disagree.
+ */
+export function productStructuredDescription(product: {
+  readonly display_name: string;
+  readonly web_description: string | null;
+  readonly web_long_description?: string | null | undefined;
+}): string {
+  return (
+    splitDescriptionParagraphs(product.web_long_description).join(" ") ||
+    productPageDescription(product)
+  );
+}
+
 export interface ProductStructuredDataInput {
   readonly key: string;
   readonly display_name: string;
@@ -107,9 +123,7 @@ export function buildProductStructuredData(
       {
         "@type": "Product",
         name: product.display_name,
-        description:
-          splitDescriptionParagraphs(product.web_long_description).join(" ") ||
-          productPageDescription(product),
+        description: productStructuredDescription(product),
         ...(product.image ? { image: product.image } : {}),
         sku: product.key,
         brand: { "@type": "Brand", name: "Apuhan Çiftliği" },
