@@ -126,6 +126,20 @@
   }
 }
 
+/* Text size ("Yazı boyutu" in the menu — app/(admin)/_components/text-size.ts).
+   Everything in the panel is sized in rem, so raising the root font size grows
+   text, buttons, rows and bars together, like the phone's own large-text
+   setting. A percentage of the browser default, so a browser already set to
+   large text keeps its choice and grows from there. The keyed attribute sits
+   on a wrapper inside the panel, so the storefront is never affected. */
+:root:has([data-admin-text-size="large"]) {
+  font-size: 112.5%;
+}
+
+:root:has([data-admin-text-size="xlarge"]) {
+  font-size: 125%;
+}
+
 /* An installed app, not a web page: no grey flash on tap (every control has
    its own pressed state), no font inflation in landscape. Set on the root as
    well because menus and sheets are portalled to <body>. */

@@ -12,6 +12,7 @@ import {
   isNavItemActive,
   navItems,
 } from "@/app/(admin)/_components/admin-nav";
+import { TextSizeMenu } from "@/app/(admin)/_components/text-size-controls";
 import { signOutAction } from "@/features/auth/application/sign-out";
 import { clearDriveOfflineCache } from "@/features/routing/ui/drive-offline-client";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -117,25 +118,30 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center justify-between gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
-          {userEmail ? (
-            <span
-              className="truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden"
-              title={userEmail}
-            >
-              {userEmail}
-            </span>
-          ) : null}
-          <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
-            <ThemeToggle />
-            {/* Drop the offline route copies too — they hold customer names and
-                addresses and must not outlive the session on a shared phone. */}
-            <form action={signOutAction} onSubmit={clearDriveOfflineCache}>
-              <Button type="submit" variant="ghost" size="sm" aria-label="Çıkış">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </form>
-          </div>
+        {userEmail ? (
+          <span
+            className="truncate px-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden"
+            title={userEmail}
+          >
+            {userEmail}
+          </span>
+        ) : null}
+        <div className="flex items-center gap-1 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
+          <TextSizeMenu />
+          <ThemeToggle />
+          {/* Drop the offline route copies too — they hold customer names and
+              addresses and must not outlive the session on a shared phone.
+              Labelled while the sidebar is open: an icon alone is easy to miss. */}
+          <form
+            action={signOutAction}
+            onSubmit={clearDriveOfflineCache}
+            className="ml-auto group-data-[collapsible=icon]:ml-0"
+          >
+            <Button type="submit" variant="ghost" size="sm" aria-label="Çıkış yap" title="Çıkış yap">
+              <LogOut className="h-4 w-4" />
+              <span className="group-data-[collapsible=icon]:hidden">Çıkış</span>
+            </Button>
+          </form>
         </div>
       </SidebarFooter>
     </Sidebar>

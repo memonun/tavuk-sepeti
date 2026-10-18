@@ -143,7 +143,7 @@ function PricingEditor({ product }: { product: Product }) {
         {tiers.map((t, idx) => (
           <div key={idx} className="flex items-end gap-2">
             <div className="flex flex-col gap-1">
-              <Label className="text-[10px] text-muted-foreground">≥ adet</Label>
+              <Label className="text-xs text-muted-foreground">≥ adet</Label>
               <Input
                 inputMode="decimal"
                 value={t.min_qty}
@@ -153,7 +153,7 @@ function PricingEditor({ product }: { product: Product }) {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-[10px] text-muted-foreground">
+              <Label className="text-xs text-muted-foreground">
                 birim fiyat (₺)
               </Label>
               <Input
@@ -194,7 +194,7 @@ function PricingEditor({ product }: { product: Product }) {
 function DetailChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col rounded-md bg-muted/50 px-2.5 py-1.5">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       <span className="text-sm font-medium tabular-nums">{value}</span>

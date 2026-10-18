@@ -17,6 +17,7 @@ import {
   settingsItem,
   tabBarItems,
 } from "@/app/(admin)/_components/admin-nav";
+import { TextSizeRow } from "@/app/(admin)/_components/text-size-controls";
 import { signOutAction } from "@/features/auth/application/sign-out";
 import { clearDriveOfflineCache } from "@/features/routing/ui/drive-offline-client";
 import {
@@ -130,6 +131,7 @@ export function AdminTabBar({ userEmail }: AdminTabBarProps) {
                 active={isNavItemActive(pathname, settingsItem)}
                 onNavigate={() => setMenuOpen(false)}
               />
+              <TextSizeRow />
               <ThemeRow />
               {/* Drop the offline route copies too — they hold customer names and
                   addresses and must not outlive the session on a shared phone. */}
@@ -181,9 +183,11 @@ function TabFace({
       >
         <Icon className="size-5" aria-hidden />
       </span>
+      {/* 12px, growing with the text size but capped at 13px so five labels
+          ("Siparişler", "Müşteriler") still fit across a 360px phone. */}
       <span
         className={cn(
-          "max-w-full truncate px-0.5 text-[0.6875rem] leading-4",
+          "max-w-full truncate px-0.5 text-[length:min(0.75rem,13px)] leading-4",
           active ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
         )}
       >

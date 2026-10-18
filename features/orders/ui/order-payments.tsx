@@ -187,7 +187,7 @@ export function OrderPayments({
                   {formatDate(p.paid_at)} · {CHANNEL_LABEL[p.channel]}
                 </span>
                 {tag ? (
-                  <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                  <Badge variant="outline" className="px-1.5 py-0 text-xs">
                     {tag}
                   </Badge>
                 ) : null}

@@ -99,7 +99,7 @@ export function BasketPanel({
                 {p?.display_name ?? line.product_key}
               </span>
               <span className="text-muted-foreground">×{line.commonQty ?? "—"}</span>
-              <Badge variant={b.variant} className="ml-auto text-[10px]">
+              <Badge variant={b.variant} className="ml-auto text-xs">
                 {b.label}
               </Badge>
               <Button

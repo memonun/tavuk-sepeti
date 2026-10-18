@@ -124,7 +124,7 @@ export function ProductImageDropzone({
       </button>
 
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           JPEG / PNG / WEBP · en fazla 5 MB
         </p>
         {imageUrl ? (

@@ -507,7 +507,7 @@ export function DriverMode({
           {!online ? (
             <Badge
               variant="destructive"
-              className="mt-1 gap-1 px-1.5 py-0 text-[10px]"
+              className="mt-1 gap-1 px-1.5 py-0 text-xs"
             >
               <WifiOff className="h-3 w-3" />
               Çevrimdışı
@@ -673,7 +673,7 @@ export function DriverMode({
                   ) : s.skipped ? (
                     <SkipForward className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                   ) : s.isCurrent ? (
-                    <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                    <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-xs">
                       Sıradaki
                     </Badge>
                   ) : null}

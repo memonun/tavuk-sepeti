@@ -244,7 +244,7 @@ export function CustomerPickList({
         {lines.map((l) => {
           const p = productsByKey.get(l.product_key);
           return (
-            <Badge key={l.product_key} variant="secondary" className="text-[10px]">
+            <Badge key={l.product_key} variant="secondary" className="text-xs">
               {(p?.display_name ?? l.product_key)} ×{l.quantity}
             </Badge>
           );
@@ -298,7 +298,7 @@ export function CustomerPickList({
       </div>
 
       {/* Mouse and keyboard shortcuts — meaningless on a touch screen. */}
-      <p className="px-0.5 text-[11px] text-muted-foreground [@media(pointer:coarse)]:hidden">
+      <p className="px-0.5 text-xs text-muted-foreground [@media(pointer:coarse)]:hidden">
         Hızlı seçim: tık = aç/kapat · shift+tık = aralık · sürükle = boya · ↑/↓ + shift = klavyeyle aralık · boşluk = aç/kapat
       </p>
 
@@ -351,7 +351,7 @@ export function CustomerPickList({
                   <ExternalLink className="size-3.5" />
                 </Link>
                 {missing.has(r.id) && (
-                  <Badge variant="destructive" className="text-[10px]">
+                  <Badge variant="destructive" className="text-xs">
                     ⚠ adres yok
                   </Badge>
                 )}
