@@ -53,6 +53,9 @@ export function buildStorefrontSitemapEntries(
     entry("/tarifler", "weekly", 0.7),
     ...trustPages.map((page) => entry(`/${page.slug}`, "monthly", 0.6)),
     entry("/duzenli-siparis", "monthly", 0.6),
+    // Answers follow the store settings (delivery days, fees), so monthly.
+    entry("/sss", "monthly", 0.5),
+    entry("/iletisim", "yearly", 0.5),
     entry("/siparis-sorgula", "yearly", 0.3),
     ...LEGAL_DOCS.map((doc) => entry(`/${doc.slug}`, "yearly", 0.2, doc.updated)),
     ...[...new Set(products.flatMap((product) => product.web_slug ? [product.web_slug] : []))]

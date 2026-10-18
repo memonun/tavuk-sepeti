@@ -26,6 +26,8 @@ describe("buildStorefrontSitemapEntries", () => {
     expect(paths).toContain("/");
     expect(paths).toContain("/siparis-sorgula");
     expect(paths).toContain("/duzenli-siparis");
+    expect(paths).toContain("/sss");
+    expect(paths).toContain("/iletisim");
     for (const doc of LEGAL_DOCS) expect(paths).toContain(`/${doc.slug}`);
   });
 
