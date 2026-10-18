@@ -5,7 +5,7 @@
  * links inline). The tab bar (`MobileBottomNav`)
  * already covers the five everyday destinations, so this menu exists for
  * what it doesn't: Düzenli Sipariş (a distinct thing from browsing the
- * catalog, not a tab), the admin panel shortcut, sign-in/out, and a phone
+ * catalog, not a tab), the SSS and İletişim pages, the admin panel shortcut, sign-in/out, and a phone
  * number for anyone who would rather just call.
  *
  * Closes itself on every link tap (`setOpen(false)`) rather than relying on
@@ -19,10 +19,12 @@ import { useState } from "react";
 import {
   BookOpenIcon,
   ChevronRightIcon,
+  CircleHelpIcon,
   HouseIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
   LogOutIcon,
+  MailIcon,
   MenuIcon,
   PhoneIcon,
   RepeatIcon,
@@ -107,6 +109,12 @@ export function MobileNavSheet({
           </DrawerLink>
           <DrawerLink href="/siparis-sorgula" onNavigate={close} icon={<SearchIcon aria-hidden />}>
             Sipariş Sorgula
+          </DrawerLink>
+          <DrawerLink href="/sss" onNavigate={close} icon={<CircleHelpIcon aria-hidden />}>
+            Sıkça Sorulan Sorular
+          </DrawerLink>
+          <DrawerLink href="/iletisim" onNavigate={close} icon={<MailIcon aria-hidden />}>
+            İletişim
           </DrawerLink>
           {isAdmin ? (
             <DrawerLink
