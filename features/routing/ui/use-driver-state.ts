@@ -59,8 +59,11 @@ export function useDriverState(
   const [skippedSet, setSkippedSet] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  // null = "follow the auto-computed current stop"; a number pins the view.
-  const [manualView, setManualView] = useState<number | null>(null);
+  // null = "follow the auto-computed current stop"; an order id pins the view.
+  // Pinned by id, not index: when the route is re-sequenced under the driver
+  // (an order postponed mid-drive), the view stays on the same customer
+  // instead of jumping to whoever now sits at that position.
+  const [manualView, setManualView] = useState<string | null>(null);
 
   const markSkipped = useCallback((orderId: string) => {
     setSkippedSet((prev) => {
@@ -113,10 +116,12 @@ export function useDriverState(
     // Viewed stop: the driver's manual selection, else the current stop, else
     // the first stop. Clamped to the valid range.
     const fallbackView = currentIndex === -1 ? 0 : currentIndex;
-    const viewIndex =
-      totalCount === 0
+    const pinnedIndex =
+      manualView === null
         ? -1
-        : Math.min(Math.max(manualView ?? fallbackView, 0), totalCount - 1);
+        : stopsWithStatus.findIndex((s) => s.stop.order_id === manualView);
+    const viewIndex =
+      totalCount === 0 ? -1 : pinnedIndex !== -1 ? pinnedIndex : fallbackView;
     const viewEntry = viewIndex === -1 ? null : stopsWithStatus[viewIndex];
 
     return {
@@ -137,10 +142,12 @@ export function useDriverState(
       isComplete: deliveredCount === totalCount && totalCount > 0,
       markSkipped,
       unskip,
-      goPrev: () => setManualView(Math.max(viewIndex - 1, 0)),
+      goPrev: () => setManualView(stops[Math.max(viewIndex - 1, 0)]?.order_id ?? null),
       goNext: () =>
-        setManualView(Math.min(viewIndex + 1, Math.max(totalCount - 1, 0))),
-      jumpTo: (index: number) => setManualView(index),
+        setManualView(
+          stops[Math.min(viewIndex + 1, Math.max(totalCount - 1, 0))]?.order_id ?? null,
+        ),
+      jumpTo: (index: number) => setManualView(stops[index]?.order_id ?? null),
       followCurrent: () => setManualView(null),
     };
   }, [stops, deliveredOrderIds, skippedSet, manualView, markSkipped, unskip]);

@@ -8,6 +8,11 @@ import {
   parseExcludeDelivered,
   serializeExcludeDelivered,
 } from "@/features/routing/domain/exclude-delivered-url";
+import {
+  decideDriveFreeze,
+  parseRouteSetParam,
+  routeSetFingerprint,
+} from "@/features/routing/domain/route-set-fingerprint";
 import { DriverMode } from "@/features/routing/ui/driver-mode";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,6 +31,7 @@ interface DrivePageProps {
     destName?: string;
     destOrderId?: string;
     excludeDelivered?: string;
+    routeSet?: string;
   }>;
 }
 
@@ -57,7 +63,6 @@ export default async function DrivePage({ searchParams }: DrivePageProps) {
     params.start && isHHmm(params.start)
       ? params.start
       : formatHHmm(new Date());
-  const startTimeIso = istanbulIsoFromDateAndTime(date, startHHmm);
 
   const mapsKey = env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
   if (!mapsKey) {
@@ -127,13 +132,42 @@ export default async function DrivePage({ searchParams }: DrivePageProps) {
   // SAME waypoint set → Directions cache hit → no reshuffle, no Google call.
   // Only an explicit re-optimize (driver-mode) rewrites the param, dropping
   // freshly-delivered stops to markers. See get-day-route.ts.
-  if (params.excludeDelivered === undefined) {
+  //
+  // `routeSet` fingerprints the day's stop set. If it changed under the drive
+  // (an order postponed / cancelled / added / moved), the route is re-optimized
+  // anyway — so re-freeze to everything delivered NOW and re-anchor the start
+  // to now. Otherwise the stale frozen set would put every stop delivered since
+  // the freeze back into the waypoints and the route would restart from the
+  // first customer. See route-set-fingerprint.ts.
+  const excludeOrderIds = parseExcludeDelivered(params.excludeDelivered);
+  if (ordersResult.ok) {
+    const fingerprint = routeSetFingerprint(ordersResult.value);
+    const decision = decideDriveFreeze({
+      excludeParam: params.excludeDelivered,
+      frozenExclude: excludeOrderIds,
+      urlFingerprint: parseRouteSetParam(params.routeSet),
+      currentFingerprint: fingerprint,
+      deliveredNow: deliveredOrderIds,
+    });
+    if (decision.kind === "redirect") {
+      const canon = new URLSearchParams(driveQuery);
+      if (decision.refreeze && date === toIstanbulDateString(new Date())) {
+        canon.set("start", formatHHmm(new Date()));
+      }
+      canon.set("excludeDelivered", serializeExcludeDelivered(decision.excludeOrderIds));
+      canon.set("routeSet", decision.fingerprint);
+      redirect(`/routes/drive?${canon.toString()}`);
+    }
+    driveQuery.set("routeSet", fingerprint);
+  } else if (params.excludeDelivered === undefined) {
+    // Orders failed to load — keep the old canonicalization; getDayRoute below
+    // surfaces the real error.
     const canon = new URLSearchParams(driveQuery);
     canon.set("excludeDelivered", serializeExcludeDelivered(deliveredOrderIds));
     redirect(`/routes/drive?${canon.toString()}`);
   }
-  const excludeOrderIds = parseExcludeDelivered(params.excludeDelivered);
   driveQuery.set("excludeDelivered", serializeExcludeDelivered(excludeOrderIds));
+  const startTimeIso = istanbulIsoFromDateAndTime(date, startHHmm);
 
   // Optimize, excluding the frozen delivered set — they ride along as
   // route.completed_markers (muted pins), never part of the sequence/ETAs.

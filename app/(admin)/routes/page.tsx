@@ -11,6 +11,7 @@ import {
   extractDateFromQueryString,
   ROUTE_STATE_COOKIE,
 } from "@/features/routing/domain/route-state-cookie";
+import { routeSetFingerprint } from "@/features/routing/domain/route-set-fingerprint";
 import { RouteControls } from "@/features/routing/ui/route-controls";
 import { RouteDatePager } from "@/features/routing/ui/route-date-pager";
 import { RouteList } from "@/features/routing/ui/route-list";
@@ -252,6 +253,10 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
     "excludeDelivered",
     serializeExcludeDelivered(deliveredOrderIds),
   );
+  // Fingerprint of the day's stop set, so driver mode notices if it changes
+  // mid-drive (a postponed order) and re-freezes instead of restarting the
+  // route from the first customer. See route-set-fingerprint.ts.
+  driveQuery.set("routeSet", routeSetFingerprint(dayOrders));
 
   // Orders shaped for the destination picker ("end at an order").
   const destinationOrders = dayOrders.map((o) => ({
