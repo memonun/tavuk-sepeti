@@ -113,7 +113,10 @@ describe("recipe and trust sitemap URLs", () => {
         const listed = entries.some((entry) => entry.url === `https://apuhanciftligi.com${path}`);
         expect(listed, path).toBe(TRUST_PAGES_PUBLISHED);
       }
-      expect(entries.some((entry) => entry.url.endsWith("/sss"))).toBe(false);
+      // The info pages are static and listed in every catalog state too.
+      for (const path of ["/sss", "/iletisim"]) {
+        expect(entries.some((entry) => entry.url === `https://apuhanciftligi.com${path}`), path).toBe(true);
+      }
     },
   );
 });
