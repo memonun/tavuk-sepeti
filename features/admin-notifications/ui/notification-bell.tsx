@@ -132,7 +132,7 @@ export function NotificationBell({
                   {notification.title}
                 </span>
                 <span className="text-xs text-muted-foreground">{notification.body}</span>
-                <span className="text-[11px] text-muted-foreground/70">
+                <span className="text-xs text-muted-foreground">
                   {formatDateTime(notification.createdAt)}
                 </span>
               </DropdownMenuItem>

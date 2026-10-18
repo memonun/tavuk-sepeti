@@ -130,13 +130,13 @@ export function DeliveryPaymentDialog({ stop, onClose }: DeliveryPaymentDialogPr
 
         <dl className="grid grid-cols-3 gap-2 text-sm">
           <div className="rounded-md bg-muted/40 p-2 text-center">
-            <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
               Tutar
             </dt>
             <dd className="font-mono">{formatTRY(total)}</dd>
           </div>
           <div className="rounded-md bg-muted/40 p-2 text-center">
-            <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
               Ödenen
             </dt>
             <dd className="font-mono">{formatTRY(paid)}</dd>
@@ -147,7 +147,7 @@ export function DeliveryPaymentDialog({ stop, onClose }: DeliveryPaymentDialogPr
               balance > 0 ? "bg-amber-500/10" : "bg-emerald-500/10",
             )}
           >
-            <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
               Kalan
             </dt>
             <dd className="font-mono font-semibold">{formatTRY(balance)}</dd>

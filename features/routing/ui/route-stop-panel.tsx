@@ -104,13 +104,13 @@ export function RouteStopPanel({
 
       <dl className="grid grid-cols-3 gap-2 text-sm">
         <div className="rounded-md bg-muted/40 p-2 text-center">
-          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <dt className="text-xs uppercase tracking-wider text-muted-foreground">
             Bu durağa
           </dt>
           <dd className="font-mono">{formatDistanceM(stop.leg_distance_m)}</dd>
         </div>
         <div className="rounded-md bg-muted/40 p-2 text-center">
-          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <dt className="text-xs uppercase tracking-wider text-muted-foreground">
             Toplam yolda
           </dt>
           <dd className="font-mono">
@@ -118,7 +118,7 @@ export function RouteStopPanel({
           </dd>
         </div>
         <div className="rounded-md bg-muted/40 p-2 text-center">
-          <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <dt className="text-xs uppercase tracking-wider text-muted-foreground">
             Tutar
           </dt>
           <dd className="font-mono">{formatTRY(stop.total_minor)}</dd>

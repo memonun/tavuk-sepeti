@@ -211,7 +211,7 @@ export function ExpenseTable({ items, total, page, pageSize, basePath, query, ca
                   <div className="flex items-center gap-1.5">
                     {categoryLabel(expense)}
                     {expense.source === "recurring_generated" ? (
-                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                      <Badge variant="outline" className="shrink-0 text-xs">
                         {EXPENSE_SOURCE_LABELS.recurring_generated}
                       </Badge>
                     ) : null}
