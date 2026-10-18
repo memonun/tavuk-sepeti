@@ -35,8 +35,14 @@ export function CatalogGrid({
 
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-      {products.map((product) => (
-        <ProductCard key={product.key} product={product} />
+      {/* The first row (one card on a phone, three on desktop) is on the first
+          screen: load those pictures right away, the very first one first. */}
+      {products.map((product, index) => (
+        <ProductCard
+          key={product.key}
+          product={product}
+          imagePriority={index === 0 ? "high" : index < 3 ? "eager" : undefined}
+        />
       ))}
     </div>
   );

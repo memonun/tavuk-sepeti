@@ -15,14 +15,23 @@ import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 // Inter is the SaaS-dashboard standard — designed for screen UI, excellent
 // at small sizes, full Turkish diacritic support (ğ, İ/ı, ş, ç, ü, ö).
 // We expose it as `--font-sans` so Tailwind's font-sans utility picks it up.
+//
+// `preload: false` on both: this root layout also wraps the storefront, which
+// renders in its own typefaces (app/(shop)/fonts.ts). Preloaded, Inter and
+// Geist Mono were three extra woff2 files (~156 KB) fetched on every shop
+// page at the highest priority, competing with the hero image on mobile, and
+// never used there. Without preload the browser still loads them as soon as
+// an admin page actually renders text in them (and caches them after that).
 const interSans = Inter({
   variable: "--font-sans",
   subsets: ["latin", "latin-ext"],
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {

@@ -34,7 +34,20 @@ import type { Product } from "@/features/products/application/list-products";
  * what says where one product's price and button end and the next one's
  * begin. Nothing on the card is under 16px.
  */
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  imagePriority,
+}: {
+  product: Product;
+  /**
+   * For cards on the first screen. `"high"`: the first card, the largest
+   * picture a phone sees first (Lighthouse's LCP element), fetched eagerly at
+   * high priority. `"eager"`: the rest of the first row on desktop. Omitted:
+   * lazy, as for every card further down. A lazy first card was found late by
+   * the browser, and mobile LCP was 8.3 s (2026-10-18).
+   */
+  imagePriority?: "high" | "eager" | undefined;
+}) {
   const imageUrl = productImagePublicUrl(
     product.image_path,
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -52,6 +65,8 @@ export function ProductCard({ product }: { product: Product }) {
             alt={product.image_alt ?? product.display_name}
             fill
             sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 360px"
+            {...(imagePriority ? { loading: "eager" as const } : {})}
+            {...(imagePriority === "high" ? { fetchPriority: "high" as const } : {})}
             className="object-cover object-center"
           />
         ) : (
