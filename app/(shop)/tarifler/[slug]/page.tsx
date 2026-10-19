@@ -10,6 +10,7 @@ import {
 import { buildRecipeStructuredData } from "@/features/content/domain/recipe-structured-data";
 import { RecipeDetails } from "@/features/content/ui/recipe-details";
 import { buildPageMetadata } from "@/features/storefront/application/page-metadata";
+import { FOUNDER_PERSON } from "@/features/storefront/domain/structured-data";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -48,7 +49,7 @@ export default async function RecipePage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(buildRecipeStructuredData(recipe)).replace(
+          __html: JSON.stringify(buildRecipeStructuredData(recipe, FOUNDER_PERSON)).replace(
             /</g,
             "\\u003c",
           ),

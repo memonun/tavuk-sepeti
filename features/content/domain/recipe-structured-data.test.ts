@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { buildRecipeStructuredData } from "./recipe-structured-data";
+import { buildRecipeStructuredData, type RecipeAuthor } from "./recipe-structured-data";
 import { RECIPES } from "./recipes";
 
 const recipe = RECIPES[0]!;
 const origin = "https://apuhanciftligi.com";
+const author: RecipeAuthor = {
+  "@type": "Person",
+  "@id": `${origin}/#founder`,
+  name: "Hamit Apuhan",
+};
 
 describe("buildRecipeStructuredData", () => {
   it("maps visible content to Recipe without invented ratings", () => {
-    const data = buildRecipeStructuredData(recipe);
+    const data = buildRecipeStructuredData(recipe, author);
     expect(data["@context"]).toBe("https://schema.org");
     expect(data["@graph"][0]).toEqual({
       "@type": "Recipe",
@@ -25,7 +30,8 @@ describe("buildRecipeStructuredData", () => {
         text,
         url: `${origin}/tarifler/${recipe.slug}#adim-${index + 1}`,
       })),
-      author: { "@type": "Organization", name: "Apuhan Çiftliği" },
+      author,
+      publisher: { "@id": `${origin}/#organization` },
     });
   });
 
@@ -40,7 +46,7 @@ describe("buildRecipeStructuredData", () => {
         ...recipe,
         prepMinutes,
         cookMinutes,
-      })["@graph"][0];
+      }, author)["@graph"][0];
       expect(data.prepTime).toBe(`PT${prepMinutes}M`);
       expect(data.cookTime).toBe(`PT${cookMinutes}M`);
       expect(data.totalTime).toBe(totalTime);
@@ -53,7 +59,7 @@ describe("buildRecipeStructuredData", () => {
       prepMinutes: 30,
       cookMinutes: 20,
       restMinutes: 600,
-    })["@graph"][0];
+    }, author)["@graph"][0];
     expect(data.prepTime).toBe("PT30M");
     expect(data.cookTime).toBe("PT20M");
     expect(data.totalTime).toBe("PT650M");
@@ -61,13 +67,13 @@ describe("buildRecipeStructuredData", () => {
 
   it("does not advertise yogurt as a 50-minute recipe", () => {
     const yogurt = RECIPES.find((item) => item.slug === "ev-yapimi-yogurt")!;
-    expect(buildRecipeStructuredData(yogurt)["@graph"][0].totalTime).toBe(
+    expect(buildRecipeStructuredData(yogurt, author)["@graph"][0].totalTime).toBe(
       "PT650M",
     );
   });
 
   it("links ordered breadcrumbs only to existing routes", () => {
-    expect(buildRecipeStructuredData(recipe)["@graph"][1]).toEqual({
+    expect(buildRecipeStructuredData(recipe, author)["@graph"][1]).toEqual({
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Ana sayfa", item: origin },

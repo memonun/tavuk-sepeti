@@ -39,6 +39,12 @@ export const CONTRACTED_CARGO_CARRIER = "Aras Kargo";
 const CONTRACTED_CARGO_CARRIER_SENTENCE =
   `Kargolu siparişlerde anlaşmalı kargo firmamız ${CONTRACTED_CARGO_CARRIER}'dur.`;
 
+/**
+ * The business's verified Instagram account (the same one the trust pages cite
+ * as a source). Listed as the Organization's `sameAs` in the storefront JSON-LD.
+ */
+export const COMPANY_INSTAGRAM_URL = "https://www.instagram.com/mr.apuhan/";
+
 // Only verified facts are filled in here. Empty official-identifier fields are
 // rendered as PENDING_LEGAL_INFORMATION in public legal documents.
 export const COMPANY: Company = {

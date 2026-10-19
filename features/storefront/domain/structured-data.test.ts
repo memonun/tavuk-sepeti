@@ -4,6 +4,8 @@ import { COMPANY } from "@/features/storefront/domain/legal";
 import {
   buildStorefrontStructuredData,
   COMPANY_POSTAL_ADDRESS,
+  FOUNDER_PERSON,
+  STOREFRONT_DESCRIPTION,
   toE164,
 } from "@/features/storefront/domain/structured-data";
 import { SUPPORT_WHATSAPP_E164 } from "@/features/storefront/domain/support-contact";
@@ -28,6 +30,20 @@ describe("buildStorefrontStructuredData", () => {
 
   it("serves Malatya locally and Türkiye by cargo", () => {
     expect(business.areaServed.map((a) => a.name)).toEqual(["Malatya", "Türkiye"]);
+  });
+
+  it("links the verified Instagram account and names the owner as founder", () => {
+    expect(business.sameAs).toEqual(["https://www.instagram.com/mr.apuhan/"]);
+    expect(business.founder).toEqual({
+      "@type": "Person",
+      "@id": "https://apuhanciftligi.com/#founder",
+      name: COMPANY.ownerName,
+    });
+    expect(FOUNDER_PERSON.name).toBe("Hamit Apuhan");
+  });
+
+  it("keeps the shared description short enough not to be cut in results", () => {
+    expect([...STOREFRONT_DESCRIPTION].length).toBeLessThanOrEqual(155);
   });
 
   it("serialises to JSON without a closing script tag", () => {

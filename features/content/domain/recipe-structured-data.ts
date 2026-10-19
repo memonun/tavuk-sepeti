@@ -1,8 +1,19 @@
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 import type { Recipe } from "./recipe";
 
-/** Pure JSON-LD: identical content and ordering to the visible recipe. */
-export function buildRecipeStructuredData(recipe: Recipe) {
+/** The recipe author as a schema.org Person (the storefront's founder node). */
+export interface RecipeAuthor {
+  readonly "@type": "Person";
+  readonly "@id": string;
+  readonly name: string;
+}
+
+/**
+ * Pure JSON-LD: identical content and ordering to the visible recipe. The
+ * author is passed in (it lives in the storefront feature); the publisher is
+ * the organization the storefront layout already emits, referenced by @id.
+ */
+export function buildRecipeStructuredData(recipe: Recipe, author: RecipeAuthor) {
   const canonical = `${CANONICAL_ORIGIN}/tarifler/${recipe.slug}`;
   return {
     "@context": "https://schema.org",
@@ -23,7 +34,8 @@ export function buildRecipeStructuredData(recipe: Recipe) {
           text,
           url: `${canonical}#adim-${index + 1}`,
         })),
-        author: { "@type": "Organization", name: "Apuhan Çiftliği" },
+        author,
+        publisher: { "@id": `${CANONICAL_ORIGIN}/#organization` },
       },
       {
         "@type": "BreadcrumbList",
