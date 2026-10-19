@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 
+import "@/app/globals.css";
 import "./theme.css";
 
 // Matches the panel's ground (the colour at the very top of the page) so the

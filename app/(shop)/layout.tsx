@@ -23,7 +23,7 @@ import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
 import { shopBody, shopDisplay } from "./fonts";
-import "./theme.css";
+import "./shop.css";
 
 // The fonts' `variable` classes only reach the `.shop-theme` subtree, but the
 // basket, the menu and every dialog are portalled to <body>. Publishing the

@@ -25,7 +25,7 @@
  *     stays light whatever the system preference is. A browser without
  *     `:has()` simply keeps the old portal behaviour; nothing else changes.
  *
- * Because app/globals.css maps the tokens with `@theme inline`
+ * Because app/tokens.css maps the tokens with `@theme inline`
  * (`--color-*: var(--…)`), overriding the raw vars re-skins every shadcn
  * primitive inside the shop without touching the admin theme.
  */
@@ -237,7 +237,7 @@
   }
 }
 
-@layer theme, base, components, utilities;
+@layer properties, theme, base, components, shop-utilities, utilities;
 
 @layer components {
   /* ---------------------------------------------------------------------------
@@ -249,7 +249,7 @@
    * utility, so `<ShopButton className="lg:hidden">` or `text-muted-foreground`
    * would silently lose to `.shop-btn`. Inside the components layer these are
    * defaults that a utility on the same element still overrides. The layer
-   * order is restated so it holds even if this sheet loads before globals.css.
+   * order is restated as in app/globals.css and app/(shop)/shop.css.
    * ------------------------------------------------------------------------- */
 
   /* Pressed feedback on pointer-DOWN, not on release. `-soft` is the same
