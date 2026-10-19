@@ -1,0 +1,54 @@
+/*
+ * Storefront Tailwind — the only stylesheet a shop page waits on before its
+ * first paint, so it holds just the classes the shop's own files use.
+ * app/globals.css (admin panel, /login) scans the whole repo and is not loaded
+ * here.
+ *
+ * Layer order — keep identical to the first line of app/globals.css. Shop
+ * utilities go to `shop-utilities`, below `utilities`: when a client-side hop
+ * puts both sheets on one page, the full sheet always wins and the cascade is
+ * the same as with a single sheet, whichever loaded first.
+ */
+@layer properties, theme, base, components, shop-utilities, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(shop-utilities) source(none);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../tokens.css";
+/* The shop's own theme. Pulled in here rather than as a second <link> so first
+   paint waits on one stylesheet. */
+@import "./theme.css";
+
+/*
+ * Files scanned for class names. `source(none)` above turns off the automatic
+ * whole-repo scan, so a file the shop renders but that is not listed here gets
+ * NO styles. tests/css-entries.test.ts walks the shop's imports and fails on
+ * any reachable file not covered below — add the file (or its folder) here.
+ */
+@source "./";
+@source "../layout.tsx";
+@source "../not-found.tsx";
+@source "../../features/storefront";
+@source "../../features/content";
+/* Non-UI layers of every feature: no markup, but a class-name constant could
+   live there. Costs ~70 bytes today. */
+@source "../../features/*/domain";
+@source "../../features/*/application";
+@source "../../features/*/infrastructure";
+@source "../../shared";
+@source "../../lib";
+@source "../../components/address";
+@source "../../components/theme-provider.tsx";
+/* Only the primitives the shop renders. The rest of components/ui (sidebar,
+   table, select, dropdown-menu…) is admin-only and is most of the savings. */
+@source "../../components/ui/badge.tsx";
+@source "../../components/ui/button.tsx";
+@source "../../components/ui/checkbox.tsx";
+@source "../../components/ui/copy-button.tsx";
+@source "../../components/ui/dialog.tsx";
+@source "../../components/ui/input.tsx";
+@source "../../components/ui/radio-group.tsx";
+@source "../../components/ui/sheet.tsx";
+@source "../../components/ui/sonner.tsx";

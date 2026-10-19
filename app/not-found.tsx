@@ -7,7 +7,7 @@ import { NotFoundCard } from "@/features/storefront/ui/not-found-card";
 import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 
 import { shopBody, shopDisplay } from "./(shop)/fonts";
-import "./(shop)/theme.css";
+import "./(shop)/shop.css";
 
 // Without this the tab read "Apuhan Çiftliği — Admin" (the root layout's
 // title) to a customer who had mistyped an address.

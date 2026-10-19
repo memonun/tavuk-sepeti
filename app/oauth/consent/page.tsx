@@ -6,6 +6,8 @@ import { loadConnectorAuthorization } from "@/features/mcp/application/load-conn
 
 import type { Metadata } from "next";
 
+import "@/app/globals.css";
+
 export const metadata: Metadata = {
   title: "Claude bağlantısı",
   robots: { index: false, follow: false },

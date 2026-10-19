@@ -5,7 +5,6 @@ import "@/shared/env";
 
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
-import "./globals.css";
 
 import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -55,6 +54,9 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// No stylesheet here on purpose: the storefront loads app/(shop)/shop.css and
+// everything else app/globals.css, each from its own layout or page. A
+// stylesheet imported here would block every shop page's first paint.
 export default function RootLayout({
   children,
 }: Readonly<{

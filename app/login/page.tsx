@@ -1,5 +1,6 @@
 import { LoginForm } from "@/features/auth/ui/login-form";
 
+import "@/app/globals.css";
 import "@/app/(admin)/theme.css";
 
 export default async function LoginPage({
