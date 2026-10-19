@@ -35,13 +35,19 @@ export function CatalogGrid({
 
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-      {/* The first row (one card on a phone, three on desktop) is on the first
-          screen: load those pictures right away, the very first one first. */}
+      {/* Only the first card's picture loads right away, at high priority: it
+          is the largest thing a phone sees first (Lighthouse's LCP element).
+          The rest stay lazy, cards 2–3 included. On a phone they sit below
+          the first screen, and fetched up front (~130 KB) they slowed the first
+          paint by ~0.2 s and the first picture by ~0.5 s on a throttled
+          mobile run (2026-10-18). On desktop, where they share the first row,
+          a lazy picture already on screen is still fetched as soon as the
+          page is laid out. */}
       {products.map((product, index) => (
         <ProductCard
           key={product.key}
           product={product}
-          imagePriority={index === 0 ? "high" : index < 3 ? "eager" : undefined}
+          imagePriority={index === 0}
         />
       ))}
     </div>

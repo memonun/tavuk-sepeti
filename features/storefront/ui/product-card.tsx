@@ -40,13 +40,12 @@ export function ProductCard({
 }: {
   product: Product;
   /**
-   * For cards on the first screen. `"high"`: the first card, the largest
-   * picture a phone sees first (Lighthouse's LCP element), fetched eagerly at
-   * high priority. `"eager"`: the rest of the first row on desktop. Omitted:
-   * lazy, as for every card further down. A lazy first card was found late by
-   * the browser, and mobile LCP was 8.3 s (2026-10-18).
+   * For the first card only: the largest picture a phone sees first
+   * (Lighthouse's LCP element), fetched eagerly at high priority. Every other
+   * card is lazy. A lazy first card was found late by the browser, and mobile
+   * LCP was 8.3 s (2026-10-18).
    */
-  imagePriority?: "high" | "eager" | undefined;
+  imagePriority?: boolean | undefined;
 }) {
   const imageUrl = productImagePublicUrl(
     product.image_path,
@@ -65,8 +64,9 @@ export function ProductCard({
             alt={product.image_alt ?? product.display_name}
             fill
             sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 360px"
-            {...(imagePriority ? { loading: "eager" as const } : {})}
-            {...(imagePriority === "high" ? { fetchPriority: "high" as const } : {})}
+            {...(imagePriority
+              ? { loading: "eager" as const, fetchPriority: "high" as const }
+              : {})}
             className="object-cover object-center"
           />
         ) : (
