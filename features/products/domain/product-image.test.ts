@@ -4,7 +4,10 @@ import {
   buildProductImageKey,
   imageExtForType,
   isAllowedProductImageType,
+  isProductImagePath,
+  productImageMimeForPath,
   productImagePublicUrl,
+  productImageSiteUrl,
 } from "@/features/products/domain/product-image";
 
 describe("isAllowedProductImageType", () => {
@@ -50,6 +53,47 @@ describe("productImagePublicUrl", () => {
   it("tolerates a trailing slash on the base url", () => {
     expect(productImagePublicUrl("a.webp", "https://x.supabase.co/")).toBe(
       "https://x.supabase.co/storage/v1/object/public/product-images/a.webp",
+    );
+  });
+});
+
+describe("isProductImagePath", () => {
+  it("accepts the keys buildProductImageKey writes", () => {
+    expect(isProductImagePath(buildProductImageKey("dut-pekmezi", "webp", "02c63a7dff02"))).toBe(true);
+    expect(isProductImagePath("eggs/66826523a6a7.png")).toBe(true);
+  });
+  it("rejects traversal, other folders and other file types", () => {
+    expect(isProductImagePath("../secret/a.png")).toBe(false);
+    expect(isProductImagePath("eggs/../a.png")).toBe(false);
+    expect(isProductImagePath("eggs/sub/a.png")).toBe(false);
+    expect(isProductImagePath("eggs/a.svg")).toBe(false);
+    expect(isProductImagePath("Eggs/a.png")).toBe(false);
+    expect(isProductImagePath("a.png")).toBe(false);
+  });
+});
+
+describe("productImageMimeForPath", () => {
+  it("maps the extension back to the stored mime type", () => {
+    expect(productImageMimeForPath("eggs/a.jpg")).toBe("image/jpeg");
+    expect(productImageMimeForPath("eggs/a.png")).toBe("image/png");
+    expect(productImageMimeForPath("eggs/a.webp")).toBe("image/webp");
+    expect(productImageMimeForPath("eggs/a.gif")).toBeNull();
+  });
+});
+
+describe("productImageSiteUrl", () => {
+  const supabaseUrl = "https://abc.supabase.co";
+  it("serves product images from the canonical domain", () => {
+    expect(productImageSiteUrl("eggs/66826523a6a7.png", supabaseUrl)).toBe(
+      "https://apuhanciftligi.com/urun-gorsel/eggs/66826523a6a7.png",
+    );
+  });
+  it("returns null without an image", () => {
+    expect(productImageSiteUrl(null, supabaseUrl)).toBeNull();
+  });
+  it("falls back to the Storage URL for a key the route would not serve", () => {
+    expect(productImageSiteUrl("Odd Key/a.gif", supabaseUrl)).toBe(
+      productImagePublicUrl("Odd Key/a.gif", supabaseUrl),
     );
   });
 });

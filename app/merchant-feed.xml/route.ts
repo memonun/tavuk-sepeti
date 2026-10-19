@@ -1,6 +1,6 @@
 import { unstable_rethrow } from "next/navigation";
 
-import { productImagePublicUrl } from "@/features/products/application/product-image";
+import { productImageSiteUrl } from "@/features/products/application/product-image";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { COMPANY } from "@/features/storefront/domain/legal";
 import {
@@ -50,7 +50,7 @@ export async function GET(): Promise<Response> {
         key: product.key,
         display_name: product.display_name,
         web_slug: product.web_slug,
-        imageUrl: productImagePublicUrl(product.image_path, env.NEXT_PUBLIC_SUPABASE_URL),
+        imageUrl: productImageSiteUrl(product.image_path, env.NEXT_PUBLIC_SUPABASE_URL),
         priceMinor: fromPriceMinor(product),
         fulfillment_type: product.fulfillment_type,
         description: productStructuredDescription(product),

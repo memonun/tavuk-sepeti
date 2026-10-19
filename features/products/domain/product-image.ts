@@ -4,6 +4,7 @@
  * product row stores only the object key (image_path) and the public URL is
  * derived here from NEXT_PUBLIC_SUPABASE_URL passed in by the caller.
  */
+import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
 /** Storage bucket that holds product cover images. */
 export const PRODUCT_IMAGE_BUCKET = "product-images";
@@ -65,4 +66,49 @@ export function productImagePublicUrl(
   if (!imagePath) return null;
   const base = supabaseUrl.replace(/\/+$/, "");
   return `${base}/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/${imagePath}`;
+}
+
+/**
+ * Path on our own domain that serves a product image
+ * (app/urun-gorsel/[...path]/route.ts proxies it from Storage).
+ */
+export const PRODUCT_IMAGE_SITE_PREFIX = "/urun-gorsel";
+
+/**
+ * The object keys buildProductImageKey writes: "<product key>/<id>.<ext>".
+ * The image route serves nothing else, so it can never be used to read an
+ * arbitrary Storage object or another bucket.
+ */
+const PRODUCT_IMAGE_PATH_PATTERN =
+  /^[a-z0-9]+(?:-[a-z0-9]+)*\/[A-Za-z0-9_-]{1,64}\.(?:jpg|png|webp)$/;
+
+export function isProductImagePath(imagePath: string): boolean {
+  return PRODUCT_IMAGE_PATH_PATTERN.test(imagePath);
+}
+
+/** Mime type for a stored image's object key, from its extension. */
+export function productImageMimeForPath(imagePath: string): ProductImageMime | null {
+  if (imagePath.endsWith(".jpg")) return "image/jpeg";
+  if (imagePath.endsWith(".png")) return "image/png";
+  if (imagePath.endsWith(".webp")) return "image/webp";
+  return null;
+}
+
+/**
+ * Absolute product image URL on our own domain, for everything that hands an
+ * image to the outside world: Product JSON-LD, link previews (og:image) and
+ * the Merchant Center feed. Search engines then credit the image to
+ * apuhanciftligi.com instead of the Supabase host. On-page <Image>s keep using
+ * productImagePublicUrl — next/image already serves them from /_next/image.
+ *
+ * A key that does not have the shape the route serves (none exist today)
+ * falls back to the Storage URL rather than linking to a 404.
+ */
+export function productImageSiteUrl(
+  imagePath: string | null,
+  supabaseUrl: string,
+): string | null {
+  if (!imagePath) return null;
+  if (!isProductImagePath(imagePath)) return productImagePublicUrl(imagePath, supabaseUrl);
+  return `${CANONICAL_ORIGIN}${PRODUCT_IMAGE_SITE_PREFIX}/${imagePath}`;
 }
