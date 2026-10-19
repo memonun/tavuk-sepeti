@@ -6,7 +6,11 @@ import { err, ok, type Result } from "@/shared/result";
 import { getSupabaseAdminClient } from "@/shared/supabase/admin";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
-import { PRODUCT_IMAGE_BUCKET } from "@/features/products/domain/product-image";
+import {
+  PRODUCT_IMAGE_BUCKET,
+  PRODUCT_IMAGE_MAX_BYTES,
+  productImagePublicUrl,
+} from "@/features/products/domain/product-image";
 import type { ProductPriceTier } from "@/features/products/domain/product-pricing";
 import type { ProductMetadata } from "@/features/products/domain/product.schema";
 import { slugifyProductKey } from "@/features/products/domain/product-key";
@@ -276,6 +280,46 @@ export async function setProductImagePath(
     return err(new ExternalApiError({ message: error.message, cause: error }));
   }
   return ok(undefined);
+}
+
+/** Storage answers a missing object with 400 or 404, depending on version. */
+const STORAGE_MISSING_OBJECT_STATUSES = new Set([400, 404]);
+/** Storage normally answers in well under a second; a crawler can wait 5 s. */
+const PUBLIC_IMAGE_FETCH_TIMEOUT_MS = 5_000;
+
+/**
+ * Read a product image's bytes from its public Storage URL (no key needed:
+ * the bucket is public). `ok(null)` when the object does not exist. Never
+ * cached here — the caller's response is what the CDN caches.
+ */
+export async function readPublicProductImageObject(
+  objectKey: string,
+  supabaseUrl: string,
+): Promise<Result<ArrayBuffer | null, ExternalApiError>> {
+  const url = productImagePublicUrl(objectKey, supabaseUrl);
+  if (!url) return ok(null);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(PUBLIC_IMAGE_FETCH_TIMEOUT_MS),
+    });
+  } catch (error: unknown) {
+    logger.error({ objectKey, err: error }, "read_product_image_unreachable");
+    return err(new ExternalApiError({ message: "Ürün görseli okunamadı.", cause: error }));
+  }
+  if (STORAGE_MISSING_OBJECT_STATUSES.has(response.status)) return ok(null);
+  if (!response.ok) {
+    logger.error({ objectKey, status: response.status }, "read_product_image_failed");
+    return err(new ExternalApiError({ message: "Ürün görseli okunamadı." }));
+  }
+  const body = await response.arrayBuffer();
+  // The bucket rejects larger uploads; anything bigger is not ours to serve.
+  if (body.byteLength > PRODUCT_IMAGE_MAX_BYTES) {
+    logger.error({ objectKey, bytes: body.byteLength }, "read_product_image_too_large");
+    return err(new ExternalApiError({ message: "Ürün görseli beklenenden büyük." }));
+  }
+  return ok(body);
 }
 
 /**

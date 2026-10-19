@@ -7,4 +7,5 @@
 export {
   PRODUCT_IMAGE_BUCKET,
   productImagePublicUrl,
+  productImageSiteUrl,
 } from "@/features/products/domain/product-image";

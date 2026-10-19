@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 
-import { productImagePublicUrl } from "@/features/products/application/product-image";
+import {
+  productImagePublicUrl,
+  productImageSiteUrl,
+} from "@/features/products/application/product-image";
 import { productWebSlugSchema } from "@/features/products/application/product-web-slug";
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
 import { getStorefrontProductBySlug } from "@/features/storefront/application/get-product-by-slug";
@@ -35,7 +38,8 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { product, slug } = await resolveProduct(params);
   const description = productPageDescription(product);
-  const image = productImagePublicUrl(
+  // Link previews name our own domain, not the Storage host.
+  const image = productImageSiteUrl(
     product.image_path,
     env.NEXT_PUBLIC_SUPABASE_URL,
   );
@@ -70,7 +74,7 @@ export default async function ProductPage({ params }: PageProps) {
   const structuredData = buildProductStructuredData({
     ...product,
     slug,
-    image: imageUrl,
+    image: productImageSiteUrl(product.image_path, env.NEXT_PUBLIC_SUPABASE_URL),
     priceMinor: fromPriceMinor(product),
   }, {
     homeDeliveryFeeMinor: settings.homeDeliveryFeeMinor,
