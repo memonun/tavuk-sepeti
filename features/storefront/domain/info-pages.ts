@@ -68,7 +68,7 @@ export const FAQ_PAGE_TEXT = {
   title: "Sıkça Sorulan Sorular",
   heading: "Sıkça Sorulan Sorular",
   description:
-    "Apuhan Çiftliği'nde Malatya içi teslimat günleri, Türkiye geneli kargo, ödeme seçenekleri, düzenli sipariş, sipariş sorgulama, iptal ve iade hakkında sık sorulan sorular.",
+    "Malatya içi teslimat günleri, Türkiye geneli kargo, ödeme seçenekleri, düzenli sipariş, sipariş sorgulama, iptal ve iade hakkında sık sorulan sorular.",
   intro:
     "Teslimat, ödeme ve siparişlerle ilgili en çok sorulanları burada topladık. Aradığınızı bulamazsanız bize telefonla, WhatsApp'tan veya e-postayla ulaşabilirsiniz.",
 } as const;

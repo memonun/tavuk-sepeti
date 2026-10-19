@@ -100,6 +100,10 @@ describe("buildFaqPage", () => {
   it("keeps amounts out of the static metadata", () => {
     expect(FAQ_PAGE_TEXT.description).not.toMatch(/₺|\d/);
   });
+
+  it("keeps the meta description short enough not to be cut in results", () => {
+    expect([...FAQ_PAGE_TEXT.description].length).toBeLessThanOrEqual(155);
+  });
 });
 
 describe("faqPageSchema", () => {

@@ -9,11 +9,11 @@
  *
  * Pure: no env, no I/O.
  */
-import { COMPANY } from "@/features/storefront/domain/legal";
+import { COMPANY, COMPANY_INSTAGRAM_URL } from "@/features/storefront/domain/legal";
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
 
 export const STOREFRONT_DESCRIPTION =
-  "Akçadağ'daki çiftliğimizden köy yumurtası, kayısı, dut kurusu ve dut pekmezi. Malatya'da kapınıza getiriyor, kargoya uygun ürünleri Türkiye geneline gönderiyoruz.";
+  "Akçadağ'daki çiftliğimizden köy yumurtası, kayısı, dut kurusu ve dut pekmezi. Malatya'da kapıya teslim, kargoya uygun ürünler Türkiye geneline.";
 
 /**
  * COMPANY.address split into schema.org PostalAddress parts. A test checks
@@ -30,6 +30,16 @@ export const COMPANY_POSTAL_ADDRESS = {
 export function toE164(phone: string): string {
   return phone.replace(/[^\d+]/g, "");
 }
+
+/**
+ * The owner as a schema.org Person. The recipe pages name this same node (same
+ * @id) as author, so Google links the founder and the recipe author.
+ */
+export const FOUNDER_PERSON = {
+  "@type": "Person",
+  "@id": `${CANONICAL_ORIGIN}/#founder`,
+  name: COMPANY.ownerName,
+} as const;
 
 export function buildStorefrontStructuredData() {
   const organizationId = `${CANONICAL_ORIGIN}/#organization`;
@@ -57,6 +67,8 @@ export function buildStorefrontStructuredData() {
           { "@type": "City", name: "Malatya" },
           { "@type": "Country", name: "Türkiye" },
         ],
+        founder: FOUNDER_PERSON,
+        sameAs: [COMPANY_INSTAGRAM_URL],
       },
       {
         "@type": "WebSite",

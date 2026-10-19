@@ -10,7 +10,7 @@ export function RecipeIndex({ recipes }: { recipes: readonly Recipe[] }) {
       <p className="text-base font-semibold text-primary">Çiftlikten sofraya</p>
       <h1 className="mt-2 font-display text-4xl sm:text-5xl">Tarifler</h1>
       <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-        Köy yumurtası ve taze sütle evde hazırlayabileceğiniz tarifler.
+        Köy yumurtasıyla evde hazırlayabileceğiniz tarifler.
         Malzemeleri, ölçüleri ve yapılış adımlarını bir arada bulabilirsiniz.
       </p>
       <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">

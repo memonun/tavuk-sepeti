@@ -5,9 +5,9 @@ import { buildPageMetadata } from "@/features/storefront/application/page-metada
 import { RecipeIndex } from "@/features/content/ui/recipe-index";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Köy yumurtası ve taze sütle tarifler",
+  title: "Köy yumurtalı ev tarifleri",
   description:
-    "Köy yumurtalı menemen, fırında yumurtalı patates ve taze sütle ev yapımı yoğurt. Apuhan Çiftliği'nden ölçülü, adım adım ev tarifleri.",
+    "Köy yumurtalı menemen ve fırında yumurtalı patates gibi ölçülü, adım adım ev tarifleri. Apuhan Çiftliği'nin mutfağından.",
   canonical: "/tarifler",
 });
 
