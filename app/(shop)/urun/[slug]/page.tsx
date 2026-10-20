@@ -17,7 +17,9 @@ import {
 } from "@/features/storefront/domain/product-structured-data";
 import { CARGO_FEE_MINOR } from "@/features/storefront/domain/storefront.config";
 import { fromPriceMinor } from "@/features/storefront/ui/line-pricing";
+import { MetaProductViewTracker } from "@/features/storefront/ui/meta-product-view-tracker";
 import { ProductDetails } from "@/features/storefront/ui/product-details";
+import { isMetaPixelEnabled } from "@/shared/analytics/meta-pixel-config";
 import { env } from "@/shared/env";
 
 const paramsSchema = z.object({ slug: productWebSlugSchema });
@@ -89,6 +91,8 @@ export default async function ProductPage({ params }: PageProps) {
         }}
       />
       <ProductDetails product={product} imageUrl={imageUrl} related={related} />
+      {/* Meta Pixel ViewContent — rendered only when a Pixel ID is configured. */}
+      {isMetaPixelEnabled() ? <MetaProductViewTracker product={product} /> : null}
     </>
   );
 }
