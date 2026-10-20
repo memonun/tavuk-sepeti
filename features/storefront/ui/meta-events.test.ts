@@ -234,3 +234,38 @@ describe("basket changes", () => {
     expect(opaqueKey("Atatürk Cd. 12")).not.toContain("Atatürk");
   });
 });
+
+describe("trackProductViewed", () => {
+  it("reports the product page's from-price, the same figure the merchant feed lists", async () => {
+    const win = installBrowser();
+    const { trackProductViewed } = await load("123456789012345");
+    // Sold by the half kilo from 0.5 kg: the page shows 400 ₺/kg, not 200 ₺.
+    const HONEY: Product = {
+      ...EGGS,
+      key: "bal",
+      display_name: "Bal",
+      unit: "kilogram",
+      unit_label: "kg",
+      min_qty: 0.5,
+      step: 0.5,
+      current_unit_price_minor: 40_000,
+      price_tiers: [],
+    };
+
+    trackProductViewed(HONEY);
+
+    expect(customQueue(win, "track", "ViewContent")).toEqual([
+      [
+        "track",
+        "ViewContent",
+        {
+          content_ids: ["bal"],
+          content_name: "Bal",
+          content_type: "product",
+          value: 400,
+          currency: "TRY",
+        },
+      ],
+    ]);
+  });
+});

@@ -24,7 +24,8 @@
  * ── Events ─────────────────────────────────────────────────────────────────────
  *  Owner decision 2026-10-14: every step of the customer journey is reported.
  *  Standard events (Meta can optimise ads on these):
- *    PageView, AddToCart (first add, "+", undo of a removal), InitiateCheckout,
+ *    PageView, ViewContent (product detail page /urun/[slug]),
+ *    AddToCart (first add, "+", undo of a removal), InitiateCheckout,
  *    AddPaymentInfo (order submitted with a payment method), Purchase,
  *    CompleteRegistration (account created), Contact (WhatsApp / phone tap),
  *    Lead (recurring-order request).
@@ -32,7 +33,9 @@
  *    RemoveFromCart ("−", "Çıkar", "Sepeti boşalt"), ViewCart (basket opened),
  *    AddShippingInfo (delivery address given), PaymentFailed (card declined),
  *    SelectDeliveryArea (Malatya içi / başka şehir).
- *  ViewContent is READY but unused: the storefront has no product detail page.
+ *  Product ids are `products.key` everywhere — the same `g:id` the merchant
+ *  feed (/merchant-feed.xml) publishes, so a Meta catalog built from that feed
+ *  matches these events.
  *  None of them carries personal data — never an address, name, phone or
  *  e-mail; only product ids, quantities, TRY amounts and fixed labels.
  *  EVERY event carries the page URL (Meta's `dl`), not just PageView — an event
@@ -351,8 +354,8 @@ export interface ViewContentInput {
   readonly eventId?: string;
 }
 
-/** READY, NOT CALLED YET: there is no product detail page to attach it to. Call
- *  it once when such a page renders (fire on mount, not on every re-render). */
+/** A product detail page was shown. Called once per view on mount, never on
+ *  every re-render (features/storefront/ui/meta-product-view-tracker.tsx). */
 export function trackViewContent(input: ViewContentInput): void {
   send(
     "ViewContent",

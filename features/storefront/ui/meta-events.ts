@@ -21,7 +21,7 @@ import {
   trackViewContent,
   type MetaContent,
 } from "@/shared/analytics/meta-pixel";
-import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
+import { fromPriceMinor, lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 
 import type { Product } from "@/features/products/application/list-products";
 import type { OrderPurchase } from "@/features/storefront/domain/order-purchase.schema";
@@ -178,13 +178,17 @@ export function trackOrderPurchased(purchase: OrderPurchase): void {
   }
 }
 
-/** READY, NOT CALLED: the storefront has no product detail page yet. */
+/**
+ * A product detail page (/urun/[slug]) was shown — see meta-product-view-tracker.tsx.
+ * `value` is the "from" unit price the page shows, the same figure the
+ * merchant feed lists, so a catalog ad and the event agree on the price.
+ */
 export function trackProductViewed(product: Product): void {
   try {
     trackViewContent({
       productId: product.key,
       productName: product.display_name,
-      valueMinor: lineTotalMinor(product, product.min_qty),
+      valueMinor: fromPriceMinor(product),
     });
   } catch {
     /* never throw */
