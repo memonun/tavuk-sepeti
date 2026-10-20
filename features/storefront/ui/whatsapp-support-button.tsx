@@ -1,10 +1,19 @@
+"use client";
+
 /**
  * Site-wide floating WhatsApp support button. Unlike the havale receipt link
  * in checkout, this one is not tied to an order — it's just "reach us",
  * available on every storefront page via the shop layout.
  *
- * A plain link, not a Client Component: wa.me needs nothing but an href.
+ * Except the checkout form itself (`/odeme`, owner decision 2026-10-20): there
+ * it floated over the form's red field messages on a phone, and the page
+ * already leads with its own "WhatsApp'tan sipariş ver", which carries the
+ * basket. The payment result pages (`/odeme/basarili`, `/odeme/basarisiz`)
+ * keep it — a failed payment is exactly when help is wanted. A Client
+ * Component only for `usePathname`.
  */
+import { usePathname } from "next/navigation";
+
 import {
   buildWhatsAppLink,
   SUPPORT_WHATSAPP_E164,
@@ -34,6 +43,8 @@ function WhatsAppGlyph({ className }: { className?: string }) {
  * From 1600px up there is room beside the content, so the label stays open.
  */
 export function WhatsAppSupportButton() {
+  const pathname = usePathname();
+  if (pathname === "/odeme") return null;
   return (
     <a
       href={buildWhatsAppLink(
