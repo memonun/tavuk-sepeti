@@ -67,3 +67,29 @@ export function isSameProvince(
   if (left === "") return false;
   return left === normalizeProvince(b);
 }
+
+/** The 81 provinces, as they are written. */
+export const TR_PROVINCES: readonly string[] = [
+  "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Aksaray", "Amasya", "Ankara",
+  "Antalya", "Ardahan", "Artvin", "Aydın", "Balıkesir", "Bartın", "Batman",
+  "Bayburt", "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa",
+  "Çanakkale", "Çankırı", "Çorum", "Denizli", "Diyarbakır", "Düzce", "Edirne",
+  "Elazığ", "Erzincan", "Erzurum", "Eskişehir", "Gaziantep", "Giresun",
+  "Gümüşhane", "Hakkari", "Hatay", "Iğdır", "Isparta", "İstanbul", "İzmir",
+  "Kahramanmaraş", "Karabük", "Karaman", "Kars", "Kastamonu", "Kayseri",
+  "Kilis", "Kırıkkale", "Kırklareli", "Kırşehir", "Kocaeli", "Konya", "Kütahya",
+  "Malatya", "Manisa", "Mardin", "Mersin", "Muğla", "Muş", "Nevşehir", "Niğde",
+  "Ordu", "Osmaniye", "Rize", "Sakarya", "Samsun", "Şanlıurfa", "Siirt", "Sinop",
+  "Şırnak", "Sivas", "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Uşak", "Van",
+  "Yalova", "Yozgat", "Zonguldak",
+];
+
+const PROVINCE_BY_KEY: ReadonlyMap<string, string> = new Map(
+  TR_PROVINCES.map((name) => [normalizeProvince(name), name]),
+);
+
+/** The province a word names, written properly ("MALATYA" → "Malatya"), or
+ *  null. Trailing punctuation is ignored. */
+export function findTurkishProvince(word: string): string | null {
+  return PROVINCE_BY_KEY.get(normalizeProvince(word.replace(/[.,:;]+$/u, ""))) ?? null;
+}

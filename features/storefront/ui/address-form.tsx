@@ -19,9 +19,15 @@
  * accuracy is low), so a tampered submit gains nothing.
  *
  * A CARGO address needs none of that — a courier delivers anywhere in Türkiye
- * from the written address alone — but it gets the same map, because picking a
- * point is how the fields get filled without typing. There the pin is optional:
- * it is saved if placed, and nothing blocks the save if it is not.
+ * from the written address alone. Out of the delivery province it gets no map
+ * at all (owner decision 2026-10-20), and no pin is looked up or sent. Inside
+ * it, the map stays as an optional extra: a pinned Malatya address can take a
+ * flexible-only basket on the van (isRouteUpgradeEligible).
+ *
+ * Every mode opens with one box for the whole address: pasted or typed, it is
+ * split into the fields below (pasted-address.ts), and the customer only
+ * checks them. Required fields carry a red star; an empty one turns red, with
+ * a sentence, once the customer leaves it, pastes, or presses a button.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2Icon, MapPinIcon } from "lucide-react";
@@ -34,13 +40,16 @@ import { geocodeAddressAction } from "@/features/geocoding/application/geocode-a
 import { reverseGeocodeAction } from "@/features/geocoding/application/reverse-geocode-action";
 import { saveAddressAction } from "@/features/storefront/application/save-address";
 import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
-import { ShopInput } from "@/features/storefront/ui/kit/shop-field";
+import { ShopInput, ShopTextarea } from "@/features/storefront/ui/kit/shop-field";
+import { revealField } from "@/features/storefront/ui/reveal-field";
 import { DETACHED_HOUSE_APARTMENT_NO } from "@/features/storefront/domain/customer-address.schema";
 import type { MissingField } from "@/features/storefront/domain/checkout-missing";
+import { parsePastedAddress } from "@/features/storefront/domain/pasted-address";
 import {
   DELIVERY_PROVINCE,
   DELIVERY_PROVINCE_CENTER,
 } from "@/features/storefront/domain/storefront.config";
+import { isSameProvince } from "@/shared/geo/tr-province";
 import { composeGeocoderQuery, hasGeocodableShape } from "@/shared/utils/address";
 
 import type { ParsedAddress } from "@/components/address/address-autocomplete";
@@ -179,7 +188,7 @@ export function AddressForm({
   // Editing an already-verified SAVED address starts confirmed (geo_verified
   // says so explicitly). A guest's CollectedAddress has no such flag, but if
   // it already carries a pin it could only have gotten here already confirmed
-  // — canSubmit required that the first time — so a pin implies confirmed. A
+  // — the confirm step required that the first time — so a pin implies confirmed. A
   // brand new address (no `initial` at all) never starts confirmed.
   const [confirmed, setConfirmed] = useState(
     initial
@@ -190,6 +199,14 @@ export function AddressForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Red marks show per field once the customer has left it (`touched`), and on
+  // every field after a paste or a pressed save button.
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+  const [saveAttempted, setSaveAttempted] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteNote, setPasteNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pasteApplied, setPasteApplied] = useState(false);
+  const lastPasted = useRef("");
   const [lookupError, setLookupError] = useState<string | null>(null);
   // Guards against a slow lookup landing after a newer one and overwriting
   // state with a stale result. Shared by both directions of the map/fields
@@ -204,80 +221,135 @@ export function AddressForm({
   const needsPin = mode === "route";
   // Guest checkout (onCollect set) requires all address fields, not just route mode.
   const requiresAllFields = !!onCollect;
-  const canSubmit = !saving && (!needsPin || (hasPin && confirmed));
+  const doorRequired = needsPin || requiresAllFields;
+  // The map exists for a route address, and for a cargo one only inside the
+  // delivery province — out of it a pin serves nothing (a cargo courier needs
+  // none, and the van never goes there), so none is shown, looked up or sent.
+  const showMap = needsPin || isSameProvince(fields.city, DELIVERY_PROVINCE);
+  const pinUsed = showMap && hasPin;
 
   // ---- Guest checkout: live collection (see `onCollect`) ---------------------
   const collected = useMemo<CollectedAddress>(
     () => ({
       ...fields,
       apartment_no: detached ? DETACHED_HOUSE_APARTMENT_NO : fields.apartment_no,
-      lat: hasPin ? pin.lat : 0,
-      lng: hasPin ? pin.lng : 0,
+      lat: pinUsed ? pin.lat : 0,
+      lng: pinUsed ? pin.lng : 0,
       accuracy: pin.accuracy,
       source: pin.source,
     }),
-    [fields, detached, hasPin, pin],
+    [fields, detached, pinUsed, pin],
   );
-  // The same fields the inputs below mark `required` in collect mode, in the
-  // order the customer meets them on screen (the map leads in route mode and
-  // trails in cargo mode), named the way their labels read.
+  // The fields the inputs below mark `required`, in the order the customer
+  // meets them on screen (fields first, the map last), named the way their
+  // labels read.
   const collectMissing = useMemo<readonly MissingField[]>(() => {
-    const pinMissing: MissingField[] =
-      needsPin && !hasPin
-        ? [
-            {
-              label: "haritadan teslimat konumu",
-              target: MAP_ID,
-              message: "Haritada evinizin yerine dokunun ya da adresinizi aşağıya yazın.",
-            },
-          ]
-        : [];
-    const fieldMissing: MissingField[] = [];
+    const missing: MissingField[] = [];
     const need = (value: string, label: string, target: string, message: string) => {
-      if (value.trim() === "") fieldMissing.push({ label, target, message });
+      if (value.trim() === "") missing.push({ label, target, message });
     };
     need(fields.city, "İl", "af-city", "İlinizi yazın.");
     need(fields.district, "İlçe", "af-district", "İlçenizi yazın.");
     need(fields.neighborhood, "Mahalle", "af-neighborhood", "Mahallenizi yazın.");
-    need(fields.street, "Cadde / Sokak", "af-street", "Cadde veya sokak adını yazın.");
-    need(fields.building_no, "Bina no", "af-building", "Bina numarasını yazın.");
-    if (!detached) {
-      need(
-        fields.apartment_no,
-        "Daire no",
-        "af-apartment",
-        "Daire numarasını yazın. Müstakil evse alttaki kutuyu işaretleyin.",
-      );
-    }
-    const confirmMissing: MissingField[] =
-      needsPin && hasPin && !confirmed
-        ? [
-            {
-              label: "haritadaki konumun onayı",
-              target: CONFIRM_ID,
-              message: "Haritadaki konum doğruysa \"Evet, evim burası\" düğmesine basın.",
-            },
-          ]
-        : [];
-    return needsPin
-      ? [...pinMissing, ...confirmMissing, ...fieldMissing]
-      : [...fieldMissing, ...pinMissing, ...confirmMissing];
-  }, [fields, detached, needsPin, hasPin, confirmed]);
-  /** Field id → sentence, shown under the field once `showMissing` is on. */
-  const missingByTarget = useMemo(() => {
-    const byTarget = new Map<string, string>();
-    if (onCollect && showMissing) {
-      for (const field of collectMissing) {
-        if (!byTarget.has(field.target)) byTarget.set(field.target, field.message);
+    if (doorRequired) {
+      need(fields.street, "Cadde / Sokak", "af-street", "Cadde veya sokak adını yazın.");
+      need(fields.building_no, "Bina no", "af-building", "Bina numarasını yazın.");
+      if (!detached) {
+        need(
+          fields.apartment_no,
+          "Daire no",
+          "af-apartment",
+          "Daire numarasını yazın. Müstakil evse alttaki kutuyu işaretleyin.",
+        );
       }
     }
+    if (needsPin && !hasPin) {
+      missing.push({
+        label: "haritadan teslimat konumu",
+        target: MAP_ID,
+        message: "Haritada evinizin yerine dokunun.",
+      });
+    }
+    if (needsPin && hasPin && !confirmed) {
+      missing.push({
+        label: "haritadaki konumun onayı",
+        target: CONFIRM_ID,
+        message: 'Haritadaki konum doğruysa "Evet, evim burası" düğmesine basın.',
+      });
+    }
+    return missing;
+  }, [fields, detached, doorRequired, needsPin, hasPin, confirmed]);
+  /** Field id → sentence for every missing field the customer should see as
+   *  red now: all of them after a pressed button (the checkout's, via
+   *  `showMissing`, or this form's save) — the text fields also after a paste
+   *  or once left empty. The map marks wait for a button: the pin is placed
+   *  for them a moment after the address is typed. */
+  const missingByTarget = useMemo(() => {
+    const everything = (onCollect !== undefined && showMissing) || saveAttempted;
+    const byTarget = new Map<string, string>();
+    for (const field of collectMissing) {
+      const isMap = field.target === MAP_ID || field.target === CONFIRM_ID;
+      const visible =
+        everything || (!isMap && (pasteApplied || touched.has(field.target)));
+      if (visible && !byTarget.has(field.target)) byTarget.set(field.target, field.message);
+    }
     return byTarget;
-  }, [onCollect, showMissing, collectMissing]);
-  /** aria wiring for a field that may be shown as missing. */
-  const invalid = (id: string) =>
-    missingByTarget.has(id)
+  }, [onCollect, showMissing, saveAttempted, pasteApplied, touched, collectMissing]);
+  const touch = (id: string) =>
+    setTouched((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+
+  /** Split a pasted / typed open address into the fields (pasted-address.ts).
+   *  Only what it found is overwritten; the customer then checks every field. */
+  function applyPasted(text: string) {
+    if (text.trim() === "" || text === lastPasted.current) return;
+    lastPasted.current = text;
+    const parsed = parsePastedAddress(text);
+    const patch: Partial<FormFields> = {};
+    for (const key of [
+      "city",
+      "district",
+      "neighborhood",
+      "street",
+      "building_no",
+      "apartment_no",
+      "postal_code",
+    ] as const) {
+      const value = parsed[key];
+      if (value) patch[key] = value;
+    }
+    if (Object.keys(patch).length === 0 && !parsed.description) {
+      setPasteNote({
+        ok: false,
+        text: "Bu yazıdan adres bilgisi ayıramadık. Lütfen aşağıdaki kutucukları doldurun.",
+      });
+      return;
+    }
+    setFields((prev) => ({
+      ...prev,
+      ...patch,
+      description:
+        parsed.description && prev.description.trim() === ""
+          ? parsed.description
+          : prev.description,
+    }));
+    if (patch.apartment_no) setDetached(false);
+    // A new address is a new place: drop the old pin so the lookup below
+    // places it afresh (and a route address asks to be confirmed again).
+    setPin({ lat: 0, lng: 0, accuracy: "unknown", source: "user_pin" });
+    setConfirmed(false);
+    setPasteApplied(true);
+    setPasteNote({
+      ok: true,
+      text: "Adresinizi aşağıdaki kutucuklara yerleştirdik. Lütfen kontrol edin; kırmızı işaretli kutucuk varsa tamamlayın.",
+    });
+  }
+  /** aria wiring + blur tracking for a field that may be shown as missing. */
+  const invalid = (id: string) => ({
+    onBlur: () => touch(id),
+    ...(missingByTarget.has(id)
       ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` }
-      : {};
+      : {}),
+  });
   useEffect(() => {
     if (!onCollect) return;
     onCollect(collectMissing.length === 0 ? collected : null, collectMissing);
@@ -396,6 +468,9 @@ export function AddressForm({
       street: fields.street,
       building_no: fields.building_no,
     };
+    // Out of the delivery province there is no map and no use for a pin, so
+    // no Google call either (CLAUDE.md §8).
+    if (!showMap) return;
     if (!hasGeocodableShape(parts)) return;
     if (hasPin && pin.source !== "geocoded_auto") return;
 
@@ -421,12 +496,20 @@ export function AddressForm({
     fields.neighborhood,
     fields.street,
     fields.building_no,
+    showMap,
     hasPin,
     pin.source,
   ]);
 
   async function submit() {
     setError(null);
+    // Never a greyed-out button: a missing field is shown and jumped to.
+    const firstMissing = collectMissing[0];
+    if (firstMissing) {
+      setSaveAttempted(true);
+      revealField(firstMissing.target);
+      return;
+    }
 
     // Only a SAVED address (from AddressPicker's "Düzenle") has an id/is_primary
     // to carry forward — a guest's CollectedAddress never reaches here at all:
@@ -450,11 +533,11 @@ export function AddressForm({
         apartment_no: detached
           ? DETACHED_HOUSE_APARTMENT_NO
           : fields.apartment_no,
-        // Sent in BOTH modes now. A cargo order does not need the pin, but the
-        // customer placed one on the map and the address book keeps it, so the
-        // same address can serve a fresh-product order later instead of being
-        // rejected for "no pin".
-        ...(hasPin
+        // Sent in both modes inside the delivery province: a cargo order does
+        // not need the pin, but the address book keeps it, so the same address
+        // can serve a fresh-product order later instead of being rejected for
+        // "no pin". Out of the province there is no map and no pin to send.
+        ...(pinUsed
           ? {
               lat: pin.lat,
               lng: pin.lng,
@@ -593,14 +676,16 @@ export function AddressForm({
     </AddressMapsProvider>
   );
 
-  // Cargo: the map is optional, so the fields lead — typing an address is
-  // what our older customers know; the map below is there for whoever wants
-  // it. Route: the pin is the point of the form, so the map stays first.
-  const mapSection = needsPin ? (
-    mapBlock
-  ) : (
-    <div className="flex flex-col gap-3">
-      <p className={labelClass}>Haritada işaretlemek isterseniz (isteğe bağlı)</p>
+  // The map comes after the fields in every mode: typing (or pasting) the
+  // address is what our older customers know, and the pin is placed for them
+  // from it — the map is where they check it. Out of the province: none.
+  const mapSection = !showMap ? null : (
+    <div className="flex flex-col gap-3 border-t border-border pt-5">
+      <p className={labelClass}>
+        {needsPin
+          ? "Son adım: haritada kapınızı kontrol edip onaylayın"
+          : `${DELIVERY_PROVINCE} içindeyseniz haritada kapınızı işaretleyin (isteğe bağlı) — siparişinizi kendi ekibimiz getirebilir`}
+      </p>
       {mapBlock}
     </div>
   );
@@ -610,7 +695,44 @@ export function AddressForm({
     // address search box (shared components, also used by the admin) up to
     // the shop's sizes without editing those files.
     <div className="shop-address flex flex-col gap-5 rounded-3xl border border-border bg-card p-4 sm:p-5">
-      {needsPin ? mapSection : null}
+      <div className="flex flex-col gap-2">
+        <label htmlFor="af-paste" className={labelClass}>
+          Açık adresinizi buraya yazın veya yapıştırın
+        </label>
+        <ShopTextarea
+          id="af-paste"
+          rows={3}
+          value={pasteText}
+          onChange={(e) => setPasteText(e.target.value)}
+          // The default paste still lands in the box; the fields fill at once.
+          onPaste={(e) => applyPasted(e.clipboardData.getData("text"))}
+          onBlur={() => applyPasted(pasteText)}
+          placeholder="Örnek: Fırat Mah. 19. Sk. No:39 D:3 Battalgazi/Malatya"
+          disabled={saving}
+        />
+        {pasteText.trim() !== "" ? (
+          <ShopButton variant="secondary" onClick={() => applyPasted(pasteText)} disabled={saving}>
+            Kutucuklara yerleştir
+          </ShopButton>
+        ) : null}
+        {pasteNote ? (
+          <p
+            role="status"
+            className={
+              pasteNote.ok
+                ? "rounded-2xl bg-(--shop-green-soft) p-3 text-base font-semibold text-foreground"
+                : "rounded-2xl bg-(--shop-apricot-soft) p-3 text-base font-semibold text-foreground"
+            }
+          >
+            {pasteNote.text}
+          </p>
+        ) : null}
+      </div>
+
+      <p className="text-base text-muted-foreground">
+        <span className="font-bold text-destructive">*</span> işaretli kutucuklar
+        zorunludur.
+      </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* An address book name means nothing to a guest, who has no book. */}
@@ -625,7 +747,7 @@ export function AddressForm({
             />
           </Field>
         )}
-        <Field label="İl" htmlFor="af-city" error={missingByTarget.get("af-city")}>
+        <Field required label="İl" htmlFor="af-city" error={missingByTarget.get("af-city")}>
           <ShopInput
             id="af-city"
             {...invalid("af-city")}
@@ -636,7 +758,7 @@ export function AddressForm({
             disabled={saving}
           />
         </Field>
-        <Field label="İlçe" htmlFor="af-district" error={missingByTarget.get("af-district")}>
+        <Field required label="İlçe" htmlFor="af-district" error={missingByTarget.get("af-district")}>
           <ShopInput
             id="af-district"
             {...invalid("af-district")}
@@ -647,7 +769,7 @@ export function AddressForm({
             disabled={saving}
           />
         </Field>
-        <Field label="Mahalle" htmlFor="af-neighborhood" error={missingByTarget.get("af-neighborhood")}>
+        <Field required label="Mahalle" htmlFor="af-neighborhood" error={missingByTarget.get("af-neighborhood")}>
           <ShopInput
             id="af-neighborhood"
             {...invalid("af-neighborhood")}
@@ -658,7 +780,8 @@ export function AddressForm({
           />
         </Field>
         <Field
-          label={needsPin || requiresAllFields ? "Cadde / Sokak" : "Cadde / Sokak (opsiyonel)"}
+          required={doorRequired}
+          label={doorRequired ? "Cadde / Sokak" : "Cadde / Sokak (opsiyonel)"}
           htmlFor="af-street"
           error={missingByTarget.get("af-street")}
         >
@@ -668,28 +791,28 @@ export function AddressForm({
             value={fields.street}
             onChange={(e) => set({ street: e.target.value })}
             autoComplete="address-line1"
-            required={needsPin || requiresAllFields}
+            required={doorRequired}
             disabled={saving}
           />
         </Field>
-        <Field label={needsPin || requiresAllFields ? "Bina no" : "Bina no (opsiyonel)"} htmlFor="af-building" error={missingByTarget.get("af-building")}>
+        <Field required={doorRequired} label={doorRequired ? "Bina no" : "Bina no (opsiyonel)"} htmlFor="af-building" error={missingByTarget.get("af-building")}>
           <ShopInput
             id="af-building"
             {...invalid("af-building")}
             value={fields.building_no}
             onChange={(e) => set({ building_no: e.target.value })}
-            required={needsPin || requiresAllFields}
+            required={doorRequired}
             disabled={saving}
           />
         </Field>
-        <Field label={needsPin || requiresAllFields ? "Daire no" : "Daire no (opsiyonel)"} htmlFor="af-apartment" error={missingByTarget.get("af-apartment")}>
+        <Field required={doorRequired && !detached} label={doorRequired ? "Daire no" : "Daire no (opsiyonel)"} htmlFor="af-apartment" error={missingByTarget.get("af-apartment")}>
           <div className="flex flex-col gap-2">
             <ShopInput
               id="af-apartment"
               {...invalid("af-apartment")}
               value={detached ? "" : fields.apartment_no}
               onChange={(e) => set({ apartment_no: e.target.value })}
-              required={(needsPin || requiresAllFields) && !detached}
+              required={doorRequired && !detached}
               disabled={saving || detached}
               placeholder={detached ? DETACHED_HOUSE_APARTMENT_NO : ""}
             />
@@ -732,7 +855,7 @@ export function AddressForm({
         </Field>
       </div>
 
-      {needsPin ? null : mapSection}
+      {mapSection}
 
       {error ? (
         <p
@@ -747,7 +870,7 @@ export function AddressForm({
           (see `onCollect`). */}
       {onCollect ? null : (
         <div className="flex flex-col gap-3 sm:flex-row">
-          <ShopButton size="lg" onClick={submit} disabled={!canSubmit}>
+          <ShopButton size="lg" onClick={submit} disabled={saving}>
             {saving ? "Kaydediliyor…" : "Adresi kaydet"}
           </ShopButton>
           {onCancel ? (
@@ -778,11 +901,14 @@ const checkboxClass =
 function Field({
   label,
   htmlFor,
+  required = false,
   error,
   children,
 }: {
   label: string;
   htmlFor: string;
+  /** Red star after the label; the legend above the fields explains it. */
+  required?: boolean;
   /** Shown under the control, in red, when the field is missing. */
   error?: string | undefined;
   children: React.ReactNode;
@@ -791,6 +917,11 @@ function Field({
     <div className="flex min-w-0 flex-col gap-2">
       <label htmlFor={htmlFor} className={labelClass}>
         {label}
+        {required ? (
+          <span className="text-destructive" aria-hidden>
+            {" "}*
+          </span>
+        ) : null}
       </label>
       {children}
       <FieldError id={htmlFor} message={error} />
