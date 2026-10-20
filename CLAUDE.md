@@ -109,3 +109,18 @@ Bir görev "done" sayılması için:
 - [ ] Migration eklendiyse `supabase db reset` ile lokal'de çalıştı
 - [ ] PR description'da etkilenen feature(ler) yazıldı
 - [ ] CLAUDE.md kurallarına uyulduğu mental check yapıldı
+- [ ] Değişiklik canlıda **hem misafir olarak hem test hesabıyla** kontrol edildi (§16)
+
+## 16. Her Değişiklik İki Kez Kontrol Edilir: Misafir + Hesap
+Owner kararı (2026-10-20). Misafir siparişinin haftalarca bozuk kaldığı fark edilmedi, çünkü değişiklikler yalnızca tek bir yoldan denendi. Bu yüzden müşterinin gördüğü siteyi etkileyen **her** değişiklik iki yoldan kontrol edilir:
+
+1. **Misafir olarak:** oturum açmadan, temiz sepet ve boş taslakla.
+2. **Test hesabıyla:** owner'ın verdiği hesapla oturum açılmış haldeyken.
+
+Kurallar:
+- **Kontrol canlıda yapılır:** yayından sonra `apuhanciftligi.com` üzerinde, Claude'un yerleşik tarayıcısında. Lokal ortam canlı veriyi ve Google Maps anahtarını taşımaz.
+- **Etkilenen akış uçtan uca yürünür:** ürün → sepet → `/odeme` → iletişim → adres → teslimat/kargo → ödeme yöntemi → sözleşme kutusu → "Ödemeyi Tamamla" butonu. Değişiklik sadece bir sayfayı ilgilendiriyorsa o sayfa iki yoldan da açılır.
+- **En az iki sepet denenir:** taze ürünlü sepet (yumurta, rota formu) ve sadece kargoya uygun sepet (kayısı/dut, kargo formu). Adres olarak hem bir Malatya adresi hem de il dışı bir adres girilir.
+- **Gönderme adımı izinle yapılır:** "Ödemeyi Tamamla"ya basmak canlıda **gerçek sipariş** oluşturur. Owner o an açıkça izin vermeden basılmaz. Basılırsa sipariş numarası raporlanır ve test siparişi admin panelinden iptal edilir.
+- **Hesap bilgileri repoya yazılmaz:** test hesabının e-posta ve şifresi commit'lenmez, log'a da yazılmaz. Claude canlı sitede şifre giremez. Bu yüzden owner yerleşik tarayıcıda bir kez kendisi giriş yapar. Oturum o tarayıcıda kalır ve Claude hesap kontrolünü bu oturumla yapar. Oturum düşmüşse owner'dan tekrar giriş yapması istenir. Claude oturumu kapatmaz, hesap ayarlarını değiştirmez.
+- **Rapor iki yolu ayrı ayrı söyler:** "misafir: …", "hesap: …". Bir yol denenemediyse (oturum yok, izin yok) bu açıkça yazılır ve görev "done" sayılmaz.
