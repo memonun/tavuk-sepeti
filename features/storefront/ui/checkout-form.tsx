@@ -37,7 +37,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
@@ -70,6 +70,7 @@ import {
   buildBankTransferWhatsAppLink,
 } from "@/features/storefront/domain/bank-transfer";
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
+import { listCheckoutMissing } from "@/features/storefront/domain/checkout-missing";
 import { formatDeliveryDateLabel } from "@/features/storefront/domain/delivery-window";
 import {
   requiredAddressMode,
@@ -95,6 +96,10 @@ import {
   DELIVERY_PROVINCE,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
+import {
+  buildWhatsAppLink,
+  SUPPORT_WHATSAPP_E164,
+} from "@/features/storefront/domain/support-contact";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CopyButton } from "@/components/ui/copy-button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -231,10 +236,19 @@ export function CheckoutForm({
    *  address book to save it to before one exists). Held in the persisted draft
    *  so it survives an error / the PayTR return like every other typed field. */
   const guestAddress = draft.guestAddress;
-  // "Adresi düzenle" reopens the form pre-filled from `guestAddress` (see
-  // below) rather than discarding it — nulling it out here is what used to
-  // wipe every field, plus the map pin and its confirmation, back to blank.
-  const [editingGuestAddress, setEditingGuestAddress] = useState(false);
+  // The address form hands the guest's address up LIVE as it is typed — there
+  // is no "Bu adresi kullan" button any more (owner decision 2026-10-20). While
+  // it is incomplete, `guestAddressMissing` names what is still empty so the
+  // submit area can say exactly that. Not persisted: the form recomputes it
+  // from the restored draft on mount.
+  const [guestAddressMissing, setGuestAddressMissing] = useState<readonly string[]>([]);
+  const collectGuestAddress = useCallback(
+    (address: CollectedAddress | null, missing: readonly string[]) => {
+      patch({ guestAddress: address });
+      setGuestAddressMissing(missing);
+    },
+    [patch],
+  );
   const [pickedAddressId, setPickedAddressId] = useState<string | null>(null);
   // Tracked so the havale/EFT IBAN box can appear the moment that option is
   // picked, without waiting for a submit. Empty until the customer picks one —
@@ -355,21 +369,26 @@ export function CheckoutForm({
   useEffect(() => {
     if (!guestCheckKey || !guestAddress) return;
     let live = true;
-    checkGuestAddressAction(mode, guestAddress).then(
-      (result) => {
-        if (live) setGuestCheck({ key: guestCheckKey, result });
-      },
-      // Network failure: fall back to the cart-only channel rather than
-      // stranding the customer. The submit re-derives the channel and says
-      // what is missing if the address turns out to upgrade after all.
-      () => {
-        if (live) {
-          setGuestCheck({ key: guestCheckKey, result: { status: "ok", routeUpgrade: false } });
-        }
-      },
-    );
+    // Debounced: the address now arrives on every keystroke once complete (an
+    // "Adres tarifi" being typed, say), and one check per pause is enough.
+    const timer = setTimeout(() => {
+      checkGuestAddressAction(mode, guestAddress).then(
+        (result) => {
+          if (live) setGuestCheck({ key: guestCheckKey, result });
+        },
+        // Network failure: fall back to the cart-only channel rather than
+        // stranding the customer. The submit re-derives the channel and says
+        // what is missing if the address turns out to upgrade after all.
+        () => {
+          if (live) {
+            setGuestCheck({ key: guestCheckKey, result: { status: "ok", routeUpgrade: false } });
+          }
+        },
+      );
+    }, 500);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [guestCheckKey, guestAddress, mode]);
   const guestCheckResult =
@@ -395,11 +414,11 @@ export function CheckoutForm({
       ? addressId
         ? `a:${addressId}`
         : null
-      : guestAddress
+      : guestAddress && guestCheckResult?.status === "ok"
         ? `g:${opaqueKey(JSON.stringify(guestAddress))}`
         : null;
     if (addressKey) trackShippingInfoAdded(rows, channel, addressKey);
-  }, [onOrderStep, identity, addressId, guestAddress, rows, channel]);
+  }, [onOrderStep, identity, addressId, guestAddress, guestCheckResult, rows, channel]);
 
   if (state.status === "success") {
     return (
@@ -548,19 +567,33 @@ export function CheckoutForm({
     : guestAddress !== null && guestCheckResult?.status === "ok";
   const canSubmit =
     !pending && hasAddress && minimum.ok && !noDeliveryDay && distanceSalesAccepted;
-  // Display only: the first thing still standing between the customer and the
-  // submit button, in the order they meet it on the page. The minimum and the
-  // no-delivery-day cases already have their own alert, so they are not
-  // repeated here.
-  const missingStep = guestChecking
-    ? "Adresiniz kontrol ediliyor…"
-    : guestCheckResult?.status === "invalid"
-      ? "Devam etmek için teslimat adresinizi düzeltin (2. adım)."
-      : !hasAddress
-        ? "Devam etmek için önce teslimat adresinizi girin (2. adım)."
-        : minimum.ok && !noDeliveryDay && !distanceSalesAccepted
-          ? "Devam etmek için yukarıdaki sözleşme kutusunu işaretleyin."
-          : null;
+  // Display only: EVERYTHING still standing between the customer and the
+  // order, each named, in the order they meet it on the page (see
+  // checkout-missing.ts). The contact lines do not lock the button — those
+  // inputs carry their own `required`, and a browser autofill that skipped the
+  // change event must not strand a filled-in form — but they are listed, so a
+  // refused submit is never a mystery.
+  const missingLines = listCheckoutMissing({
+    contact: identity
+      ? null
+      : {
+          firstName: draft.firstName,
+          lastName: draft.lastName,
+          phone: draft.phone,
+          email: draft.email,
+          emailRequired: selectedPaymentMethod === "credit_card",
+        },
+    address: identity
+      ? { kind: "account", selected: addressId !== null }
+      : {
+          kind: "guest",
+          complete: guestAddress !== null,
+          missing: guestAddressMissing,
+          invalidMessage:
+            guestCheckResult?.status === "invalid" ? guestCheckResult.message : null,
+        },
+    distanceSalesAccepted,
+  });
 
   return (
     // grid-cols-1: without an explicit base track, the implicit single-column
@@ -672,36 +705,27 @@ export function CheckoutForm({
               />
               <input type="hidden" name="address_id" value={addressId ?? ""} />
             </>
-          ) : guestAddress && !editingGuestAddress ? (
-            // Collected, not saved: a guest has no address book, so the fields
-            // ride along with the order submit as hidden inputs.
+          ) : (
+            // A guest's address is never saved here: the form hands it up as it
+            // is typed, and the fields ride along with the order submit as
+            // hidden inputs.
             <>
-              <GuestAddressSummary
-                address={guestAddress}
-                onEdit={() => setEditingGuestAddress(true)}
+              <AddressForm
+                mode={mode}
+                mapsKey={mapsKey}
+                // Read once, at mount: a draft restored after an error or the
+                // PayTR return pre-fills fields, pin and its confirmation.
+                {...(guestAddress ? { initial: guestAddress } : {})}
+                onSaved={() => undefined}
+                onCollect={collectGuestAddress}
               />
+              {guestAddress ? <GuestAddressInputs address={guestAddress} /> : null}
               {guestCheckResult?.status === "invalid" ? (
                 <ShopNotice tone="danger" role="alert">
                   {guestCheckResult.message}
                 </ShopNotice>
               ) : null}
             </>
-          ) : (
-            <AddressForm
-              mode={mode}
-              mapsKey={mapsKey}
-              // Re-editing pre-fills from what was already collected — fields,
-              // pin and its confirmation all carry over instead of resetting.
-              {...(guestAddress ? { initial: guestAddress } : {})}
-              onSaved={() => undefined}
-              onCollect={(address) => {
-                patch({ guestAddress: address });
-                setEditingGuestAddress(false);
-              }}
-              {...(guestAddress
-                ? { onCancel: () => setEditingGuestAddress(false) }
-                : {})}
-            />
           )}
           <input type="hidden" name="address_mode" value={mode} />
         </Section>
@@ -879,7 +903,26 @@ export function CheckoutForm({
 
             {state.status === "validation_error" || state.status === "error" ? (
               <ShopNotice tone="danger" role="alert">
-                {state.message}
+                <p>{state.message}</p>
+                {/* Not the customer's input: something on our side failed. Say
+                    what to do next instead of leaving them retrying blind. */}
+                {state.status === "error" ? (
+                  <p className="mt-2">
+                    Sorun devam ederse{" "}
+                    <a
+                      href={buildWhatsAppLink(
+                        SUPPORT_WHATSAPP_E164,
+                        "Merhaba, sitede siparişimi tamamlayamıyorum.",
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold underline underline-offset-4"
+                    >
+                      WhatsApp&apos;tan bize yazın
+                    </a>
+                    ; siparişinizi birlikte tamamlayalım.
+                  </p>
+                ) : null}
               </ShopNotice>
             ) : null}
 
@@ -940,9 +983,19 @@ export function CheckoutForm({
                 a notice that vanished from between them slid the button up
                 under the customer's finger. Down here its going only moves
                 the footnotes. */}
-            {!pending && missingStep ? (
+            {!pending && (guestChecking || missingLines.length > 0) ? (
               <ShopNotice tone="warning" role="status">
-                {missingStep}
+                {missingLines.length > 0 ? (
+                  <>
+                    <p className="font-bold">Siparişi tamamlamak için:</p>
+                    <ul className="mt-1 list-disc pl-5">
+                      {missingLines.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+                {guestChecking ? <p>Adresiniz kontrol ediliyor…</p> : null}
               </ShopNotice>
             ) : null}
 
@@ -1376,17 +1429,11 @@ function GuestBlock({
 }
 
 /**
- * The guest's collected address, plus the hidden inputs that carry it into the
- * order submit. The `addr_` prefix matches `readGuestAddressInput` on the server
- * and keeps these from colliding with the contact block's own field names.
+ * The hidden inputs that carry a guest's collected address into the order
+ * submit. The `addr_` prefix matches `readGuestAddressInput` on the server and
+ * keeps these from colliding with the contact block's own field names.
  */
-function GuestAddressSummary({
-  address,
-  onEdit,
-}: {
-  address: CollectedAddress;
-  onEdit: () => void;
-}) {
+function GuestAddressInputs({ address }: { address: CollectedAddress }) {
   const hidden: ReadonlyArray<readonly [string, string]> = [
     ["label", address.label],
     ["city", address.city],
@@ -1404,26 +1451,11 @@ function GuestAddressSummary({
   ];
 
   return (
-    <div className="flex flex-wrap items-start gap-3 rounded-2xl border-2 border-primary bg-(--shop-green-soft) p-4 text-base">
-      <MapPinIcon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
-      <div className="min-w-40 flex-1">
-        <p className="text-lg font-bold">
-          {[address.neighborhood, address.street, address.building_no]
-            .filter(Boolean)
-            .join(" ")}
-        </p>
-        <p className="text-base text-foreground">
-          {[address.district, address.city].filter(Boolean).join(" / ")}
-          {address.apartment_no ? ` · Daire ${address.apartment_no}` : ""}
-        </p>
-      </div>
-      <ShopButton variant="secondary" onClick={onEdit}>
-        Adresi düzenle
-      </ShopButton>
+    <>
       {hidden.map(([name, value]) => (
         <input key={name} type="hidden" name={`addr_${name}`} value={value} />
       ))}
-    </div>
+    </>
   );
 }
 

@@ -29,6 +29,7 @@ import {
 } from "@/features/storefront/domain/customer-address.schema";
 import { checkServiceArea } from "@/features/storefront/infrastructure/service-area.repository";
 import { ValidationError } from "@/shared/errors/app-error";
+import { describeIssues } from "@/shared/errors/describe-issues";
 import { isSameProvince } from "@/shared/geo/tr-province";
 import { logger } from "@/shared/logger";
 import { err, ok, type Result } from "@/shared/result";
@@ -70,7 +71,7 @@ export async function validateCheckoutAddress(
     if (!parsed.success) {
       return err(
         new ValidationError({
-          message: parsed.error.issues[0]?.message ?? "Adres bilgileri eksik.",
+          message: describeIssues(parsed.error.issues, "Adres bilgileri eksik."),
         }),
       );
     }
@@ -80,7 +81,7 @@ export async function validateCheckoutAddress(
     if (!parsed.success) {
       return err(
         new ValidationError({
-          message: parsed.error.issues[0]?.message ?? "Adres bilgileri eksik.",
+          message: describeIssues(parsed.error.issues, "Adres bilgileri eksik."),
         }),
       );
     }

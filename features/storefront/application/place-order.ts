@@ -122,6 +122,7 @@ import {
 } from "@/features/storefront/infrastructure/web-order.repository";
 import { logAudit } from "@/shared/audit/log-audit";
 import { sendEmail } from "@/shared/email/send-email";
+import { describeIssues } from "@/shared/errors/describe-issues";
 import { logger } from "@/shared/logger";
 import { composeFullAddress } from "@/shared/utils/address";
 
@@ -218,10 +219,13 @@ export async function placeOrderAction(
   });
 
   if (!parsed.success) {
-    const first = parsed.error.issues[0];
+    // All of them, not the first: one refusal per empty field was the old way.
     return {
       status: "validation_error",
-      message: first?.message ?? "Formda eksik veya hatalı alanlar var.",
+      message: describeIssues(
+        parsed.error.issues,
+        "Formda eksik veya hatalı alanlar var.",
+      ),
     };
   }
 
@@ -526,7 +530,11 @@ export async function placeOrderAction(
       return { status: "validation_error", message: placed.error.message };
     }
     logger.error({ code: placed.error.code }, "place_web_order_failed");
-    return { status: "error", message: "Sipariş oluşturulamadı, tekrar deneyin." };
+    return {
+      status: "error",
+      message:
+        "Siparişiniz kaydedilemedi; sizden herhangi bir ücret alınmadı. Lütfen birkaç saniye sonra tekrar deneyin.",
+    };
   }
 
   logger.info(
