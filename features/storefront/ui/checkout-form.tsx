@@ -70,7 +70,13 @@ import {
   buildBankTransferWhatsAppLink,
 } from "@/features/storefront/domain/bank-transfer";
 import { cartSubtotalMinor } from "@/features/storefront/domain/cart";
-import { listCheckoutMissing } from "@/features/storefront/domain/checkout-missing";
+import {
+  CHECKOUT_TARGETS,
+  fieldErrors,
+  listCheckoutMissing,
+  type MissingField,
+  type MissingLine,
+} from "@/features/storefront/domain/checkout-missing";
 import { formatDeliveryDateLabel } from "@/features/storefront/domain/delivery-window";
 import {
   requiredAddressMode,
@@ -82,7 +88,7 @@ import {
   orderMinimumNotice,
 } from "@/features/storefront/domain/order-minimum";
 import {
-  paymentMethodsForChannel,
+  paymentMethodsForCheckout,
   type PaymentMethod,
 } from "@/features/storefront/domain/payment-options";
 import {
@@ -96,16 +102,14 @@ import {
   DELIVERY_PROVINCE,
   TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
-import {
-  buildWhatsAppLink,
-  SUPPORT_WHATSAPP_E164,
-} from "@/features/storefront/domain/support-contact";
+import { buildWhatsAppOrderLink } from "@/features/storefront/domain/whatsapp-order";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CopyButton } from "@/components/ui/copy-button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { env } from "@/shared/env";
 import { formatTRY } from "@/shared/utils/money";
+import { formatTRPhoneInput } from "@/shared/utils/phone";
 
 import { productImagePublicUrl } from "@/features/products/application/product-image";
 import { useCart } from "@/features/storefront/ui/cart-provider";
@@ -133,6 +137,33 @@ import type { Product } from "@/features/products/application/list-products";
 
 const initialState: PlaceOrderState = { status: "idle" };
 const initialAccountState: CheckoutAccountState = { status: "idle" };
+
+/** Scroll targets that live in this file (the rest: CHECKOUT_TARGETS). */
+const NO_DELIVERY_DAY_ID = "checkout-no-delivery-day";
+const MINIMUM_ID = "checkout-minimum";
+const MISSING_LIST_ID = "checkout-missing-list";
+
+/**
+ * Bring a field the customer still has to fill into view and put the cursor
+ * in it. Centered, so the sticky header never covers it; instant under
+ * prefers-reduced-motion.
+ */
+function revealTarget(id: string): void {
+  // A target can be absent (the map did not load, say): the list under the
+  // button still names the problem, so go there rather than nowhere.
+  const element = document.getElementById(id) ?? document.getElementById(MISSING_LIST_ID);
+  if (!element) return;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  element.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLButtonElement ||
+    element instanceof HTMLSelectElement ||
+    element instanceof HTMLTextAreaElement
+  ) {
+    element.focus({ preventScroll: true });
+  }
+}
 
 /**
  * What an anonymous visitor is doing at checkout.
@@ -241,9 +272,9 @@ export function CheckoutForm({
   // it is incomplete, `guestAddressMissing` names what is still empty so the
   // submit area can say exactly that. Not persisted: the form recomputes it
   // from the restored draft on mount.
-  const [guestAddressMissing, setGuestAddressMissing] = useState<readonly string[]>([]);
+  const [guestAddressMissing, setGuestAddressMissing] = useState<readonly MissingField[]>([]);
   const collectGuestAddress = useCallback(
-    (address: CollectedAddress | null, missing: readonly string[]) => {
+    (address: CollectedAddress | null, missing: readonly MissingField[]) => {
       patch({ guestAddress: address });
       setGuestAddressMissing(missing);
     },
@@ -257,6 +288,10 @@ export function CheckoutForm({
   // render. Lives in the persisted draft so the choice outlives an error.
   const paymentMethod = draft.paymentMethod;
   const [distanceSalesAccepted, setDistanceSalesAccepted] = useState(false);
+  // Set once the customer presses the submit button with something missing:
+  // from then on every problem field shows its own red sentence. Not before —
+  // a form that opens covered in red reads as a scolding.
+  const [attempted, setAttempted] = useState(false);
 
   // Empty the basket AND the saved draft on inline success; for the card path,
   // hand off to PayTR and keep both (the customer may bounce back from a failed
@@ -548,13 +583,14 @@ export function CheckoutForm({
   }
 
   // ---- Step 2: the order -----------------------------------------------------
-  const paymentOptions = paymentMethodsForChannel(channel).filter(
+  const paymentOptions = paymentMethodsForCheckout(channel).filter(
     (option) => option.value !== "credit_card" || paytrEnabled,
   );
-  // The radios default to the first offered option (matching the old
-  // `defaultChecked={index === 0}`) until the customer actually picks one. A
-  // value restored from the draft is only honoured if it's still on offer —
-  // a persisted "kapıda nakit" is meaningless once the basket turned cargo.
+  // The radios default to the first offered option — kapıda nakit on a home
+  // delivery, havale on cargo, never the card (paymentMethodsForCheckout) —
+  // until the customer actually picks one. A value restored from the draft is
+  // only honoured if it's still on offer — a persisted "kapıda nakit" is
+  // meaningless once the basket turned cargo.
   const selectedPaymentMethod =
     paymentMethod && paymentOptions.some((o) => o.value === paymentMethod)
       ? paymentMethod
@@ -565,24 +601,21 @@ export function CheckoutForm({
   const hasAddress = identity
     ? addressId !== null
     : guestAddress !== null && guestCheckResult?.status === "ok";
-  const canSubmit =
-    !pending && hasAddress && minimum.ok && !noDeliveryDay && distanceSalesAccepted;
-  // Display only: EVERYTHING still standing between the customer and the
-  // order, each named, in the order they meet it on the page (see
-  // checkout-missing.ts). The contact lines do not lock the button — those
-  // inputs carry their own `required`, and a browser autofill that skipped the
-  // change event must not strand a filled-in form — but they are listed, so a
-  // refused submit is never a mystery.
+  // EVERYTHING still standing between the customer and the order, each named,
+  // in the order they meet it on the page (see checkout-missing.ts). Listed
+  // under the button; pressing the button with any of it open jumps to the
+  // first one instead of submitting (see onSubmit below).
+  const guestContact = identity
+    ? null
+    : {
+        firstName: draft.firstName,
+        lastName: draft.lastName,
+        phone: draft.phone,
+        email: draft.email,
+        emailRequired: selectedPaymentMethod === "credit_card",
+      };
   const missingLines = listCheckoutMissing({
-    contact: identity
-      ? null
-      : {
-          firstName: draft.firstName,
-          lastName: draft.lastName,
-          phone: draft.phone,
-          email: draft.email,
-          emailRequired: selectedPaymentMethod === "credit_card",
-        },
+    contact: guestContact,
     address: identity
       ? { kind: "account", selected: addressId !== null }
       : {
@@ -594,6 +627,63 @@ export function CheckoutForm({
         },
     distanceSalesAccepted,
   });
+  const contactErrors = attempted ? fieldErrors(guestContact, []) : {};
+  const whatsAppOrderHref = buildWhatsAppOrderLink(
+    rows.map((r) => ({
+      name: r.product.display_name,
+      quantity: r.quantity,
+      unitLabel: r.product.unit_label,
+    })),
+    total,
+  );
+
+  /**
+   * What stops the submit, in page order. The button is never greyed out —
+   * for our (mostly 50+) customers a dead button reads as a broken site — so
+   * this is the gate instead. The minimum and "no delivery day" lines are not
+   * in `missingLines` (each has its own alert already) but still stop it.
+   */
+  function submitBlockers(form: HTMLFormElement): MissingLine[] {
+    // Contact read from the FORM, not the draft: a browser autofill that never
+    // fired a change event must not hold back a visibly filled-in form.
+    const data = new FormData(form);
+    const read = (name: string) => {
+      const value = data.get(name);
+      return typeof value === "string" ? value : "";
+    };
+    const contact = identity
+      ? null
+      : {
+          firstName: read("first_name"),
+          lastName: read("last_name"),
+          phone: read("phone"),
+          email: read("account_email"),
+          emailRequired: selectedPaymentMethod === "credit_card",
+        };
+    const lines = listCheckoutMissing({
+      contact,
+      address: identity
+        ? { kind: "account", selected: addressId !== null }
+        : {
+            kind: "guest",
+            complete: guestAddress !== null,
+            missing: guestAddressMissing,
+            invalidMessage:
+              guestCheckResult?.status === "invalid" ? guestCheckResult.message : null,
+          },
+      distanceSalesAccepted,
+    });
+    const legal = lines.filter((l) => l.target === CHECKOUT_TARGETS.distanceSales);
+    return [
+      ...lines.filter((l) => l.target !== CHECKOUT_TARGETS.distanceSales),
+      ...(guestChecking
+        ? [{ text: "Adresiniz kontrol ediliyor.", target: CHECKOUT_TARGETS.addressForm }]
+        : []),
+      ...(noDeliveryDay ? [{ text: "Teslimat günü yok.", target: NO_DELIVERY_DAY_ID }] : []),
+      ...(hasAddress && !minimum.ok ? [{ text: "Alt limit.", target: MINIMUM_ID }] : []),
+      ...legal,
+    ];
+  }
 
   return (
     // grid-cols-1: without an explicit base track, the implicit single-column
@@ -604,13 +694,47 @@ export function CheckoutForm({
     // strip down the right edge.
     <form
       action={formAction}
-      onSubmit={() => {
+      // The browser's own "Lütfen bu alanı doldurun" bubble is replaced by
+      // submitBlockers: it named one field at a time, in small grey text, and
+      // never the map pin or the address check.
+      noValidate
+      onSubmit={(event) => {
+        const first = submitBlockers(event.currentTarget)[0];
+        if (first) {
+          // preventDefault also stops React from running the form action.
+          event.preventDefault();
+          setAttempted(true);
+          revealTarget(first.target);
+          return;
+        }
         // Meta Pixel AddPaymentInfo: the order goes in with this method.
         if (selectedPaymentMethod) trackPaymentInfoAdded(rows, selectedPaymentMethod, total);
       }}
       className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_24rem]"
     >
       <div className="flex flex-col gap-8">
+        {/* A way out for anyone the form defeats: WhatsApp opens with the
+            basket already written (whatsapp-order.ts). */}
+        <div className="flex flex-col gap-3 rounded-2xl border-2 border-(--shop-field-border) bg-card p-4">
+          <p className="text-base leading-relaxed text-foreground">
+            Formu doldurmakta zorlanırsanız siparişinizi{" "}
+            <strong className="font-bold">WhatsApp&apos;tan</strong> da
+            verebilirsiniz. Sepetiniz mesaja hazır yazılır.
+          </p>
+          <a
+            href={whatsAppOrderHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shop-btn shop-press shop-focus"
+            data-variant="secondary"
+            data-size="lg"
+            data-block="true"
+          >
+            <MessageCircleIcon className="size-6" aria-hidden />
+            WhatsApp&apos;tan sipariş ver
+          </a>
+        </div>
+
         <Section title="1. İletişim">
           {identity ? (
             <>
@@ -625,32 +749,21 @@ export function CheckoutForm({
             </>
           ) : (
             <>
-              {/* Guest is the default and needs nothing from this box, so it
-                  leads with that. The two account routes are real buttons —
-                  "Hesap oluşturun" used to be one underlined word inside a
-                  paragraph. */}
-              <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted p-4">
-                <p className="text-base leading-relaxed">
-                  <strong className="font-bold">Üye olmadan sipariş verebilirsiniz.</strong>{" "}
-                  Siparişinizi daha sonra numarası ve telefonunuzla{" "}
-                  <Link
-                    href="/siparis-sorgula"
-                    className="font-bold underline underline-offset-4"
-                    target="_blank"
-                  >
-                    sorgulayabilirsiniz
-                  </Link>
-                  . Hesabınız varsa giriş yapın; sipariş hesabınıza kaydedilir.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <ShopButton variant="secondary" onClick={() => setPickedMode("signin")}>
-                    Giriş yap
-                  </ShopButton>
-                  <ShopButton variant="quiet" onClick={() => setPickedMode("signup")}>
-                    Hesap oluştur
-                  </ShopButton>
-                </div>
-              </div>
+              {/* Guest is the default, so it leads: the fields come first and
+                  the account routes wait below them. Up top they read as a
+                  question the customer had to answer before ordering. */}
+              <p className="text-base leading-relaxed">
+                <strong className="font-bold">Üye olmadan sipariş verebilirsiniz.</strong>{" "}
+                Siparişinizi daha sonra numarası ve telefonunuzla{" "}
+                <Link
+                  href="/siparis-sorgula"
+                  className="font-bold underline underline-offset-4"
+                  target="_blank"
+                >
+                  sorgulayabilirsiniz
+                </Link>
+                .
+              </p>
               <GuestBlock
                 disabled={pending}
                 values={{
@@ -664,8 +777,22 @@ export function CheckoutForm({
                 // a payment without one. Havale/EFT and kapıda nakit don't need
                 // it, so it stays optional there.
                 emailRequired={selectedPaymentMethod === "credit_card"}
+                errors={contactErrors}
               />
               <input type="hidden" name="account_mode" value="guest" />
+              <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted p-4">
+                <p className="text-base leading-relaxed">
+                  Hesabınız var mı? Giriş yapın; siparişiniz hesabınıza kaydedilir.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <ShopButton variant="secondary" onClick={() => setPickedMode("signin")}>
+                    Giriş yap
+                  </ShopButton>
+                  <ShopButton variant="quiet" onClick={() => setPickedMode("signup")}>
+                    Hesap oluştur
+                  </ShopButton>
+                </div>
+              </div>
             </>
           )}
         </Section>
@@ -693,7 +820,7 @@ export function CheckoutForm({
           </p>
 
           {identity ? (
-            <>
+            <div id={CHECKOUT_TARGETS.addressPicker} className="flex flex-col gap-4">
               <AddressPicker
                 addresses={addresses}
                 mode={mode}
@@ -704,12 +831,12 @@ export function CheckoutForm({
                 disabled={pending}
               />
               <input type="hidden" name="address_id" value={addressId ?? ""} />
-            </>
+            </div>
           ) : (
             // A guest's address is never saved here: the form hands it up as it
             // is typed, and the fields ride along with the order submit as
             // hidden inputs.
-            <>
+            <div id={CHECKOUT_TARGETS.addressForm} className="flex flex-col gap-4">
               <AddressForm
                 mode={mode}
                 mapsKey={mapsKey}
@@ -718,14 +845,16 @@ export function CheckoutForm({
                 {...(guestAddress ? { initial: guestAddress } : {})}
                 onSaved={() => undefined}
                 onCollect={collectGuestAddress}
+                showMissing={attempted}
+                helpHref={whatsAppOrderHref}
               />
               {guestAddress ? <GuestAddressInputs address={guestAddress} /> : null}
               {guestCheckResult?.status === "invalid" ? (
-                <ShopNotice tone="danger" role="alert">
+                <ShopNotice id={CHECKOUT_TARGETS.addressError} tone="danger" role="alert">
                   {guestCheckResult.message}
                 </ShopNotice>
               ) : null}
-            </>
+            </div>
           )}
           <input type="hidden" name="address_mode" value={mode} />
         </Section>
@@ -746,7 +875,7 @@ export function CheckoutForm({
             </p>
 
             {noDeliveryDay ? (
-              <ShopNotice tone="danger" role="alert">
+              <ShopNotice id={NO_DELIVERY_DAY_ID} tone="danger" role="alert">
                 Şu anda planlanabilir bir eve servis günü yok. Lütfen daha sonra
                 tekrar deneyin veya bizimle iletişime geçin.
               </ShopNotice>
@@ -883,7 +1012,7 @@ export function CheckoutForm({
                 from) — `hasAddress` is the one flag both shapes set once an
                 address is actually known, so it's what has to gate this. */}
             {hasAddress && !minimum.ok ? (
-              <ShopNotice tone="warning" role="alert">
+              <ShopNotice id={MINIMUM_ID} tone="warning" role="alert">
                 {orderMinimumMessage(channel, minOrderMinor, minimum.shortfallMinor)}
               </ShopNotice>
             ) : null}
@@ -910,10 +1039,7 @@ export function CheckoutForm({
                   <p className="mt-2">
                     Sorun devam ederse{" "}
                     <a
-                      href={buildWhatsAppLink(
-                        SUPPORT_WHATSAPP_E164,
-                        "Merhaba, sitede siparişimi tamamlayamıyorum.",
-                      )}
+                      href={whatsAppOrderHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-bold underline underline-offset-4"
@@ -947,12 +1073,17 @@ export function CheckoutForm({
               className={cn(choiceCardClass, "items-start text-base font-normal")}
             >
               <Checkbox
+                id={CHECKOUT_TARGETS.distanceSales}
                 name="distance_sales_accepted"
                 checked={distanceSalesAccepted}
                 onCheckedChange={setDistanceSalesAccepted}
                 className={checkboxClass}
                 required
                 disabled={pending}
+                // Red edge only — no sentence between the box and the button:
+                // one that vanished on ticking would slide the button up under
+                // the customer's finger. The list below the button says it.
+                {...(attempted && !distanceSalesAccepted ? { "aria-invalid": true } : {})}
               />
               <span>
                 <Link
@@ -974,23 +1105,39 @@ export function CheckoutForm({
                 kabul ediyorum.
               </span>
             </label>
-            <ShopButton type="submit" size="lg" block disabled={!canSubmit}>
-              {pending ? "Gönderiliyor…" : "Ödemeyi Tamamla"}
+            {/* Never greyed out (only while sending): pressing it with
+                something missing jumps to that field — see onSubmit. "Ödeme"
+                only when a payment page actually follows; for kapıda nakit
+                and havale it was a promise of a step that never came. */}
+            <ShopButton type="submit" size="lg" block disabled={pending}>
+              {pending
+                ? "Gönderiliyor…"
+                : selectedPaymentMethod === "credit_card"
+                  ? "Kartla Ödemeye Geç"
+                  : "Siparişi Tamamla"}
             </ShopButton>
-            {/* A greyed-out button with no reason beside it is a dead end, so
-                the open step is named right next to it. BELOW, not above: the
-                last step is usually ticking the box just over the button, and
-                a notice that vanished from between them slid the button up
-                under the customer's finger. Down here its going only moves
-                the footnotes. */}
+            {/* The open steps are named right next to the button. BELOW, not
+                above: the last step is usually ticking the box just over the
+                button, and a notice that vanished from between them slid the
+                button up under the customer's finger. Down here its going
+                only moves the footnotes. */}
             {!pending && (guestChecking || missingLines.length > 0) ? (
-              <ShopNotice tone="warning" role="status">
+              <ShopNotice id={MISSING_LIST_ID} tone="warning" role="status">
                 {missingLines.length > 0 ? (
                   <>
                     <p className="font-bold">Siparişi tamamlamak için:</p>
                     <ul className="mt-1 list-disc pl-5">
                       {missingLines.map((line) => (
-                        <li key={line}>{line}</li>
+                        <li key={line.text}>
+                          {/* Each line takes the customer to its field. */}
+                          <button
+                            type="button"
+                            onClick={() => revealTarget(line.target)}
+                            className="text-left underline underline-offset-4"
+                          >
+                            {line.text}
+                          </button>
+                        </li>
                       ))}
                     </ul>
                   </>
@@ -1353,6 +1500,7 @@ function GuestBlock({
   values,
   onChange,
   emailRequired,
+  errors,
 }: {
   disabled: boolean;
   values: {
@@ -1370,10 +1518,15 @@ function GuestBlock({
     }>,
   ) => void;
   emailRequired: boolean;
+  /** Field id → red sentence under it; empty until the customer has tried to
+   *  submit (see `attempted` in CheckoutForm). */
+  errors: Readonly<Record<string, string>>;
 }) {
+  const invalid = (id: string) =>
+    errors[id] ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` } : {};
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Ad" htmlFor="first_name">
+      <Field label="Ad" htmlFor="first_name" error={errors.first_name}>
         <ShopInput
           id="first_name"
           name="first_name"
@@ -1382,9 +1535,10 @@ function GuestBlock({
           disabled={disabled}
           value={values.firstName}
           onChange={(e) => onChange({ firstName: e.target.value })}
+          {...invalid("first_name")}
         />
       </Field>
-      <Field label="Soyad" htmlFor="last_name">
+      <Field label="Soyad" htmlFor="last_name" error={errors.last_name}>
         <ShopInput
           id="last_name"
           name="last_name"
@@ -1393,22 +1547,32 @@ function GuestBlock({
           disabled={disabled}
           value={values.lastName}
           onChange={(e) => onChange({ lastName: e.target.value })}
+          {...invalid("last_name")}
         />
       </Field>
-      <Field label="Telefon" htmlFor="phone">
+      <Field label="Telefon" htmlFor="phone" error={errors.phone}>
+        {/* Grouped as it is typed (0532 123 45 67): a run of eleven digits is
+            hard to check by eye, and the groups are how a number is read
+            aloud. The server normalises whatever arrives. */}
         <ShopInput
           id="phone"
           name="phone"
           type="tel"
           inputMode="tel"
           autoComplete="tel"
+          placeholder="0532 123 45 67"
           required
           disabled={disabled}
           value={values.phone}
-          onChange={(e) => onChange({ phone: e.target.value })}
+          onChange={(e) => onChange({ phone: formatTRPhoneInput(e.target.value) })}
+          {...invalid("phone")}
         />
       </Field>
-      <Field label="E-posta" htmlFor="account_email">
+      <Field
+        label={emailRequired ? "E-posta" : "E-posta (isteğe bağlı)"}
+        htmlFor="account_email"
+        error={errors.account_email}
+      >
         <ShopInput
           id="account_email"
           name="account_email"
@@ -1418,6 +1582,7 @@ function GuestBlock({
           disabled={disabled}
           value={values.email}
           onChange={(e) => onChange({ email: e.target.value })}
+          {...invalid("account_email")}
         />
       </Field>
       <p className="text-base text-muted-foreground sm:col-span-2">
@@ -1494,10 +1659,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({
   label,
   htmlFor,
+  error,
   children,
 }: {
   label: string;
   htmlFor: string;
+  /** Red sentence under the control; its id matches `aria-describedby`. */
+  error?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
@@ -1506,6 +1674,11 @@ function Field({
         {label}
       </label>
       {children}
+      {error ? (
+        <p id={`${htmlFor}-error`} className="text-base font-semibold text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
