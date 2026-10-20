@@ -41,14 +41,12 @@ export const viewport: Viewport = {
   themeColor: "#fffdf9",
 };
 
-const googleSiteVerification = getGoogleSiteVerification();
-
 export const metadata: Metadata = {
   // The root layout is noindex by default (admin, /login, anything outside the
   // shop); the storefront opts back in. Account/checkout pages under this
   // layout set noindex again on their own metadata.
   robots: { index: true, follow: true },
-  ...(googleSiteVerification ? { verification: { google: googleSiteVerification } } : {}),
+  verification: { google: getGoogleSiteVerification() },
   title: {
     default: "Apuhan Çiftliği — Taze ürünler, kapınızda",
     template: "%s | Apuhan Çiftliği",
