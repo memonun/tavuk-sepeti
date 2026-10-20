@@ -130,6 +130,7 @@ import { ShopNotice } from "@/features/storefront/ui/kit/shop-notice";
 import { fromPriceMinor, lineTotalMinor } from "@/features/storefront/ui/line-pricing";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
+import { revealField } from "@/features/storefront/ui/reveal-field";
 import { useCheckoutDraft } from "@/features/storefront/ui/use-checkout-draft";
 
 import type { SavedAddress } from "@/features/storefront/application/list-addresses";
@@ -143,27 +144,6 @@ const NO_DELIVERY_DAY_ID = "checkout-no-delivery-day";
 const MINIMUM_ID = "checkout-minimum";
 const MISSING_LIST_ID = "checkout-missing-list";
 
-/**
- * Bring a field the customer still has to fill into view and put the cursor
- * in it. Centered, so the sticky header never covers it; instant under
- * prefers-reduced-motion.
- */
-function revealTarget(id: string): void {
-  // A target can be absent (the map did not load, say): the list under the
-  // button still names the problem, so go there rather than nowhere.
-  const element = document.getElementById(id) ?? document.getElementById(MISSING_LIST_ID);
-  if (!element) return;
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  element.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
-  if (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLButtonElement ||
-    element instanceof HTMLSelectElement ||
-    element instanceof HTMLTextAreaElement
-  ) {
-    element.focus({ preventScroll: true });
-  }
-}
 
 /**
  * What an anonymous visitor is doing at checkout.
@@ -292,6 +272,13 @@ export function CheckoutForm({
   // from then on every problem field shows its own red sentence. Not before —
   // a form that opens covered in red reads as a scolding.
   const [attempted, setAttempted] = useState(false);
+  // Contact fields the customer has already left: each shows its own red
+  // sentence from then on, without waiting for the button.
+  const [contactTouched, setContactTouched] = useState<ReadonlySet<string>>(() => new Set());
+  const touchContact = useCallback(
+    (id: string) => setContactTouched((prev) => (prev.has(id) ? prev : new Set(prev).add(id))),
+    [],
+  );
 
   // Empty the basket AND the saved draft on inline success; for the card path,
   // hand off to PayTR and keep both (the customer may bounce back from a failed
@@ -627,7 +614,11 @@ export function CheckoutForm({
         },
     distanceSalesAccepted,
   });
-  const contactErrors = attempted ? fieldErrors(guestContact, []) : {};
+  const contactErrors = Object.fromEntries(
+    Object.entries(fieldErrors(guestContact, [])).filter(
+      ([id]) => attempted || contactTouched.has(id),
+    ),
+  );
   const whatsAppOrderHref = buildWhatsAppOrderLink(
     rows.map((r) => ({
       name: r.product.display_name,
@@ -704,7 +695,7 @@ export function CheckoutForm({
           // preventDefault also stops React from running the form action.
           event.preventDefault();
           setAttempted(true);
-          revealTarget(first.target);
+          revealField(first.target, MISSING_LIST_ID);
           return;
         }
         // Meta Pixel AddPaymentInfo: the order goes in with this method.
@@ -778,6 +769,7 @@ export function CheckoutForm({
                 // it, so it stays optional there.
                 emailRequired={selectedPaymentMethod === "credit_card"}
                 errors={contactErrors}
+                onTouch={touchContact}
               />
               <input type="hidden" name="account_mode" value="guest" />
               <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted p-4">
@@ -1132,7 +1124,7 @@ export function CheckoutForm({
                           {/* Each line takes the customer to its field. */}
                           <button
                             type="button"
-                            onClick={() => revealTarget(line.target)}
+                            onClick={() => revealField(line.target, MISSING_LIST_ID)}
                             className="text-left underline underline-offset-4"
                           >
                             {line.text}
@@ -1501,6 +1493,7 @@ function GuestBlock({
   onChange,
   emailRequired,
   errors,
+  onTouch,
 }: {
   disabled: boolean;
   values: {
@@ -1518,15 +1511,18 @@ function GuestBlock({
     }>,
   ) => void;
   emailRequired: boolean;
-  /** Field id → red sentence under it; empty until the customer has tried to
-   *  submit (see `attempted` in CheckoutForm). */
+  /** Field id → red sentence under it: a field shows its own once the
+   *  customer has left it, every one after a pressed button. */
   errors: Readonly<Record<string, string>>;
+  onTouch: (id: string) => void;
 }) {
-  const invalid = (id: string) =>
-    errors[id] ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` } : {};
+  const invalid = (id: string) => ({
+    onBlur: () => onTouch(id),
+    ...(errors[id] ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` } : {}),
+  });
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Ad" htmlFor="first_name" error={errors.first_name}>
+      <Field required label="Ad" htmlFor="first_name" error={errors.first_name}>
         <ShopInput
           id="first_name"
           name="first_name"
@@ -1538,7 +1534,7 @@ function GuestBlock({
           {...invalid("first_name")}
         />
       </Field>
-      <Field label="Soyad" htmlFor="last_name" error={errors.last_name}>
+      <Field required label="Soyad" htmlFor="last_name" error={errors.last_name}>
         <ShopInput
           id="last_name"
           name="last_name"
@@ -1550,7 +1546,7 @@ function GuestBlock({
           {...invalid("last_name")}
         />
       </Field>
-      <Field label="Telefon" htmlFor="phone" error={errors.phone}>
+      <Field required label="Telefon" htmlFor="phone" error={errors.phone}>
         {/* Grouped as it is typed (0532 123 45 67): a run of eleven digits is
             hard to check by eye, and the groups are how a number is read
             aloud. The server normalises whatever arrives. */}
@@ -1569,6 +1565,7 @@ function GuestBlock({
         />
       </Field>
       <Field
+        required={emailRequired}
         label={emailRequired ? "E-posta" : "E-posta (isteğe bağlı)"}
         htmlFor="account_email"
         error={errors.account_email}
@@ -1659,11 +1656,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({
   label,
   htmlFor,
+  required = false,
   error,
   children,
 }: {
   label: string;
   htmlFor: string;
+  /** Red star after the label — the same mark the address form uses. */
+  required?: boolean;
   /** Red sentence under the control; its id matches `aria-describedby`. */
   error?: string | undefined;
   children: React.ReactNode;
@@ -1672,6 +1672,11 @@ function Field({
     <div className="flex min-w-0 flex-col gap-2">
       <label htmlFor={htmlFor} className="text-base font-bold text-foreground">
         {label}
+        {required ? (
+          <span className="text-destructive" aria-hidden>
+            {" "}*
+          </span>
+        ) : null}
       </label>
       {children}
       {error ? (
