@@ -23,7 +23,7 @@
  * point is how the fields get filled without typing. There the pin is optional:
  * it is saved if placed, and nothing blocks the save if it is not.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapPinIcon } from "lucide-react";
 
 import { AddressAutocomplete } from "@/components/address/address-autocomplete";
@@ -84,8 +84,18 @@ export interface AddressFormProps {
    * exist before the order does. It travels with the order submit instead, and
    * `place_guest_order` writes customer, address and order in one transaction.
    * When set, `onSaved` is never called and nothing is persisted here.
+   *
+   * Called LIVE, with no button (owner decision 2026-10-20: the address goes in
+   * as the customer types it): the complete address once every required field
+   * is filled (and, for a route basket, the pin confirmed), otherwise `null`
+   * plus the plain-Turkish names of what is still missing, which the checkout
+   * lists next to its submit button. Must be referentially stable — it is an
+   * effect dependency.
    */
-  onCollect?: (address: CollectedAddress) => void;
+  onCollect?: (
+    address: CollectedAddress | null,
+    missing: readonly string[],
+  ) => void;
 }
 
 interface FormFields {
@@ -182,6 +192,41 @@ export function AddressForm({
   // Guest checkout (onCollect set) requires all address fields, not just route mode.
   const requiresAllFields = !!onCollect;
   const canSubmit = !saving && (!needsPin || (hasPin && confirmed));
+
+  // ---- Guest checkout: live collection (see `onCollect`) ---------------------
+  const collected = useMemo<CollectedAddress>(
+    () => ({
+      ...fields,
+      apartment_no: detached ? DETACHED_HOUSE_APARTMENT_NO : fields.apartment_no,
+      lat: hasPin ? pin.lat : 0,
+      lng: hasPin ? pin.lng : 0,
+      accuracy: pin.accuracy,
+      source: pin.source,
+    }),
+    [fields, detached, hasPin, pin],
+  );
+  // The same fields the inputs below mark `required` in collect mode, in the
+  // order the customer meets them, named the way their labels read.
+  const collectMissing = useMemo<readonly string[]>(() => {
+    const missing: string[] = [];
+    if (needsPin && !hasPin) missing.push("haritadan teslimat konumu");
+    if (fields.city.trim() === "") missing.push("İl");
+    if (fields.district.trim() === "") missing.push("İlçe");
+    if (fields.neighborhood.trim() === "") missing.push("Mahalle");
+    if (fields.street.trim() === "") missing.push("Cadde / Sokak");
+    if (fields.building_no.trim() === "") missing.push("Bina no");
+    if (!detached && fields.apartment_no.trim() === "") {
+      missing.push("Daire no (müstakil evse kutuyu işaretleyin)");
+    }
+    if (needsPin && hasPin && !confirmed) {
+      missing.push("haritadaki konumun onayı (kutuyu işaretleyin)");
+    }
+    return missing;
+  }, [fields, detached, needsPin, hasPin, confirmed]);
+  useEffect(() => {
+    if (!onCollect) return;
+    onCollect(collectMissing.length === 0 ? collected : null, collectMissing);
+  }, [onCollect, collected, collectMissing]);
 
   function applySuggestion(place: ParsedAddress) {
     // Same blank-keeps-old-value rule as fillFromPin: a search result that
@@ -328,25 +373,9 @@ export function AddressForm({
   async function submit() {
     setError(null);
 
-    const collected = {
-      ...fields,
-      apartment_no: detached ? DETACHED_HOUSE_APARTMENT_NO : fields.apartment_no,
-      lat: hasPin ? pin.lat : 0,
-      lng: hasPin ? pin.lng : 0,
-      accuracy: pin.accuracy,
-      source: pin.source,
-    };
-
-    // Guest checkout: nothing is persisted here — the address rides along with
-    // the order submit, which is the only moment a guest gets a customer row.
-    if (onCollect) {
-      onCollect(collected);
-      return;
-    }
-
     // Only a SAVED address (from AddressPicker's "Düzenle") has an id/is_primary
-    // to carry forward — a guest's CollectedAddress never reaches this branch at
-    // all (onCollect is always set for guests, see the early return above).
+    // to carry forward — a guest's CollectedAddress never reaches here at all:
+    // in collect mode there is no button, the effect above hands it up live.
     const savedInitial = initial && "id" in initial ? initial : undefined;
 
     setSaving(true);
@@ -601,26 +630,26 @@ export function AddressForm({
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <ShopButton size="lg" onClick={submit} disabled={!canSubmit}>
-          {/* Nothing is stored in collect mode — a guest has no address book,
-              so promising "kaydet" would be a lie. */}
-          {onCollect
-            ? "Bu adresi kullan"
-            : saving
-              ? "Kaydediliyor…"
-              : "Adresi kaydet"}
-        </ShopButton>
-        {onCancel ? (
-          <ShopButton size="lg" variant="quiet" onClick={onCancel} disabled={saving}>
-            Vazgeç
+      {/* Collect mode has no button: the address is handed up as it is typed
+          (see `onCollect`). */}
+      {onCollect ? null : (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <ShopButton size="lg" onClick={submit} disabled={!canSubmit}>
+            {saving ? "Kaydediliyor…" : "Adresi kaydet"}
           </ShopButton>
-        ) : null}
-      </div>
+          {onCancel ? (
+            <ShopButton size="lg" variant="quiet" onClick={onCancel} disabled={saving}>
+              Vazgeç
+            </ShopButton>
+          ) : null}
+        </div>
+      )}
 
       {needsPin && hasPin && !confirmed ? (
         <p className="rounded-2xl bg-(--shop-apricot-soft) p-4 text-base font-semibold text-foreground">
-          Kaydetmek için haritadaki konumu onaylayın.
+          {onCollect
+            ? "Devam etmek için haritadaki konumu onaylayın."
+            : "Kaydetmek için haritadaki konumu onaylayın."}
         </p>
       ) : null}
     </div>

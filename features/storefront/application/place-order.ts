@@ -24,15 +24,16 @@
  *      with the client's hint, so a basket that went stale (an admin flipped a
  *      product to cargo mid-session) is rejected rather than silently
  *      switching form shape.
- *   5. Re-derive the fulfillment CHANNEL — address-aware since 2026-08-13 for a
- *      SIGNED-IN customer: a flexible-only basket still becomes `delivery` when
- *      their saved address is route-capable (isRouteUpgradeEligible), same
- *      "ride along in the van" treatment a mixed basket already gets. Mirrors
+ *   5. Re-derive the fulfillment CHANNEL — address-aware since 2026-08-13: a
+ *      flexible-only basket still becomes `delivery` when the address is
+ *      route-capable (isRouteUpgradeEligible), same "ride along in the van"
+ *      treatment a mixed basket already gets. Mirrors
  *      resolve_channel_for_items() in the RPC (migration 20260813130000) — the
  *      two must land on the same channel or the checks below would validate
- *      against one the write then disagrees with. A GUEST has no saved address
- *      to check yet (theirs arrives typed, further down, WITH this submit), so
- *      their channel stays cart-only — the same behaviour as before this date.
+ *      against one the write then disagrees with. An account's saved address
+ *      and a guest's typed one (validated against the cart's form shape first)
+ *      both feed it; until 2026-10-20 a guest's was left out, which held a
+ *      Malatya guest to the cargo floor the write never applied.
  *   6. Apply the CHANNEL-DEPENDENT rules, all server-authoritative and all
  *      re-checked here even though the form already renders them:
  *        - delivery → the day must be inside the window AND one of the owner's
@@ -43,9 +44,10 @@
  *          cargo order floor (1.000 ₺ by default);
  *        - kapıda nakit ödeme only on a delivery — a courier collects nothing
  *          on our behalf.
- *   7. Resolve WHERE it goes. An account's address was already fetched in step
- *      5; a guest's is validated now, against the channel just derived (route
- *      schema demands a confirmed pin, cargo does not).
+ *   7. Resolve WHERE it goes. Both shapes were already resolved for step 5:
+ *      an account's saved address by id, a guest's typed one validated against
+ *      the cart's form shape (route schema demands a confirmed pin, cargo does
+ *      not).
  *   8. Hand to the privileged writer, which re-checks address ownership, the
  *      route-address fields and the service area inside the transaction.
  *
@@ -70,6 +72,7 @@ import { resolveCheckoutCustomer } from "@/features/storefront/application/resol
 import {
   validateCheckoutAddress,
   type CheckoutAddress,
+  type ValidatedCheckoutAddress,
 } from "@/features/storefront/application/validate-checkout-address";
 import { addDaysIso, isWithinWindow } from "@/features/storefront/domain/delivery-date";
 import {
@@ -119,6 +122,7 @@ import {
 } from "@/features/storefront/infrastructure/web-order.repository";
 import { logAudit } from "@/shared/audit/log-audit";
 import { sendEmail } from "@/shared/email/send-email";
+import { describeIssues } from "@/shared/errors/describe-issues";
 import { logger } from "@/shared/logger";
 import { composeFullAddress } from "@/shared/utils/address";
 
@@ -215,10 +219,13 @@ export async function placeOrderAction(
   });
 
   if (!parsed.success) {
-    const first = parsed.error.issues[0];
+    // All of them, not the first: one refusal per empty field was the old way.
     return {
       status: "validation_error",
-      message: first?.message ?? "Formda eksik veya hatalı alanlar var.",
+      message: describeIssues(
+        parsed.error.issues,
+        "Formda eksik veya hatalı alanlar var.",
+      ),
     };
   }
 
@@ -336,18 +343,49 @@ export async function placeOrderAction(
     accountAddress = saved;
   }
 
+  // ---- A guest's typed address, validated early -------------------------------
+  // Same reason as the account fetch above: the channel needs it. Validated
+  // against the CART's form shape — the one the customer actually filled in —
+  // which is also what the channel used to be keyed on for a guest, so the
+  // route schema still demands a confirmed pin whenever the basket holds a
+  // delivery-only line.
+  let guestValidated: ValidatedCheckoutAddress | null = null;
+  if (guestAccount) {
+    const validated = await validateCheckoutAddress(
+      requiredMode,
+      readGuestAddressInput(formData),
+    );
+    if (!validated.ok) {
+      return { status: "validation_error", message: validated.error.message };
+    }
+    guestValidated = validated.value;
+  }
+
   // ---- Channel: re-derived, never taken from the client ----------------------
   // Owner decision 2026-08-13: a flexible-only basket (no delivery-only line)
-  // still becomes a delivery order when a SIGNED-IN customer's address is
-  // genuinely route-capable — same "ride along in the van" treatment a mixed
-  // basket already gets. This must land on exactly the same channel
+  // still becomes a delivery order when the customer's address is genuinely
+  // route-capable — same "ride along in the van" treatment a mixed basket
+  // already gets. This must land on exactly the same channel
   // resolve_channel_for_items() decides in the RPC (migration 20260813130000),
   // or the checks below (payment method, order floor) would validate against a
-  // channel the write then disagrees with. A guest's basket stays cart-only —
-  // their address is not on file yet to check.
+  // channel the write then disagrees with.
+  //
+  // That includes a guest. Their address used to be left out here ("not on
+  // file yet"), but place_guest_order saves it and then runs the very same
+  // resolver on it — so a guest in Malatya with a kayısı-only basket was held
+  // to the 1.000 ₺ cargo floor here while the write would have made it a
+  // delivery order. geoVerified is the same PostGIS answer the RPC's
+  // is_route_capable_address() asks for.
   const channel = resolveOrderChannel(
     enriched.value,
-    accountAddress ? isRouteUpgradeEligible(accountAddress) : false,
+    accountAddress
+      ? isRouteUpgradeEligible(accountAddress)
+      : guestValidated
+        ? isRouteUpgradeEligible({
+            ...guestValidated.address,
+            geo_verified: guestValidated.geoVerified,
+          })
+        : false,
   );
 
   // ---- Rules the owner controls (delivery days, order floor) ----------------
@@ -413,27 +451,18 @@ export async function placeOrderAction(
   }
 
   // ---- Where it goes ---------------------------------------------------------
-  // An account's address was already fetched above; a guest's arrives WITH this
-  // submit and is validated now, against the channel just derived — a route
-  // order must carry a confirmed pin inside the service area, a cargo parcel
-  // may go anywhere in Türkiye.
+  // Both shapes were resolved above, ahead of the channel: an account's saved
+  // address by id, a guest's typed one validated against the cart's form shape.
   let address: CheckoutAddress;
   let guestAddress: GuestAddressPayload | null = null;
   let accountAddressId: string | null = null;
 
-  if (guestAccount) {
-    const validated = await validateCheckoutAddress(
-      channel === "delivery" ? "route" : "cargo",
-      readGuestAddressInput(formData),
-    );
-    if (!validated.ok) {
-      return { status: "validation_error", message: validated.error.message };
-    }
-    address = validated.value.address;
+  if (guestValidated) {
+    address = guestValidated.address;
     guestAddress = {
-      ...validated.value.address,
-      raw_text: composeFullAddress(validated.value.address),
-      geo_verified: validated.value.geoVerified,
+      ...guestValidated.address,
+      raw_text: composeFullAddress(guestValidated.address),
+      geo_verified: guestValidated.geoVerified,
     };
   } else {
     // Non-null: populated above whenever `guestAccount` is null.
@@ -501,7 +530,11 @@ export async function placeOrderAction(
       return { status: "validation_error", message: placed.error.message };
     }
     logger.error({ code: placed.error.code }, "place_web_order_failed");
-    return { status: "error", message: "Sipariş oluşturulamadı, tekrar deneyin." };
+    return {
+      status: "error",
+      message:
+        "Siparişiniz kaydedilemedi; sizden herhangi bir ücret alınmadı. Lütfen birkaç saniye sonra tekrar deneyin.",
+    };
   }
 
   logger.info(
