@@ -24,7 +24,7 @@
  * it is saved if placed, and nothing blocks the save if it is not.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MapPinIcon } from "lucide-react";
+import { CheckCircle2Icon, MapPinIcon } from "lucide-react";
 
 import { AddressAutocomplete } from "@/components/address/address-autocomplete";
 import { AddressMapsProvider } from "@/components/address/address-maps-provider";
@@ -36,6 +36,7 @@ import { saveAddressAction } from "@/features/storefront/application/save-addres
 import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 import { ShopInput } from "@/features/storefront/ui/kit/shop-field";
 import { DETACHED_HOUSE_APARTMENT_NO } from "@/features/storefront/domain/customer-address.schema";
+import type { MissingField } from "@/features/storefront/domain/checkout-missing";
 import {
   DELIVERY_PROVINCE,
   DELIVERY_PROVINCE_CENTER,
@@ -88,15 +89,25 @@ export interface AddressFormProps {
    * Called LIVE, with no button (owner decision 2026-10-20: the address goes in
    * as the customer types it): the complete address once every required field
    * is filled (and, for a route basket, the pin confirmed), otherwise `null`
-   * plus the plain-Turkish names of what is still missing, which the checkout
+   * plus what is still missing (name, field id, sentence), which the checkout
    * lists next to its submit button. Must be referentially stable — it is an
    * effect dependency.
    */
   onCollect?: (
     address: CollectedAddress | null,
-    missing: readonly string[],
+    missing: readonly MissingField[],
   ) => void;
+  /** Collect mode: mark the missing fields red, each with its sentence. The
+   *  checkout turns this on once the customer has pressed its submit button. */
+  showMissing?: boolean;
+  /** Route mode: where "konumumu bulamıyorum" sends the customer (the
+   *  checkout's WhatsApp order link). */
+  helpHref?: string;
 }
+
+/** Scroll targets for the checkout's "what is missing" list. */
+const MAP_ID = "af-map";
+const CONFIRM_ID = "af-confirm";
 
 interface FormFields {
   label: string;
@@ -129,6 +140,8 @@ export function AddressForm({
   onSaved,
   onCancel,
   onCollect,
+  showMissing = false,
+  helpHref,
 }: AddressFormProps) {
   const [fields, setFields] = useState<FormFields>(
     initial
@@ -206,23 +219,65 @@ export function AddressForm({
     [fields, detached, hasPin, pin],
   );
   // The same fields the inputs below mark `required` in collect mode, in the
-  // order the customer meets them, named the way their labels read.
-  const collectMissing = useMemo<readonly string[]>(() => {
-    const missing: string[] = [];
-    if (needsPin && !hasPin) missing.push("haritadan teslimat konumu");
-    if (fields.city.trim() === "") missing.push("İl");
-    if (fields.district.trim() === "") missing.push("İlçe");
-    if (fields.neighborhood.trim() === "") missing.push("Mahalle");
-    if (fields.street.trim() === "") missing.push("Cadde / Sokak");
-    if (fields.building_no.trim() === "") missing.push("Bina no");
-    if (!detached && fields.apartment_no.trim() === "") {
-      missing.push("Daire no (müstakil evse kutuyu işaretleyin)");
+  // order the customer meets them on screen (the map leads in route mode and
+  // trails in cargo mode), named the way their labels read.
+  const collectMissing = useMemo<readonly MissingField[]>(() => {
+    const pinMissing: MissingField[] =
+      needsPin && !hasPin
+        ? [
+            {
+              label: "haritadan teslimat konumu",
+              target: MAP_ID,
+              message: "Haritada evinizin yerine dokunun ya da adresinizi aşağıya yazın.",
+            },
+          ]
+        : [];
+    const fieldMissing: MissingField[] = [];
+    const need = (value: string, label: string, target: string, message: string) => {
+      if (value.trim() === "") fieldMissing.push({ label, target, message });
+    };
+    need(fields.city, "İl", "af-city", "İlinizi yazın.");
+    need(fields.district, "İlçe", "af-district", "İlçenizi yazın.");
+    need(fields.neighborhood, "Mahalle", "af-neighborhood", "Mahallenizi yazın.");
+    need(fields.street, "Cadde / Sokak", "af-street", "Cadde veya sokak adını yazın.");
+    need(fields.building_no, "Bina no", "af-building", "Bina numarasını yazın.");
+    if (!detached) {
+      need(
+        fields.apartment_no,
+        "Daire no",
+        "af-apartment",
+        "Daire numarasını yazın. Müstakil evse alttaki kutuyu işaretleyin.",
+      );
     }
-    if (needsPin && hasPin && !confirmed) {
-      missing.push("haritadaki konumun onayı (kutuyu işaretleyin)");
-    }
-    return missing;
+    const confirmMissing: MissingField[] =
+      needsPin && hasPin && !confirmed
+        ? [
+            {
+              label: "haritadaki konumun onayı",
+              target: CONFIRM_ID,
+              message: "Haritadaki konum doğruysa \"Evet, evim burası\" düğmesine basın.",
+            },
+          ]
+        : [];
+    return needsPin
+      ? [...pinMissing, ...confirmMissing, ...fieldMissing]
+      : [...fieldMissing, ...pinMissing, ...confirmMissing];
   }, [fields, detached, needsPin, hasPin, confirmed]);
+  /** Field id → sentence, shown under the field once `showMissing` is on. */
+  const missingByTarget = useMemo(() => {
+    const byTarget = new Map<string, string>();
+    if (onCollect && showMissing) {
+      for (const field of collectMissing) {
+        if (!byTarget.has(field.target)) byTarget.set(field.target, field.message);
+      }
+    }
+    return byTarget;
+  }, [onCollect, showMissing, collectMissing]);
+  /** aria wiring for a field that may be shown as missing. */
+  const invalid = (id: string) =>
+    missingByTarget.has(id)
+      ? { "aria-invalid": true as const, "aria-describedby": `${id}-error` }
+      : {};
   useEffect(() => {
     if (!onCollect) return;
     onCollect(collectMissing.length === 0 ? collected : null, collectMissing);
@@ -442,6 +497,7 @@ export function AddressForm({
         {/* Map first: picking the point is the fast path, and it fills every
             field below, so the customer edits pre-filled text instead of
             typing an address from scratch on a phone. */}
+        <div id={MAP_ID} className="flex flex-col gap-2">
         <AddressPinCorrector
           lat={hasPin ? pin.lat : DELIVERY_PROVINCE_CENTER.lat}
           lng={hasPin ? pin.lng : DELIVERY_PROVINCE_CENTER.lng}
@@ -459,6 +515,8 @@ export function AddressForm({
           }
           onChange={handlePinChange}
         />
+        <FieldError id={MAP_ID} message={missingByTarget.get(MAP_ID)} />
+        </div>
 
         {lookupError ? (
           <p className="text-base text-muted-foreground" role="status">
@@ -478,22 +536,34 @@ export function AddressForm({
           />
         </div>
 
+        {/* A big "yes" button instead of the old small checkbox: our older
+            customers missed the box, and "Evet, evim burası" says what the
+            confirmation means. Moving the pin un-confirms it (handlePinChange). */}
         {needsPin && hasPin ? (
-          <label
-            data-checked={confirmed || undefined}
-            className="shop-press-soft flex min-h-14 cursor-pointer items-start gap-3 rounded-2xl border-2 border-(--shop-field-border) bg-card px-4 py-3 text-base leading-relaxed font-semibold text-foreground data-[checked]:border-primary data-[checked]:bg-(--shop-green-soft)"
-          >
-            <Checkbox
-              checked={confirmed}
-              onCheckedChange={setConfirmed}
-              className={checkboxClass}
-              disabled={saving}
-            />
-            <span>
-              Haritadaki konum teslimat adresim. Kurye/dağıtım bu noktaya
-              gelecek.
-            </span>
-          </label>
+          confirmed ? (
+            <p className="flex items-start gap-3 rounded-2xl border-2 border-primary bg-(--shop-green-soft) px-4 py-3 text-base leading-relaxed font-semibold text-foreground">
+              <CheckCircle2Icon className="mt-0.5 size-6 shrink-0 text-primary" aria-hidden />
+              <span>
+                Konum onaylandı. Kurye bu noktaya gelecek. Yanlışsa pini haritada
+                sürükleyin.
+              </span>
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <ShopButton
+                id={CONFIRM_ID}
+                size="lg"
+                block
+                onClick={() => setConfirmed(true)}
+                disabled={saving}
+                {...invalid(CONFIRM_ID)}
+              >
+                <CheckCircle2Icon className="size-6" aria-hidden />
+                Evet, evim burası
+              </ShopButton>
+              <FieldError id={CONFIRM_ID} message={missingByTarget.get(CONFIRM_ID)} />
+            </div>
+          )
         ) : null}
 
         {needsPin && !hasPin ? (
@@ -504,8 +574,35 @@ export function AddressForm({
             </span>
           </p>
         ) : null}
+
+        {needsPin && helpHref ? (
+          <p className="text-base leading-relaxed text-foreground">
+            Konumunuzu haritada bulamıyor musunuz?{" "}
+            <a
+              href={helpHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold underline underline-offset-4"
+            >
+              WhatsApp&apos;tan yazın
+            </a>
+            , siparişinizi birlikte alalım.
+          </p>
+        ) : null}
       </div>
     </AddressMapsProvider>
+  );
+
+  // Cargo: the map is optional, so the fields lead — typing an address is
+  // what our older customers know; the map below is there for whoever wants
+  // it. Route: the pin is the point of the form, so the map stays first.
+  const mapSection = needsPin ? (
+    mapBlock
+  ) : (
+    <div className="flex flex-col gap-3">
+      <p className={labelClass}>Haritada işaretlemek isterseniz (isteğe bağlı)</p>
+      {mapBlock}
+    </div>
   );
 
   return (
@@ -513,21 +610,25 @@ export function AddressForm({
     // address search box (shared components, also used by the admin) up to
     // the shop's sizes without editing those files.
     <div className="shop-address flex flex-col gap-5 rounded-3xl border border-border bg-card p-4 sm:p-5">
-      {mapBlock}
+      {needsPin ? mapSection : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Adres adı (ör. Ev, İş)" htmlFor="af-label">
-          <ShopInput
-            id="af-label"
-            value={fields.label}
-            onChange={(e) => set({ label: e.target.value })}
-            placeholder="Ev"
-            disabled={saving}
-          />
-        </Field>
-        <Field label="İl" htmlFor="af-city">
+        {/* An address book name means nothing to a guest, who has no book. */}
+        {onCollect ? null : (
+          <Field label="Adres adı (ör. Ev, İş)" htmlFor="af-label">
+            <ShopInput
+              id="af-label"
+              value={fields.label}
+              onChange={(e) => set({ label: e.target.value })}
+              placeholder="Ev"
+              disabled={saving}
+            />
+          </Field>
+        )}
+        <Field label="İl" htmlFor="af-city" error={missingByTarget.get("af-city")}>
           <ShopInput
             id="af-city"
+            {...invalid("af-city")}
             value={fields.city}
             onChange={(e) => set({ city: e.target.value })}
             autoComplete="address-level1"
@@ -535,9 +636,10 @@ export function AddressForm({
             disabled={saving}
           />
         </Field>
-        <Field label="İlçe" htmlFor="af-district">
+        <Field label="İlçe" htmlFor="af-district" error={missingByTarget.get("af-district")}>
           <ShopInput
             id="af-district"
+            {...invalid("af-district")}
             value={fields.district}
             onChange={(e) => set({ district: e.target.value })}
             autoComplete="address-level2"
@@ -545,9 +647,10 @@ export function AddressForm({
             disabled={saving}
           />
         </Field>
-        <Field label="Mahalle" htmlFor="af-neighborhood">
+        <Field label="Mahalle" htmlFor="af-neighborhood" error={missingByTarget.get("af-neighborhood")}>
           <ShopInput
             id="af-neighborhood"
+            {...invalid("af-neighborhood")}
             value={fields.neighborhood}
             onChange={(e) => set({ neighborhood: e.target.value })}
             required
@@ -557,9 +660,11 @@ export function AddressForm({
         <Field
           label={needsPin || requiresAllFields ? "Cadde / Sokak" : "Cadde / Sokak (opsiyonel)"}
           htmlFor="af-street"
+          error={missingByTarget.get("af-street")}
         >
           <ShopInput
             id="af-street"
+            {...invalid("af-street")}
             value={fields.street}
             onChange={(e) => set({ street: e.target.value })}
             autoComplete="address-line1"
@@ -567,19 +672,21 @@ export function AddressForm({
             disabled={saving}
           />
         </Field>
-        <Field label={needsPin || requiresAllFields ? "Bina no" : "Bina no (opsiyonel)"} htmlFor="af-building">
+        <Field label={needsPin || requiresAllFields ? "Bina no" : "Bina no (opsiyonel)"} htmlFor="af-building" error={missingByTarget.get("af-building")}>
           <ShopInput
             id="af-building"
+            {...invalid("af-building")}
             value={fields.building_no}
             onChange={(e) => set({ building_no: e.target.value })}
             required={needsPin || requiresAllFields}
             disabled={saving}
           />
         </Field>
-        <Field label={needsPin || requiresAllFields ? "Daire no" : "Daire no (opsiyonel)"} htmlFor="af-apartment">
+        <Field label={needsPin || requiresAllFields ? "Daire no" : "Daire no (opsiyonel)"} htmlFor="af-apartment" error={missingByTarget.get("af-apartment")}>
           <div className="flex flex-col gap-2">
             <ShopInput
               id="af-apartment"
+              {...invalid("af-apartment")}
               value={detached ? "" : fields.apartment_no}
               onChange={(e) => set({ apartment_no: e.target.value })}
               required={(needsPin || requiresAllFields) && !detached}
@@ -600,16 +707,20 @@ export function AddressForm({
             </label>
           </div>
         </Field>
-        <Field label="Posta kodu (opsiyonel)" htmlFor="af-postal">
-          <ShopInput
-            id="af-postal"
-            value={fields.postal_code}
-            onChange={(e) => set({ postal_code: e.target.value })}
-            autoComplete="postal-code"
-            inputMode="numeric"
-            disabled={saving}
-          />
-        </Field>
+        {/* Optional, and a courier finds the door without it — one less box
+            for a guest to wonder about. */}
+        {onCollect ? null : (
+          <Field label="Posta kodu (opsiyonel)" htmlFor="af-postal">
+            <ShopInput
+              id="af-postal"
+              value={fields.postal_code}
+              onChange={(e) => set({ postal_code: e.target.value })}
+              autoComplete="postal-code"
+              inputMode="numeric"
+              disabled={saving}
+            />
+          </Field>
+        )}
         <Field label="Adres tarifi (opsiyonel)" htmlFor="af-desc">
           <ShopInput
             id="af-desc"
@@ -620,6 +731,8 @@ export function AddressForm({
           />
         </Field>
       </div>
+
+      {needsPin ? null : mapSection}
 
       {error ? (
         <p
@@ -665,10 +778,13 @@ const checkboxClass =
 function Field({
   label,
   htmlFor,
+  error,
   children,
 }: {
   label: string;
   htmlFor: string;
+  /** Shown under the control, in red, when the field is missing. */
+  error?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
@@ -677,6 +793,18 @@ function Field({
         {label}
       </label>
       {children}
+      <FieldError id={htmlFor} message={error} />
     </div>
+  );
+}
+
+/** The sentence under a missing field; `id` matches the control's
+ *  `aria-describedby`. */
+function FieldError({ id, message }: { id: string; message: string | undefined }) {
+  if (!message) return null;
+  return (
+    <p id={`${id}-error`} className="text-base font-semibold text-destructive">
+      {message}
+    </p>
   );
 }

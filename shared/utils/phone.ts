@@ -47,3 +47,39 @@ export function formatTRPhone(e164: string | null | undefined): string {
   const d = s.slice(8, 10);
   return `+90 ${a} ${b} ${c} ${d}`;
 }
+
+/**
+ * Group a phone number AS IT IS TYPED: `05321234567` → `0532 123 45 67`.
+ *
+ * For the storefront's phone field. A long run of digits is hard to check by
+ * eye, and the groups are how a Turkish number is read aloud, so a customer can
+ * see a missing or doubled digit before submitting. Keeps the prefix the
+ * customer chose (`0…`, `+90…`, or none) and stops at a full number's length.
+ * Display only — `normalizeTRPhone` still decides what is stored.
+ */
+export function formatTRPhoneInput(input: string): string {
+  const trimmed = input.trimStart();
+  const digits = trimmed.replace(/\D/g, "");
+  const plus = trimmed.startsWith("+");
+  if (digits === "") return plus ? "+" : "";
+
+  let prefix = "";
+  let subscriber = digits;
+  if (plus) {
+    if (digits.length <= 2) return `+${digits}`;
+    prefix = `+${digits.slice(0, 2)} `;
+    subscriber = digits.slice(2);
+  } else if (digits.startsWith("0")) {
+    prefix = "0";
+    subscriber = digits.slice(1);
+  }
+
+  subscriber = subscriber.slice(0, 10);
+  const groups = [
+    subscriber.slice(0, 3),
+    subscriber.slice(3, 6),
+    subscriber.slice(6, 8),
+    subscriber.slice(8, 10),
+  ].filter((group) => group !== "");
+  return `${prefix}${groups.join(" ")}`;
+}

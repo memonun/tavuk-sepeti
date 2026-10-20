@@ -31,6 +31,28 @@ export function paymentMethodsForChannel(
   ).map((option) => ({ value: option.value, label: option.label }));
 }
 
+/**
+ * The checkout's order: the methods our older customers trust first, the card
+ * last (owner decision 2026-10-20). Most of them pay cash at the door or by
+ * havale; a preselected card made e-mail look mandatory and sent people to a
+ * payment page they had not chosen. The first entry is what the checkout
+ * preselects: kapıda nakit on a home delivery, havale on a cargo order.
+ */
+const CHECKOUT_PREFERENCE: readonly PaymentMethod[] = [
+  "cash_on_delivery",
+  "bank_transfer",
+  "credit_card",
+];
+
+/** `paymentMethodsForChannel`, in the order the checkout lists them. */
+export function paymentMethodsForCheckout(
+  channel: FulfillmentChannel,
+): readonly PaymentMethodOption[] {
+  return [...paymentMethodsForChannel(channel)].sort(
+    (a, b) => CHECKOUT_PREFERENCE.indexOf(a.value) - CHECKOUT_PREFERENCE.indexOf(b.value),
+  );
+}
+
 export function isPaymentMethodAllowed(
   method: PaymentMethod,
   channel: FulfillmentChannel,

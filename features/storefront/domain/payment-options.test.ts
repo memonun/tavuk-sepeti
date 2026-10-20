@@ -4,6 +4,7 @@ import {
   isPaymentMethodAllowed,
   paymentMethodBlockedMessage,
   paymentMethodsForChannel,
+  paymentMethodsForCheckout,
 } from "@/features/storefront/domain/payment-options";
 
 describe("paymentMethodsForChannel", () => {
@@ -43,5 +44,22 @@ describe("paymentMethodBlockedMessage", () => {
     expect(paymentMethodBlockedMessage("cash_on_delivery")).toMatch(
       /yalnızca eve servis/,
     );
+  });
+});
+
+describe("paymentMethodsForCheckout", () => {
+  it("leads a home delivery with kapıda nakit and puts the card last", () => {
+    expect(paymentMethodsForCheckout("delivery").map((o) => o.value)).toEqual([
+      "cash_on_delivery",
+      "bank_transfer",
+      "credit_card",
+    ]);
+  });
+
+  it("leads a cargo order with havale and never offers kapıda nakit", () => {
+    expect(paymentMethodsForCheckout("shipping").map((o) => o.value)).toEqual([
+      "bank_transfer",
+      "credit_card",
+    ]);
   });
 });
