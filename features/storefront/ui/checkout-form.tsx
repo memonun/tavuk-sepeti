@@ -51,6 +51,10 @@ import {
 } from "lucide-react";
 
 import {
+  checkGuestAddressAction,
+  type GuestAddressCheck,
+} from "@/features/storefront/application/check-guest-address";
+import {
   createCheckoutAccountAction,
   type CheckoutAccountState,
 } from "@/features/storefront/application/create-checkout-account";
@@ -336,10 +340,48 @@ export function CheckoutForm({
   }
   const addressId = pickedAddressId ?? preferredAddressId;
 
+  // A guest's typed address is checked by the server once it is collected:
+  // whether it lets a flexible-only basket ride the van hinges on a PostGIS
+  // service-area answer the browser cannot compute, and an account's saved
+  // address already carries it as `geo_verified`. Keyed on the address and the
+  // form shape, so an edit (or a basket that flips shape) asks again and a
+  // stale answer is never read for the new address.
+  const guestCheckKey =
+    !identity && guestAddress ? JSON.stringify([mode, guestAddress]) : null;
+  const [guestCheck, setGuestCheck] = useState<{
+    key: string;
+    result: GuestAddressCheck;
+  } | null>(null);
+  useEffect(() => {
+    if (!guestCheckKey || !guestAddress) return;
+    let live = true;
+    checkGuestAddressAction(mode, guestAddress).then(
+      (result) => {
+        if (live) setGuestCheck({ key: guestCheckKey, result });
+      },
+      // Network failure: fall back to the cart-only channel rather than
+      // stranding the customer. The submit re-derives the channel and says
+      // what is missing if the address turns out to upgrade after all.
+      () => {
+        if (live) {
+          setGuestCheck({ key: guestCheckKey, result: { status: "ok", routeUpgrade: false } });
+        }
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [guestCheckKey, guestAddress, mode]);
+  const guestCheckResult =
+    guestCheck && guestCheck.key === guestCheckKey ? guestCheck.result : null;
+  const guestChecking = guestCheckKey !== null && guestCheckResult === null;
+
   const selectedAddress = addresses.find((a) => a.id === addressId) ?? null;
-  const addressRouteCapable = selectedAddress
-    ? isRouteUpgradeEligible(selectedAddress)
-    : false;
+  const addressRouteCapable = identity
+    ? selectedAddress
+      ? isRouteUpgradeEligible(selectedAddress)
+      : false
+    : guestCheckResult?.status === "ok" && guestCheckResult.routeUpgrade;
   const channel = resolveOrderChannel(items, addressRouteCapable);
 
   // Meta Pixel AddShippingInfo: a delivery address is in place on the order
@@ -499,19 +541,26 @@ export function CheckoutForm({
       ? paymentMethod
       : paymentOptions[0]?.value;
   // An account picks a saved address; a guest has to have finished the inline
-  // address form. Either way the order cannot go without one.
-  const hasAddress = identity ? addressId !== null : guestAddress !== null;
+  // address form, and the server must have accepted it (see guestCheck above).
+  // Either way the order cannot go without one.
+  const hasAddress = identity
+    ? addressId !== null
+    : guestAddress !== null && guestCheckResult?.status === "ok";
   const canSubmit =
     !pending && hasAddress && minimum.ok && !noDeliveryDay && distanceSalesAccepted;
   // Display only: the first thing still standing between the customer and the
   // submit button, in the order they meet it on the page. The minimum and the
   // no-delivery-day cases already have their own alert, so they are not
   // repeated here.
-  const missingStep = !hasAddress
-    ? "Devam etmek için önce teslimat adresinizi girin (2. adım)."
-    : minimum.ok && !noDeliveryDay && !distanceSalesAccepted
-      ? "Devam etmek için yukarıdaki sözleşme kutusunu işaretleyin."
-      : null;
+  const missingStep = guestChecking
+    ? "Adresiniz kontrol ediliyor…"
+    : guestCheckResult?.status === "invalid"
+      ? "Devam etmek için teslimat adresinizi düzeltin (2. adım)."
+      : !hasAddress
+        ? "Devam etmek için önce teslimat adresinizi girin (2. adım)."
+        : minimum.ok && !noDeliveryDay && !distanceSalesAccepted
+          ? "Devam etmek için yukarıdaki sözleşme kutusunu işaretleyin."
+          : null;
 
   return (
     // grid-cols-1: without an explicit base track, the implicit single-column
@@ -626,10 +675,17 @@ export function CheckoutForm({
           ) : guestAddress && !editingGuestAddress ? (
             // Collected, not saved: a guest has no address book, so the fields
             // ride along with the order submit as hidden inputs.
-            <GuestAddressSummary
-              address={guestAddress}
-              onEdit={() => setEditingGuestAddress(true)}
-            />
+            <>
+              <GuestAddressSummary
+                address={guestAddress}
+                onEdit={() => setEditingGuestAddress(true)}
+              />
+              {guestCheckResult?.status === "invalid" ? (
+                <ShopNotice tone="danger" role="alert">
+                  {guestCheckResult.message}
+                </ShopNotice>
+              ) : null}
+            </>
           ) : (
             <AddressForm
               mode={mode}

@@ -1004,6 +1004,78 @@ describe("placeOrderAction — guest", () => {
     );
   });
 
+  it("validates a guest's address against the form shape the basket asked for", async () => {
+    await placeOrderAction({ status: "idle" }, guestForm());
+    expect(validateCheckoutAddress).toHaveBeenCalledWith("route", expect.anything());
+
+    await placeOrderAction(
+      { status: "idle" },
+      guestForm({ address_mode: "cargo", items_json: CARGO_ITEMS, payment_method: "bank_transfer" }),
+    );
+    expect(validateCheckoutAddress).toHaveBeenLastCalledWith("cargo", expect.anything());
+  });
+
+  // The 2026-10-20 regression: a Malatya guest with a kayısı-only basket was held
+  // to the 1.000 ₺ cargo floor, though place_guest_order runs the same
+  // address-aware resolver as an account order and would have made it a
+  // delivery order. 2 × 125 ₺ clears the eve-servis floor, not the cargo one.
+  it("upgrades a guest's flexible-only basket when their address is route-capable", async () => {
+    const state = await placeOrderAction(
+      { status: "idle" },
+      guestForm({
+        address_mode: "cargo",
+        items_json: JSON.stringify([{ product_key: "kayisi", quantity: 2 }]),
+        time_slot: "morning",
+      }),
+    );
+
+    expect(state).toMatchObject({ status: "success", paymentMethod: "cash_on_delivery" });
+    expect(placeGuestOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scheduled_for: futureDate(),
+        time_slot: "morning",
+        payment_method: "cash_on_delivery",
+        delivery_fee_minor: 5_000,
+      }),
+    );
+  });
+
+  it("keeps the cargo floor for a guest whose address is not inside the area", async () => {
+    validateCheckoutAddress.mockResolvedValue({
+      ok: true,
+      value: {
+        address: {
+          label: null,
+          city: "İstanbul",
+          district: "Kadıköy",
+          neighborhood: "Caferağa",
+          street: "Moda Cd.",
+          building_no: "5",
+          apartment_no: "2",
+          postal_code: "",
+          description: null,
+          lat: 40.98,
+          lng: 29.02,
+          source: "user_pin",
+          accuracy: "rooftop",
+        },
+        geoVerified: false,
+      },
+    });
+
+    const state = await placeOrderAction(
+      { status: "idle" },
+      guestForm({
+        address_mode: "cargo",
+        items_json: JSON.stringify([{ product_key: "kayisi", quantity: 2 }]),
+        payment_method: "bank_transfer",
+      }),
+    );
+
+    expect(state.status).toBe("validation_error");
+    expect(placeGuestOrder).not.toHaveBeenCalled();
+  });
+
   it("refuses a card payment from a guest with no e-mail — PayTR needs one", async () => {
     const state = await placeOrderAction(
       { status: "idle" },
