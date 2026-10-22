@@ -46,8 +46,10 @@ export const MIN_DELIVERY_LEAD_DAYS = 1;
 /** How far ahead a customer may schedule a delivery (days from today). */
 export const MAX_DELIVERY_HORIZON_DAYS = 21;
 
-/** Delivery time-slot options shown at checkout. Values mirror the DB
- *  `time_slot` enum; labels are customer-facing Turkish. */
+/** Customer-facing labels for the DB `time_slot` enum. The checkout no longer
+ *  asks for a window (owner, 2026-10-22: we cannot promise an hour on a hand
+ *  delivery), so new web orders carry none; this only labels older orders in
+ *  their card-payment confirmation e-mail. */
 export const TIME_SLOT_OPTIONS = [
   { value: "morning", label: "Gün İçerisinde (Saat 10:00 - 19:00 arası)" },
 ] as const;

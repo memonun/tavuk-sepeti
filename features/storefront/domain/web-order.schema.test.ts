@@ -114,9 +114,11 @@ describe("checkoutAccountSchema", () => {
 });
 
 describe("webOrderSchema", () => {
-  it("accepts a well-formed order and nulls a blank time slot", () => {
-    const parsed = webOrderSchema.parse(validOrder);
-    expect(parsed.time_slot).toBeNull();
+  // The checkout no longer asks for a delivery window (owner, 2026-10-22); a
+  // slot posted by a page cached from before is dropped, not stored.
+  it("accepts a well-formed order and drops any posted time slot", () => {
+    const parsed = webOrderSchema.parse({ ...validOrder, time_slot: "morning" });
+    expect(parsed).not.toHaveProperty("time_slot");
     expect(parsed.items).toHaveLength(1);
     expect(parsed.payment_method).toBe("cash_on_delivery");
     expect(parsed.address_mode).toBe("route");

@@ -153,10 +153,6 @@ export const webOrderSchema = z.object({
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Teslimat günü seçin.")
       .nullable(),
   ),
-  time_slot: z.preprocess(
-    blankToNull,
-    z.enum(["morning", "afternoon", "evening"]).nullable(),
-  ),
   payment_method: z.enum(["cash_on_delivery", "bank_transfer", "credit_card"], {
     message: "Ödeme yöntemi seçin.",
   }),
