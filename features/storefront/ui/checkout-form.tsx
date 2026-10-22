@@ -105,7 +105,6 @@ import {
   cargoFeeNotice,
   deliveryFeeNotice,
   DELIVERY_PROVINCE,
-  TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { buildWhatsAppOrderLink } from "@/features/storefront/domain/whatsapp-order";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -909,21 +908,6 @@ export function CheckoutForm({
                     ))}
                   </select>
                 </Field>
-                <Field label="Zaman aralığı" htmlFor="time_slot">
-                  <select
-                    id="time_slot"
-                    name="time_slot"
-                    defaultValue={TIME_SLOT_OPTIONS[0].value}
-                    className={controlClass}
-                    disabled={pending}
-                  >
-                    {TIME_SLOT_OPTIONS.map((slot) => (
-                      <option key={slot.value} value={slot.value}>
-                        {slot.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
               </div>
             )}
           </Section>
@@ -1368,8 +1352,8 @@ function OrderSummary({
           <>
             {" "}
             <strong className="font-semibold">
-              Kargonun ücretsiz olması için sepetinize {formatTRY(freeCargoShortfall)} daha
-              ekleyin.
+              Kargonuzun ücretsiz olması için {formatTRY(freeCargoShortfall)}&apos;lik ürün
+              daha ekleyin.
             </strong>
           </>
         ) : null}

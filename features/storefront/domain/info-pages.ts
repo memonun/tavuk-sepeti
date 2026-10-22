@@ -33,7 +33,6 @@ import {
   MAX_DELIVERY_HORIZON_DAYS,
   MIN_DELIVERY_LEAD_DAYS,
   SHIPPING_BADGE,
-  TIME_SLOT_OPTIONS,
   deliveryFeeNotice,
 } from "@/features/storefront/domain/storefront.config";
 import type { StorefrontSettings } from "@/features/storefront/domain/storefront-settings";
@@ -100,7 +99,7 @@ export function buildFaqPage(settings: StorefrontSettings): FaqPage {
         question: `${DELIVERY_PROVINCE}'da eve teslimat hangi günler yapılıyor?`,
         answer: [
           `Eve servis günlerimiz: ${formatHomeDeliveryDays(settings.homeDeliveryDays)}. Ödeme ekranında bu günlerden birini, ${earliestDeliveryText} ve en geç ${MAX_DELIVERY_HORIZON_DAYS} gün sonrası için seçebilirsiniz.`,
-          `Teslimat saati: ${listTr(TIME_SLOT_OPTIONS.map((slot) => slot.label))}.`,
+          "Eve teslimatta belirli bir saat veremiyoruz; siparişiniz seçtiğiniz gün içinde teslim edilir.",
         ],
       },
       {

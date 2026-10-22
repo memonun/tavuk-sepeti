@@ -1088,6 +1088,7 @@ describe("placeOrderAction — guest", () => {
       guestForm({
         address_mode: "cargo",
         items_json: JSON.stringify([{ product_key: "kayisi", quantity: 2 }]),
+        // A page cached from before 2026-10-22 still posts a slot; ignored.
         time_slot: "morning",
       }),
     );
@@ -1096,7 +1097,8 @@ describe("placeOrderAction — guest", () => {
     expect(placeGuestOrder).toHaveBeenCalledWith(
       expect.objectContaining({
         scheduled_for: futureDate(),
-        time_slot: "morning",
+        // We cannot promise an hour on a hand delivery (owner, 2026-10-22).
+        time_slot: null,
         payment_method: "cash_on_delivery",
         delivery_fee_minor: 5_000,
       }),

@@ -107,7 +107,6 @@ import {
   MAX_DELIVERY_HORIZON_DAYS,
   MIN_DELIVERY_LEAD_DAYS,
   PAYMENT_METHOD_OPTIONS,
-  TIME_SLOT_OPTIONS,
 } from "@/features/storefront/domain/storefront.config";
 import { createSalesLegalAcceptance } from "@/features/storefront/domain/legal";
 import { webOrderSchema } from "@/features/storefront/domain/web-order.schema";
@@ -212,7 +211,6 @@ export async function placeOrderAction(
     address_id: formData.get("address_id"),
     address_mode: formData.get("address_mode"),
     scheduled_for: formData.get("scheduled_for"),
-    time_slot: formData.get("time_slot"),
     payment_method: formData.get("payment_method"),
     delivery_notes: formData.get("delivery_notes"),
     items: itemsRaw,
@@ -500,8 +498,10 @@ export async function placeOrderAction(
 
   const common = {
     scheduled_for: scheduledFor,
-    // A cargo order has no delivery window — there is no van to schedule.
-    time_slot: channel === "delivery" ? parsed.data.time_slot : null,
+    // No delivery window on any web order: the van cannot promise an hour
+    // (owner, 2026-10-22), and a cargo order has no van at all. The day is the
+    // only promise; the route's ETA shows on /siparis-sorgula once planned.
+    time_slot: null,
     payment_method: parsed.data.payment_method,
     delivery_notes: parsed.data.delivery_notes,
     delivery_fee_minor: deliveryFeeMinor,
@@ -627,9 +627,7 @@ export async function placeOrderAction(
       customerName: customerName || emailTo,
       channel: placed.value.fulfillment_channel,
       scheduledFor: scheduledFor,
-      timeSlotLabel:
-        TIME_SLOT_OPTIONS.find((o) => o.value === parsed.data.time_slot)?.label ??
-        null,
+      timeSlotLabel: null,
       paymentMethodLabel:
         PAYMENT_METHOD_OPTIONS.find((o) => o.value === parsed.data.payment_method)
           ?.label ?? parsed.data.payment_method,
