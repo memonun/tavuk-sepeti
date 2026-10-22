@@ -1,24 +1,18 @@
 /**
  * Storefront configuration constants (Faz 2, `/`).
  *
- * Kept in one place so business tweaks — delivery fee, how far out a customer
- * can schedule — are a single-line edit, not a hunt across components. All
- * money is minor units (kuruş), per CLAUDE.md §7.
+ * Kept in one place so business tweaks — how far out a customer can
+ * schedule — are a single-line edit, not a hunt across components. All money
+ * is minor units (kuruş), per CLAUDE.md §7.
+ *
+ * Fees are NOT here: the eve-servis fee, the cargo fee and the free-cargo
+ * threshold are owner-editable in /magaza-ayarlari (storefront-settings.ts),
+ * and domain/order-fee.ts is the one rule that prices them. Never trust the
+ * client for money — `place-order.ts` reads them server-side.
  */
 
+import type { OrderFeeRates } from "@/features/storefront/domain/order-fee";
 import { formatTRY } from "@/shared/utils/money";
-
-/**
- * Flat fee on a CARGO order (kuruş). Separate from DELIVERY_FEE_MINOR on
- * purpose: shipping a parcel nationwide and driving a van across Malatya are
- * different costs, and conflating them would force one to change when the other
- * does. Launch default is 0 (free shipping).
-
- * The hand-delivery (eve servis) fee is NOT here: it is owner-editable in
- * /magaza-ayarlari (`homeDeliveryFeeMinor` in storefront-settings.ts). Never
- * trust the client for money — `place-order.ts` reads it server-side.
- */
-export const CARGO_FEE_MINOR = 0;
 
 /**
  * Province where delivery-only (non-cargoable) products are hand-delivered on
@@ -88,10 +82,19 @@ export const PAYMENT_METHOD_OPTIONS = [
   },
 ] as const;
 
-/** Shown wherever a cargo basket is priced — the owner asked that free
- *  shipping be stated, not merely implied by a ₺0,00 line. */
-export const CARGO_FREE_SHIPPING_NOTICE =
-  "Türkiye'nin her yerine ücretsiz kargo.";
+/** Shown wherever a cargo basket is priced (home page, checkout, FAQ) — the
+ *  owner asked that the shipping terms be stated, not merely implied by the
+ *  total line. Takes the live settings because the owner edits the fee and the
+ *  free-shipping threshold in /magaza-ayarlari. */
+export function cargoFeeNotice(
+  rates: Pick<OrderFeeRates, "cargoFeeMinor" | "cargoFreeShippingThresholdMinor">,
+): string {
+  if (rates.cargoFeeMinor === 0) return "Türkiye'nin her yerine ücretsiz kargo.";
+  if (rates.cargoFreeShippingThresholdMinor > 0) {
+    return `${formatTRY(rates.cargoFreeShippingThresholdMinor)} ve üzeri siparişlerde ücretsiz kargo, altında kargo ücreti ${formatTRY(rates.cargoFeeMinor)}.`;
+  }
+  return `Türkiye'nin her yerine kargo ücreti ${formatTRY(rates.cargoFeeMinor)}.`;
+}
 
 /** Symmetric counterpart for the hand-delivery channel — stated upfront (home
  *  page, cart, checkout) so the fee is never a surprise at the total line.

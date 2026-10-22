@@ -13,6 +13,8 @@ describe("storefrontSettingsSchema", () => {
       cargo_min_order_minor: 100_000,
       home_min_order_minor: 25_000,
       home_delivery_fee_minor: 5_000,
+      cargo_fee_minor: 15_000,
+      cargo_free_shipping_threshold_minor: 100_000,
     });
 
     expect(parsed.home_delivery_days).toEqual([3, 6, 0]);
@@ -72,12 +74,16 @@ describe("storefrontSettingsSchema", () => {
       cargo_min_order_minor: "100000",
       home_min_order_minor: "25000",
       home_delivery_fee_minor: "5000",
+      cargo_fee_minor: "15000",
+      cargo_free_shipping_threshold_minor: "100000",
     });
 
     expect(parsed.home_delivery_days).toEqual([3, 6]);
     expect(parsed.cargo_min_order_minor).toBe(100_000);
     expect(parsed.home_min_order_minor).toBe(25_000);
     expect(parsed.home_delivery_fee_minor).toBe(5_000);
+    expect(parsed.cargo_fee_minor).toBe(15_000);
+    expect(parsed.cargo_free_shipping_threshold_minor).toBe(100_000);
   });
 
   const feeRow = (fee: unknown) => ({
@@ -85,6 +91,8 @@ describe("storefrontSettingsSchema", () => {
     cargo_min_order_minor: 0,
     home_min_order_minor: 0,
     home_delivery_fee_minor: fee,
+    cargo_fee_minor: 15_000,
+    cargo_free_shipping_threshold_minor: 100_000,
   });
 
   it("accepts 0 as a free-delivery fee", () => {
@@ -102,6 +110,35 @@ describe("storefrontSettingsSchema", () => {
     expect(storefrontSettingsSchema.safeParse(feeRow("")).success).toBe(false);
     expect(storefrontSettingsSchema.safeParse(feeRow(null)).success).toBe(false);
     expect(storefrontSettingsSchema.safeParse(feeRow(undefined)).success).toBe(false);  });
+
+  const cargoRow = (fee: unknown, threshold: unknown) => ({
+    home_delivery_days: [3],
+    cargo_min_order_minor: 0,
+    home_min_order_minor: 0,
+    home_delivery_fee_minor: 5_000,
+    cargo_fee_minor: fee,
+    cargo_free_shipping_threshold_minor: threshold,
+  });
+
+  it("accepts 0 for the cargo fee and for the free-cargo threshold", () => {
+    expect(storefrontSettingsSchema.safeParse(cargoRow(0, 0)).success).toBe(true);
+  });
+
+  it("refuses a negative, fractional or absurd cargo fee or threshold", () => {
+    expect(storefrontSettingsSchema.safeParse(cargoRow(-1, 100_000)).success).toBe(false);
+    expect(storefrontSettingsSchema.safeParse(cargoRow(150.5, 100_000)).success).toBe(false);
+    expect(storefrontSettingsSchema.safeParse(cargoRow(1_000_001, 100_000)).success).toBe(false);
+    expect(storefrontSettingsSchema.safeParse(cargoRow(15_000, -1)).success).toBe(false);
+    expect(storefrontSettingsSchema.safeParse(cargoRow(15_000, 10_000_001)).success).toBe(false);
+  });
+
+  // Missing must not become 0: a 0 fee is free cargo, a 0 threshold drops the offer.
+  it("refuses a missing cargo fee or threshold rather than treating it as 0", () => {
+    for (const missing of ["", null, undefined]) {
+      expect(storefrontSettingsSchema.safeParse(cargoRow(missing, 100_000)).success).toBe(false);
+      expect(storefrontSettingsSchema.safeParse(cargoRow(15_000, missing)).success).toBe(false);
+    }
+  });
 });
 
 describe("toStorefrontSettings", () => {
@@ -112,6 +149,8 @@ describe("toStorefrontSettings", () => {
         cargo_min_order_minor: 100_000,
         home_min_order_minor: 25_000,
         home_delivery_fee_minor: 5_000,
+        cargo_fee_minor: 15_000,
+        cargo_free_shipping_threshold_minor: 100_000,
       }),
     );
 

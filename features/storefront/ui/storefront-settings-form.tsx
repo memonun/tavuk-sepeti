@@ -3,8 +3,9 @@
 /**
  * The admin half of "eve servis günlerini değiştirebileyim".
  *
- * Three rules, one form: which weekdays the van goes out, the order floors, and
- * the flat fee on a hand-delivered order. Both are read by the storefront on every checkout,
+ * One form for the shop's rules: which weekdays the van goes out, the order
+ * floors, the flat fee on a hand-delivered order, and the cargo fee with its
+ * free-shipping threshold. All are read by the storefront on every checkout,
  * so a save here changes what customers can pick on the next request — the
  * action invalidates the cached read.
  *
@@ -36,6 +37,8 @@ export interface StorefrontSettingsFormProps {
   cargoMinOrderMinor: number;
   homeMinOrderMinor: number;
   homeDeliveryFeeMinor: number;
+  cargoFeeMinor: number;
+  cargoFreeShippingThresholdMinor: number;
 }
 
 /** Lira-string ↔ kuruş-number for one of the two floor fields. Both money
@@ -54,6 +57,8 @@ export function StorefrontSettingsForm({
   cargoMinOrderMinor,
   homeMinOrderMinor,
   homeDeliveryFeeMinor,
+  cargoFeeMinor,
+  cargoFreeShippingThresholdMinor,
 }: StorefrontSettingsFormProps) {
   const [state, formAction, pending] = useActionState(
     updateStorefrontSettingsAction,
@@ -65,7 +70,10 @@ export function StorefrontSettingsForm({
   const cargoMin = useMoneyField(cargoMinOrderMinor);
   const homeMin = useMoneyField(homeMinOrderMinor);
   const deliveryFee = useMoneyField(homeDeliveryFeeMinor);
-  const allValid = cargoMin.valid && homeMin.valid && deliveryFee.valid;
+  const cargoFee = useMoneyField(cargoFeeMinor);
+  const freeCargo = useMoneyField(cargoFreeShippingThresholdMinor);
+  const allValid =
+    cargoMin.valid && homeMin.valid && deliveryFee.valid && cargoFee.valid && freeCargo.valid;
 
   function toggleDay(day: Weekday) {
     setDays((previous) =>
@@ -177,6 +185,54 @@ export function StorefrontSettingsForm({
           type="hidden"
           name="home_delivery_fee_minor"
           value={deliveryFee.valid ? deliveryFee.minor : ""}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="cargo-fee">Şehir dışı (kargo) kargo ücreti (₺)</Label>
+        <Input
+          id="cargo-fee"
+          value={cargoFee.major}
+          onChange={(event) => cargoFee.setMajor(event.target.value)}
+          inputMode="decimal"
+          disabled={pending}
+        />
+        <p className="text-xs text-muted-foreground">
+          {cargoFee.valid
+            ? cargoFee.minor === 0
+              ? "Tüm kargo siparişlerinde kargo ücretsiz olur."
+              : `Kargo (şehir dışı) siparişlerine ${formatTRY(cargoFee.minor)} kargo ücreti eklenir; aşağıdaki ücretsiz kargo limitine ulaşan siparişler hariç. Eve servis siparişlerine eklenmez. Mevcut siparişler etkilenmez.`
+            : "Geçerli bir tutar girin (ör. 150)."}
+        </p>
+        {/* The action parses kuruş; the visible field is lira. */}
+        <input
+          type="hidden"
+          name="cargo_fee_minor"
+          value={cargoFee.valid ? cargoFee.minor : ""}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="cargo-free-threshold">Ücretsiz kargo için minimum sipariş tutarı (₺)</Label>
+        <Input
+          id="cargo-free-threshold"
+          value={freeCargo.major}
+          onChange={(event) => freeCargo.setMajor(event.target.value)}
+          inputMode="decimal"
+          disabled={pending}
+        />
+        <p className="text-xs text-muted-foreground">
+          {freeCargo.valid
+            ? freeCargo.minor === 0
+              ? "Ücretsiz kargo limiti yok: kargo ücreti her kargo siparişine eklenir."
+              : `Sepeti ${formatTRY(freeCargo.minor)} ve üzeri olan kargo siparişlerinde kargo ücretsiz olur. 0 yazarsanız limit kalkar ve kargo ücreti her siparişe eklenir.`
+            : "Geçerli bir tutar girin (ör. 1000)."}
+        </p>
+        {/* The action parses kuruş; the visible field is lira. */}
+        <input
+          type="hidden"
+          name="cargo_free_shipping_threshold_minor"
+          value={freeCargo.valid ? freeCargo.minor : ""}
         />
       </div>
 

@@ -32,7 +32,7 @@ import { createSupabaseServerClient } from "@/shared/supabase/server";
 const TABLE = "storefront_settings";
 const SINGLETON_ID = true;
 const SETTINGS_COLUMNS =
-  "home_delivery_days, cargo_min_order_minor, home_min_order_minor, home_delivery_fee_minor";
+  "home_delivery_days, cargo_min_order_minor, home_min_order_minor, home_delivery_fee_minor, cargo_fee_minor, cargo_free_shipping_threshold_minor";
 
 /**
  * `storefront_settings` post-dates the generated `Database` type, so the table
@@ -97,6 +97,8 @@ export async function saveStorefrontSettings(
       cargo_min_order_minor: values.cargo_min_order_minor,
       home_min_order_minor: values.home_min_order_minor,
       home_delivery_fee_minor: values.home_delivery_fee_minor,
+      cargo_fee_minor: values.cargo_fee_minor,
+      cargo_free_shipping_threshold_minor: values.cargo_free_shipping_threshold_minor,
       updated_by: actorId,
     })
     .eq("id", SINGLETON_ID)

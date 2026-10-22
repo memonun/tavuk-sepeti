@@ -101,6 +101,8 @@ export default async function CheckoutPage() {
         cargoMinOrderMinor={settings.cargoMinOrderMinor}
         homeMinOrderMinor={settings.homeMinOrderMinor}
         homeDeliveryFeeMinor={settings.homeDeliveryFeeMinor}
+        cargoFeeMinor={settings.cargoFeeMinor}
+        cargoFreeShippingThresholdMinor={settings.cargoFreeShippingThresholdMinor}
         paytrEnabled={isPaytrEnabled()}
         mapsKey={env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY}
       />

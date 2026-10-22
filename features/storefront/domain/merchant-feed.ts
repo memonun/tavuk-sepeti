@@ -19,11 +19,13 @@
  * farm goods, hence `identifier_exists: no`. No stock tracking in Faz 1
  * (CLAUDE.md §13), so a listed product is `in_stock` as it is on the site.
  *
- * No `g:shipping` on purpose: cargo is free to all of Türkiye EXCEPT that a
- * Malatya address turns the basket into a van delivery with the eve-servis
- * fee (fulfillment-channel.ts, owner decision 2026-08-13), and the feed has
- * no reliable way to name a Turkish province. Shipping is set once in the
- * Merchant Center account settings instead, where the owner can edit it.
+ * No `g:shipping` on purpose: cargo pays the owner-set cargo fee (free from
+ * the owner-set threshold up, domain/order-fee.ts) EXCEPT that a Malatya
+ * address turns the basket into a van delivery with the eve-servis fee
+ * (fulfillment-channel.ts, owner decision 2026-08-13), and the feed has no
+ * reliable way to name a Turkish province. Shipping is set once in the
+ * Merchant Center account settings instead, where the owner can edit it — keep
+ * it in step with /magaza-ayarlari.
  *
  * Pure: no I/O, no env.
  */

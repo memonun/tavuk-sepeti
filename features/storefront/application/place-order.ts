@@ -83,6 +83,7 @@ import {
   requiredAddressMode,
   resolveOrderChannel,
 } from "@/features/storefront/domain/fulfillment-channel";
+import { orderFeeMinor } from "@/features/storefront/domain/order-fee";
 import {
   checkOrderMinimum,
   orderMinimumMessage,
@@ -102,7 +103,6 @@ import {
 } from "@/features/storefront/domain/payment-options";
 import { isRouteUpgradeEligible } from "@/features/storefront/domain/route-capability";
 import {
-  CARGO_FEE_MINOR,
   DELIVERY_PROVINCE,
   MAX_DELIVERY_HORIZON_DAYS,
   MIN_DELIVERY_LEAD_DAYS,
@@ -477,8 +477,10 @@ export async function placeOrderAction(
     accountAddressId = saved.id;
   }
 
-  const deliveryFeeMinor =
-    channel === "delivery" ? settings.homeDeliveryFeeMinor : CARGO_FEE_MINOR;
+  // Same rule the checkout summary displays (domain/order-fee.ts), applied to
+  // the server-priced subtotal: eve-servis fee, or the cargo fee unless the
+  // basket reached the free-shipping threshold.
+  const deliveryFeeMinor = orderFeeMinor(channel, subtotalMinor, settings);
   const isCard = parsed.data.payment_method === "credit_card";
   const emailTo = actor.email;
 

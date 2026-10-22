@@ -251,6 +251,8 @@ beforeEach(() => {
     cargoMinOrderMinor: 100_000, // 1.000 ₺
     homeMinOrderMinor: 25_000, // 250 ₺
     homeDeliveryFeeMinor: 5_000, // 50 ₺
+    cargoFeeMinor: 15_000, // 150 ₺
+    cargoFreeShippingThresholdMinor: 100_000, // 1.000 ₺
   });
   resolveCheckoutSession.mockResolvedValue({
     ok: true,
@@ -538,6 +540,8 @@ describe("placeOrderAction — pricing and payment", () => {
       cargoMinOrderMinor: 100_000,
       homeMinOrderMinor: 25_000,
       homeDeliveryFeeMinor: 7_500,
+      cargoFeeMinor: 15_000, // 150 ₺
+      cargoFreeShippingThresholdMinor: 100_000, // 1.000 ₺
     });
 
     await placeOrderAction(idle, buildForm());
@@ -553,6 +557,8 @@ describe("placeOrderAction — pricing and payment", () => {
       cargoMinOrderMinor: 100_000,
       homeMinOrderMinor: 25_000,
       homeDeliveryFeeMinor: 0,
+      cargoFeeMinor: 15_000, // 150 ₺
+      cargoFreeShippingThresholdMinor: 100_000, // 1.000 ₺
     });
 
     await placeOrderAction(idle, buildForm());
@@ -560,6 +566,61 @@ describe("placeOrderAction — pricing and payment", () => {
     expect(placeWebOrder).toHaveBeenCalledWith(
       expect.objectContaining({ delivery_fee_minor: 0 }),
     );
+  });
+
+  // Owner, 2026-10-22: 150 ₺ cargo, free from 1.000 ₺ up — charged server-side
+  // from the live settings, on the server-priced subtotal.
+  describe("cargo fee", () => {
+    const cargoOrder = (items: Array<{ product_key: string; quantity: number }>) =>
+      buildForm({
+        address_mode: "cargo",
+        address_id: MALATYA_ADDRESS_NO_DOOR_DETAIL.id,
+        payment_method: "bank_transfer",
+        items_json: JSON.stringify(items),
+      });
+
+    beforeEach(() => {
+      placeWebOrder.mockResolvedValue({
+        ok: true,
+        value: {
+          order_id: "order-8",
+          order_number: "ORD-2026-00008",
+          fulfillment_channel: "shipping",
+        },
+      });
+      getStorefrontSettings.mockResolvedValue({
+        homeDeliveryDays: [3, 6],
+        cargoMinOrderMinor: 0, // no floor, so a small cargo basket is allowed
+        homeMinOrderMinor: 25_000,
+        homeDeliveryFeeMinor: 5_000,
+        cargoFeeMinor: 15_000,
+        cargoFreeShippingThresholdMinor: 100_000,
+      });
+    });
+
+    it("charges the cargo fee below the free-shipping threshold", async () => {
+      const state = await placeOrderAction(
+        idle,
+        cargoOrder([{ product_key: "kayisi", quantity: 1 }]), // 125 ₺
+      );
+
+      expect(state).toMatchObject({ status: "success", totalMinor: 12_500 + 15_000 });
+      expect(placeWebOrder).toHaveBeenCalledWith(
+        expect.objectContaining({ delivery_fee_minor: 15_000 }),
+      );
+    });
+
+    it("ships free once the subtotal reaches the threshold", async () => {
+      const state = await placeOrderAction(
+        idle,
+        cargoOrder([{ product_key: "kayisi", quantity: 8 }]), // exactly 1.000 ₺
+      );
+
+      expect(state).toMatchObject({ status: "success", totalMinor: 100_000 });
+      expect(placeWebOrder).toHaveBeenCalledWith(
+        expect.objectContaining({ delivery_fee_minor: 0 }),
+      );
+    });
   });
 
   it("rejects a basket below the product's minimum quantity", async () => {
@@ -647,6 +708,8 @@ describe("placeOrderAction — eve servis günleri", () => {
       cargoMinOrderMinor: 100_000,
       homeMinOrderMinor: 25_000,
       homeDeliveryFeeMinor: 5_000,
+      cargoFeeMinor: 15_000, // 150 ₺
+      cargoFreeShippingThresholdMinor: 100_000, // 1.000 ₺
     });
 
     const state = await placeOrderAction(idle, buildForm());

@@ -26,7 +26,8 @@
  *     the van actually drives ("eve servis günleri", owner-editable), a time
  *     slot, and kapıda nakit ödeme as an option.
  *   cargo (all-shipping)  — a written address anywhere in Türkiye, NO
- *     preparation-day question at all, free shipping, a 1.000 ₺ order floor and
+ *     preparation-day question at all, the owner-set cargo fee (free from the
+ *     owner-set threshold up, domain/order-fee.ts), the cargo order floor and
  *     prepaid methods only.
  *
  * Everything here is a hint. The action re-derives the channel from re-priced
@@ -96,8 +97,12 @@ import {
   routeBlockReason,
 } from "@/features/storefront/domain/route-capability";
 import {
-  CARGO_FEE_MINOR,
-  CARGO_FREE_SHIPPING_NOTICE,
+  freeCargoShortfallMinor,
+  orderFeeMinor,
+  type OrderFeeRates,
+} from "@/features/storefront/domain/order-fee";
+import {
+  cargoFeeNotice,
   deliveryFeeNotice,
   DELIVERY_PROVINCE,
   TIME_SLOT_OPTIONS,
@@ -193,6 +198,9 @@ interface CheckoutFormProps {
   /** Live eve-servis fee from storefront_settings (display only — place-order
    *  re-reads it server-side). */
   homeDeliveryFeeMinor: number;
+  /** Live cargo fee + free-shipping threshold (display only, same as above). */
+  cargoFeeMinor: number;
+  cargoFreeShippingThresholdMinor: number;
   paytrEnabled: boolean;
   mapsKey: string | undefined;
 }
@@ -206,6 +214,8 @@ export function CheckoutForm({
   cargoMinOrderMinor,
   homeMinOrderMinor,
   homeDeliveryFeeMinor,
+  cargoFeeMinor,
+  cargoFreeShippingThresholdMinor,
   paytrEnabled,
   mapsKey,
 }: CheckoutFormProps) {
@@ -471,10 +481,16 @@ export function CheckoutForm({
 
   // Keyed on `channel`, not `mode`: an address-upgraded flexible-only basket
   // is a real delivery order even though it opened the cargo-shaped form.
-  const feeMinor = channel === "delivery" ? homeDeliveryFeeMinor : CARGO_FEE_MINOR;
   const subtotal = cartSubtotalMinor(
     rows.map((r) => lineTotalMinor(r.product, r.quantity)),
   );
+  const feeRates: OrderFeeRates = {
+    homeDeliveryFeeMinor,
+    cargoFeeMinor,
+    cargoFreeShippingThresholdMinor,
+  };
+  // The same rule place-order.ts charges with (domain/order-fee.ts).
+  const feeMinor = orderFeeMinor(channel, subtotal, feeRates);
   const total = subtotal + feeMinor;
   const minOrderMinor = channel === "delivery" ? homeMinOrderMinor : cargoMinOrderMinor;
   const minimum = checkOrderMinimum(subtotal, minOrderMinor);
@@ -487,6 +503,7 @@ export function CheckoutForm({
       channel={channel}
       subtotal={subtotal}
       feeMinor={feeMinor}
+      feeRates={feeRates}
       total={total}
       products={products}
     />
@@ -1182,6 +1199,7 @@ function OrderSummary({
   channel,
   subtotal,
   feeMinor,
+  feeRates,
   total,
   products,
 }: {
@@ -1194,11 +1212,15 @@ function OrderSummary({
   channel: "delivery" | "shipping";
   subtotal: number;
   feeMinor: number;
+  /** For the cargo terms line and the "X ₺ daha, kargo ücretsiz" nudge. */
+  feeRates: OrderFeeRates;
   total: number;
   products: readonly Product[];
 }) {
   const { addItem } = useCart();
   const [showAddPicker, setShowAddPicker] = useState(false);
+  const freeCargoShortfall =
+    channel === "shipping" ? freeCargoShortfallMinor(subtotal, feeRates) : null;
   const cartKeys = useMemo(() => new Set(rows.map((r) => r.product.key)), [rows]);
   const addableProducts = products.filter((p) => !cartKeys.has(p.key));
 
@@ -1341,7 +1363,16 @@ function OrderSummary({
           ? `Yumurta gibi taze ürünler yalnızca ${DELIVERY_PROVINCE} içinde teslim edilir. Kargoya uygun ürünler Türkiye geneline gönderilir.`
           : channel === "delivery"
             ? deliveryFeeNotice(feeMinor)
-            : CARGO_FREE_SHIPPING_NOTICE}
+            : cargoFeeNotice(feeRates)}
+        {freeCargoShortfall !== null ? (
+          <>
+            {" "}
+            <strong className="font-semibold">
+              Kargonun ücretsiz olması için sepetinize {formatTRY(freeCargoShortfall)} daha
+              ekleyin.
+            </strong>
+          </>
+        ) : null}
       </p>
     </div>
   );

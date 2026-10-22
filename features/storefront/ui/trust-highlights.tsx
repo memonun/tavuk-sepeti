@@ -1,22 +1,23 @@
 import { LeafIcon, PackageIcon, ShieldCheckIcon, TruckIcon } from "lucide-react";
 
 import { formatHomeDeliveryDays } from "@/features/storefront/domain/delivery-window";
-import { CARGO_FREE_SHIPPING_NOTICE } from "@/features/storefront/domain/storefront.config";
 
 import type { Weekday } from "@/features/storefront/domain/delivery-window";
 
 /**
  * Four glanceable facts about buying here — large icon, short bold label, one
- * short line. The delivery-days line is the one dynamic fact in the strip:
- * it reads live from `storefront_settings` (owner-editable in the admin), so
- * an admin changing the eve-servis days updates this card on its own — no
- * hardcoded "Çarşamba ve Cumartesi" to go stale the next time the owner
- * changes the schedule.
+ * short line. The delivery-days and cargo lines are the dynamic facts in the
+ * strip: both read live from `storefront_settings` (owner-editable in the
+ * admin), so an admin changing the eve-servis days or the cargo fee updates
+ * this card on its own — nothing hardcoded to go stale.
  */
 export function TrustHighlights({
   homeDeliveryDays,
+  cargoNotice,
 }: {
   homeDeliveryDays: readonly Weekday[];
+  /** `cargoFeeNotice(settings)` — the live cargo fee / free-shipping terms. */
+  cargoNotice: string;
 }) {
   const highlights = [
     {
@@ -32,7 +33,7 @@ export function TrustHighlights({
     {
       icon: PackageIcon,
       label: "Türkiye Geneli Kargo",
-      detail: CARGO_FREE_SHIPPING_NOTICE,
+      detail: cargoNotice,
     },
     {
       icon: ShieldCheckIcon,

@@ -42,8 +42,16 @@ async function loadSettings(): Promise<StorefrontSettings> {
  * mobile tab bar, and the homepage for its own fulfilment-info panel) down to
  * one `unstable_cache` read instead of racing several on a cold cache.
  */
+/**
+ * Bump when `StorefrontSettings` gains or changes a field. The data cache
+ * outlives a deploy, so without this the new code could read an entry the old
+ * code stored — one missing the new field (an `undefined` fee is a NaN total).
+ * v2: cargoFeeMinor + cargoFreeShippingThresholdMinor (2026-10-22).
+ */
+const SETTINGS_CACHE_VERSION = "v2";
+
 export const getStorefrontSettings = cache(
-  unstable_cache(loadSettings, [STOREFRONT_SETTINGS_TAG], {
+  unstable_cache(loadSettings, [STOREFRONT_SETTINGS_TAG, SETTINGS_CACHE_VERSION], {
     tags: [STOREFRONT_SETTINGS_TAG],
   }),
 );

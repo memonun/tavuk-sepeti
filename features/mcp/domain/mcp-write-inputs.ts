@@ -574,6 +574,13 @@ export const updateStorefrontSettingsInput = {
   cargo_min_order_minor: z.number().int().min(0).optional().describe("Kargo siparişi alt limiti, kuruş. 0 = limit yok."),
   home_min_order_minor: z.number().int().min(0).optional().describe("Eve servis alt limiti, kuruş. 0 = limit yok."),
   home_delivery_fee_minor: z.number().int().min(0).optional().describe("Eve servis ücreti, kuruş. 0 = ücretsiz."),
+  cargo_fee_minor: z.number().int().min(0).optional().describe("Şehir dışı kargo ücreti, kuruş. 0 = her kargo siparişi ücretsiz."),
+  cargo_free_shipping_threshold_minor: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Ara toplam bu tutara ulaşınca (dahil) kargo ücretsiz, kuruş. 0 = eşik yok, kargo ücreti her zaman eklenir."),
 };
 
 export const dateRangeInput = {
