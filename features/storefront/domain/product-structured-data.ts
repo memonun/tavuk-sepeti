@@ -50,7 +50,9 @@ export interface ProductStructuredDataInput {
 export interface OfferShippingRates {
   /** Flat eve-servis fee inside Malatya (`homeDeliveryFeeMinor`). */
   readonly homeDeliveryFeeMinor: number;
-  /** Flat fee on a nationwide cargo order (`CARGO_FEE_MINOR`). */
+  /** Flat fee on a nationwide cargo order (`cargoFeeMinor`). The
+   *  free-shipping threshold is not expressed here: a single product's offer is
+   *  priced as if bought alone, which is what pays this fee. */
   readonly cargoFeeMinor: number;
 }
 

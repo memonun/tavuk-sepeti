@@ -26,8 +26,7 @@ import { COMPANY, CONTRACTED_CARGO_CARRIER } from "@/features/storefront/domain/
 import { paymentMethodsForChannel } from "@/features/storefront/domain/payment-options";
 import { APPROVED_PRODUCT_COPY } from "@/features/storefront/domain/product-copy";
 import {
-  CARGO_FEE_MINOR,
-  CARGO_FREE_SHIPPING_NOTICE,
+  cargoFeeNotice,
   DELIVERY_ONLY_BADGE,
   DELIVERY_PROVINCE,
   FULFILLMENT_NOTICE,
@@ -77,9 +76,7 @@ export function buildFaqPage(settings: StorefrontSettings): FaqPage {
   const homeMinimum = settings.homeMinOrderMinor > 0
     ? `Eve teslimatta minimum sipariş tutarı ${formatTRY(settings.homeMinOrderMinor)}.`
     : "Eve teslimatta minimum sipariş tutarı yoktur.";
-  const cargoFee = CARGO_FEE_MINOR > 0
-    ? `Kargo ücreti ${formatTRY(CARGO_FEE_MINOR)}.`
-    : CARGO_FREE_SHIPPING_NOTICE;
+  const cargoFee = cargoFeeNotice(settings);
   const cargoMinimum = settings.cargoMinOrderMinor > 0
     ? `Kargo siparişlerinde minimum sipariş tutarı ${formatTRY(settings.cargoMinOrderMinor)}.`
     : "Kargo siparişlerinde minimum sipariş tutarı yoktur.";

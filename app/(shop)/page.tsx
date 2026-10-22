@@ -11,7 +11,7 @@ import {
 } from "@/features/storefront/domain/catalog-filter";
 import { formatHomeDeliveryDays } from "@/features/storefront/domain/delivery-window";
 import {
-  CARGO_FREE_SHIPPING_NOTICE,
+  cargoFeeNotice,
   deliveryFeeNotice,
   FULFILLMENT_NOTICE,
 } from "@/features/storefront/domain/storefront.config";
@@ -168,7 +168,7 @@ export default async function ShopHomePage({
               <strong className="block text-xl font-bold text-foreground">
                 Türkiye Geneli Kargo
               </strong>
-              {CARGO_FREE_SHIPPING_NOTICE}{" "}
+              {cargoFeeNotice(settings)}{" "}
               {settings.cargoMinOrderMinor > 0
                 ? `Minimum sipariş tutarı ${formatTRY(settings.cargoMinOrderMinor)}'dir.`
                 : null}
@@ -177,7 +177,10 @@ export default async function ShopHomePage({
         </div>
       </section>
 
-      <TrustHighlights homeDeliveryDays={settings.homeDeliveryDays} />
+      <TrustHighlights
+        homeDeliveryDays={settings.homeDeliveryDays}
+        cargoNotice={cargoFeeNotice(settings)}
+      />
       <SupportContactCard />
     </main>
   );

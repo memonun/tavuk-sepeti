@@ -13,6 +13,10 @@
  *   - `homeDeliveryFeeMinor` — the flat fee on a delivery-channel (eve servis)
  *     order: storefront checkout, the recurring generator and, as the default,
  *     staff-entered orders (migration 20260919120000). 50 ₺ at launch.
+ *   - `cargoFeeMinor` — the flat fee on a cargo (şehir dışı) storefront order
+ *     (migration 20261022135852). 150 ₺ as of 2026-10-22.
+ *   - `cargoFreeShippingThresholdMinor` — a cargo order whose subtotal reaches
+ *     this pays no cargo fee. 1.000 ₺ as of 2026-10-22; 0 = no threshold.
  *
  * They live in a single `storefront_settings` row rather than in this file
  * because a constant is only "changeable" by a developer. The DEFAULTS below
@@ -39,6 +43,10 @@ export interface StorefrontSettings {
   readonly homeMinOrderMinor: number;
   /** Flat fee (kuruş) on a delivery/eve-servis order. 0 = free delivery. */
   readonly homeDeliveryFeeMinor: number;
+  /** Flat fee (kuruş) on a cargo order. 0 = free shipping for every cargo order. */
+  readonly cargoFeeMinor: number;
+  /** Cargo subtotal (kuruş) at or above which shipping is free. 0 = no threshold. */
+  readonly cargoFreeShippingThresholdMinor: number;
 }
 
 /** 1.000 ₺ — the out-of-city order floor the owner set (2026-08-13). */
@@ -49,11 +57,18 @@ export const DEFAULT_HOME_MIN_ORDER_MINOR = 25_000;
 /** 50 ₺ — the eve-servis delivery fee the owner set (2026-09). */
 export const DEFAULT_HOME_DELIVERY_FEE_MINOR = 5_000;
 
+/** 150 ₺ — the cargo fee the owner set (2026-10-22). */
+export const DEFAULT_CARGO_FEE_MINOR = 15_000;
+/** 1.000 ₺ — cargo is free from this subtotal up (owner, 2026-10-22). */
+export const DEFAULT_CARGO_FREE_SHIPPING_THRESHOLD_MINOR = 100_000;
+
 export const DEFAULT_STOREFRONT_SETTINGS: StorefrontSettings = {
   homeDeliveryDays: DEFAULT_HOME_DELIVERY_DAYS,
   cargoMinOrderMinor: DEFAULT_CARGO_MIN_ORDER_MINOR,
   homeMinOrderMinor: DEFAULT_HOME_MIN_ORDER_MINOR,
   homeDeliveryFeeMinor: DEFAULT_HOME_DELIVERY_FEE_MINOR,
+  cargoFeeMinor: DEFAULT_CARGO_FEE_MINOR,
+  cargoFreeShippingThresholdMinor: DEFAULT_CARGO_FREE_SHIPPING_THRESHOLD_MINOR,
 };
 
 /** Guard rail on the admin form: 100.000 ₺ is far past any real basket. */
@@ -61,6 +76,24 @@ const MAX_CARGO_MIN_ORDER_MINOR = 10_000_000;
 const MAX_HOME_MIN_ORDER_MINOR = 10_000_000;
 /** 10.000 ₺ — far past any real delivery fee; catches a stray extra zero. */
 const MAX_HOME_DELIVERY_FEE_MINOR = 1_000_000;
+const MAX_CARGO_FEE_MINOR = 1_000_000;
+const MAX_CARGO_FREE_SHIPPING_THRESHOLD_MINOR = 10_000_000;
+
+/**
+ * A required kuruş amount. Missing/blank is refused, not coerced:
+ * `Number(null)` and `Number("")` are 0, so a form field that never arrived
+ * would silently make a fee free (or a threshold vanish).
+ */
+function requiredMinor(label: string, max: number) {
+  return z.preprocess(
+    (value) => (value === null || value === "" ? undefined : value),
+    z.coerce
+      .number({ message: `${label} gerekli.` })
+      .int(`${label} kuruş cinsinden tam sayı olmalı.`)
+      .min(0, `${label} negatif olamaz.`)
+      .max(max, `${label} çok yüksek.`),
+  );
+}
 
 const weekdaySchema = z
   .coerce.number()
@@ -95,15 +128,11 @@ export const storefrontSettingsSchema = z.object({
     .int("Alt limit kuruş cinsinden tam sayı olmalı.")
     .min(0, "Alt limit negatif olamaz.")
     .max(MAX_HOME_MIN_ORDER_MINOR, "Alt limit çok yüksek."),
-  // Missing/blank is refused, not coerced: `Number(null)` and `Number("")` are 0,
-  // so a form field that never arrived would silently make delivery free.
-  home_delivery_fee_minor: z.preprocess(
-    (value) => (value === null || value === "" ? undefined : value),
-    z.coerce
-      .number({ message: "Teslimat ücreti gerekli." })
-      .int("Teslimat ücreti kuruş cinsinden tam sayı olmalı.")
-      .min(0, "Teslimat ücreti negatif olamaz.")
-      .max(MAX_HOME_DELIVERY_FEE_MINOR, "Teslimat ücreti çok yüksek."),
+  home_delivery_fee_minor: requiredMinor("Teslimat ücreti", MAX_HOME_DELIVERY_FEE_MINOR),
+  cargo_fee_minor: requiredMinor("Kargo ücreti", MAX_CARGO_FEE_MINOR),
+  cargo_free_shipping_threshold_minor: requiredMinor(
+    "Ücretsiz kargo limiti",
+    MAX_CARGO_FREE_SHIPPING_THRESHOLD_MINOR,
   ),
 });
 
@@ -119,5 +148,7 @@ export function toStorefrontSettings(
     cargoMinOrderMinor: parsed.cargo_min_order_minor,
     homeMinOrderMinor: parsed.home_min_order_minor,
     homeDeliveryFeeMinor: parsed.home_delivery_fee_minor,
+    cargoFeeMinor: parsed.cargo_fee_minor,
+    cargoFreeShippingThresholdMinor: parsed.cargo_free_shipping_threshold_minor,
   };
 }

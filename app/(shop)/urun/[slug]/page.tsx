@@ -15,7 +15,6 @@ import {
   buildProductStructuredData,
   productPageDescription,
 } from "@/features/storefront/domain/product-structured-data";
-import { CARGO_FEE_MINOR } from "@/features/storefront/domain/storefront.config";
 import { fromPriceMinor } from "@/features/storefront/ui/line-pricing";
 import { MetaProductViewTracker } from "@/features/storefront/ui/meta-product-view-tracker";
 import { ProductDetails } from "@/features/storefront/ui/product-details";
@@ -80,7 +79,7 @@ export default async function ProductPage({ params }: PageProps) {
     priceMinor: fromPriceMinor(product),
   }, {
     homeDeliveryFeeMinor: settings.homeDeliveryFeeMinor,
-    cargoFeeMinor: CARGO_FEE_MINOR,
+    cargoFeeMinor: settings.cargoFeeMinor,
   });
   return (
     <>

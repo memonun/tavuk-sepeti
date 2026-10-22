@@ -49,6 +49,8 @@ describe("buildFaqPage", () => {
       homeDeliveryFeeMinor: 7_500,
       homeMinOrderMinor: 30_000,
       cargoMinOrderMinor: 120_000,
+      cargoFeeMinor: 17_500,
+      cargoFreeShippingThresholdMinor: 150_000,
     };
     const live = buildFaqPage(settings);
     expect(answerOf(live, "eve-teslimat-gunleri")).toContain("Pazartesi ve Cuma");
@@ -56,6 +58,8 @@ describe("buildFaqPage", () => {
     expect(fees).toContain(formatTRY(7_500));
     expect(fees).toContain(formatTRY(30_000));
     expect(fees).toContain(formatTRY(120_000));
+    expect(fees).toContain(formatTRY(17_500));
+    expect(fees).toContain(formatTRY(150_000));
     // The launch defaults must not leak in when the owner changed them.
     expect(fees).not.toContain(formatTRY(DEFAULT_STOREFRONT_SETTINGS.homeDeliveryFeeMinor));
   });
@@ -66,9 +70,11 @@ describe("buildFaqPage", () => {
       homeDeliveryFeeMinor: 0,
       homeMinOrderMinor: 0,
       cargoMinOrderMinor: 0,
+      cargoFeeMinor: 0,
     });
     const fees = answerOf(free, "teslimat-ucreti-minimum-tutar");
     expect(fees).toContain("elden teslimat ücretsiz");
+    expect(fees).toContain("Türkiye'nin her yerine ücretsiz kargo.");
     expect(fees).toContain("Eve teslimatta minimum sipariş tutarı yoktur.");
     expect(fees).toContain("Kargo siparişlerinde minimum sipariş tutarı yoktur.");
   });
