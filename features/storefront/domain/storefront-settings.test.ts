@@ -170,11 +170,11 @@ describe("storefrontSettingsSchema", () => {
     for (const bad of ["", "   ", null, undefined, "x".repeat(81)]) {
       expect(storefrontSettingsSchema.safeParse(heroRow(bad, "Cümle.")).success).toBe(false);
     }
-    for (const bad of ["", "   ", null, undefined, "x".repeat(241)]) {
+    for (const bad of ["", "   ", null, undefined, "x".repeat(141)]) {
       expect(storefrontSettingsSchema.safeParse(heroRow("Başlık", bad)).success).toBe(false);
     }
     expect(
-      storefrontSettingsSchema.safeParse(heroRow("x".repeat(80), "x".repeat(240))).success,
+      storefrontSettingsSchema.safeParse(heroRow("x".repeat(80), "x".repeat(140))).success,
     ).toBe(true);
   });
 });

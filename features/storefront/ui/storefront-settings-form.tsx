@@ -5,7 +5,7 @@
  *
  * One form for the shop's rules: which weekdays the van goes out, the order
  * floors, the flat fee on a hand-delivered order, and the cargo fee with its
- * free-shipping threshold, plus the home page heading text. All are read by
+ * free-shipping threshold, plus the home page slogan and showcase sentence. All are read by
  * the storefront on every request, so a save here shows up on the next one —
  * the action invalidates the cached read.
  *
@@ -257,13 +257,14 @@ export function StorefrontSettingsForm({
       </div>
 
       <fieldset className="flex flex-col gap-4">
-        <legend className="text-sm font-medium">Ana sayfa metni</legend>
+        <legend className="text-sm font-medium">Ana sayfa vitrini</legend>
         <p className="text-sm text-muted-foreground">
-          Mağaza ana sayfasının en üstünde, resmin yanında görünen başlık ve altındaki cümle.
+          Mağaza ana sayfasının en üstündeki slogan ve kayan vitrindeki fotoğrafların üstünde
+          duran cümle.
         </p>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="hero-title">Başlık</Label>
+          <Label htmlFor="hero-title">Slogan</Label>
           <Input
             id="hero-title"
             name="hero_title"
@@ -276,12 +277,12 @@ export function StorefrontSettingsForm({
           <p className="text-xs text-muted-foreground">
             {titleValid
               ? `${title.trim().length}/${MAX_HERO_TITLE_LENGTH} karakter.`
-              : "Başlık boş olamaz."}
+              : "Slogan boş olamaz."}
           </p>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="hero-subtitle">Açıklama</Label>
+          <Label htmlFor="hero-subtitle">Vitrin açıklaması</Label>
           <Textarea
             id="hero-subtitle"
             name="hero_subtitle"
@@ -294,8 +295,8 @@ export function StorefrontSettingsForm({
           />
           <p className="text-xs text-muted-foreground">
             {subtitleValid
-              ? `${subtitle.trim().length}/${MAX_HERO_SUBTITLE_LENGTH} karakter. Telefonda yer kazanmak için gizlenir; tablet ve bilgisayarda görünür.`
-              : "Açıklama boş olamaz."}
+              ? `${subtitle.trim().length}/${MAX_HERO_SUBTITLE_LENGTH} karakter. Telefonda da görünür; kısa tutmak fotoğrafı açık bırakır.`
+              : "Vitrin açıklaması boş olamaz."}
           </p>
         </div>
       </fieldset>

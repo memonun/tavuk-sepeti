@@ -582,8 +582,8 @@ export const updateStorefrontSettingsInput = {
     .optional()
     .describe("Ara toplam bu tutara ulaşınca (dahil) kargo ücretsiz, kuruş. 0 = eşik yok, kargo ücreti her zaman eklenir."),
   // Length limits live in the storefront schema the action parses with.
-  hero_title: z.string().optional().describe("Ana sayfanın en üstündeki başlık. En fazla 80 karakter, boş olamaz."),
-  hero_subtitle: z.string().optional().describe("Ana sayfa başlığının altındaki cümle. En fazla 240 karakter, boş olamaz."),
+  hero_title: z.string().optional().describe("Ana sayfanın en üstündeki slogan. En fazla 80 karakter, boş olamaz."),
+  hero_subtitle: z.string().optional().describe("Ana sayfadaki kayan vitrinde, fotoğrafların üstündeki cümle. En fazla 140 karakter, boş olamaz."),
 };
 
 export const dateRangeInput = {
