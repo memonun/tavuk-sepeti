@@ -9,6 +9,7 @@ import "server-only";
  * send-to-aras.ts checks admin first). It is not in a "use server" file on
  * purpose: every export there is publicly callable.
  */
+import { composeArasLabel, type ArasLabel } from "@/features/cargo/domain/aras-label";
 import {
   arasCancelOutcome,
   arasTrackingUrl,
@@ -117,6 +118,27 @@ export async function sendOrderToArasAs(
   });
 
   return ok({ integrationCode });
+}
+
+/** The printable Aras label for an order that has been sent to Aras. */
+export async function getArasLabel(orderId: string): Promise<Result<ArasLabel, AppError>> {
+  const source = await fetchArasShipmentSource(orderId);
+  if (!source.ok) return source;
+  if (!source.value.arasIntegrationCode) {
+    return err(
+      new InvalidTransitionError({
+        message: "Bu sipariş henüz Aras'a gönderilmedi. Önce \"Aras'a Gönder\"e basın.",
+      }),
+    );
+  }
+  return ok(
+    composeArasLabel({
+      integrationCode: source.value.arasIntegrationCode,
+      firstName: source.value.firstName,
+      lastName: source.value.lastName,
+      printedAt: new Date(),
+    }),
+  );
 }
 
 /**

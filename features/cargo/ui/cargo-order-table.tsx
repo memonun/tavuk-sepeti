@@ -5,6 +5,7 @@
  * SortableHeader/pagination since the queue is already sorted oldest-first
  * by the application layer.
  */
+import { Tag } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -70,6 +71,7 @@ export function CargoOrderTable({
                     alreadySent={Boolean(recipients[order.id]?.arasCode)}
                   />
                 ) : null}
+                <ArasLabelLink orderId={order.id} recipient={recipients[order.id]} />
                 <MarkCargoShippedButton orderId={order.id} />
               </>
             }
@@ -132,6 +134,7 @@ export function CargoOrderTable({
                         alreadySent={Boolean(recipients[order.id]?.arasCode)}
                       />
                     ) : null}
+                    <ArasLabelLink orderId={order.id} recipient={recipients[order.id]} />
                     <MarkCargoShippedButton orderId={order.id} />
                     <Link
                       href={`/orders/${order.id}`}
@@ -147,5 +150,25 @@ export function CargoOrderTable({
         </Table>
       </div>
     </>
+  );
+}
+
+/** "Etiket" — opens the printable Aras label; only once the order is at Aras. */
+function ArasLabelLink({
+  orderId,
+  recipient,
+}: {
+  orderId: string;
+  recipient: CargoRecipient | undefined;
+}) {
+  if (!recipient?.arasCode) return null;
+  return (
+    <Link
+      href={`/kargo/etiket/${orderId}`}
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+    >
+      <Tag className="h-3.5 w-3.5" />
+      Etiket
+    </Link>
   );
 }
