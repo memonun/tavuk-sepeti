@@ -16,6 +16,10 @@
  * kept for the record / display (unit × qty may differ from the line total —
  * the line total wins, by design).
  *
+ * A product SALE price (`discount_unit_price_minor`, "indirimli fiyat") caps
+ * the line: the customer pays the lower of the normal graduated total and
+ * sale price × quantity — a sale can never make a bulk line dearer.
+ *
  * Decimal, not float: rates come from a numeric(12,4) column (CLAUDE.md §7).
  */
 export interface ProductPriceTier {
@@ -29,6 +33,11 @@ export interface LinePricingInput {
   readonly tiers: readonly ProductPriceTier[];
   /** Flat/base price in kuruş — for units before the first tier. */
   readonly basePriceMinor: number;
+  /**
+   * Product sale price (kuruş/unit), or null when not on sale. Caps the line
+   * total at sale × quantity; never raises it.
+   */
+  readonly saleUnitPriceMinor?: number | null | undefined;
   /**
    * Per-customer special price (kuruş). When set, the line is flat at this
    * rate and the volume tiers are ignored entirely.
@@ -62,8 +71,25 @@ function graduatedTotal(
   return total;
 }
 
+/** The pricing fields a catalog product carries. */
+export interface ProductPricingFields {
+  readonly price_tiers: readonly ProductPriceTier[];
+  readonly current_unit_price_minor: number;
+  readonly discount_unit_price_minor: number | null;
+}
+
+/** A product's current pricing (tiers, base, sale price) as engine input. */
+export function productLinePricing(product: ProductPricingFields): LinePricingInput {
+  return {
+    tiers: product.price_tiers,
+    basePriceMinor: product.current_unit_price_minor,
+    saleUnitPriceMinor: product.discount_unit_price_minor,
+  };
+}
+
 /** Price one order line: exact line total + a rounded average unit price. A
- *  customer special price (overrideUnitPriceMinor), when set, wins over tiers. */
+ *  customer special price (overrideUnitPriceMinor), when set, wins over tiers
+ *  and the sale price. */
 export function priceOrderLine(
   quantity: number,
   input: LinePricingInput,
@@ -77,9 +103,24 @@ export function priceOrderLine(
   if (quantity <= 0) {
     return { unit_price_minor: Math.round(input.basePriceMinor), line_total_minor: 0 };
   }
-  const total = graduatedTotal(quantity, input);
+  const regular = graduatedTotal(quantity, input);
+  const total =
+    input.saleUnitPriceMinor != null
+      ? Math.min(regular, quantity * input.saleUnitPriceMinor)
+      : regular;
   return {
     unit_price_minor: Math.round(total / quantity),
     line_total_minor: Math.round(total),
   };
+}
+
+/**
+ * Whole-percent saving of `saleMinor` against `regularMinor`, rounded DOWN so
+ * a "%X indirim" label never overstates the discount. Null when there is no
+ * saving.
+ */
+export function discountPercent(regularMinor: number, saleMinor: number): number | null {
+  if (regularMinor <= 0 || saleMinor >= regularMinor) return null;
+  const pct = Math.floor((1 - saleMinor / regularMinor) * 100);
+  return pct > 0 ? pct : null;
 }

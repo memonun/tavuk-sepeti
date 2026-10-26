@@ -1,7 +1,8 @@
 "use server";
 
 /**
- * Save a product's pricing: its flat/base unit price + its volume tiers.
+ * Save a product's pricing: its flat/base unit price, its optional sale price
+ * ("indirimli fiyat") + its volume tiers.
  * Admin-only. Affects FUTURE orders only — existing orders keep their frozen
  * line prices (snapshot model).
  */
@@ -20,6 +21,14 @@ import { err, ok, type Result } from "@/shared/result";
 const schema = z.object({
   product_key: z.string().min(1),
   base_price_minor: z.coerce.number().nonnegative(),
+  /** Sale price per unit: a number sets it, null clears it, omitted keeps it
+   *  (so the MCP pricing tool never wipes a sale it doesn't know about). */
+  discount_unit_price_minor: z.coerce
+    .number()
+    .int("İndirimli fiyat kuruş cinsinden tam sayı olmalı.")
+    .positive("İndirimli fiyat sıfırdan büyük olmalı.")
+    .nullable()
+    .optional(),
   tiers: z
     .array(
       z.object({
@@ -47,7 +56,16 @@ export async function saveProductPricingAction(
       }),
     );
   }
-  const { product_key, base_price_minor, tiers } = parsed.data;
+  const { product_key, base_price_minor, discount_unit_price_minor, tiers } =
+    parsed.data;
+
+  if (discount_unit_price_minor != null && discount_unit_price_minor >= base_price_minor) {
+    return err(
+      new ValidationError({
+        message: "İndirimli fiyat, normal birim fiyattan düşük olmalı.",
+      }),
+    );
+  }
 
   const mins = tiers.map((t) => t.min_qty);
   if (new Set(mins).size !== mins.length) {
@@ -56,7 +74,11 @@ export async function saveProductPricingAction(
     );
   }
 
-  const baseRes = await updateProductBasePrice(product_key, base_price_minor);
+  const baseRes = await updateProductBasePrice(
+    product_key,
+    base_price_minor,
+    discount_unit_price_minor,
+  );
   if (!baseRes.ok) return err(baseRes.error);
 
   const tiersRes = await replaceProductTiers(product_key, tiers);
@@ -67,7 +89,11 @@ export async function saveProductPricingAction(
     action: "product.updated",
     entity_type: "product",
     entity_id: product_key,
-    after: { base_price_minor, tier_count: tiers.length },
+    after: {
+      base_price_minor,
+      ...(discount_unit_price_minor !== undefined ? { discount_unit_price_minor } : {}),
+      tier_count: tiers.length,
+    },
   });
 
   revalidatePath("/products");

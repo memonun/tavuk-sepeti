@@ -37,7 +37,7 @@ import { OrderStatusActions } from "@/features/orders/ui/order-status-actions";
 import { OrderCargoInfoForm } from "@/features/orders/ui/order-cargo-info-form";
 import { OrderGiftItemsPanel } from "@/features/orders/ui/order-gift-items-panel";
 import { OrderPayments } from "@/features/orders/ui/order-payments";
-import { priceOrderLine } from "@/features/products/application/pricing";
+import { priceOrderLine, productLinePricing } from "@/features/products/application/pricing";
 import { formatDate, formatDateTime } from "@/shared/utils/date";
 import { formatTRY, parseOptionalTRYInput } from "@/shared/utils/money";
 
@@ -322,8 +322,7 @@ function OrderEditForm({
     return (
       acc +
       priceOrderLine(i.quantity, {
-        tiers: p.price_tiers,
-        basePriceMinor: p.current_unit_price_minor,
+        ...productLinePricing(p),
         overrideUnitPriceMinor: i.unit_price_minor,
       }).line_total_minor
     );

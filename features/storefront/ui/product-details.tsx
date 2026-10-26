@@ -9,9 +9,10 @@ import { productPageDescription } from "@/features/storefront/domain/product-str
 import { PriceTag } from "@/features/storefront/ui/kit/price-tag";
 import {
   fromPriceMinor,
+  fromPriceSale,
   hasVolumeDiscount,
-  lineTotalMinor,
 } from "@/features/storefront/ui/line-pricing";
+import { LineTotal } from "@/features/storefront/ui/line-total";
 import { ProductCard } from "@/features/storefront/ui/product-card";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { ProductPurchaseControls } from "@/features/storefront/ui/product-purchase-controls";
@@ -33,6 +34,7 @@ export function ProductDetails({
   const tableQuantities = [...new Set(product.price_tiers.map((t) => t.min_qty))].sort(
     (a, b) => a - b,
   );
+  const sale = fromPriceSale(product);
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       <nav
@@ -99,6 +101,7 @@ export function ProductDetails({
             amount={formatTRY(fromPriceMinor(product))}
             unit={product.unit_label}
             prefix={hasVolumeDiscount(product) ? "Başlangıç fiyatı" : undefined}
+            sale={sale && { regularAmount: formatTRY(sale.regularMinor), percent: sale.percent }}
           />
           <p className="mt-4 flex items-center gap-2 text-lg font-semibold">
             {product.fulfillment_type === "shipping" ? (
@@ -130,8 +133,8 @@ export function ProductDetails({
                   {tableQuantities.map((qty) => (
                     <tr key={qty} className="border-t border-border">
                       <td className="px-4 py-3">{qty.toLocaleString("tr-TR")}</td>
-                      <td className="shop-money px-4 py-3 font-semibold">
-                        {formatTRY(lineTotalMinor(product, qty))}
+                      <td className="px-4 py-3">
+                        <LineTotal product={product} quantity={qty} className="shop-money font-semibold" />
                       </td>
                     </tr>
                   ))}

@@ -7,9 +7,8 @@ import { useCart } from "@/features/storefront/ui/cart-provider";
 import { hapticTick } from "@/features/storefront/ui/kit/haptic";
 import { ShopButton } from "@/features/storefront/ui/kit/shop-button";
 import { trackProductAddedToCart } from "@/features/storefront/ui/meta-events";
-import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
+import { LineTotal } from "@/features/storefront/ui/line-total";
 import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
-import { formatTRY } from "@/shared/utils/money";
 
 /** The card and detail page share the exact same basket interaction. */
 export function ProductPurchaseControls({ product }: { product: Product }) {
@@ -43,8 +42,8 @@ export function ProductPurchaseControls({ product }: { product: Product }) {
               aria-hidden
             />
             Sepette
-            <span className="shop-money ml-auto text-foreground">
-              {formatTRY(lineTotalMinor(product, qty))}
+            <span className="ml-auto text-right">
+              <LineTotal product={product} quantity={qty} className="shop-money text-foreground" />
             </span>
           </p>
           <QuantityStepper product={product} block />

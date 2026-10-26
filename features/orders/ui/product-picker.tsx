@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { priceOrderLine } from "@/features/products/application/pricing";
+import { priceOrderLine, productLinePricing } from "@/features/products/application/pricing";
 import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
 import type { Product } from "@/features/products/application/list-products";
@@ -49,13 +49,9 @@ function LineRow({ product, draft, onQuantity, onSpecial, onRemove }: LineRowPro
   const stepInvalid = !isMultipleOfStep(draft.quantity, product.step);
   const minInvalid = draft.quantity < product.min_qty;
 
-  const autoPriced = priceOrderLine(draft.quantity, {
-    tiers: product.price_tiers,
-    basePriceMinor: product.current_unit_price_minor,
-  });
+  const autoPriced = priceOrderLine(draft.quantity, productLinePricing(product));
   const priced = priceOrderLine(draft.quantity, {
-    tiers: product.price_tiers,
-    basePriceMinor: product.current_unit_price_minor,
+    ...productLinePricing(product),
     overrideUnitPriceMinor: draft.unit_price_minor,
   });
   const hasSpecial = draft.unit_price_minor != null;

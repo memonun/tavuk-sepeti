@@ -42,6 +42,12 @@ export interface Product {
   readonly image_alt: string | null;
   /** Flat/base price in kuruş. Used when no tier matches the quantity. */
   readonly current_unit_price_minor: number;
+  /**
+   * Sale ("indirimli") price in kuruş per unit, or null when not on sale.
+   * Caps each line at sale × quantity (see product-pricing.ts); the storefront
+   * strikes through the regular price.
+   */
+  readonly discount_unit_price_minor: number | null;
   /** Volume tiers (sorted by min_qty asc). Empty for flat-priced products. */
   readonly price_tiers: readonly ProductPriceTier[];
   readonly active: boolean;
