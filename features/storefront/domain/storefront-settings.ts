@@ -137,14 +137,13 @@ const weekdaySchema = z
   .transform((day) => day as Weekday);
 
 /**
- * The write shape — used by the admin Server Action AND by the repository when
- * it reads the row back, so a hand-edited database row is held to the same
- * rules as the form (CLAUDE.md §3: everything from an outer boundary is parsed).
+ * The shop rules form (/magaza-ayarlari) — everything except the home page
+ * text, which has its own form in /vitrin (`heroTextSchema`).
  *
  * At least one delivery day is mandatory: zero days would silently close the
  * fresh-product checkout with no explanation anywhere in the UI.
  */
-export const storefrontSettingsSchema = z.object({
+export const storefrontRulesSchema = z.object({
   home_delivery_days: z
     .array(weekdaySchema)
     .min(1, "En az bir eve servis günü seçin.")
@@ -168,10 +167,23 @@ export const storefrontSettingsSchema = z.object({
     "Ücretsiz kargo limiti",
     MAX_CARGO_FREE_SHIPPING_THRESHOLD_MINOR,
   ),
+});
+
+/** The home page text form (/vitrin): the slogan and the showcase sentence. */
+export const heroTextSchema = z.object({
   hero_title: requiredText("Slogan", MAX_HERO_TITLE_LENGTH),
   hero_subtitle: requiredText("Vitrin açıklaması", MAX_HERO_SUBTITLE_LENGTH),
 });
 
+/**
+ * The whole row. The repository parses what it reads back with this, so a
+ * hand-edited database row is held to the same rules as the two forms
+ * (CLAUDE.md §3: everything from an outer boundary is parsed).
+ */
+export const storefrontSettingsSchema = storefrontRulesSchema.extend(heroTextSchema.shape);
+
+export type StorefrontRulesParsed = z.output<typeof storefrontRulesSchema>;
+export type HeroTextParsed = z.output<typeof heroTextSchema>;
 export type StorefrontSettingsInput = z.input<typeof storefrontSettingsSchema>;
 export type StorefrontSettingsParsed = z.output<typeof storefrontSettingsSchema>;
 

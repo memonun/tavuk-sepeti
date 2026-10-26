@@ -4,6 +4,8 @@ import {
   DEFAULT_HERO_SUBTITLE,
   DEFAULT_HERO_TITLE,
   DEFAULT_STOREFRONT_SETTINGS,
+  heroTextSchema,
+  storefrontRulesSchema,
   storefrontSettingsSchema,
   toStorefrontSettings,
 } from "@/features/storefront/domain/storefront-settings";
@@ -176,6 +178,24 @@ describe("storefrontSettingsSchema", () => {
     expect(
       storefrontSettingsSchema.safeParse(heroRow("x".repeat(80), "x".repeat(140))).success,
     ).toBe(true);
+  });
+});
+
+describe("rules / hero text split", () => {
+  // The two admin pages save separately: neither form may require (or carry)
+  // the other's fields.
+  it("parses the rules without the home page text, and the text without the rules", () => {
+    const rules = storefrontRulesSchema.parse({
+      home_delivery_days: [6],
+      cargo_min_order_minor: 0,
+      home_min_order_minor: 25_000,
+      home_delivery_fee_minor: 5_000,
+      cargo_fee_minor: 15_000,
+      cargo_free_shipping_threshold_minor: 100_000,
+      ...HERO,
+    });
+    expect(rules).not.toHaveProperty("hero_title");
+    expect(heroTextSchema.parse(HERO)).toEqual(HERO);
   });
 });
 

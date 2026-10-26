@@ -20,6 +20,7 @@ import { getMarketReport } from "@/features/finance/application/get-market-repor
 import { getProductTally } from "@/features/finance/application/get-product-tally";
 import { getUpcomingRecurringExpenses } from "@/features/finance/application/get-upcoming-recurring-expenses";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
+import { updateHeroTextAction } from "@/features/storefront/application/update-hero-text";
 import { updateStorefrontSettingsAction } from "@/features/storefront/application/update-storefront-settings";
 import {
   dateRangeInput,
@@ -122,6 +123,21 @@ export function registerAdminMiscTools(server: McpServer): void {
     async (input) => {
       try {
         const current = await getStorefrontSettings();
+        // The home page text and the shop rules are saved by separate actions
+        // (two admin pages). Call only the one(s) the input touches; with no
+        // field at all, re-save the rules as before.
+        const heroTouched = input.hero_title !== undefined || input.hero_subtitle !== undefined;
+        const { hero_title: _title, hero_subtitle: _subtitle, ...ruleFields } = input;
+        const rulesTouched = Object.values(ruleFields).some((value) => value !== undefined);
+
+        if (heroTouched) {
+          const heroFd = new FormData();
+          heroFd.set("hero_title", input.hero_title ?? current.heroTitle);
+          heroFd.set("hero_subtitle", input.hero_subtitle ?? current.heroSubtitle);
+          const heroState = await updateHeroTextAction({ status: "idle" }, heroFd);
+          if (heroState.status !== "success" || !rulesTouched) return toolFromState(heroState);
+        }
+
         const fd = new FormData();
         for (const day of input.home_delivery_days ?? current.homeDeliveryDays) fd.append("home_delivery_days", String(day));
         fd.set("cargo_min_order_minor", String(input.cargo_min_order_minor ?? current.cargoMinOrderMinor));
@@ -132,8 +148,6 @@ export function registerAdminMiscTools(server: McpServer): void {
           "cargo_free_shipping_threshold_minor",
           String(input.cargo_free_shipping_threshold_minor ?? current.cargoFreeShippingThresholdMinor),
         );
-        fd.set("hero_title", input.hero_title ?? current.heroTitle);
-        fd.set("hero_subtitle", input.hero_subtitle ?? current.heroSubtitle);
         return toolFromState(await updateStorefrontSettingsAction({ status: "idle" }, fd));
       } catch (cause) {
         return toolError("update_storefront_settings", cause);

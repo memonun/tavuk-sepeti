@@ -5,7 +5,7 @@
  *
  * One form for the shop's rules: which weekdays the van goes out, the order
  * floors, the flat fee on a hand-delivered order, and the cargo fee with its
- * free-shipping threshold, plus the home page slogan and showcase sentence. All are read by
+ * free-shipping threshold. (The home page text moved to /vitrin.) All are read by
  * the storefront on every request, so a save here shows up on the next one —
  * the action invalidates the cached read.
  *
@@ -24,15 +24,10 @@ import {
   WEEKDAY_NAMES_TR,
   type Weekday,
 } from "@/features/storefront/domain/delivery-window";
-import {
-  MAX_HERO_SUBTITLE_LENGTH,
-  MAX_HERO_TITLE_LENGTH,
-} from "@/features/storefront/domain/storefront-settings";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { formatTRY } from "@/shared/utils/money";
 
 const initialState: UpdateStorefrontSettingsState = { status: "idle" };
@@ -44,8 +39,6 @@ export interface StorefrontSettingsFormProps {
   homeDeliveryFeeMinor: number;
   cargoFeeMinor: number;
   cargoFreeShippingThresholdMinor: number;
-  heroTitle: string;
-  heroSubtitle: string;
 }
 
 /** Lira-string ↔ kuruş-number for one of the two floor fields. Both money
@@ -66,8 +59,6 @@ export function StorefrontSettingsForm({
   homeDeliveryFeeMinor,
   cargoFeeMinor,
   cargoFreeShippingThresholdMinor,
-  heroTitle,
-  heroSubtitle,
 }: StorefrontSettingsFormProps) {
   const [state, formAction, pending] = useActionState(
     updateStorefrontSettingsAction,
@@ -81,19 +72,8 @@ export function StorefrontSettingsForm({
   const deliveryFee = useMoneyField(homeDeliveryFeeMinor);
   const cargoFee = useMoneyField(cargoFeeMinor);
   const freeCargo = useMoneyField(cargoFreeShippingThresholdMinor);
-  const [title, setTitle] = useState(heroTitle);
-  const [subtitle, setSubtitle] = useState(heroSubtitle);
-  const titleValid = title.trim().length > 0 && title.trim().length <= MAX_HERO_TITLE_LENGTH;
-  const subtitleValid =
-    subtitle.trim().length > 0 && subtitle.trim().length <= MAX_HERO_SUBTITLE_LENGTH;
   const allValid =
-    cargoMin.valid &&
-    homeMin.valid &&
-    deliveryFee.valid &&
-    cargoFee.valid &&
-    freeCargo.valid &&
-    titleValid &&
-    subtitleValid;
+    cargoMin.valid && homeMin.valid && deliveryFee.valid && cargoFee.valid && freeCargo.valid;
 
   function toggleDay(day: Weekday) {
     setDays((previous) =>
@@ -255,51 +235,6 @@ export function StorefrontSettingsForm({
           value={freeCargo.valid ? freeCargo.minor : ""}
         />
       </div>
-
-      <fieldset className="flex flex-col gap-4">
-        <legend className="text-sm font-medium">Ana sayfa vitrini</legend>
-        <p className="text-sm text-muted-foreground">
-          Mağaza ana sayfasının en üstündeki slogan ve kayan vitrindeki fotoğrafların üstünde
-          duran cümle.
-        </p>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="hero-title">Slogan</Label>
-          <Input
-            id="hero-title"
-            name="hero_title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            maxLength={MAX_HERO_TITLE_LENGTH}
-            disabled={pending}
-            aria-invalid={!titleValid || undefined}
-          />
-          <p className="text-xs text-muted-foreground">
-            {titleValid
-              ? `${title.trim().length}/${MAX_HERO_TITLE_LENGTH} karakter.`
-              : "Slogan boş olamaz."}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="hero-subtitle">Vitrin açıklaması</Label>
-          <Textarea
-            id="hero-subtitle"
-            name="hero_subtitle"
-            value={subtitle}
-            onChange={(event) => setSubtitle(event.target.value)}
-            maxLength={MAX_HERO_SUBTITLE_LENGTH}
-            rows={3}
-            disabled={pending}
-            aria-invalid={!subtitleValid || undefined}
-          />
-          <p className="text-xs text-muted-foreground">
-            {subtitleValid
-              ? `${subtitle.trim().length}/${MAX_HERO_SUBTITLE_LENGTH} karakter. Telefonda da görünür; kısa tutmak fotoğrafı açık bırakır.`
-              : "Vitrin açıklaması boş olamaz."}
-          </p>
-        </div>
-      </fieldset>
 
       {state.status === "error" ? (
         <p className="text-sm text-destructive" role="alert">

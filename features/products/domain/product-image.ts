@@ -5,42 +5,25 @@
  * derived here from NEXT_PUBLIC_SUPABASE_URL passed in by the caller.
  */
 import { CANONICAL_ORIGIN } from "@/shared/canonical-origin";
+import {
+  UPLOAD_IMAGE_ALLOWED_TYPES,
+  UPLOAD_IMAGE_MAX_BYTES,
+  imageExtForType,
+  isAllowedUploadImageType,
+  type UploadImageMime,
+} from "@/shared/utils/image-upload";
 
 /** Storage bucket that holds product cover images. */
 export const PRODUCT_IMAGE_BUCKET = "product-images";
 
-/** Accepted upload types — mirrors the bucket's allowed_mime_types. */
-export const PRODUCT_IMAGE_ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-] as const;
-
-export type ProductImageMime = (typeof PRODUCT_IMAGE_ALLOWED_TYPES)[number];
-
-/** Hard cap for an uploaded image (5 MB) — mirrors the bucket file_size_limit. */
-export const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-
-/** Type guard for an accepted image mime type. */
-export function isAllowedProductImageType(
-  mime: string,
-): mime is ProductImageMime {
-  return (PRODUCT_IMAGE_ALLOWED_TYPES as readonly string[]).includes(mime);
-}
-
-/** File extension for a stored/uploaded image mime type, or null if unknown. */
-export function imageExtForType(mime: string): "jpg" | "png" | "webp" | null {
-  switch (mime) {
-    case "image/jpeg":
-      return "jpg";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    default:
-      return null;
-  }
-}
+// Upload rules are shared with the showcase photos; the product names below
+// are kept so the product code reads in its own terms.
+export { imageExtForType };
+export const PRODUCT_IMAGE_ALLOWED_TYPES = UPLOAD_IMAGE_ALLOWED_TYPES;
+export type ProductImageMime = UploadImageMime;
+/** 5 MB — mirrors the bucket file_size_limit. */
+export const PRODUCT_IMAGE_MAX_BYTES = UPLOAD_IMAGE_MAX_BYTES;
+export const isAllowedProductImageType = isAllowedUploadImageType;
 
 /**
  * Storage object key for a product's cover image. Includes a random id so a

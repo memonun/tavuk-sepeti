@@ -19,8 +19,9 @@ import "server-only";
 import {
   storefrontSettingsSchema,
   toStorefrontSettings,
+  type HeroTextParsed,
+  type StorefrontRulesParsed,
   type StorefrontSettings,
-  type StorefrontSettingsParsed,
 } from "@/features/storefront/domain/storefront-settings";
 import { AppError, ValidationError } from "@/shared/errors/app-error";
 import { ErrorCode } from "@/shared/errors/error-codes";
@@ -84,25 +85,43 @@ export async function fetchStorefrontSettings(): Promise<StorefrontSettingsRead>
   return { kind: "row", settings: toStorefrontSettings(parsed.data) };
 }
 
+/** Save the shop rules (/magaza-ayarlari). The home page text is left as is. */
 export async function saveStorefrontSettings(
-  values: StorefrontSettingsParsed,
+  values: StorefrontRulesParsed,
   actorId: string,
+): Promise<Result<StorefrontSettings, AppError>> {
+  return updateSettingsRow({
+    home_delivery_days: values.home_delivery_days,
+    cargo_min_order_minor: values.cargo_min_order_minor,
+    home_min_order_minor: values.home_min_order_minor,
+    home_delivery_fee_minor: values.home_delivery_fee_minor,
+    cargo_fee_minor: values.cargo_fee_minor,
+    cargo_free_shipping_threshold_minor: values.cargo_free_shipping_threshold_minor,
+    updated_by: actorId,
+  });
+}
+
+/** Save the home page slogan + showcase sentence (/vitrin). Rules are left as is. */
+export async function saveHeroText(
+  values: HeroTextParsed,
+  actorId: string,
+): Promise<Result<StorefrontSettings, AppError>> {
+  return updateSettingsRow({
+    hero_title: values.hero_title,
+    hero_subtitle: values.hero_subtitle,
+    updated_by: actorId,
+  });
+}
+
+/** One UPDATE of the singleton row, then read it back through the full schema. */
+async function updateSettingsRow(
+  update: Record<string, unknown>,
 ): Promise<Result<StorefrontSettings, AppError>> {
   const supabase = (await createSupabaseServerClient()) as unknown as LooseClient;
 
   const { data, error } = await supabase
     .from(TABLE)
-    .update({
-      home_delivery_days: values.home_delivery_days,
-      cargo_min_order_minor: values.cargo_min_order_minor,
-      home_min_order_minor: values.home_min_order_minor,
-      home_delivery_fee_minor: values.home_delivery_fee_minor,
-      cargo_fee_minor: values.cargo_fee_minor,
-      cargo_free_shipping_threshold_minor: values.cargo_free_shipping_threshold_minor,
-      hero_title: values.hero_title,
-      hero_subtitle: values.hero_subtitle,
-      updated_by: actorId,
-    })
+    .update(update)
     .eq("id", SINGLETON_ID)
     .select(SETTINGS_COLUMNS)
     .maybeSingle();

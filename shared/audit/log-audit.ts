@@ -58,6 +58,12 @@ export type AuditAction =
   // Shop rules the owner edits (delivery days, cargo order floor). Worth an
   // audit row: a changed delivery day silently reshapes every future checkout.
   | "storefront_settings.updated"
+  // Home page slogan + showcase sentence, and the showcase photos (/vitrin).
+  | "storefront_settings.hero_updated"
+  | "showcase_slide.created"
+  | "showcase_slide.updated"
+  | "showcase_slide.deleted"
+  | "showcase_slide.reordered"
   // Meta ad spending limits (features/ads). Ad changes themselves are logged
   // in their own meta_ads_changes table: Meta ids are not uuids.
   | "meta_ads_settings.updated"
@@ -117,6 +123,7 @@ export type AuditEntityType =
   | "product"
   | "recurring_template"
   | "storefront_settings"
+  | "showcase_slide"
   | "meta_ads_settings"
   | "expense"
   | "expense_category"
