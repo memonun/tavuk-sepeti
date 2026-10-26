@@ -81,26 +81,14 @@ export default async function ShopHomePage({
         <StorefrontScopeSync />
       </Suspense>
 
-      {/* Phone and tablet: the picture, then the line of text. Desktop: text
-          on the left, picture on the right, so the block is no taller than
-          the picture and the products below still start on the first
-          screen. DOM order keeps the heading first for a screen reader. */}
-      <div className="flex flex-col gap-3.5 sm:gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_30rem] lg:items-center lg:gap-10">
-        <div className="order-2 lg:order-1">
-          {/* On a phone every line above the products costs a row of the
-              first screen, and with the picture and the standing-order row
-              in place the products had slipped below it. So here the
-              heading is one smaller line and the sentence under it waits for
-              wider screens. */}
-          <h1 className="max-w-3xl font-display text-[1.75rem] leading-[1.1] text-foreground sm:text-5xl sm:leading-[1.05]">
-            {settings.heroTitle}
-          </h1>
-          <p className="mt-2.5 hidden max-w-xl text-lg leading-relaxed text-muted-foreground sm:block">
-            {settings.heroSubtitle}
-          </p>
-        </div>
-        <HomeHero className="order-1 lg:order-2" />
-      </div>
+      {/* The owner's slogan, then the showcase: the farm photos slide under
+          the owner's sentence. Both texts are edited in /magaza-ayarlari.
+          The showcase is a short band, not a full-screen hero, so the
+          products still start on the first screen. */}
+      <h1 className="max-w-3xl font-display text-[1.75rem] leading-[1.1] tracking-[-0.01em] text-foreground sm:text-5xl sm:leading-[1.05]">
+        {settings.heroTitle}
+      </h1>
+      <HomeHero subtitle={settings.heroSubtitle} className="mt-3.5 sm:mt-5" />
 
       {/* `#urunler` is the target of both scope links, so after choosing, the
           page lands with the choice itself (now marked) at the top and the

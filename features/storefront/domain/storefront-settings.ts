@@ -17,8 +17,8 @@
  *     (migration 20261022135852). 150 ₺ as of 2026-10-22.
  *   - `cargoFreeShippingThresholdMinor` — a cargo order whose subtotal reaches
  *     this pays no cargo fee. 1.000 ₺ as of 2026-10-22; 0 = no threshold.
- *   - `heroTitle` / `heroSubtitle` — the home page heading and the sentence
- *     under it (migration 20261026200332). Owner asked 2026-10-26.
+ *   - `heroTitle` / `heroSubtitle` — the home page slogan and the sentence
+ *     over the showcase photos (migration 20261026200332). Owner, 2026-10-26.
  *
  * They live in a single `storefront_settings` row rather than in this file
  * because a constant is only "changeable" by a developer. The DEFAULTS below
@@ -49,9 +49,9 @@ export interface StorefrontSettings {
   readonly cargoFeeMinor: number;
   /** Cargo subtotal (kuruş) at or above which shipping is free. 0 = no threshold. */
   readonly cargoFreeShippingThresholdMinor: number;
-  /** Home page heading (h1). Never blank. */
+  /** Home page slogan (h1). Never blank. */
   readonly heroTitle: string;
-  /** Sentence under the home page heading. Never blank. */
+  /** Sentence over the home page showcase photos. Never blank. */
   readonly heroSubtitle: string;
 }
 
@@ -108,9 +108,13 @@ function requiredMinor(label: string, max: number) {
   );
 }
 
-/** Same limits as the CHECK constraints in migration 20261026200332. */
+/**
+ * Same limits as the CHECK constraints in migration 20261026200332. The
+ * subtitle sits on the showcase photo; 140 characters is about three lines on
+ * a phone, which still leaves the photo visible.
+ */
 export const MAX_HERO_TITLE_LENGTH = 80;
-export const MAX_HERO_SUBTITLE_LENGTH = 240;
+export const MAX_HERO_SUBTITLE_LENGTH = 140;
 
 /**
  * Required one-line text, trimmed. Missing is refused rather than defaulted:
@@ -163,8 +167,8 @@ export const storefrontSettingsSchema = z.object({
     "Ücretsiz kargo limiti",
     MAX_CARGO_FREE_SHIPPING_THRESHOLD_MINOR,
   ),
-  hero_title: requiredText("Ana sayfa başlığı", MAX_HERO_TITLE_LENGTH),
-  hero_subtitle: requiredText("Ana sayfa açıklaması", MAX_HERO_SUBTITLE_LENGTH),
+  hero_title: requiredText("Slogan", MAX_HERO_TITLE_LENGTH),
+  hero_subtitle: requiredText("Vitrin açıklaması", MAX_HERO_SUBTITLE_LENGTH),
 });
 
 export type StorefrontSettingsInput = z.input<typeof storefrontSettingsSchema>;
