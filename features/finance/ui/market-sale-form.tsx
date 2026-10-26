@@ -60,7 +60,7 @@ import {
 } from "@/features/finance/domain/market-sale-products";
 // Feature-ui may call another feature's application/ directly (cross-feature
 // public API — see eslint boundaries config), same as orders/ui/product-picker.tsx.
-import { rateForQuantity } from "@/features/products/application/pricing";
+import { priceOrderLine } from "@/features/products/application/pricing";
 import { todayInIstanbul } from "@/shared/utils/date";
 import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
@@ -218,11 +218,11 @@ function MarketSaleFormBody({
       const product = sheetByKey.get(key);
       const priceUntouched = (prev.prices[key] ?? "").trim() === "";
       if (parsedQty.kind === "ok" && priceUntouched && product && product.current_unit_price_minor > 0) {
-        const rate = rateForQuantity(parsedQty.value, {
+        const { unit_price_minor } = priceOrderLine(parsedQty.value, {
           tiers: product.price_tiers,
           basePriceMinor: product.current_unit_price_minor,
         });
-        return { ...prev, quantities, prices: { ...prev.prices, [key]: toTRYText(Math.round(rate)) } };
+        return { ...prev, quantities, prices: { ...prev.prices, [key]: toTRYText(unit_price_minor) } };
       }
       return { ...prev, quantities };
     });
@@ -449,12 +449,10 @@ function MarketSaleFormBody({
                     placeholder={
                       q.kind === "ok" && p.current_unit_price_minor > 0
                         ? `oto ${toTRYText(
-                            Math.round(
-                              rateForQuantity(q.value, {
-                                tiers: p.price_tiers,
-                                basePriceMinor: p.current_unit_price_minor,
-                              }),
-                            ),
+                            priceOrderLine(q.value, {
+                              tiers: p.price_tiers,
+                              basePriceMinor: p.current_unit_price_minor,
+                            }).unit_price_minor,
                           )}`
                         : "fiyat"
                     }

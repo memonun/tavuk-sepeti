@@ -2,22 +2,24 @@
  * Pure pricing for an order line — the single source of truth shared by the
  * order form (client preview) and the server (enrichOrderItems).
  *
- * Volume tiers: a product's price-per-unit can drop as quantity grows. A tier
- * applies for quantity in [min_qty, next tier's min_qty); we pick the highest
- * tier whose `min_qty <= quantity`. Products with no tiers fall back to the
- * flat base price (`current_unit_price_minor`).
+ * Volume tiers are GRADUATED: a tier with `min_qty = m` prices the m-th unit
+ * and every unit after it, until the next tier takes over. Units before the
+ * first tier use the flat base price (`current_unit_price_minor`). Products
+ * with no tiers are flat-priced.
  *
- * The tier rate is in kuruş and MAY be fractional — e.g. eggs at qty 3 price
- * at 11666.6667 kuruş/pkg so the line is exactly ₺350.00. The LINE TOTAL is
- * the authoritative figure: `round(quantity × rate)` once, to whole kuruş.
- * `unit_price_minor` is the rounded per-unit value kept for the record /
- * display (so unit × qty may differ from the stored line total by a kuruş —
+ *   eggs: 1 → ₺130, 2 → ₺120, 3 → ₺100
+ *   1 pkg = 130, 2 = 250, 3 = 350, 4 = 450, 5 = 550 …
+ *
+ * Quantities may be fractional (0.5 kg steps), so a tier covers the quantity
+ * range above `m − 1`. The LINE TOTAL is the authoritative figure, rounded
+ * once to whole kuruş. `unit_price_minor` is the rounded average per unit,
+ * kept for the record / display (unit × qty may differ from the line total —
  * the line total wins, by design).
  *
  * Decimal, not float: rates come from a numeric(12,4) column (CLAUDE.md §7).
  */
 export interface ProductPriceTier {
-  /** Tier applies when quantity >= this threshold. */
+  /** This tier prices the min_qty-th unit onward. */
   readonly min_qty: number;
   /** Per-unit price in kuruş; may be fractional. */
   readonly unit_price_minor: number;
@@ -25,7 +27,7 @@ export interface ProductPriceTier {
 
 export interface LinePricingInput {
   readonly tiers: readonly ProductPriceTier[];
-  /** Flat/base price in kuruş — used when no tier matches the quantity. */
+  /** Flat/base price in kuruş — for units before the first tier. */
   readonly basePriceMinor: number;
   /**
    * Per-customer special price (kuruş). When set, the line is flat at this
@@ -35,40 +37,49 @@ export interface LinePricingInput {
 }
 
 export interface LinePrice {
-  /** Rounded per-unit price (whole kuruş) — for the record / display. */
+  /** Rounded average per-unit price (whole kuruş) — for the record / display. */
   readonly unit_price_minor: number;
   /** Authoritative exact line total (whole kuruş). */
   readonly line_total_minor: number;
 }
 
-/** Resolve the per-unit rate (possibly fractional kuruş) for a quantity. */
-export function rateForQuantity(
+/** Unrounded graduated total (kuruş) for a quantity. */
+function graduatedTotal(
   quantity: number,
   { tiers, basePriceMinor }: LinePricingInput,
 ): number {
-  let rate = basePriceMinor;
-  let bestMin = -Infinity;
-  for (const tier of tiers) {
-    if (quantity >= tier.min_qty && tier.min_qty > bestMin) {
-      bestMin = tier.min_qty;
-      rate = tier.unit_price_minor;
-    }
+  // Each tier's range starts at min_qty − 1; the base price covers [0, first start).
+  const segments = [...tiers]
+    .sort((a, b) => a.min_qty - b.min_qty)
+    .map((t) => ({ start: Math.max(0, t.min_qty - 1), rate: t.unit_price_minor }));
+  segments.unshift({ start: 0, rate: basePriceMinor });
+
+  let total = 0;
+  for (const [i, seg] of segments.entries()) {
+    const end = Math.min(quantity, segments[i + 1]?.start ?? Infinity);
+    if (end > seg.start) total += (end - seg.start) * seg.rate;
   }
-  return rate;
+  return total;
 }
 
-/** Price one order line: exact line total + a rounded unit price. A
+/** Price one order line: exact line total + a rounded average unit price. A
  *  customer special price (overrideUnitPriceMinor), when set, wins over tiers. */
 export function priceOrderLine(
   quantity: number,
   input: LinePricingInput,
 ): LinePrice {
-  const rate =
-    input.overrideUnitPriceMinor != null
-      ? input.overrideUnitPriceMinor
-      : rateForQuantity(quantity, input);
+  if (input.overrideUnitPriceMinor != null) {
+    return {
+      unit_price_minor: Math.round(input.overrideUnitPriceMinor),
+      line_total_minor: Math.round(quantity * input.overrideUnitPriceMinor),
+    };
+  }
+  if (quantity <= 0) {
+    return { unit_price_minor: Math.round(input.basePriceMinor), line_total_minor: 0 };
+  }
+  const total = graduatedTotal(quantity, input);
   return {
-    unit_price_minor: Math.round(rate),
-    line_total_minor: Math.round(quantity * rate),
+    unit_price_minor: Math.round(total / quantity),
+    line_total_minor: Math.round(total),
   };
 }

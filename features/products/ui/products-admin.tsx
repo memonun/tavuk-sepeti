@@ -4,15 +4,15 @@
  * Products catalog manager. Lists the full catalog (active + archived) as
  * cards. Each card lets the admin edit content fields (via a dialog), archive
  * or restore the product, and edit its pricing inline: a flat/base unit price
- * plus optional volume tiers (≥ min_qty → unit price).
+ * plus optional graduated volume tiers (from the min_qty-th unit on → unit price).
  *
  * Saving affects FUTURE orders only — existing orders keep their frozen line
  * prices (snapshot model). Hard delete is offered too, but only ever
  * succeeds for a product with zero order_items (that FK is ON DELETE
  * RESTRICT) — an ordered product must be archived instead, never deleted.
  *
- * Tier prices accept up to 4 decimals so fractional rates (eggs at 3 pkg ≈
- * ₺116.6667/pkg) round to an exact line total in the pricing engine.
+ * Tier prices accept up to 4 decimals (kept for fractional rates); the
+ * pricing engine rounds the line total once.
  */
 import {
   Archive,
@@ -138,12 +138,12 @@ function PricingEditor({ product }: { product: Product }) {
 
       <div className="space-y-2">
         <p className="text-xs text-muted-foreground">
-          Miktar kademeleri (≥ adet → birim fiyat). Boşsa birim fiyat geçerli.
+          Kademeler: yazılan adetten itibaren her birim bu fiyattan (ör. 1 → 130, 2 → 120, 3 → 100 ise 3 paket 350, 4 paket 450). Kademeden önceki birimler ve kademe yoksa hepsi birim fiyattan.
         </p>
         {tiers.map((t, idx) => (
           <div key={idx} className="flex items-end gap-2">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs text-muted-foreground">≥ adet</Label>
+              <Label className="text-xs text-muted-foreground">kaçıncı birimden</Label>
               <Input
                 inputMode="decimal"
                 value={t.min_qty}
@@ -161,7 +161,7 @@ function PricingEditor({ product }: { product: Product }) {
                 value={t.price}
                 onChange={(e) => setTier(idx, { price: e.target.value })}
                 className="w-32"
-                placeholder="112,50"
+                placeholder="100,00"
               />
             </div>
             <Button

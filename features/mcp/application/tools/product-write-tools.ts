@@ -93,7 +93,7 @@ export function registerProductWriteTools(server: McpServer): void {
     {
       title: "Ürün fiyatını değiştir",
       description:
-        "Ürünün birim fiyatını ve miktar kademelerini ayarlar (kuruş). Yalnızca YENİ siparişleri etkiler; mevcut siparişlerin fiyatı donmuştur. Kademeler tamamen yer değiştirir: önce list_products ile mevcut kademeleri oku.",
+        "Ürünün birim fiyatını ve miktar kademelerini ayarlar (kuruş). Kademeler kademelidir: min_qty=m olan kademe m. birimden itibaren her birimi fiyatlar; ilk kademeden önceki birimler birim fiyattan. Örn. 1→13000, 2→12000, 3→10000: 3 paket 35000, 4 paket 45000. Yalnızca YENİ siparişleri etkiler; mevcut siparişlerin fiyatı donmuştur. Kademeler tamamen yer değiştirir: önce list_products ile mevcut kademeleri oku.",
       inputSchema: setProductPricingInput,
       annotations: { ...WRITE, title: "Ürün fiyatını değiştir" },
     },
