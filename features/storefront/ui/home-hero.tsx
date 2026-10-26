@@ -144,9 +144,15 @@ export function HomeHero({
 
       {/* The sentence and the controls float above the photos. The layer
           itself lets touches through, so a swipe that starts on the text
-          still moves the photos; only the buttons catch presses. */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/60 via-black/20 via-45% to-transparent p-4 sm:p-6 lg:p-8">
-        <p className="max-w-xl text-[0.9375rem] leading-snug font-medium text-pretty text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.25)] sm:text-lg lg:text-xl lg:leading-relaxed">
+          still moves the photos; only the buttons catch presses.
+
+          The shade under the text has to hold up over the brightest photo
+          (the white tablecloth). On a phone the text spans the width, so it
+          is shaded from the bottom; on wider screens the text sits in the
+          left half, so a left-to-right shade is added and the right of the
+          photo stays clear. Checked on the live site, 2026-10-26. */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-[linear-gradient(to_top,rgb(0_0_0/0.72),rgb(0_0_0/0.42)_45%,transparent_85%)] p-4 sm:bg-[linear-gradient(to_top,rgb(0_0_0/0.6),transparent_70%),linear-gradient(to_right,rgb(0_0_0/0.6),rgb(0_0_0/0.3)_45%,transparent_70%)] sm:p-6 lg:p-8">
+        <p className="max-w-xl text-[0.9375rem] leading-snug font-medium text-pretty text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.45)] sm:text-lg lg:text-xl lg:leading-relaxed">
           {subtitle}
         </p>
         <div className="mt-3 flex items-center justify-between sm:mt-4">
