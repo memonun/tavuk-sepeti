@@ -1,12 +1,12 @@
 -- hero_text_settings
 --
--- Ana sayfanın en üstündeki slogan ("Çiftlikten sofranıza") ve altındaki cümle
+-- Ana sayfanın en üstündeki başlık ("Çiftlikten sofranıza") ve altındaki cümle
 -- app/(shop)/page.tsx içine yazılıydı; değiştirmek için yayın gerekiyordu. Owner
 -- (2026-10-26) bu iki metni /magaza-ayarlari'dan kendisi düzenlemek istiyor.
 --
---   * hero_title — ana sayfa sloganı (h1). 1–80 karakter.
---   * hero_subtitle — ana sayfadaki kayan vitrinde, fotoğrafların üstünde duran
---     cümle. 1–140 karakter: telefonda fotoğrafın üstüne üç satırda sığmalı.
+--   * hero_title — ana sayfa başlığı (h1). 1–80 karakter.
+--   * hero_subtitle — başlığın altındaki cümle (telefonda gizli, tablet ve
+--     masaüstünde görünür). 1–240 karakter.
 --
 -- Tek satırlık storefront_settings tablosuna iki kolon: tablonun mevcut RLS'i
 -- (herkes okur, sadece admin yazar) ve tablo düzeyindeki grant'ler yeni
@@ -30,9 +30,9 @@ alter table storefront_settings
   add column if not exists hero_subtitle text not null
     default 'Akçadağ''daki çiftliğimizden köy yumurtası, kayısı ve dut. Seçin, sepete ekleyin, biz getirelim.'
     constraint storefront_settings_hero_subtitle_length
-      check (char_length(btrim(hero_subtitle)) >= 1 and char_length(hero_subtitle) <= 140);
+      check (char_length(btrim(hero_subtitle)) >= 1 and char_length(hero_subtitle) <= 240);
 
 comment on column storefront_settings.hero_title is
-  'Storefront home page slogan (h1). Owner-editable in /magaza-ayarlari. 1-80 chars.';
+  'Storefront home page heading (h1). Owner-editable in /magaza-ayarlari. 1-80 chars.';
 comment on column storefront_settings.hero_subtitle is
-  'Sentence shown over the storefront home showcase photos. Owner-editable in /magaza-ayarlari. 1-140 chars.';
+  'Sentence under the storefront home heading (hidden on phones). Owner-editable in /magaza-ayarlari. 1-240 chars.';

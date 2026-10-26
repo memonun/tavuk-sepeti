@@ -109,7 +109,8 @@ function requiredMinor(label: string, max: number) {
 }
 
 /**
- * Same limits as the CHECK constraints in migration 20261026200332. The
+ * Same limits as the CHECK constraints in migrations 20261026200332 and
+ * 20261026210338. The
  * subtitle sits on the showcase photo; 140 characters is about three lines on
  * a phone, which still leaves the photo visible.
  */
