@@ -19,6 +19,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     min_qty: 0.5,
     step: 0.5,
     current_unit_price_minor: 10000,
+    discount_unit_price_minor: null,
     price_tiers: [],
     active: true,
     fulfillment_type: "delivery",
@@ -96,6 +97,15 @@ describe("enrichOrderItems", () => {
     expect(result.value[0]!.unit_price_minor).toBe(11667);
     expect(result.value[0]!.line_total_minor).toBe(35000);
     expect(result.value[1]!.line_total_minor).toBe(45000);
+  });
+
+  it("charges the product sale price (server re-pricing uses it)", () => {
+    const onSale = makeProduct({ discount_unit_price_minor: 8000 }); // ₺100 → ₺80/kg
+    const result = enrichOrderItems([{ product_key: "cheese", quantity: 1.5 }], [onSale]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value[0]!.unit_price_minor).toBe(8000);
+    expect(result.value[0]!.line_total_minor).toBe(12000);
   });
 
   it("uses an explicit special price (flat, ignores tiers)", () => {

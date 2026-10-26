@@ -11,7 +11,7 @@
  * The line total is exact (round once); the unit price is the rounded
  * per-unit figure stored for the record.
  */
-import { priceOrderLine } from "@/features/products/application/pricing";
+import { priceOrderLine, productLinePricing } from "@/features/products/application/pricing";
 import { ValidationError } from "@/shared/errors/app-error";
 import { err, ok, type Result } from "@/shared/result";
 
@@ -88,8 +88,7 @@ export function enrichOrderItems(
     }
 
     const priced = priceOrderLine(item.quantity, {
-      tiers: product.price_tiers,
-      basePriceMinor: product.current_unit_price_minor,
+      ...productLinePricing(product),
       overrideUnitPriceMinor: item.unit_price_minor,
     });
 

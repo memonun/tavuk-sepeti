@@ -999,6 +999,7 @@ export type Database = {
           active: boolean
           created_at: string
           current_unit_price_minor: number
+          discount_unit_price_minor: number | null
           display_name: string
           fulfillment_type: string
           image_alt: string | null
@@ -1021,6 +1022,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           current_unit_price_minor?: number
+          discount_unit_price_minor?: number | null
           display_name: string
           fulfillment_type?: string
           image_alt?: string | null
@@ -1043,6 +1045,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           current_unit_price_minor?: number
+          discount_unit_price_minor?: number | null
           display_name?: string
           fulfillment_type?: string
           image_alt?: string | null

@@ -16,10 +16,11 @@ import {
 import { PriceTag } from "@/features/storefront/ui/kit/price-tag";
 import {
   fromPriceMinor,
-  halfUnitPriceMinor,
+  fromPriceSale,
   hasHalfUnitOption,
   hasVolumeDiscount,
 } from "@/features/storefront/ui/line-pricing";
+import { LineTotal } from "@/features/storefront/ui/line-total";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 
 import type { Product } from "@/features/products/application/list-products";
@@ -47,6 +48,7 @@ export function ProductCard({
    */
   imagePriority?: boolean | undefined;
 }) {
+  const sale = fromPriceSale(product);
   const imageUrl = productImagePublicUrl(
     product.image_path,
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -109,14 +111,13 @@ export function ProductCard({
           amount={formatTRY(fromPriceMinor(product))}
           unit={product.unit_label}
           prefix={hasVolumeDiscount(product) ? "Başlangıç fiyatı" : undefined}
+          sale={sale && { regularAmount: formatTRY(sale.regularMinor), percent: sale.percent }}
           reservePrefixLine
         />
         {hasHalfUnitOption(product) ? (
           <p className="mt-2 text-base text-muted-foreground">
             Yarım kilo{" "}
-            <span className="shop-money font-bold text-foreground">
-              {formatTRY(halfUnitPriceMinor(product))}
-            </span>
+            <LineTotal product={product} quantity={0.5} className="shop-money font-bold text-foreground" />
           </p>
         ) : null}
 

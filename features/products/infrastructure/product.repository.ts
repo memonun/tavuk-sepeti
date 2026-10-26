@@ -358,15 +358,26 @@ export async function deleteProductImageObject(
   return ok(undefined);
 }
 
-/** Update a product's flat/base unit price (kuruş). */
+/**
+ * Update a product's flat/base unit price and, when given, its sale price
+ * (kuruş) in one statement. `discountUnitPriceMinor`: a number sets the sale,
+ * null clears it, undefined leaves it as is.
+ */
 export async function updateProductBasePrice(
   productKey: string,
   basePriceMinor: number,
+  discountUnitPriceMinor?: number | null,
 ): Promise<Result<void, ExternalApiError>> {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("products")
-    .update({ current_unit_price_minor: basePriceMinor, updated_at: new Date().toISOString() })
+    .update({
+      current_unit_price_minor: basePriceMinor,
+      ...(discountUnitPriceMinor !== undefined
+        ? { discount_unit_price_minor: discountUnitPriceMinor }
+        : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("key", productKey);
   if (error) {
     logger.error({ productKey, code: error.code }, "update_product_base_price_failed");
