@@ -17,6 +17,8 @@
  *     (migration 20261022135852). 150 ₺ as of 2026-10-22.
  *   - `cargoFreeShippingThresholdMinor` — a cargo order whose subtotal reaches
  *     this pays no cargo fee. 1.000 ₺ as of 2026-10-22; 0 = no threshold.
+ *   - `heroTitle` / `heroSubtitle` — the home page heading and the sentence
+ *     under it (migration 20261026200332). Owner asked 2026-10-26.
  *
  * They live in a single `storefront_settings` row rather than in this file
  * because a constant is only "changeable" by a developer. The DEFAULTS below
@@ -47,6 +49,10 @@ export interface StorefrontSettings {
   readonly cargoFeeMinor: number;
   /** Cargo subtotal (kuruş) at or above which shipping is free. 0 = no threshold. */
   readonly cargoFreeShippingThresholdMinor: number;
+  /** Home page heading (h1). Never blank. */
+  readonly heroTitle: string;
+  /** Sentence under the home page heading. Never blank. */
+  readonly heroSubtitle: string;
 }
 
 /** 1.000 ₺ — the out-of-city order floor the owner set (2026-08-13). */
@@ -62,6 +68,11 @@ export const DEFAULT_CARGO_FEE_MINOR = 15_000;
 /** 1.000 ₺ — cargo is free from this subtotal up (owner, 2026-10-22). */
 export const DEFAULT_CARGO_FREE_SHIPPING_THRESHOLD_MINOR = 100_000;
 
+/** The home page text as it was hard-coded before it became editable. */
+export const DEFAULT_HERO_TITLE = "Çiftlikten sofranıza";
+export const DEFAULT_HERO_SUBTITLE =
+  "Akçadağ'daki çiftliğimizden köy yumurtası, kayısı ve dut. Seçin, sepete ekleyin, biz getirelim.";
+
 export const DEFAULT_STOREFRONT_SETTINGS: StorefrontSettings = {
   homeDeliveryDays: DEFAULT_HOME_DELIVERY_DAYS,
   cargoMinOrderMinor: DEFAULT_CARGO_MIN_ORDER_MINOR,
@@ -69,6 +80,8 @@ export const DEFAULT_STOREFRONT_SETTINGS: StorefrontSettings = {
   homeDeliveryFeeMinor: DEFAULT_HOME_DELIVERY_FEE_MINOR,
   cargoFeeMinor: DEFAULT_CARGO_FEE_MINOR,
   cargoFreeShippingThresholdMinor: DEFAULT_CARGO_FREE_SHIPPING_THRESHOLD_MINOR,
+  heroTitle: DEFAULT_HERO_TITLE,
+  heroSubtitle: DEFAULT_HERO_SUBTITLE,
 };
 
 /** Guard rail on the admin form: 100.000 ₺ is far past any real basket. */
@@ -93,6 +106,22 @@ function requiredMinor(label: string, max: number) {
       .min(0, `${label} negatif olamaz.`)
       .max(max, `${label} çok yüksek.`),
   );
+}
+
+/** Same limits as the CHECK constraints in migration 20261026200332. */
+export const MAX_HERO_TITLE_LENGTH = 80;
+export const MAX_HERO_SUBTITLE_LENGTH = 240;
+
+/**
+ * Required one-line text, trimmed. Missing is refused rather than defaulted:
+ * a form field that never arrived must not blank the home page heading.
+ */
+function requiredText(label: string, max: number) {
+  return z
+    .string({ message: `${label} gerekli.` })
+    .trim()
+    .min(1, `${label} boş olamaz.`)
+    .max(max, `${label} en fazla ${max} karakter olabilir.`);
 }
 
 const weekdaySchema = z
@@ -134,6 +163,8 @@ export const storefrontSettingsSchema = z.object({
     "Ücretsiz kargo limiti",
     MAX_CARGO_FREE_SHIPPING_THRESHOLD_MINOR,
   ),
+  hero_title: requiredText("Ana sayfa başlığı", MAX_HERO_TITLE_LENGTH),
+  hero_subtitle: requiredText("Ana sayfa açıklaması", MAX_HERO_SUBTITLE_LENGTH),
 });
 
 export type StorefrontSettingsInput = z.input<typeof storefrontSettingsSchema>;
@@ -150,5 +181,7 @@ export function toStorefrontSettings(
     homeDeliveryFeeMinor: parsed.home_delivery_fee_minor,
     cargoFeeMinor: parsed.cargo_fee_minor,
     cargoFreeShippingThresholdMinor: parsed.cargo_free_shipping_threshold_minor,
+    heroTitle: parsed.hero_title,
+    heroSubtitle: parsed.hero_subtitle,
   };
 }

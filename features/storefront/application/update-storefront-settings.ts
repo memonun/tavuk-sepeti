@@ -43,6 +43,8 @@ export async function updateStorefrontSettingsAction(
     cargo_free_shipping_threshold_minor: formData.get(
       "cargo_free_shipping_threshold_minor",
     ),
+    hero_title: formData.get("hero_title"),
+    hero_subtitle: formData.get("hero_subtitle"),
   });
 
   if (!parsed.success) {
@@ -70,6 +72,8 @@ export async function updateStorefrontSettingsAction(
       home_delivery_fee_minor: saved.value.homeDeliveryFeeMinor,
       cargo_fee_minor: saved.value.cargoFeeMinor,
       cargo_free_shipping_threshold_minor: saved.value.cargoFreeShippingThresholdMinor,
+      hero_title: saved.value.heroTitle,
+      hero_subtitle: saved.value.heroSubtitle,
     },
   });
 
