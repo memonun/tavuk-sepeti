@@ -7,6 +7,7 @@ import "server-only";
  * the carrier picks up on its own schedule, so this is one running queue
  * rather than a day-by-day view like /routes.
  */
+import { isArasEnabled } from "@/features/cargo/application/aras";
 import { computeCargoManifest } from "@/features/cargo/domain/cargo-manifest";
 import { fetchCargoOrderItems } from "@/features/cargo/infrastructure/cargo-order-items.repository";
 import { fetchCargoRecipients } from "@/features/cargo/infrastructure/cargo-recipients.repository";
@@ -24,6 +25,8 @@ export interface CargoQueueResult {
   /** Per-order recipient card data, keyed by order id. Plain object (not a
    *  Map) so it crosses the Server→Client component boundary as a prop. */
   recipients: Record<string, CargoRecipient>;
+  /** Whether the "Aras'a Gönder" action is available (credentials set). */
+  arasEnabled: boolean;
 }
 
 /** Bounded cap for one unpaginated queue fetch — application/ may not import
@@ -62,5 +65,6 @@ export async function getCargoOrders(): Promise<Result<CargoQueueResult, AppErro
     orders,
     manifest,
     recipients: Object.fromEntries(recipientsByOrder),
+    arasEnabled: isArasEnabled(),
   });
 }

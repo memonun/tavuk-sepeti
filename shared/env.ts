@@ -78,6 +78,16 @@ const serverSchema = z.object({
   PAYTR_MERCHANT_SALT: z.string().min(1).optional(),
   PAYTR_TEST_MODE: z.enum(["0", "1"]).default("1"),
 
+  // Aras Kargo shipping service (SetOrder / CancelDispatch). Optional: when
+  // either credential is unset the "Aras'a Gönder" button is hidden and cargo
+  // stays fully manual. ARAS_TEST_MODE "1" = Aras's test endpoint, "0" = live.
+  // ARAS_TRACKING_ACCOUNT_ID ("Kargo Takip Web Sayfası Üyeliği" → accountid)
+  // is optional; with it, sending an order also fills its tracking link.
+  ARAS_SETORDER_USERNAME: z.string().min(1).optional(),
+  ARAS_SETORDER_PASSWORD: z.string().min(1).optional(),
+  ARAS_TEST_MODE: z.enum(["0", "1"]).default("1"),
+  ARAS_TRACKING_ACCOUNT_ID: z.string().min(1).optional(),
+
   // Observability.
   SENTRY_DSN: z.string().url().optional(),
   LOG_LEVEL: z
@@ -133,6 +143,10 @@ const rawServer = isServer
       PAYTR_MERCHANT_KEY: process.env.PAYTR_MERCHANT_KEY,
       PAYTR_MERCHANT_SALT: process.env.PAYTR_MERCHANT_SALT,
       PAYTR_TEST_MODE: process.env.PAYTR_TEST_MODE,
+      ARAS_SETORDER_USERNAME: process.env.ARAS_SETORDER_USERNAME,
+      ARAS_SETORDER_PASSWORD: process.env.ARAS_SETORDER_PASSWORD,
+      ARAS_TEST_MODE: process.env.ARAS_TEST_MODE,
+      ARAS_TRACKING_ACCOUNT_ID: process.env.ARAS_TRACKING_ACCOUNT_ID,
       SENTRY_DSN: process.env.SENTRY_DSN,
       LOG_LEVEL: process.env.LOG_LEVEL,
       DEFAULT_TIMEZONE: process.env.DEFAULT_TIMEZONE,
