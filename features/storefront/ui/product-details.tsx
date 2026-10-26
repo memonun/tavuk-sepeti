@@ -29,12 +29,10 @@ export function ProductDetails({
   const longParagraphs = splitDescriptionParagraphs(product.web_long_description);
   const references = getProductDescriptionReferences(product.key, product.web_description);
   // Customers see line TOTALS only, never a per-unit rate: one row per tier
-  // start plus the next two quantities, so the pattern past the last tier
-  // (eggs: … 450, 550, 650) is visible.
-  const tierStarts = [...new Set(product.price_tiers.map((t) => t.min_qty))].sort((a, b) => a - b);
-  const lastStart = tierStarts.at(-1);
-  const tableQuantities =
-    lastStart === undefined ? [] : [...tierStarts, lastStart + 1, lastStart + 2];
+  // start (eggs: 1, 2, 3, 4 → 130, 250, 350, 450).
+  const tableQuantities = [...new Set(product.price_tiers.map((t) => t.min_qty))].sort(
+    (a, b) => a - b,
+  );
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       <nav
@@ -121,7 +119,7 @@ export function ProductDetails({
                 <thead className="bg-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3">
-                      Miktar ({product.unit_label})
+                      Miktar
                     </th>
                     <th scope="col" className="px-4 py-3">
                       Toplam
