@@ -6,10 +6,7 @@
  * pure pricing helpers from the domain without the server-only guard, so both
  * the order form (client) and the server enrichment path use one implementation.
  */
-export {
-  priceOrderLine,
-  rateForQuantity,
-} from "@/features/products/domain/product-pricing";
+export { priceOrderLine } from "@/features/products/domain/product-pricing";
 export type {
   ProductPriceTier,
   LinePrice,

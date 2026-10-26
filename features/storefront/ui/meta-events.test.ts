@@ -56,7 +56,7 @@ const EGGS: Product = {
   min_qty: 1,
   step: 1,
   current_unit_price_minor: 10_000,
-  // 5+ packages: 80 ₺ each.
+  // Graduated: the 5th package onward is 80 ₺.
   price_tiers: [{ min_qty: 5, unit_price_minor: 8_000 }],
   active: true,
   fulfillment_type: "delivery",
@@ -150,13 +150,13 @@ describe("basket changes", () => {
     });
   });
 
-  it("never reports a negative value when a quantity tier makes the line cheaper", async () => {
+  it("reports the added unit at its tier price", async () => {
     const win = installBrowser();
     const { trackProductQuantityIncreased } = await load("123456789012345");
 
-    trackProductQuantityIncreased(EGGS, 4, 5); // 4 × 100 ₺ = 400 ₺ → 5 × 80 ₺ = 400 ₺
+    trackProductQuantityIncreased(EGGS, 4, 5); // 4 × 100 ₺ = 400 ₺ → + 5th at 80 ₺ = 480 ₺
 
-    expect(customQueue(win, "track", "AddToCart")[0]?.[2]).toMatchObject({ value: 0 });
+    expect(customQueue(win, "track", "AddToCart")[0]?.[2]).toMatchObject({ value: 80 });
   });
 
   it('"−" and "Çıkar" report what left the basket as RemoveFromCart', async () => {
