@@ -50,11 +50,12 @@ const EGGS = makeProduct({
   unit_label: "paket",
   min_qty: 1,
   step: 1,
-  current_unit_price_minor: 12500,
+  current_unit_price_minor: 13000,
+  // Graduated: 1st pkg ₺130, 2nd ₺120, 3rd onward ₺100.
   price_tiers: [
-    { min_qty: 1, unit_price_minor: 12500 },
-    { min_qty: 3, unit_price_minor: 11666.6667 },
-    { min_qty: 4, unit_price_minor: 11250 },
+    { min_qty: 1, unit_price_minor: 13000 },
+    { min_qty: 2, unit_price_minor: 12000 },
+    { min_qty: 3, unit_price_minor: 10000 },
   ],
 });
 
@@ -82,12 +83,19 @@ describe("enrichOrderItems", () => {
     expect(item.product_snapshot.display_name).toBe("Peynir");
   });
 
-  it("applies volume tiers — 3 egg pkg is exactly ₺350.00", () => {
-    const result = enrichOrderItems([{ product_key: "eggs", quantity: 3 }], CATALOG);
+  it("applies graduated tiers — 3 egg pkg ₺350, 4 pkg ₺450", () => {
+    const result = enrichOrderItems(
+      [
+        { product_key: "eggs", quantity: 3 },
+        { product_key: "eggs", quantity: 4 },
+      ],
+      CATALOG,
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value[0]!.unit_price_minor).toBe(11667);
     expect(result.value[0]!.line_total_minor).toBe(35000);
+    expect(result.value[1]!.line_total_minor).toBe(45000);
   });
 
   it("uses an explicit special price (flat, ignores tiers)", () => {

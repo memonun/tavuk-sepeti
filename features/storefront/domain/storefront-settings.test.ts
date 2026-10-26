@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_HERO_SUBTITLE,
+  DEFAULT_HERO_TITLE,
   DEFAULT_STOREFRONT_SETTINGS,
   storefrontSettingsSchema,
   toStorefrontSettings,
 } from "@/features/storefront/domain/storefront-settings";
+
+const HERO = { hero_title: DEFAULT_HERO_TITLE, hero_subtitle: DEFAULT_HERO_SUBTITLE };
 
 describe("storefrontSettingsSchema", () => {
   it("canonicalises the day list: de-duplicated and Monday-first", () => {
@@ -15,6 +19,7 @@ describe("storefrontSettingsSchema", () => {
       home_delivery_fee_minor: 5_000,
       cargo_fee_minor: 15_000,
       cargo_free_shipping_threshold_minor: 100_000,
+      ...HERO,
     });
 
     expect(parsed.home_delivery_days).toEqual([3, 6, 0]);
@@ -76,6 +81,7 @@ describe("storefrontSettingsSchema", () => {
       home_delivery_fee_minor: "5000",
       cargo_fee_minor: "15000",
       cargo_free_shipping_threshold_minor: "100000",
+      ...HERO,
     });
 
     expect(parsed.home_delivery_days).toEqual([3, 6]);
@@ -93,6 +99,7 @@ describe("storefrontSettingsSchema", () => {
     home_delivery_fee_minor: fee,
     cargo_fee_minor: 15_000,
     cargo_free_shipping_threshold_minor: 100_000,
+    ...HERO,
   });
 
   it("accepts 0 as a free-delivery fee", () => {
@@ -118,6 +125,7 @@ describe("storefrontSettingsSchema", () => {
     home_delivery_fee_minor: 5_000,
     cargo_fee_minor: fee,
     cargo_free_shipping_threshold_minor: threshold,
+    ...HERO,
   });
 
   it("accepts 0 for the cargo fee and for the free-cargo threshold", () => {
@@ -139,6 +147,36 @@ describe("storefrontSettingsSchema", () => {
       expect(storefrontSettingsSchema.safeParse(cargoRow(15_000, missing)).success).toBe(false);
     }
   });
+
+  const heroRow = (title: unknown, subtitle: unknown) => ({
+    home_delivery_days: [3],
+    cargo_min_order_minor: 0,
+    home_min_order_minor: 0,
+    home_delivery_fee_minor: 5_000,
+    cargo_fee_minor: 15_000,
+    cargo_free_shipping_threshold_minor: 100_000,
+    hero_title: title,
+    hero_subtitle: subtitle,
+  });
+
+  it("trims the home page text", () => {
+    const parsed = storefrontSettingsSchema.parse(heroRow("  Yeni başlık  ", " Yeni cümle. "));
+    expect(parsed.hero_title).toBe("Yeni başlık");
+    expect(parsed.hero_subtitle).toBe("Yeni cümle.");
+  });
+
+  // A blank or missing heading would leave the home page with no title.
+  it("refuses blank, missing or too-long home page text", () => {
+    for (const bad of ["", "   ", null, undefined, "x".repeat(81)]) {
+      expect(storefrontSettingsSchema.safeParse(heroRow(bad, "Cümle.")).success).toBe(false);
+    }
+    for (const bad of ["", "   ", null, undefined, "x".repeat(241)]) {
+      expect(storefrontSettingsSchema.safeParse(heroRow("Başlık", bad)).success).toBe(false);
+    }
+    expect(
+      storefrontSettingsSchema.safeParse(heroRow("x".repeat(80), "x".repeat(240))).success,
+    ).toBe(true);
+  });
 });
 
 describe("toStorefrontSettings", () => {
@@ -151,6 +189,7 @@ describe("toStorefrontSettings", () => {
         home_delivery_fee_minor: 5_000,
         cargo_fee_minor: 15_000,
         cargo_free_shipping_threshold_minor: 100_000,
+        ...HERO,
       }),
     );
 

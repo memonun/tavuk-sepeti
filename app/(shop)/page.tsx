@@ -93,10 +93,10 @@ export default async function ShopHomePage({
               heading is one smaller line and the sentence under it waits for
               wider screens. */}
           <h1 className="max-w-3xl font-display text-[1.75rem] leading-[1.1] text-foreground sm:text-5xl sm:leading-[1.05]">
-            Çiftlikten sofranıza
+            {settings.heroTitle}
           </h1>
           <p className="mt-2.5 hidden max-w-xl text-lg leading-relaxed text-muted-foreground sm:block">
-            Akçadağ&apos;daki çiftliğimizden köy yumurtası, kayısı ve dut. Seçin, sepete ekleyin, biz getirelim.
+            {settings.heroSubtitle}
           </p>
         </div>
         <HomeHero className="order-1 lg:order-2" />

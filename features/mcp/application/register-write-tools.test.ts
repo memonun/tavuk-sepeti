@@ -672,6 +672,10 @@ describe("write tool adapters", () => {
       cargoMinOrderMinor: 100000,
       homeMinOrderMinor: 25000,
       homeDeliveryFeeMinor: 5000,
+      cargoFeeMinor: 15000,
+      cargoFreeShippingThresholdMinor: 100000,
+      heroTitle: "Çiftlikten sofranıza",
+      heroSubtitle: "Köy yumurtası.",
     });
     m.updateStorefrontSettingsAction.mockResolvedValue({ status: "success", savedAt: 1 });
     await (await connect()).callTool({
@@ -683,6 +687,8 @@ describe("write tool adapters", () => {
     expect(fd.get("cargo_min_order_minor")).toBe("100000");
     expect(fd.get("home_min_order_minor")).toBe("30000");
     expect(fd.get("home_delivery_fee_minor")).toBe("5000");
+    expect(fd.get("hero_title")).toBe("Çiftlikten sofranıza");
+    expect(fd.get("hero_subtitle")).toBe("Köy yumurtası.");
   });
 
   it("mark_notification_read reports the real unread count afterwards", async () => {

@@ -59,8 +59,8 @@ function LineRow({ product, draft, onQuantity, onSpecial, onRemove }: LineRowPro
     overrideUnitPriceMinor: draft.unit_price_minor,
   });
   const hasSpecial = draft.unit_price_minor != null;
-  // For tiered lines the exact total isn't unit × qty (e.g. 3 × ₺116,67 ≠
-  // ₺350,00); flag the unit as approximate so it doesn't read as a mistake.
+  // For tiered lines the unit is an average, so unit × qty may miss the exact
+  // total (e.g. 3 × ₺116,67 ≠ ₺350,00); flag the unit as approximate so it doesn't read as a mistake.
   const unitApprox =
     Math.round(priced.unit_price_minor * draft.quantity) !== priced.line_total_minor;
 

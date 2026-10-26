@@ -51,6 +51,8 @@ describe("buildFaqPage", () => {
       cargoMinOrderMinor: 120_000,
       cargoFeeMinor: 17_500,
       cargoFreeShippingThresholdMinor: 150_000,
+      heroTitle: "Başlık",
+      heroSubtitle: "Açıklama.",
     };
     const live = buildFaqPage(settings);
     expect(answerOf(live, "eve-teslimat-gunleri")).toContain("Pazartesi ve Cuma");

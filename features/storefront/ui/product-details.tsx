@@ -10,6 +10,7 @@ import { PriceTag } from "@/features/storefront/ui/kit/price-tag";
 import {
   fromPriceMinor,
   hasVolumeDiscount,
+  lineTotalMinor,
 } from "@/features/storefront/ui/line-pricing";
 import { ProductCard } from "@/features/storefront/ui/product-card";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
@@ -27,6 +28,13 @@ export function ProductDetails({
 }) {
   const longParagraphs = splitDescriptionParagraphs(product.web_long_description);
   const references = getProductDescriptionReferences(product.key, product.web_description);
+  // Customers see line TOTALS only, never a per-unit rate: one row per tier
+  // start plus the next two quantities, so the pattern past the last tier
+  // (eggs: … 450, 550, 650) is visible.
+  const tierStarts = [...new Set(product.price_tiers.map((t) => t.min_qty))].sort((a, b) => a - b);
+  const lastStart = tierStarts.at(-1);
+  const tableQuantities =
+    lastStart === undefined ? [] : [...tierStarts, lastStart + 1, lastStart + 2];
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       <nav
@@ -108,26 +116,24 @@ export function ProductDetails({
             <div className="mt-6 overflow-hidden rounded-2xl border border-border">
               <table className="w-full text-left text-base">
                 <caption className="px-4 py-3 text-left font-bold">
-                  Miktara göre birim fiyatı
+                  Miktara göre fiyat
                 </caption>
                 <thead className="bg-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3">
-                      Miktar
+                      Miktar ({product.unit_label})
                     </th>
                     <th scope="col" className="px-4 py-3">
-                      {product.unit_label} fiyatı
+                      Toplam
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {product.price_tiers.map((tier) => (
-                    <tr key={tier.min_qty} className="border-t border-border">
-                      <td className="px-4 py-3">
-                        {tier.min_qty.toLocaleString("tr-TR")} ve üzeri
-                      </td>
+                  {tableQuantities.map((qty) => (
+                    <tr key={qty} className="border-t border-border">
+                      <td className="px-4 py-3">{qty.toLocaleString("tr-TR")}</td>
                       <td className="shop-money px-4 py-3 font-semibold">
-                        {formatTRY(tier.unit_price_minor)}
+                        {formatTRY(lineTotalMinor(product, qty))}
                       </td>
                     </tr>
                   ))}

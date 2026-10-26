@@ -98,7 +98,7 @@ export function registerAdminMiscTools(server: McpServer): void {
     {
       title: "Mağaza ayarları",
       description:
-        "Canlı mağaza kurallarını getirir: eve servis günleri (0=Pazar … 6=Cumartesi), kargo ve eve servis alt limitleri, eve servis ücreti, kargo ücreti ve ücretsiz kargo limiti (kuruş).",
+        "Canlı mağaza kurallarını getirir: eve servis günleri (0=Pazar … 6=Cumartesi), kargo ve eve servis alt limitleri, eve servis ücreti, kargo ücreti ve ücretsiz kargo limiti (kuruş), ana sayfa başlığı ve açıklaması.",
       annotations: { ...READ_ONLY, title: "Mağaza ayarları" },
     },
     async () => {
@@ -115,7 +115,7 @@ export function registerAdminMiscTools(server: McpServer): void {
     {
       title: "Mağaza ayarlarını değiştir",
       description:
-        "CANLI mağaza kurallarını değiştirir: eve servis günleri, kargo/eve servis alt limiti, eve servis ücreti, kargo ücreti, ücretsiz kargo limiti (kuruş). Müşterilerin ödeme ekranını hemen etkiler. Sadece gönderdiğin alanlar değişir. Önce get_storefront_settings ile mevcut değerleri göster, değişikliği kullanıcıya açıkça söyle.",
+        "CANLI mağaza kurallarını değiştirir: eve servis günleri, kargo/eve servis alt limiti, eve servis ücreti, kargo ücreti, ücretsiz kargo limiti (kuruş), ana sayfa başlığı ve açıklaması. Müşterilerin ödeme ekranını hemen etkiler. Sadece gönderdiğin alanlar değişir. Önce get_storefront_settings ile mevcut değerleri göster, değişikliği kullanıcıya açıkça söyle.",
       inputSchema: updateStorefrontSettingsInput,
       annotations: { ...WRITE, title: "Mağaza ayarlarını değiştir" },
     },
@@ -132,6 +132,8 @@ export function registerAdminMiscTools(server: McpServer): void {
           "cargo_free_shipping_threshold_minor",
           String(input.cargo_free_shipping_threshold_minor ?? current.cargoFreeShippingThresholdMinor),
         );
+        fd.set("hero_title", input.hero_title ?? current.heroTitle);
+        fd.set("hero_subtitle", input.hero_subtitle ?? current.heroSubtitle);
         return toolFromState(await updateStorefrontSettingsAction({ status: "idle" }, fd));
       } catch (cause) {
         return toolError("update_storefront_settings", cause);

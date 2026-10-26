@@ -2,28 +2,27 @@ import { describe, expect, it } from "vitest";
 
 import {
   priceOrderLine,
-  rateForQuantity,
   type ProductPriceTier,
 } from "@/features/products/domain/product-pricing";
 
-// Egg tiers (kuruş/pkg): 1–2 → 125.00, 3 → 116.6667, 4+ → 112.50.
+// Egg tiers (kuruş/pkg): 1st pkg ₺130, 2nd ₺120, 3rd onward ₺100.
 const eggTiers: ProductPriceTier[] = [
-  { min_qty: 1, unit_price_minor: 12500 },
-  { min_qty: 3, unit_price_minor: 11666.6667 },
-  { min_qty: 4, unit_price_minor: 11250 },
+  { min_qty: 1, unit_price_minor: 13000 },
+  { min_qty: 2, unit_price_minor: 12000 },
+  { min_qty: 3, unit_price_minor: 10000 },
 ];
-const eggs = { tiers: eggTiers, basePriceMinor: 12500 };
+const eggs = { tiers: eggTiers, basePriceMinor: 13000 };
 
-describe("priceOrderLine — egg tiers", () => {
+describe("priceOrderLine — graduated egg tiers", () => {
   const cases: Array<[number, number, number]> = [
-    // quantity, expected unit_price_minor, expected line_total_minor
-    [1, 12500, 12500], // ₺125.00
-    [2, 12500, 25000], // ₺250.00
-    [3, 11667, 35000], // ₺350.00 exactly — the load-bearing case
-    [4, 11250, 45000], // ₺450.00
-    [5, 11250, 56250], // ₺562.50
-    [6, 11250, 67500], // ₺675.00
-    [10, 11250, 112500], // ₺1125.00
+    // quantity, expected unit_price_minor (avg), expected line_total_minor
+    [1, 13000, 13000], // ₺130
+    [2, 12500, 25000], // ₺250
+    [3, 11667, 35000], // ₺350
+    [4, 11250, 45000], // ₺450
+    [5, 11000, 55000], // ₺550
+    [6, 10833, 65000], // ₺650
+    [10, 10500, 105000], // ₺1050
   ];
   for (const [qty, unit, total] of cases) {
     it(`${qty} pkg → unit ${unit}, total ${total}`, () => {
@@ -33,6 +32,25 @@ describe("priceOrderLine — egg tiers", () => {
       });
     });
   }
+
+  it("ignores tier array order", () => {
+    const reversed = { ...eggs, tiers: [...eggTiers].reverse() };
+    expect(priceOrderLine(5, reversed).line_total_minor).toBe(55000);
+  });
+
+  it("a redundant tier with the same rate changes nothing", () => {
+    const withFour = { ...eggs, tiers: [...eggTiers, { min_qty: 4, unit_price_minor: 10000 }] };
+    expect(priceOrderLine(6, withFour).line_total_minor).toBe(65000);
+  });
+});
+
+describe("priceOrderLine — base price before the first tier", () => {
+  it("prices units before the first tier at base", () => {
+    // Units 1–4 at ₺2, the 5th onward at ₺1.
+    const input = { tiers: [{ min_qty: 5, unit_price_minor: 100 }], basePriceMinor: 200 };
+    expect(priceOrderLine(2, input).line_total_minor).toBe(400);
+    expect(priceOrderLine(6, input).line_total_minor).toBe(1000);
+  });
 });
 
 describe("priceOrderLine — flat (no tiers)", () => {
@@ -50,11 +68,21 @@ describe("priceOrderLine — flat (no tiers)", () => {
       line_total_minor: 13500,
     });
   });
+  it("tiers equal to the base keep half-kilo lines flat", () => {
+    const cheese = {
+      tiers: [
+        { min_qty: 1, unit_price_minor: 40000 },
+        { min_qty: 5, unit_price_minor: 40000 },
+      ],
+      basePriceMinor: 40000,
+    };
+    expect(priceOrderLine(0.5, cheese).line_total_minor).toBe(20000);
+    expect(priceOrderLine(5.5, cheese).line_total_minor).toBe(220000);
+  });
 });
 
 describe("priceOrderLine — customer override", () => {
   it("uses the flat override and ignores tiers", () => {
-    // Eggs would normally tier to 11250 at qty 4; override pins ₺110/pkg.
     expect(
       priceOrderLine(4, { ...eggs, overrideUnitPriceMinor: 11000 }),
     ).toEqual({ unit_price_minor: 11000, line_total_minor: 44000 });
@@ -63,16 +91,5 @@ describe("priceOrderLine — customer override", () => {
     expect(
       priceOrderLine(3, { tiers: [], basePriceMinor: 0, overrideUnitPriceMinor: 11666.6667 }),
     ).toEqual({ unit_price_minor: 11667, line_total_minor: 35000 });
-  });
-});
-
-describe("rateForQuantity", () => {
-  it("falls back to base below the lowest tier", () => {
-    const tiers: ProductPriceTier[] = [{ min_qty: 5, unit_price_minor: 100 }];
-    expect(rateForQuantity(2, { tiers, basePriceMinor: 200 })).toBe(200);
-  });
-  it("picks the highest matching tier regardless of array order", () => {
-    expect(rateForQuantity(4, eggs)).toBe(11250);
-    expect(rateForQuantity(3, eggs)).toBe(11666.6667);
   });
 });
