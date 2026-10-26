@@ -47,8 +47,9 @@ async function loadSettings(): Promise<StorefrontSettings> {
  * outlives a deploy, so without this the new code could read an entry the old
  * code stored — one missing the new field (an `undefined` fee is a NaN total).
  * v2: cargoFeeMinor + cargoFreeShippingThresholdMinor (2026-10-22).
+ * v3: heroTitle + heroSubtitle (2026-10-26).
  */
-const SETTINGS_CACHE_VERSION = "v2";
+const SETTINGS_CACHE_VERSION = "v3";
 
 export const getStorefrontSettings = cache(
   unstable_cache(loadSettings, [STOREFRONT_SETTINGS_TAG, SETTINGS_CACHE_VERSION], {

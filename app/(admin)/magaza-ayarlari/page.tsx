@@ -3,7 +3,8 @@ import { StorefrontSettingsForm } from "@/features/storefront/ui/storefront-sett
 
 /**
  * Storefront rules the owner changes without a deploy: the days the van goes
- * out, the order floors, and the delivery and cargo fees. Everything else about the shop
+ * out, the order floors, the delivery and cargo fees, and the home page
+ * heading text. Everything else about the shop
  * (products, prices, visibility) already lives under /products.
  */
 export default async function StorefrontSettingsPage() {
@@ -14,7 +15,8 @@ export default async function StorefrontSettingsPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Mağaza ayarları</h2>
         <p className="text-sm text-muted-foreground">
-          Eve servis günleri, sipariş alt limitleri, elden teslim ücreti ve kargo ücreti. Kaydedilen
+          Eve servis günleri, sipariş alt limitleri, elden teslim ücreti, kargo ücreti ve ana sayfa
+          metni. Kaydedilen
           değişiklik mağazada anında geçerli olur.
         </p>
       </div>
@@ -25,6 +27,8 @@ export default async function StorefrontSettingsPage() {
         homeDeliveryFeeMinor={settings.homeDeliveryFeeMinor}
         cargoFeeMinor={settings.cargoFeeMinor}
         cargoFreeShippingThresholdMinor={settings.cargoFreeShippingThresholdMinor}
+        heroTitle={settings.heroTitle}
+        heroSubtitle={settings.heroSubtitle}
       />
     </div>
   );
