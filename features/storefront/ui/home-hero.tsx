@@ -6,12 +6,18 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import {
+  showcaseImageSrc,
+  type ShowcaseSlide,
+} from "@/features/storefront/domain/showcase";
 import { HomeHeroIntroMarker } from "@/features/storefront/ui/home-hero-intro-marker";
+import { env } from "@/shared/env";
 
 /**
- * The home page's showcase (vitrin): a few farm photographs that slide past,
- * with the owner's sentence (`heroSubtitle`, edited in /magaza-ayarlari)
- * resting on top of them. The sentence stays put; only the photos move.
+ * The home page's showcase (vitrin): the farm photographs the owner picks in
+ * the admin "Vitrin" page (/vitrin), sliding past under the owner's sentence
+ * (`heroSubtitle`, edited on the same page). The sentence stays put; only the
+ * photos move.
  *
  * Sliding is the browser's own horizontal scroll with snap points, not a
  * scripted animation: the photo follows the finger 1:1, a flick carries its
@@ -29,51 +35,27 @@ import { HomeHeroIntroMarker } from "@/features/storefront/ui/home-hero-intro-ma
  * and the marker below records the visit). With "reduce motion" on, that
  * entrance never plays and the arrows jump instead of gliding.
  *
- * Photos are referenced by URL, not as static imports: the `*.webp` module
- * types come from the generated (git-ignored) next-env.d.ts, which does not
- * exist when CI runs `tsc` without a build.
+ * Each photo is a site file or an uploaded file in the public bucket
+ * (`showcaseImageSrc`); `focusY` keeps the chosen part of it in frame at every
+ * crop.
  */
-
-interface Slide {
-  readonly src: string;
-  readonly alt: string;
-  /** object-position — keeps the subject in frame at every crop. */
-  readonly position: string;
-}
-
-const SLIDES: readonly Slide[] = [
-  {
-    src: "/brand/apuhan-acilis-masa.webp",
-    alt: "Bahçede, Apuhan Çiftliği kara tahtası önünde kuru kayısı, badem ve dut dolu masa",
-    // The table with the two chalkboards sits at ~40–80% of the height.
-    position: "50% 72%",
-  },
-  {
-    src: "/hakkimizda/tavuklar-acik-alan.webp",
-    alt: "Meyve ağaçlarıyla çevrili çayırda dolaşan kahverengi tavuklar, arkada dağlar",
-    position: "50% 62%",
-  },
-  {
-    src: "/hakkimizda/kayisi-hazirligi.webp",
-    alt: "Bir kasanın içindeki kayısıların çekirdeklerinin elle ayrılması",
-    position: "50% 55%",
-  },
-];
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export function HomeHero({
+  slides,
   subtitle,
   className,
 }: {
+  slides: readonly ShowcaseSlide[];
   subtitle: string;
   className?: string | undefined;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
-  const last = SLIDES.length - 1;
+  const last = slides.length - 1;
 
   // The dots follow the scroll position, so a swipe, a trackpad flick and an
   // arrow press all update them the same way. One read per frame at most.
@@ -95,15 +77,18 @@ export function HomeHero({
     };
   }, []);
 
-  const goTo = useCallback((target: number) => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    const clamped = Math.min(Math.max(target, 0), SLIDES.length - 1);
-    scroller.scrollTo({
-      left: clamped * scroller.clientWidth,
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-    });
-  }, []);
+  const goTo = useCallback(
+    (target: number) => {
+      const scroller = scrollerRef.current;
+      if (!scroller) return;
+      const clamped = Math.min(Math.max(target, 0), last);
+      scroller.scrollTo({
+        left: clamped * scroller.clientWidth,
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+    },
+    [last],
+  );
 
   return (
     <section
@@ -121,22 +106,22 @@ export function HomeHero({
         aria-label="Fotoğraflar"
         className="flex size-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white [&::-webkit-scrollbar]:hidden"
       >
-        {SLIDES.map((slide, i) => (
+        {slides.map((slide, i) => (
           <div
-            key={slide.src}
+            key={slide.id}
             role="group"
             aria-roledescription="slide"
-            aria-label={`${i + 1} / ${SLIDES.length}`}
+            aria-label={`${i + 1} / ${slides.length}`}
             className="relative size-full shrink-0 snap-start snap-always"
           >
             <Image
-              src={slide.src}
-              alt={slide.alt}
+              src={showcaseImageSrc(slide.imagePath, env.NEXT_PUBLIC_SUPABASE_URL)}
+              alt={slide.imageAlt}
               fill
               priority={i === 0}
               sizes="(max-width: 1152px) 100vw, 1152px"
               className={cn("object-cover", i === 0 && "shop-hero-media")}
-              style={{ objectPosition: slide.position }}
+              style={{ objectPosition: `50% ${slide.focusY}%` }}
             />
           </div>
         ))}
@@ -155,45 +140,48 @@ export function HomeHero({
         <p className="max-w-xl text-[0.9375rem] leading-snug font-medium text-pretty text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.45)] sm:text-lg lg:text-xl lg:leading-relaxed">
           {subtitle}
         </p>
-        <div className="mt-3 flex items-center justify-between sm:mt-4">
-          <div className="pointer-events-auto flex items-center gap-1">
-            {SLIDES.map((slide, i) => (
-              <button
-                key={slide.src}
-                type="button"
-                onClick={() => goTo(i)}
-                aria-label={`${i + 1}. fotoğraf`}
-                aria-current={i === index || undefined}
-                // The visible dot is small; the button around it is a full
-                // finger's width.
-                className="group grid size-6 place-items-center"
+        {/* One photo has nowhere to slide to. */}
+        {slides.length > 1 ? (
+          <div className="mt-3 flex items-center justify-between sm:mt-4">
+            <div className="pointer-events-auto flex items-center gap-1">
+              {slides.map((slide, i) => (
+                <button
+                  key={slide.id}
+                  type="button"
+                  onClick={() => goTo(i)}
+                  aria-label={`${i + 1}. fotoğraf`}
+                  aria-current={i === index || undefined}
+                  // The visible dot is small; the button around it is a full
+                  // finger's width.
+                  className="group grid size-6 place-items-center"
+                >
+                  <span
+                    className={cn(
+                      "block h-1.5 rounded-full bg-white transition-[width,opacity] duration-300 ease-out motion-reduce:transition-none",
+                      i === index ? "w-5 opacity-100" : "w-1.5 opacity-55 group-hover:opacity-80",
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+            <div className="pointer-events-auto flex gap-2">
+              <ShowcaseArrow
+                label="Önceki fotoğraf"
+                disabled={index === 0}
+                onClick={() => goTo(index - 1)}
               >
-                <span
-                  className={cn(
-                    "block h-1.5 rounded-full bg-white transition-[width,opacity] duration-300 ease-out motion-reduce:transition-none",
-                    i === index ? "w-5 opacity-100" : "w-1.5 opacity-55 group-hover:opacity-80",
-                  )}
-                />
-              </button>
-            ))}
+                <ChevronLeftIcon className="size-5" aria-hidden />
+              </ShowcaseArrow>
+              <ShowcaseArrow
+                label="Sonraki fotoğraf"
+                disabled={index === last}
+                onClick={() => goTo(index + 1)}
+              >
+                <ChevronRightIcon className="size-5" aria-hidden />
+              </ShowcaseArrow>
+            </div>
           </div>
-          <div className="pointer-events-auto flex gap-2">
-            <ShowcaseArrow
-              label="Önceki fotoğraf"
-              disabled={index === 0}
-              onClick={() => goTo(index - 1)}
-            >
-              <ChevronLeftIcon className="size-5" aria-hidden />
-            </ShowcaseArrow>
-            <ShowcaseArrow
-              label="Sonraki fotoğraf"
-              disabled={index === last}
-              onClick={() => goTo(index + 1)}
-            >
-              <ChevronRightIcon className="size-5" aria-hidden />
-            </ShowcaseArrow>
-          </div>
-        </div>
+        ) : null}
       </div>
 
       <HomeHeroIntroMarker />

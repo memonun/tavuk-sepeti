@@ -70,6 +70,7 @@ const m = {
   markNotificationReadAction: vi.fn(),
   getStorefrontSettings: vi.fn(),
   updateStorefrontSettingsAction: vi.fn(),
+  updateHeroTextAction: vi.fn(),
   getOrderById: vi.fn(),
 };
 
@@ -131,6 +132,7 @@ vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductT
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: (...a: unknown[]) => m.getStorefrontSettings(...a) }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: (...a: unknown[]) => m.updateStorefrontSettingsAction(...a) }));
+vi.mock("@/features/storefront/application/update-hero-text", () => ({ updateHeroTextAction: (...a: unknown[]) => m.updateHeroTextAction(...a) }));
 // Meta ad tools: covered in register-panel-tools.test.ts; stubbed here so the
 // ads feature (and the env it reads) never loads.
 vi.mock("@/features/ads/application/get-ads-overview", () => ({ getAdsOverview: vi.fn() }));
@@ -687,8 +689,31 @@ describe("write tool adapters", () => {
     expect(fd.get("cargo_min_order_minor")).toBe("100000");
     expect(fd.get("home_min_order_minor")).toBe("30000");
     expect(fd.get("home_delivery_fee_minor")).toBe("5000");
-    expect(fd.get("hero_title")).toBe("Çiftlikten sofranıza");
+    // Only rules were sent: the home page text is not re-saved.
+    expect(fd.get("hero_title")).toBeNull();
+    expect(m.updateHeroTextAction).not.toHaveBeenCalled();
+  });
+
+  it("update_storefront_settings saves the home page text through its own action and leaves the rules alone", async () => {
+    m.getStorefrontSettings.mockResolvedValue({
+      homeDeliveryDays: [6],
+      cargoMinOrderMinor: 0,
+      homeMinOrderMinor: 25000,
+      homeDeliveryFeeMinor: 5000,
+      cargoFeeMinor: 15000,
+      cargoFreeShippingThresholdMinor: 100000,
+      heroTitle: "Çiftlikten sofranıza",
+      heroSubtitle: "Köy yumurtası.",
+    });
+    m.updateHeroTextAction.mockResolvedValue({ status: "success", savedAt: 1 });
+    await (await connect()).callTool({
+      name: "update_storefront_settings",
+      arguments: { hero_title: "Yeni slogan" },
+    });
+    const fd = m.updateHeroTextAction.mock.calls[0]?.[1] as FormData;
+    expect(fd.get("hero_title")).toBe("Yeni slogan");
     expect(fd.get("hero_subtitle")).toBe("Köy yumurtası.");
+    expect(m.updateStorefrontSettingsAction).not.toHaveBeenCalled();
   });
 
   it("mark_notification_read reports the real unread count afterwards", async () => {

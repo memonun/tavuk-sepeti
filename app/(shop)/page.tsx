@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { MapPinIcon, TruckIcon } from "lucide-react";
 
 import { getStorefrontCatalog } from "@/features/storefront/application/get-catalog";
+import { getShowcaseSlides } from "@/features/storefront/application/get-showcase";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import {
   filterProductsForScope,
@@ -61,9 +62,10 @@ export default async function ShopHomePage({
   const scope = parseDeliveryScope(params.teslimat);
   const filter = parseCatalogFilter(params.filtre);
 
-  const [catalog, settings] = await Promise.all([
+  const [catalog, settings, showcaseSlides] = await Promise.all([
     getStorefrontCatalog(),
     getStorefrontSettings(),
+    getShowcaseSlides(),
   ]);
   const products = catalog.ok ? catalog.value : [];
   const catalogProducts = filterProductsForScope(products, scope, filter);
@@ -82,13 +84,17 @@ export default async function ShopHomePage({
       </Suspense>
 
       {/* The owner's slogan, then the showcase: the farm photos slide under
-          the owner's sentence. Both texts are edited in /magaza-ayarlari.
+          the owner's sentence. Photos and both texts are edited in /vitrin.
           The showcase is a short band, not a full-screen hero, so the
           products still start on the first screen. */}
       <h1 className="max-w-3xl font-display text-[1.75rem] leading-[1.1] tracking-[-0.01em] text-foreground sm:text-5xl sm:leading-[1.05]">
         {settings.heroTitle}
       </h1>
-      <HomeHero subtitle={settings.heroSubtitle} className="mt-3.5 sm:mt-5" />
+      <HomeHero
+        slides={showcaseSlides}
+        subtitle={settings.heroSubtitle}
+        className="mt-3.5 sm:mt-5"
+      />
 
       {/* `#urunler` is the target of both scope links, so after choosing, the
           page lands with the choice itself (now marked) at the top and the

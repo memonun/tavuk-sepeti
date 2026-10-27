@@ -84,6 +84,7 @@ const NEVER_REPORT_PREFIXES: ReadonlyArray<string> = [
   "/reklam",
   "/routes",
   "/takvim",
+  "/vitrin",
 ];
 
 export function isPageViewPath(pathname: string): boolean {

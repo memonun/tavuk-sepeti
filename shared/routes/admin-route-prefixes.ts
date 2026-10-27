@@ -24,6 +24,7 @@ export const ADMIN_ROUTE_PREFIXES: ReadonlyArray<string> = [
   "/reklam",
   "/routes",
   "/takvim",
+  "/vitrin",
 ];
 
 /** True for an admin prefix itself or anything below it — not for a path that
