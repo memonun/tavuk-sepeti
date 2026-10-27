@@ -3,7 +3,11 @@
 
 import { useMemo, useState } from "react";
 
-import { estimateBasket } from "@/features/orders/application/bulk-basket-estimate";
+import {
+  countFeePayingOrders,
+  estimateBasket,
+} from "@/features/orders/application/bulk-basket-estimate";
+import { FREE_DELIVERY_MIN_EGG_PACKAGES } from "@/features/orders/domain/free-delivery";
 import { isMultipleOfStep } from "@/features/orders/application/order-item-pricing";
 import {
   computeCoverage,
@@ -70,6 +74,13 @@ export function BasketPanel({
     [selectedIds, batch, productsByKey, priceOverrides],
   );
 
+  // Orders with 10+ paket yumurta ship free; the rest still pay the fee.
+  const feeOrderCount = useMemo(
+    () => countFeePayingOrders(selectedIds, batch, productsByKey),
+    [selectedIds, batch, productsByKey],
+  );
+  const freeDeliveryCount = orderCount - feeOrderCount;
+
   if (n === 0) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
@@ -125,13 +136,18 @@ export function BasketPanel({
           </span>
           <span className="font-mono font-semibold">{formatTRY(estimateMinor)}</span>
         </div>
-        {deliveryFeeMinor > 0 && orderCount > 0 ? (
+        {deliveryFeeMinor > 0 && feeOrderCount > 0 ? (
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              + teslimat ücreti ({orderCount} × {formatTRY(deliveryFeeMinor)}, kargo hariç)
+              + teslimat ücreti ({feeOrderCount} × {formatTRY(deliveryFeeMinor)}, kargo hariç)
             </span>
-            <span className="font-mono">{formatTRY(estimateMinor + orderCount * deliveryFeeMinor)}</span>
+            <span className="font-mono">{formatTRY(estimateMinor + feeOrderCount * deliveryFeeMinor)}</span>
           </div>
+        ) : null}
+        {deliveryFeeMinor > 0 && freeDeliveryCount > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {freeDeliveryCount} siparişte {FREE_DELIVERY_MIN_EGG_PACKAGES}+ paket yumurta: teslimat ücretsiz
+          </p>
         ) : null}
       </div>
     </div>
