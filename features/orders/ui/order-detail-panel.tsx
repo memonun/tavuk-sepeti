@@ -30,6 +30,10 @@ import {
 } from "@/components/ui/select";
 import { updateOrderAction } from "@/features/orders/application/update-order";
 import {
+  FREE_DELIVERY_MIN_EGG_PACKAGES,
+  qualifiesForFreeEggDelivery,
+} from "@/features/orders/domain/free-delivery";
+import {
   ProductPicker,
   type OrderItemDraft,
 } from "@/features/orders/ui/product-picker";
@@ -311,11 +315,22 @@ function OrderEditForm({
     [products],
   );
 
+  // 10+ paket yumurta → teslimat ücretsiz. The server applies the same rule on
+  // save (update-order.ts); this keeps the preview and the saved fee identical.
+  const freeEggDelivery = qualifiesForFreeEggDelivery(
+    items.flatMap((i) => {
+      const p = productByKey.get(i.product_key);
+      return p
+        ? [{ product_key: i.product_key, quantity: i.quantity, fulfillment_type: p.fulfillment_type }]
+        : [];
+    }),
+  );
+
   // Blank = no fee. Text that isn't an amount is an error, NOT a silent 0 —
   // otherwise a typo like "50 TL" would save the order with free delivery.
   const parsedFee = parseOptionalTRYInput(deliveryFeeText);
-  const feeInvalid = parsedFee === null;
-  const deliveryFeeMinor = parsedFee ?? 0;
+  const feeInvalid = !freeEggDelivery && parsedFee === null;
+  const deliveryFeeMinor = freeEggDelivery ? 0 : (parsedFee ?? 0);
   const subtotalMinor = items.reduce((acc, i) => {
     const p = productByKey.get(i.product_key);
     if (!p) return acc;
@@ -365,6 +380,8 @@ function OrderEditForm({
               : { product_key: i.product_key, quantity: i.quantity };
           }),
         );
+        // The field mirrors what is stored (0 when the free-delivery rule applied).
+        setDeliveryFeeText((fresh.delivery_fee_minor / 100).toFixed(2).replace(".", ","));
         setSaved(true);
         onSaved(fresh);
         return;
@@ -448,11 +465,17 @@ function OrderEditForm({
             <Input
               id="delivery_fee"
               inputMode="decimal"
-              value={deliveryFeeText}
+              value={freeEggDelivery ? "0,00" : deliveryFeeText}
               onChange={(e) => setDeliveryFeeText(e.target.value)}
               placeholder="0,00"
               aria-invalid={feeInvalid}
+              disabled={freeEggDelivery}
             />
+            {freeEggDelivery ? (
+              <p className="text-xs text-muted-foreground">
+                {FREE_DELIVERY_MIN_EGG_PACKAGES}+ paket yumurta: teslimat ücretsiz.
+              </p>
+            ) : null}
             {feeInvalid ? (
               <p className="text-xs text-destructive">
                 Geçerli bir tutar girin (ör. 50,00) ya da boş bırakın.

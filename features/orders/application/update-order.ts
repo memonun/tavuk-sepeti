@@ -22,6 +22,7 @@ import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { reconcileCustomerProductPrices } from "@/features/customers/application/customer-prices";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
 import { getOrderById } from "@/features/orders/application/get-order";
+import { applyFreeEggDelivery } from "@/features/orders/domain/free-delivery";
 import { orderEditSchema } from "@/features/orders/domain/order.schema";
 import {
   updateOrderWithItems,
@@ -78,7 +79,8 @@ export async function updateOrderAction(
     time_slot: parsed.data.time_slot,
     payment_method: parsed.data.payment_method,
     delivery_notes: parsed.data.delivery_notes,
-    delivery_fee_minor: parsed.data.delivery_fee_minor,
+    // 10+ paket yumurta → teslimat ücretsiz (domain/free-delivery.ts).
+    delivery_fee_minor: applyFreeEggDelivery(parsed.data.delivery_fee_minor, enriched.value),
     items: enriched.value,
   });
   if (!result.ok) return err(result.error);

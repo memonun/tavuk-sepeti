@@ -6,6 +6,7 @@
  * bulk-order-pricing.ts): a customer's saved special price is a flat per-unit
  * price and wins over the product's volume tiers.
  */
+import { qualifiesForFreeEggDelivery } from "@/features/orders/domain/free-delivery";
 import { priceOrderLine, productLinePricing } from "@/features/products/application/pricing";
 
 import type { DraftBatch } from "@/features/orders/domain/draft-batch";
@@ -18,6 +19,38 @@ export interface BasketEstimate {
   readonly orderCount: number;
   /** Lines that were priced with a customer's special price. */
   readonly specialLineCount: number;
+}
+
+/**
+ * How many of the selected customers' orders still pay the delivery fee: those
+ * with at least one line, minus the ones the free-delivery rule waives
+ * (10+ paket yumurta — domain/free-delivery.ts). Mirrors what
+ * createOrdersBulkAction charges per order.
+ */
+export function countFeePayingOrders(
+  selectedIds: ReadonlyArray<string>,
+  batch: DraftBatch,
+  productsByKey: ReadonlyMap<string, Product>,
+): number {
+  let count = 0;
+  for (const id of selectedIds) {
+    const lines = batch.assignments[id] ?? [];
+    if (lines.length === 0) continue;
+    const known = lines.flatMap((line) => {
+      const product = productsByKey.get(line.product_key);
+      return product
+        ? [
+            {
+              product_key: line.product_key,
+              quantity: line.quantity,
+              fulfillment_type: product.fulfillment_type,
+            },
+          ]
+        : [];
+    });
+    if (!qualifiesForFreeEggDelivery(known)) count += 1;
+  }
+  return count;
 }
 
 export function estimateBasket(

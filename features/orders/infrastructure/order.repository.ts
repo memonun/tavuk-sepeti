@@ -621,11 +621,12 @@ export interface BulkOrderRepoInput {
   scheduled_for: string;
   time_slot: TimeSlot | null;
   payment_method: PaymentMethod;
-  delivery_fee_minor: number;
   created_by: string;
   orders: ReadonlyArray<{
     customer_id: string;
     delivery_notes: string | null;
+    /** Per order, because the free-delivery rule depends on each basket. */
+    delivery_fee_minor: number;
     items: ReadonlyArray<{
       product_key: string;
       quantity: number;
@@ -657,8 +658,8 @@ export async function createOrdersBulk(
     time_slot: input.time_slot,
     payment_method: input.payment_method,
     delivery_notes: o.delivery_notes,
-    delivery_fee_minor: input.delivery_fee_minor,
-    // The batch fee is the hand-delivery fee: the DB drops it on any order it
+    delivery_fee_minor: o.delivery_fee_minor,
+    // The fee is the hand-delivery fee: the DB drops it on any order it
     // resolves to the cargo channel (migration 20260919120000), which the
     // client cannot know per customer.
     delivery_fee_only_if_delivery: true,
