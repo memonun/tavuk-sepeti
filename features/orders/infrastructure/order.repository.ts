@@ -240,7 +240,15 @@ export async function listOrders(
     .select(ORDER_LIST_SELECT, { count: "exact" });
 
   if (query.status) {
-    builder = builder.eq("status", query.status);
+    builder = Array.isArray(query.status)
+      ? builder.in("status", query.status)
+      : builder.eq("status", query.status);
+  }
+  if (query.payment_status) {
+    // Uses orders_payment_status_idx; an array is OR-ed (unpaid = pending + partial).
+    builder = Array.isArray(query.payment_status)
+      ? builder.in("payment_status", query.payment_status)
+      : builder.eq("payment_status", query.payment_status);
   }
   if (query.fulfillment_channel) {
     builder = builder.eq("fulfillment_channel", query.fulfillment_channel);

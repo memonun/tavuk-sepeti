@@ -619,6 +619,17 @@ export const productTallyInput = {
   dateBasis: z.enum(["scheduled_for", "created_at"]).default("scheduled_for"),
 };
 
+const ym = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Ay YYYY-AA biçiminde olmalı.");
+
+export const productTallyByMonthInput = {
+  from_month: ym.describe("İlk ay (dahil), YYYY-AA."),
+  to_month: ym.describe("Son ay (dahil), YYYY-AA. Aralık en fazla 24 ay."),
+  dateBasis: z
+    .enum(["scheduled_for", "created_at"])
+    .default("scheduled_for")
+    .describe("scheduled_for = teslim tarihine göre, created_at = oluşturulma tarihine göre."),
+};
+
 export const upcomingRecurringExpensesInput = {
   limit: z.number().int().min(1).max(50).default(10),
 };

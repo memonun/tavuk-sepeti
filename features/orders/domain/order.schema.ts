@@ -144,9 +144,15 @@ export type OrderCargoInfoInput = z.output<typeof orderCargoInfoSchema>;
  */
 export const GRID_PAGE_SIZE = 2000;
 
+const listOrderStatusSchema = z.enum(["pending", "confirmed", "shipped", "delivered", "cancelled"]);
+const listPaymentStatusSchema = z.enum(["pending", "partial", "paid", "failed", "refunded"]);
+
 export const orderListQuerySchema = z.object({
-  status: z
-    .enum(["pending", "confirmed", "shipped", "delivered", "cancelled"])
+  /** One status, or several (any of them) — e.g. every open order. */
+  status: z.union([listOrderStatusSchema, z.array(listOrderStatusSchema).min(1).max(5)]).optional(),
+  /** One payment status, or several — unpaid = ["pending", "partial"]. */
+  payment_status: z
+    .union([listPaymentStatusSchema, z.array(listPaymentStatusSchema).min(1).max(5)])
     .optional(),
   fulfillment_channel: z.enum(["delivery", "shipping"]).optional(),
   scheduled_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

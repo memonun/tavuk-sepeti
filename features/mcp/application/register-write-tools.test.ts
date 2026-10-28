@@ -132,6 +132,9 @@ vi.mock("@/features/finance/application/get-expense-category-breakdown", () => (
 vi.mock("@/features/finance/application/get-expense-summary", () => ({ getExpenseSummary: vi.fn() }));
 vi.mock("@/features/finance/application/get-market-report", () => ({ getMarketReport: vi.fn() }));
 vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductTally: vi.fn() }));
+vi.mock("@/features/finance/application/get-product-tally-by-month", () => ({
+  getProductTallyByMonth: vi.fn(),
+}));
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: (...a: unknown[]) => m.getStorefrontSettings(...a) }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: (...a: unknown[]) => m.updateStorefrontSettingsAction(...a) }));

@@ -136,6 +136,9 @@ vi.mock("@/features/finance/application/get-expense-category-breakdown", () => (
 vi.mock("@/features/finance/application/get-expense-summary", () => ({ getExpenseSummary: vi.fn() }));
 vi.mock("@/features/finance/application/get-market-report", () => ({ getMarketReport: vi.fn() }));
 vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductTally: vi.fn() }));
+vi.mock("@/features/finance/application/get-product-tally-by-month", () => ({
+  getProductTallyByMonth: vi.fn(),
+}));
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: vi.fn() }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: vi.fn() }));
@@ -226,6 +229,7 @@ describe("panel MCP tools", () => {
         "get_market_report",
         "get_order_gifts",
         "get_product_tally",
+        "get_product_tally_by_month",
         "get_recurring_order",
         "get_storefront_settings",
         "get_upcoming_recurring_expenses",
@@ -342,6 +346,24 @@ describe("panel MCP tools", () => {
     const client = await connect();
     await client.callTool({ name: "list_orders", arguments: { status: "pending" } });
     expect(listOrders).toHaveBeenCalledWith({ status: "pending", page: 1, pageSize: 25 });
+  });
+
+  it("forwards a payment-status list so unpaid orders are one filtered call", async () => {
+    listOrders.mockResolvedValue(ok({ items: [], total: 0, page: 1, pageSize: 25 }));
+    const client = await connect();
+    await client.callTool({
+      name: "list_orders",
+      arguments: { payment_status: ["pending", "partial"], status: ["confirmed", "delivered"] },
+    });
+    expect(listOrders).toHaveBeenCalledWith({
+      payment_status: ["pending", "partial"],
+      status: ["confirmed", "delivered"],
+      page: 1,
+      pageSize: 25,
+    });
+
+    const bad = await client.callTool({ name: "list_orders", arguments: { payment_status: ["unpaid"] } });
+    expect(bad.isError).toBe(true);
   });
 
   it("acts as the verified admin, tagged source=mcp", async () => {

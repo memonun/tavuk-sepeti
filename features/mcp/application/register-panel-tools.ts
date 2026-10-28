@@ -77,7 +77,7 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
     {
       title: "Siparişleri listele",
       description:
-        "Siparişleri filtreleyerek listeler (durum, kanal, tarih aralığı, müşteri, arama). Sayfalıdır.",
+        "Siparişleri filtreleyerek listeler (durum, ödeme durumu, kanal, tarih aralığı, müşteri, arama). Sayfalıdır; total eşleşen sipariş sayısıdır. Her satırda total_minor ve amount_paid_minor (kuruş) vardır, kalan borç = total_minor − amount_paid_minor.",
       inputSchema: listOrdersInput,
       annotations: { ...READ_ONLY, title: "Siparişleri listele" },
     },
@@ -141,7 +141,7 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
     {
       title: "Ürünleri listele",
       description:
-        "Tüm ürün kataloğunu (aktif ve arşivli) fiyat kademeleri ve toplam satış adediyle getirir.",
+        "Tüm ürün kataloğunu (aktif ve arşivli) fiyat kademeleriyle getirir. total_quantity_sold TÜM ZAMANLARIN toplamıdır; bir dönemin satışı için get_product_tally, ay ay döküm için get_product_tally_by_month kullan.",
       annotations: { ...READ_ONLY, title: "Ürünleri listele" },
     },
     async () => {
