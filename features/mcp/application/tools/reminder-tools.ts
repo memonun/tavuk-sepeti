@@ -5,8 +5,11 @@ import { remindersInput } from "@/features/mcp/domain/mcp-tool-inputs";
 import {
   completeReminderInput,
   createReminderInput,
+  createReminderListInput,
   deleteReminderInput,
+  deleteReminderListInput,
   updateReminderInput,
+  updateReminderListInput,
 } from "@/features/mcp/domain/mcp-write-inputs";
 import { getRemindersPage } from "@/features/reminders/application/get-reminders-page";
 import {
@@ -15,6 +18,11 @@ import {
   setReminderCompletedAction,
   updateReminderAction,
 } from "@/features/reminders/application/reminder-actions";
+import {
+  createReminderListAction,
+  deleteReminderListAction,
+  updateReminderListAction,
+} from "@/features/reminders/application/reminder-list-actions";
 
 import { DESTRUCTIVE, READ_ONLY, WRITE } from "./annotations";
 import { toolError, toolFromResult } from "../tool-result";
@@ -113,6 +121,63 @@ export function registerReminderTools(server: McpServer): void {
         });
       } catch (cause) {
         return toolError("delete_reminder", cause, { reminderId: id });
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_reminder_list",
+    {
+      title: "Anımsatıcı listesi ekle",
+      description:
+        "Yeni bir anımsatıcı listesi oluşturur ve id'sini döner; bu id create_reminder'da list_id olarak kullanılır. Aynı adda liste varsa yenisini açmadan önce get_reminders ile kontrol et.",
+      inputSchema: createReminderListInput,
+      annotations: { ...WRITE, title: "Anımsatıcı listesi ekle" },
+    },
+    async (input) => {
+      try {
+        return toolFromResult("create_reminder_list", await createReminderListAction(input));
+      } catch (cause) {
+        return toolError("create_reminder_list", cause);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_reminder_list",
+    {
+      title: "Anımsatıcı listesini düzenle",
+      description: "Bir listenin adını veya rengini değiştirir. Yalnızca gönderilen alanlar değişir.",
+      inputSchema: updateReminderListInput,
+      annotations: { ...WRITE, title: "Anımsatıcı listesini düzenle" },
+    },
+    async (input) => {
+      try {
+        return toolFromResult("update_reminder_list", await updateReminderListAction(input), {
+          reminderListId: input.id,
+        });
+      } catch (cause) {
+        return toolError("update_reminder_list", cause, { reminderListId: input.id });
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_reminder_list",
+    {
+      title: "Anımsatıcı listesini sil",
+      description:
+        "Listeyi İÇİNDEKİ TÜM ANIMSATICILARLA birlikte KALICI olarak siler. Geri alınamaz.",
+      inputSchema: deleteReminderListInput,
+      annotations: { ...DESTRUCTIVE, title: "Anımsatıcı listesini sil" },
+    },
+    async ({ id }) => {
+      try {
+        return toolFromResult("delete_reminder_list", await deleteReminderListAction({ id }), {
+          reminderListId: id,
+        });
+      } catch (cause) {
+        return toolError("delete_reminder_list", cause, { reminderListId: id });
       }
     },
   );

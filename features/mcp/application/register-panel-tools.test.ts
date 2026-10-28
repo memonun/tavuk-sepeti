@@ -158,6 +158,11 @@ vi.mock("@/features/reminders/application/reminder-actions", () => ({
   setReminderCompletedAction: vi.fn(),
   deleteReminderAction: vi.fn(),
 }));
+vi.mock("@/features/reminders/application/reminder-list-actions", () => ({
+  createReminderListAction: vi.fn(),
+  updateReminderListAction: vi.fn(),
+  deleteReminderListAction: vi.fn(),
+}));
 vi.mock("@/features/calendar/application/calendar-event-actions", () => ({
   createEventAction: vi.fn(),
   updateEventAction: vi.fn(),
@@ -243,6 +248,7 @@ describe("panel MCP tools", () => {
         "complete_reminder",
         "confirm_orders",
         "create_reminder",
+        "create_reminder_list",
         "create_customer",
         "create_expense",
         "create_expense_category",
@@ -252,6 +258,7 @@ describe("panel MCP tools", () => {
         "create_product",
         "create_recurring_expense_template",
         "delete_reminder",
+        "delete_reminder_list",
         "delete_customers",
         "delete_expense",
         "delete_market_location",
@@ -272,6 +279,7 @@ describe("panel MCP tools", () => {
         "set_recurring_expense_template_active",
         "transition_order",
         "update_reminder",
+        "update_reminder_list",
         "update_customer",
         "update_expense",
         "update_expense_category",
@@ -310,7 +318,7 @@ describe("panel MCP tools", () => {
   it("flags every delete (and cancel) as destructive and requires confirm:true", async () => {
     const { tools } = await (await connect()).listTools();
     const deletes = tools.filter((t) => t.name.startsWith("delete_") || t.name.startsWith("remove_"));
-    expect(deletes.length).toBe(13);
+    expect(deletes.length).toBe(14);
     for (const tool of deletes) {
       expect(tool.annotations?.destructiveHint, tool.name).toBe(true);
       const schema = tool.inputSchema as { required?: string[]; properties?: Record<string, unknown> };

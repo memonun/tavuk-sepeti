@@ -37,6 +37,9 @@ const m = {
   updateReminderAction: vi.fn(),
   setReminderCompletedAction: vi.fn(),
   deleteReminderAction: vi.fn(),
+  createReminderListAction: vi.fn(),
+  updateReminderListAction: vi.fn(),
+  deleteReminderListAction: vi.fn(),
   createEventAction: vi.fn(),
   deleteEventAction: vi.fn(),
   deleteEventOccurrenceAction: vi.fn(),
@@ -144,6 +147,11 @@ vi.mock("@/features/reminders/application/reminder-actions", () => ({
   updateReminderAction: (...a: unknown[]) => m.updateReminderAction(...a),
   setReminderCompletedAction: (...a: unknown[]) => m.setReminderCompletedAction(...a),
   deleteReminderAction: (...a: unknown[]) => m.deleteReminderAction(...a),
+}));
+vi.mock("@/features/reminders/application/reminder-list-actions", () => ({
+  createReminderListAction: (...a: unknown[]) => m.createReminderListAction(...a),
+  updateReminderListAction: (...a: unknown[]) => m.updateReminderListAction(...a),
+  deleteReminderListAction: (...a: unknown[]) => m.deleteReminderListAction(...a),
 }));
 vi.mock("@/features/calendar/application/calendar-event-actions", () => ({
   createEventAction: (...a: unknown[]) => m.createEventAction(...a),
@@ -275,6 +283,7 @@ describe("write tool adapters", () => {
       ["delete_customers", { customer_ids: [UUID] }],
       ["delete_product", { product_key: "x" }],
       ["delete_reminder", { id: UUID }],
+      ["delete_reminder_list", { id: UUID }],
       ["delete_order_payment", { order_id: UUID, payment_id: UUID2 }],
       ["delete_expense", { id: UUID }],
       ["delete_market_sale", { id: UUID }],
@@ -292,6 +301,7 @@ describe("write tool adapters", () => {
     expect(m.bulkDeleteCustomersAction).not.toHaveBeenCalled();
     expect(m.deleteProductAction).not.toHaveBeenCalled();
     expect(m.deleteReminderAction).not.toHaveBeenCalled();
+    expect(m.deleteReminderListAction).not.toHaveBeenCalled();
     expect(m.deletePaymentAction).not.toHaveBeenCalled();
     expect(m.deleteExpenseAction).not.toHaveBeenCalled();
     expect(m.deleteMarketSaleAction).not.toHaveBeenCalled();
@@ -650,6 +660,35 @@ describe("write tool adapters", () => {
       arguments: { id: UUID, due_date: null },
     });
     expect(m.updateReminderAction).toHaveBeenLastCalledWith({ id: UUID, due_date: null });
+  });
+
+  it("reminder-list tools hand the panel's list actions what the panel sends", async () => {
+    const client = await connect();
+
+    m.createReminderListAction.mockResolvedValue(ok({ id: UUID }));
+    const created = await client.callTool({
+      name: "create_reminder_list",
+      arguments: { name: "Aşılar", color: "green" },
+    });
+    expect(m.createReminderListAction).toHaveBeenCalledWith({ name: "Aşılar", color: "green" });
+    expect(JSON.parse(text(created))).toEqual({ ok: true, result: { id: UUID } });
+
+    m.updateReminderListAction.mockResolvedValue(ok({ id: UUID }));
+    await client.callTool({ name: "update_reminder_list", arguments: { id: UUID, name: "Yem" } });
+    expect(m.updateReminderListAction).toHaveBeenCalledWith({ id: UUID, name: "Yem" });
+
+    m.deleteReminderListAction.mockResolvedValue(ok({ id: UUID }));
+    await client.callTool({ name: "delete_reminder_list", arguments: { id: UUID, confirm: true } });
+    expect(m.deleteReminderListAction).toHaveBeenCalledWith({ id: UUID });
+  });
+
+  it("create_reminder_list rejects an unknown color before reaching the action", async () => {
+    const res = await (await connect()).callTool({
+      name: "create_reminder_list",
+      arguments: { name: "Aşılar", color: "magenta" },
+    });
+    expect(res.isError).toBe(true);
+    expect(m.createReminderListAction).not.toHaveBeenCalled();
   });
 
   it("delete_calendar_event deletes one occurrence when a date is given, else the whole event", async () => {

@@ -11,6 +11,7 @@
 import { z } from "zod";
 
 import { ORDER_STATUSES } from "@/features/mcp/domain/mcp-tool-inputs";
+import { ACCENT_COLORS } from "@/shared/palette/accent-colors";
 
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarih YYYY-AA-GG biçiminde olmalı.");
 const uuid = z.string().uuid();
@@ -202,8 +203,29 @@ const reminderBody = {
   repeat_every: repeatEvery.nullish().describe("Kaç birimde bir (örn. repeat_unit=month, repeat_every=3 → 3 ayda bir). Boşsa 1."),
 };
 
+const reminderListName = z.string().min(1).max(60);
+const reminderListColor = z.enum(ACCENT_COLORS);
+
+export const createReminderListInput = {
+  name: reminderListName.describe("Liste adı."),
+  color: reminderListColor.optional().describe("Liste rengi. Boşsa mavi (blue)."),
+};
+
+export const updateReminderListInput = {
+  id: uuid.describe("get_reminders çıktısındaki lists[].id."),
+  name: reminderListName.optional(),
+  color: reminderListColor.optional(),
+};
+
+export const deleteReminderListInput = {
+  id: uuid,
+  confirm: confirmDelete,
+};
+
 export const createReminderInput = {
-  list_id: uuid.describe("get_reminders çıktısındaki lists[].id."),
+  list_id: uuid.describe(
+    "get_reminders çıktısındaki lists[].id. Uygun liste yoksa önce create_reminder_list ile oluştur.",
+  ),
   title: z.string().min(1).max(200),
   ...reminderBody,
 };
