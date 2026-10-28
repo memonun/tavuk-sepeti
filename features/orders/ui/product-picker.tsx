@@ -23,12 +23,21 @@ interface ProductPickerProps {
   onChange: (items: OrderItemDraft[]) => void;
   /** product_key → flat special price (kuruş) for the order's customer. */
   customerPrices?: Record<string, number>;
+  /** Lines of a delivered order that keep the price they were charged
+   *  (product_key → stored figures). Shown instead of today's price. */
+  lockedPrices?: ReadonlyMap<string, LockedLinePrice>;
   error?: string | undefined;
+}
+
+export interface LockedLinePrice {
+  readonly unit_price_minor: number;
+  readonly line_total_minor: number;
 }
 
 interface LineRowProps {
   product: Product;
   draft: OrderItemDraft;
+  locked: LockedLinePrice | undefined;
   onQuantity: (q: number) => void;
   onSpecial: (minor: number | undefined) => void;
   onRemove: () => void;
@@ -39,7 +48,7 @@ function isMultipleOfStep(quantity: number, step: number): boolean {
   return Math.round(quantity * scale) % Math.round(step * scale) === 0;
 }
 
-function LineRow({ product, draft, onQuantity, onSpecial, onRemove }: LineRowProps) {
+function LineRow({ product, draft, locked, onQuantity, onSpecial, onRemove }: LineRowProps) {
   const [specialText, setSpecialText] = useState(() =>
     draft.unit_price_minor != null
       ? (draft.unit_price_minor / 100).toFixed(2).replace(".", ",")
@@ -50,11 +59,13 @@ function LineRow({ product, draft, onQuantity, onSpecial, onRemove }: LineRowPro
   const minInvalid = draft.quantity < product.min_qty;
 
   const autoPriced = priceOrderLine(draft.quantity, productLinePricing(product));
-  const priced = priceOrderLine(draft.quantity, {
-    ...productLinePricing(product),
-    overrideUnitPriceMinor: draft.unit_price_minor,
-  });
-  const hasSpecial = draft.unit_price_minor != null;
+  const priced =
+    locked ??
+    priceOrderLine(draft.quantity, {
+      ...productLinePricing(product),
+      overrideUnitPriceMinor: draft.unit_price_minor,
+    });
+  const hasSpecial = !locked && draft.unit_price_minor != null;
   // For tiered lines the unit is an average, so unit × qty may miss the exact
   // total (e.g. 3 × ₺116,67 ≠ ₺350,00); flag the unit as approximate so it doesn't read as a mistake.
   const unitApprox =
@@ -91,6 +102,7 @@ function LineRow({ product, draft, onQuantity, onSpecial, onRemove }: LineRowPro
           {unitApprox ? "~" : ""}
           {formatTRY(priced.unit_price_minor)} / {product.unit_label}
           {hasSpecial ? <span className="ml-1 text-amber-600">· özel</span> : null}
+          {locked ? <span className="ml-1">· teslim fiyatı</span> : null}
         </p>
       </div>
       <div className="flex items-center gap-2 sm:col-span-3">
@@ -155,6 +167,7 @@ export function ProductPicker({
   items,
   onChange,
   customerPrices,
+  lockedPrices,
   error,
 }: ProductPickerProps) {
   const productByKey = useMemo(
@@ -213,6 +226,7 @@ export function ProductPicker({
                 key={item.product_key}
                 product={product}
                 draft={item}
+                locked={lockedPrices?.get(item.product_key)}
                 onQuantity={(q) => setQuantity(item.product_key, q)}
                 onSpecial={(m) => setSpecial(item.product_key, m)}
                 onRemove={() => removeItem(item.product_key)}

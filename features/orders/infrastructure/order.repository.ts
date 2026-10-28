@@ -518,8 +518,9 @@ export interface UpdateOrderInput {
  * Calls the `update_order_with_items` RPC — replaces the order header
  * fields and the full items list atomically.
  *
- * The RPC raises P0001 with "cannot be edited" for non-pending/confirmed
- * orders; we surface that as a ValidationError with a clean TR message.
+ * The RPC raises P0001 with "cannot be edited" for shipped/cancelled orders
+ * (see isEditableOrderStatus); we surface that as a ValidationError with a
+ * clean TR message.
  */
 export async function updateOrderWithItems(
   input: UpdateOrderInput,
@@ -540,7 +541,7 @@ export async function updateOrderWithItems(
     if (error.message?.includes("cannot be edited")) {
       return err(
         new ValidationError({
-          message: "Yalnızca bekleyen veya onaylı siparişler düzenlenebilir.",
+          message: "Yalnızca bekleyen, onaylı veya teslim edilmiş siparişler düzenlenebilir.",
         }),
       );
     }

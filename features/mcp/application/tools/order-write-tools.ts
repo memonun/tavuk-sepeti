@@ -57,7 +57,7 @@ export function registerOrderWriteTools(server: McpServer): void {
     {
       title: "Siparişi düzenle",
       description:
-        "Bekleyen veya onaylı bir siparişi düzenler. Tüm alanlar (kalemler dahil) yeniden yazılır ve güncel fiyatlarla yeniden fiyatlanır: önce get_order ile mevcut siparişi oku, değiştirmediğin alanları aynen gönder.",
+        "Bekleyen, onaylı veya teslim edilmiş bir siparişi düzenler (kargodaki ve iptal edilmiş sipariş düzenlenemez). Tüm alanlar (kalemler dahil) yeniden yazılır: önce get_order ile mevcut siparişi oku, değiştirmediğin alanları aynen gönder. Bekleyen/onaylı siparişte tüm kalemler güncel fiyatlarla yeniden fiyatlanır. Teslim edilmiş siparişte ürünü ve miktarı değişmeyen kalem teslim edildiği fiyatla kalır (unit_price_minor gönderme ya da get_order'daki fiyatı aynen gönder); yalnızca yeni veya miktarı değişen kalem güncel fiyatla hesaplanır ve müşterinin özel fiyatları değişmez.",
       inputSchema: updateOrderInput,
       annotations: { ...WRITE, title: "Siparişi düzenle" },
     },
