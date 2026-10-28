@@ -240,7 +240,15 @@ export async function listOrders(
     .select(ORDER_LIST_SELECT, { count: "exact" });
 
   if (query.status) {
-    builder = builder.eq("status", query.status);
+    builder = Array.isArray(query.status)
+      ? builder.in("status", query.status)
+      : builder.eq("status", query.status);
+  }
+  if (query.payment_status) {
+    // Uses orders_payment_status_idx; an array is OR-ed (unpaid = pending + partial).
+    builder = Array.isArray(query.payment_status)
+      ? builder.in("payment_status", query.payment_status)
+      : builder.eq("payment_status", query.payment_status);
   }
   if (query.fulfillment_channel) {
     builder = builder.eq("fulfillment_channel", query.fulfillment_channel);
@@ -518,8 +526,9 @@ export interface UpdateOrderInput {
  * Calls the `update_order_with_items` RPC — replaces the order header
  * fields and the full items list atomically.
  *
- * The RPC raises P0001 with "cannot be edited" for non-pending/confirmed
- * orders; we surface that as a ValidationError with a clean TR message.
+ * The RPC raises P0001 with "cannot be edited" for shipped/cancelled orders
+ * (see isEditableOrderStatus); we surface that as a ValidationError with a
+ * clean TR message.
  */
 export async function updateOrderWithItems(
   input: UpdateOrderInput,
@@ -540,7 +549,7 @@ export async function updateOrderWithItems(
     if (error.message?.includes("cannot be edited")) {
       return err(
         new ValidationError({
-          message: "Yalnızca bekleyen veya onaylı siparişler düzenlenebilir.",
+          message: "Yalnızca bekleyen, onaylı veya teslim edilmiş siparişler düzenlenebilir.",
         }),
       );
     }

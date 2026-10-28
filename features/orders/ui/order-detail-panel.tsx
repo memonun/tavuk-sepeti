@@ -4,10 +4,12 @@
  * Order detail panel — the single editable detail surface, used by BOTH the
  * grid's right-side Sheet (via order-detail-loader) and the /orders/[id] page.
  *
- * Editable iff status is "pending" or "confirmed": line items + delivery /
- * payment fields can be saved via `updateOrderAction`, mirroring the customer
- * detail panel's edit-in-place pattern. Delivered / cancelled orders render the
- * same regions read-only (lifted from the retired order-detail.tsx).
+ * Editable iff isEditableOrderStatus (pending, confirmed, delivered): line
+ * items + delivery / payment fields can be saved via `updateOrderAction`,
+ * mirroring the customer detail panel's edit-in-place pattern. On a delivered
+ * order the lines left alone keep the price they were charged
+ * (splitDeliveredEdit). Shipped / cancelled orders render the same regions
+ * read-only (lifted from the retired order-detail.tsx).
  *
  * The local `order` state is seeded from the prop and replaced on a successful
  * save so the panel reflects the fresh aggregate (server-recomputed totals)
@@ -31,6 +33,7 @@ import {
 import { updateOrderAction } from "@/features/orders/application/update-order";
 import {
   ProductPicker,
+  type LockedLinePrice,
   type OrderItemDraft,
 } from "@/features/orders/ui/product-picker";
 import { OrderStatusActions } from "@/features/orders/ui/order-status-actions";
@@ -46,7 +49,11 @@ import {
   type OrderPayment,
 } from "@/features/orders/domain/payment";
 import type { Product } from "@/features/products/application/list-products";
-import { FULFILLMENT_CHANNEL_LABELS } from "@/features/orders/domain/order";
+import { splitDeliveredEdit } from "@/features/orders/domain/delivered-order-edit";
+import {
+  FULFILLMENT_CHANNEL_LABELS,
+  isEditableOrderStatus,
+} from "@/features/orders/domain/order";
 import type { OrderGiftItem } from "@/features/orders/domain/order-gift";
 import type {
   Order,
@@ -142,7 +149,7 @@ export function OrderDetailPanel({
     setOrder(initialOrder);
   }
 
-  const editable = order.status === "pending" || order.status === "confirmed";
+  const editable = isEditableOrderStatus(order.status);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -316,14 +323,23 @@ function OrderEditForm({
   const parsedFee = parseOptionalTRYInput(deliveryFeeText);
   const feeInvalid = parsedFee === null;
   const deliveryFeeMinor = parsedFee ?? 0;
-  const subtotalMinor = items.reduce((acc, i) => {
-    const p = productByKey.get(i.product_key);
+  // Delivered: the same split the server saves with, so the preview matches.
+  const delivered = order.status === "delivered";
+  const lines = delivered
+    ? splitDeliveredEdit(items, order.items, customerPrices)
+    : items.map((line) => ({ kind: "priced" as const, line }));
+  const lockedPrices = new Map<string, LockedLinePrice>(
+    lines.flatMap((l) => (l.kind === "kept" ? [[l.stored.product_key, l.stored] as const] : [])),
+  );
+  const subtotalMinor = lines.reduce((acc, l) => {
+    if (l.kind === "kept") return acc + l.stored.line_total_minor;
+    const p = productByKey.get(l.line.product_key);
     if (!p) return acc;
     return (
       acc +
-      priceOrderLine(i.quantity, {
+      priceOrderLine(l.line.quantity, {
         ...productLinePricing(p),
-        overrideUnitPriceMinor: i.unit_price_minor,
+        overrideUnitPriceMinor: l.line.unit_price_minor,
       }).line_total_minor
     );
   }, 0);
@@ -377,11 +393,18 @@ function OrderEditForm({
     <section className="space-y-4">
       <div className={SECTION_CARD}>
         <h3 className={SECTION_TITLE}>Ürünler</h3>
+        {delivered ? (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Teslim edilmiş sipariş: değiştirmediğin ürünler teslim edildiği fiyatla kalır. Yeni
+            eklenen veya miktarı değişen ürün bugünkü fiyatla hesaplanır.
+          </p>
+        ) : null}
         <ProductPicker
           products={products}
           items={items}
           onChange={setItems}
           customerPrices={customerPrices}
+          lockedPrices={lockedPrices}
         />
       </div>
 

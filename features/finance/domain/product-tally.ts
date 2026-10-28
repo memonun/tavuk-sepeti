@@ -82,6 +82,61 @@ export function buildProductTallyRows(
   return [...byProduct.values()].sort((a, b) => a.display_name.localeCompare(b.display_name, "tr"));
 }
 
+// ---- Month by month ----------------------------------------------------------
+//
+// product_tally_by_month() (supabase/migrations/20261028203212) returns the
+// same rows as product_tally() plus the month they fall in. Each month folds
+// exactly like a single-range tally, so a month here always equals the tally
+// for that month's dates.
+
+/** Raw shape of one product_tally_by_month() RPC row. */
+export interface ProductTallyByMonthRpcRow extends ProductTallyRpcRow {
+  /** First day of the month, YYYY-MM-DD. */
+  readonly month: string;
+}
+
+export interface ProductMonthTally {
+  /** YYYY-MM */
+  readonly month: string;
+  readonly products: ProductTallyRow[];
+}
+
+/** First and last day (YYYY-MM-DD) of a whole-month range. */
+export function monthRangeDays(fromMonth: string, toMonth: string): { from: string; to: string } {
+  const [y, m] = toMonth.split("-").map(Number) as [number, number];
+  // Day 0 of the next month is the last day of this one (UTC, no DST games).
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return { from: `${fromMonth}-01`, to: `${toMonth}-${String(lastDay).padStart(2, "0")}` };
+}
+
+/** Every month from..to inclusive, each with its products (empty = no sales).
+ *  Pure — the repository does the I/O. */
+export function buildMonthlyProductTally(
+  fromMonth: string,
+  toMonth: string,
+  rpcRows: ReadonlyArray<ProductTallyByMonthRpcRow>,
+): ProductMonthTally[] {
+  const byMonth = new Map<string, ProductTallyByMonthRpcRow[]>();
+  for (const row of rpcRows) {
+    const month = row.month.slice(0, 7);
+    byMonth.set(month, [...(byMonth.get(month) ?? []), row]);
+  }
+
+  const months: ProductMonthTally[] = [];
+  let [y, m] = fromMonth.split("-").map(Number) as [number, number];
+  for (;;) {
+    const month = `${y}-${String(m).padStart(2, "0")}`;
+    if (month > toMonth) break;
+    months.push({ month, products: buildProductTallyRows(byMonth.get(month) ?? []) });
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return months;
+}
+
 // ---- Chart grouping ---------------------------------------------------------
 //
 // A bar chart's length only means something when every bar shares one unit —

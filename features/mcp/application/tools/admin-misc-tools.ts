@@ -18,6 +18,7 @@ import { getExpenseCategoryBreakdown } from "@/features/finance/application/get-
 import { getExpenseSummary } from "@/features/finance/application/get-expense-summary";
 import { getMarketReport } from "@/features/finance/application/get-market-report";
 import { getProductTally } from "@/features/finance/application/get-product-tally";
+import { getProductTallyByMonth } from "@/features/finance/application/get-product-tally-by-month";
 import { getUpcomingRecurringExpenses } from "@/features/finance/application/get-upcoming-recurring-expenses";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
 import { updateHeroTextAction } from "@/features/storefront/application/update-hero-text";
@@ -25,6 +26,7 @@ import { updateStorefrontSettingsAction } from "@/features/storefront/applicatio
 import {
   dateRangeInput,
   markNotificationReadInput,
+  productTallyByMonthInput,
   productTallyInput,
   updateStorefrontSettingsInput,
   upcomingRecurringExpensesInput,
@@ -194,7 +196,8 @@ export function registerAdminMiscTools(server: McpServer): void {
     "get_product_tally",
     {
       title: "Ürün satış sayımı",
-      description: "Tarih aralığında hangi üründen kaç adet/kg satıldığını (sipariş bazlı) döner.",
+      description:
+        "Tarih aralığında hangi üründen kaç adet/kg satıldığını (sipariş bazlı) döner. Ay ay döküm için get_product_tally_by_month kullan.",
       inputSchema: productTallyInput,
       annotations: { ...READ_ONLY, title: "Ürün satış sayımı" },
     },
@@ -203,6 +206,24 @@ export function registerAdminMiscTools(server: McpServer): void {
         return toolFromResult("get_product_tally", await getProductTally(input));
       } catch (cause) {
         return toolError("get_product_tally", cause);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_product_tally_by_month",
+    {
+      title: "Ürün satışları (ay ay)",
+      description:
+        "Seçilen aylar için her ayın ürün satışlarını tek çağrıda döner (en fazla 24 ay). Her ay: products[] — sold (satılan miktar ve birimi) ve gifted (hediye). Satış olmayan ay products=[] ile gelir. İptal edilen siparişler sayılmaz; get_product_tally ile aynı kural.",
+      inputSchema: productTallyByMonthInput,
+      annotations: { ...READ_ONLY, title: "Ürün satışları (ay ay)" },
+    },
+    async (input) => {
+      try {
+        return toolFromResult("get_product_tally_by_month", await getProductTallyByMonth(input));
+      } catch (cause) {
+        return toolError("get_product_tally_by_month", cause);
       }
     },
   );
