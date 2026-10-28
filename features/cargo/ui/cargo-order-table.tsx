@@ -5,6 +5,7 @@
  * SortableHeader/pagination since the queue is already sorted oldest-first
  * by the application layer.
  */
+import { Tag } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ import {
   PAYMENT_STATUS_VARIANT,
 } from "@/features/cargo/ui/cargo-payment-status";
 import { MarkCargoShippedButton } from "@/features/cargo/ui/mark-cargo-shipped-button";
+import { SendToArasButton } from "@/features/cargo/ui/send-to-aras-button";
 
 import type { CargoRecipient } from "@/features/cargo/domain/cargo-recipient";
 import type { OrderListItem } from "@/features/orders/application/list-orders";
@@ -34,9 +36,12 @@ import type { OrderListItem } from "@/features/orders/application/list-orders";
 export function CargoOrderTable({
   orders,
   recipients,
+  arasEnabled,
 }: {
   orders: OrderListItem[];
   recipients: Record<string, CargoRecipient>;
+  /** Show "Aras'a Gönder" (only when the Aras credentials are configured). */
+  arasEnabled: boolean;
 }) {
   if (orders.length === 0) {
     return (
@@ -60,6 +65,13 @@ export function CargoOrderTable({
                   orderNumber={order.order_number}
                   recipient={recipients[order.id]}
                 />
+                {arasEnabled ? (
+                  <SendToArasButton
+                    orderId={order.id}
+                    alreadySent={Boolean(recipients[order.id]?.arasCode)}
+                  />
+                ) : null}
+                <ArasLabelLink orderId={order.id} recipient={recipients[order.id]} />
                 <MarkCargoShippedButton orderId={order.id} />
               </>
             }
@@ -116,6 +128,13 @@ export function CargoOrderTable({
                       orderNumber={order.order_number}
                       recipient={recipients[order.id]}
                     />
+                    {arasEnabled ? (
+                      <SendToArasButton
+                        orderId={order.id}
+                        alreadySent={Boolean(recipients[order.id]?.arasCode)}
+                      />
+                    ) : null}
+                    <ArasLabelLink orderId={order.id} recipient={recipients[order.id]} />
                     <MarkCargoShippedButton orderId={order.id} />
                     <Link
                       href={`/orders/${order.id}`}
@@ -131,5 +150,25 @@ export function CargoOrderTable({
         </Table>
       </div>
     </>
+  );
+}
+
+/** "Etiket" — opens the printable Aras label; only once the order is at Aras. */
+function ArasLabelLink({
+  orderId,
+  recipient,
+}: {
+  orderId: string;
+  recipient: CargoRecipient | undefined;
+}) {
+  if (!recipient?.arasCode) return null;
+  return (
+    <Link
+      href={`/kargo/etiket/${orderId}`}
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+    >
+      <Tag className="h-3.5 w-3.5" />
+      Etiket
+    </Link>
   );
 }

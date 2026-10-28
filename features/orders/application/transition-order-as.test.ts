@@ -24,6 +24,11 @@ vi.mock("@/features/orders/infrastructure/order.repository", () => ({
   persistTransition: (...a: unknown[]) => persistTransition(...a),
 }));
 
+const cancelArasShipmentIfSent = vi.fn();
+vi.mock("@/features/cargo/application/aras", () => ({
+  cancelArasShipmentIfSent: (...a: unknown[]) => cancelArasShipmentIfSent(...a),
+}));
+
 const { transitionOrderAs } = await import("@/features/orders/application/transition-order-as");
 
 const ID = "4f1c2b9e-8a7d-4c3b-9e2f-1a2b3c4d5e6f";
@@ -34,6 +39,7 @@ describe("transitionOrderAs", () => {
     findOrderById.mockReset();
     persistTransition.mockReset();
     logAudit.mockReset();
+    cancelArasShipmentIfSent.mockReset();
   });
 
   it("persists and audits under the explicit actor, tagging the source", async () => {
@@ -92,5 +98,27 @@ describe("transitionOrderAs", () => {
 
     expect(result.status).toBe("error");
     expect(persistTransition).not.toHaveBeenCalled();
+  });
+
+  it("cancels the Aras Kargo record when an order is cancelled", async () => {
+    findOrderById.mockResolvedValue(ok(order("confirmed")));
+    persistTransition.mockResolvedValue(ok(undefined));
+
+    const result = await transitionOrderAs(
+      { id: "admin-7" },
+      { order_id: ID, to_status: "cancelled", reason: "Müşteri vazgeçti" },
+    );
+
+    expect(result.status).toBe("success");
+    expect(cancelArasShipmentIfSent).toHaveBeenCalledWith({ id: "admin-7" }, ID);
+  });
+
+  it("leaves Aras alone for any other transition", async () => {
+    findOrderById.mockResolvedValue(ok(order("pending")));
+    persistTransition.mockResolvedValue(ok(undefined));
+
+    await transitionOrderAs({ id: "admin-7" }, { order_id: ID, to_status: "confirmed" });
+
+    expect(cancelArasShipmentIfSent).not.toHaveBeenCalled();
   });
 });
