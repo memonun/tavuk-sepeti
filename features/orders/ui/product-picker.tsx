@@ -23,9 +23,9 @@ interface ProductPickerProps {
   onChange: (items: OrderItemDraft[]) => void;
   /** product_key → flat special price (kuruş) for the order's customer. */
   customerPrices?: Record<string, number>;
-  /** Lines of a delivered order that keep the price they were charged
-   *  (product_key → stored figures). Shown instead of today's price. */
-  lockedPrices?: ReadonlyMap<string, LockedLinePrice>;
+  /** Delivered order: the charged figures of each row that keeps its price,
+   *  aligned with `items` by index (undefined = priced today). */
+  lockedPrices?: readonly (LockedLinePrice | undefined)[];
   error?: string | undefined;
 }
 
@@ -218,15 +218,19 @@ export function ProductPicker({
     <div className="space-y-3">
       {items.length > 0 ? (
         <div className="space-y-2">
-          {items.map((item) => {
+          {items.map((item, index) => {
             const product = productByKey.get(item.product_key);
             if (!product) return null;
+            // A saved order can repeat a product; keep each row's key unique.
+            const occurrence = items
+              .slice(0, index)
+              .filter((i) => i.product_key === item.product_key).length;
             return (
               <LineRow
-                key={item.product_key}
+                key={`${item.product_key}:${occurrence}`}
                 product={product}
                 draft={item}
-                locked={lockedPrices?.get(item.product_key)}
+                locked={lockedPrices?.[index]}
                 onQuantity={(q) => setQuantity(item.product_key, q)}
                 onSpecial={(m) => setSpecial(item.product_key, m)}
                 onRemove={() => removeItem(item.product_key)}
