@@ -48,12 +48,26 @@ function isMultipleOfStep(quantity: number, step: number): boolean {
   return Math.round(quantity * scale) % Math.round(step * scale) === 0;
 }
 
+function specialTextOf(minor: number | undefined): string {
+  return minor != null ? (minor / 100).toFixed(2).replace(".", ",") : "";
+}
+
 function LineRow({ product, draft, locked, onQuantity, onSpecial, onRemove }: LineRowProps) {
-  const [specialText, setSpecialText] = useState(() =>
-    draft.unit_price_minor != null
-      ? (draft.unit_price_minor / 100).toFixed(2).replace(".", ",")
-      : "",
-  );
+  const [specialText, setSpecialText] = useState(() => specialTextOf(draft.unit_price_minor));
+  const [specialInvalid, setSpecialInvalid] = useState(false);
+
+  // The special is per product, so another row of the same product can change
+  // it. Show that value here unless this box already says the same amount.
+  const [seenSpecial, setSeenSpecial] = useState(draft.unit_price_minor);
+  if (draft.unit_price_minor !== seenSpecial) {
+    setSeenSpecial(draft.unit_price_minor);
+    const trimmed = specialText.trim();
+    const typed = trimmed === "" ? undefined : parseTRYInput(trimmed);
+    if (typed !== draft.unit_price_minor) {
+      setSpecialText(specialTextOf(draft.unit_price_minor));
+      setSpecialInvalid(false);
+    }
+  }
 
   const stepInvalid = !isMultipleOfStep(draft.quantity, product.step);
   const minInvalid = draft.quantity < product.min_qty;
@@ -70,8 +84,6 @@ function LineRow({ product, draft, locked, onQuantity, onSpecial, onRemove }: Li
   // total (e.g. 3 × ₺116,67 ≠ ₺350,00); flag the unit as approximate so it doesn't read as a mistake.
   const unitApprox =
     Math.round(priced.unit_price_minor * draft.quantity) !== priced.line_total_minor;
-
-  const [specialInvalid, setSpecialInvalid] = useState(false);
 
   const onSpecialChange = (value: string) => {
     setSpecialText(value);
@@ -192,10 +204,15 @@ export function ProductPicker({
     ]);
   };
 
-  const setQuantity = (key: string, q: number) => {
-    onChange(items.map((i) => (i.product_key === key ? { ...i, quantity: q } : i)));
+  // Quantity and removal act on one row: a saved order can hold the same
+  // product on two lines (e.g. 2 + 1 packs), and editing one must not touch
+  // the other.
+  const setQuantity = (index: number, q: number) => {
+    onChange(items.map((i, at) => (at === index ? { ...i, quantity: q } : i)));
   };
 
+  // The special is the customer's price for the product (saved per product),
+  // so it applies to every row of that product.
   const setSpecial = (key: string, minor: number | undefined) => {
     onChange(
       items.map((i) => {
@@ -210,8 +227,8 @@ export function ProductPicker({
     );
   };
 
-  const removeItem = (key: string) => {
-    onChange(items.filter((i) => i.product_key !== key));
+  const removeItem = (index: number) => {
+    onChange(items.filter((_, at) => at !== index));
   };
 
   return (
@@ -231,9 +248,9 @@ export function ProductPicker({
                 product={product}
                 draft={item}
                 locked={lockedPrices?.[index]}
-                onQuantity={(q) => setQuantity(item.product_key, q)}
+                onQuantity={(q) => setQuantity(index, q)}
                 onSpecial={(m) => setSpecial(item.product_key, m)}
-                onRemove={() => removeItem(item.product_key)}
+                onRemove={() => removeItem(index)}
               />
             );
           })}
