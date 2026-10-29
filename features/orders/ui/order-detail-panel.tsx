@@ -328,8 +328,11 @@ function OrderEditForm({
   const lines = delivered
     ? splitDeliveredEdit(items, order.items, customerPrices)
     : items.map((line) => ({ kind: "priced" as const, line }));
-  const lockedPrices = new Map<string, LockedLinePrice>(
-    lines.flatMap((l) => (l.kind === "kept" ? [[l.stored.product_key, l.stored] as const] : [])),
+  // Row-aligned with `items`: an order can hold the same product on two lines
+  // (e.g. 2 + 1 packs at different prices), so a product_key lookup would show
+  // one line's figures on both rows.
+  const lockedPrices: (LockedLinePrice | undefined)[] = lines.map((l) =>
+    l.kind === "kept" ? l.stored : undefined,
   );
   const subtotalMinor = lines.reduce((acc, l) => {
     if (l.kind === "kept") return acc + l.stored.line_total_minor;
