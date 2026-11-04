@@ -17,7 +17,6 @@ describe("composeArasLabel", () => {
       sender: "Apuhan Çiftliği",
       receiver: "Ayşe Yılmaz",
       integrationCode: "26081800477",
-      accountSelection: "Apuhan Çiftliği Sipariş Bazlı",
     });
   });
 

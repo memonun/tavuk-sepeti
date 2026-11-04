@@ -1,6 +1,7 @@
 /**
- * The Aras Kargo parcel label, laid out like Aras's "Sipariş Bazlı" dummy
- * label template (SetOrder doc Şekil 1). Sized in millimetres for a 100×100
+ * The Aras Kargo parcel label, laid out like Aras's dummy label template
+ * (SetOrder doc Şekil 1), minus the bottom "DİKKAT! … Sipariş Bazlı" note,
+ * which Aras asked us to drop (our account is set up as "Parça Bazlı"). Sized in millimetres for a 100×100
  * mm label (thermal printer or cut from A4) and styled inline, not with the
  * admin theme: it must print the same black-on-white everywhere.
  */
@@ -96,7 +97,17 @@ export function ArasLabelSheet({ label }: { label: ArasLabel }) {
         Entegrasyon Kodu : <span style={{ ...value, color: "#000" }}>{label.integrationCode}</span>
       </div>
 
-      <div style={{ ...cell, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      {/* Last row: the outer border closes it, so no bottom rule of its own. */}
+      <div
+        style={{
+          ...cell,
+          borderBottom: "none",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+        }}
+      >
         <Barcode code={label.integrationCode} />
         <div
           style={{
@@ -111,12 +122,6 @@ export function ArasLabelSheet({ label }: { label: ArasLabel }) {
         </div>
       </div>
 
-      <div style={{ padding: "1.6mm 3mm", textAlign: "center", fontSize: "2.9mm", lineHeight: 1.35 }}>
-        <span style={{ color: "#d71920", fontWeight: 700 }}>DİKKAT!</span> Lütfen Entegrasyon ile Sevk
-        İşlemleri ekranında{" "}
-        <span style={{ color: "#d71920", fontWeight: 700 }}>{label.accountSelection}</span> seçeneğini
-        seçerek işlem yapınız.
-      </div>
     </div>
   );
 }

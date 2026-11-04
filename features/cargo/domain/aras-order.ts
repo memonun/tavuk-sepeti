@@ -2,9 +2,11 @@
  * Aras Kargo "SetOrder" payload, built from what we already store on a cargo
  * order. Pure: no XML, no HTTP (that's infrastructure/aras-client.ts).
  *
- * We use Aras's "Sipariş Bazlı" model: we send only the order and recipient;
- * the branch counts, weighs and measures the parcels at drop-off. So no
- * PieceCount / PieceDetails / Weight here.
+ * We send only the order and recipient; the branch counts, weighs and
+ * measures the parcels at drop-off. So no PieceCount / PieceDetails / Weight
+ * here. Aras approved exactly this payload in testing (Nov 2026), even though
+ * they describe our account as "Parça Bazlı". If a branch ever can't scan a
+ * label, sending one PieceDetail per parcel is the fix to look at first.
  *
  * Field limits are Aras's (SetOrder doc §4.1). Text that only describes the
  * address is truncated to fit; anything Aras requires and we don't have

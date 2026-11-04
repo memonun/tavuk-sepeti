@@ -1,19 +1,14 @@
 /**
- * The "dummy" label stuck on a parcel we hand to Aras Kargo (Aras's "Sipariş
- * Bazlı" template, SetOrder doc Şekil 1). At the branch, staff pick our
- * sender record on the "Entegrasyon ile Sevk İşlemleri" screen and scan the
- * barcode; Aras then prints its own final barcode for the parcel.
+ * The "dummy" label stuck on a parcel we hand to Aras Kargo (SetOrder doc
+ * Şekil 1). At the branch, staff scan its barcode (our integration code);
+ * Aras then prints its own final barcode for the parcel. Aras approved this
+ * label in testing and asked only that the template's bottom "Sipariş Bazlı"
+ * note be left off, so there is no such line here.
  */
 import { toIstanbulDateString } from "@/shared/utils/date";
 
 /** Who the parcel is from, as printed on the label. */
 export const ARAS_LABEL_SENDER = "Apuhan Çiftliği";
-
-/**
- * The sender record staff must select at the branch. Aras defines its exact
- * name on their side; update this once they confirm it.
- */
-export const ARAS_LABEL_ACCOUNT_SELECTION = "Apuhan Çiftliği Sipariş Bazlı";
 
 export interface ArasLabel {
   /** dd.MM.yyyy in Europe/Istanbul. */
@@ -21,7 +16,6 @@ export interface ArasLabel {
   readonly sender: string;
   readonly receiver: string;
   readonly integrationCode: string;
-  readonly accountSelection: string;
 }
 
 export function composeArasLabel(input: {
@@ -39,6 +33,5 @@ export function composeArasLabel(input: {
     sender: ARAS_LABEL_SENDER,
     receiver,
     integrationCode: input.integrationCode,
-    accountSelection: ARAS_LABEL_ACCOUNT_SELECTION,
   };
 }
