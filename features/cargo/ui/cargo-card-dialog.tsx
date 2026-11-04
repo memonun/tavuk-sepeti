@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { CancelArasButton } from "@/features/cargo/ui/cancel-aras-button";
 import { formatTRPhone } from "@/shared/utils/phone";
 
 import type { CargoRecipient } from "@/features/cargo/domain/cargo-recipient";
@@ -72,6 +73,9 @@ export function CargoCardDialog({ orderNumber, recipient }: CargoCardDialogProps
               <p className="text-sm text-muted-foreground">
                 Bilgiler Aras&apos;a gönderildi. Şubede bu kodu söyleyin.
               </p>
+              <div className="flex justify-end">
+                <CancelArasButton orderId={recipient.orderId} arasCode={arasCode} />
+              </div>
             </div>
           ) : null}
           <Field label="Ad Soyad" value={name} copyValue={name} />
