@@ -14,6 +14,7 @@ import {
   arasCancelOutcome,
   arasTrackingUrl,
   buildArasOrder,
+  type ArasCancelOutcome,
 } from "@/features/cargo/domain/aras-order";
 import {
   cancelArasDispatch,
@@ -21,6 +22,7 @@ import {
   type ArasCredentials,
 } from "@/features/cargo/infrastructure/aras-client";
 import {
+  clearArasShipment,
   fetchArasShipmentSource,
   findArasIntegrationCode,
   markOrderSentToAras,
@@ -142,6 +144,80 @@ export async function getArasLabel(orderId: string): Promise<Result<ArasLabel, A
 }
 
 /**
+ * Ask Aras to delete the order's record, audit the outcome, and on success
+ * forget the Aras code on our side. "Kayıt bulunamadı" counts as success, so
+ * running it twice is safe.
+ */
+async function cancelAtAras(
+  actor: { readonly id: string },
+  creds: ArasCredentials,
+  orderId: string,
+  integrationCode: string,
+): Promise<{ outcome: ArasCancelOutcome; message: string; cleared: boolean }> {
+  const result = await cancelArasDispatch(creds, integrationCode);
+  const outcome = result.ok ? arasCancelOutcome(result.value.resultCode) : "failed";
+  const message = result.ok ? result.value.resultMessage : result.error.message;
+  if (outcome !== "cancelled") {
+    logger.error({ orderId, integrationCode, outcome }, "aras_cancel_not_done");
+  }
+
+  await logAudit({
+    actor_id: actor.id,
+    action: "order.aras_cancelled",
+    entity_type: "order",
+    entity_id: orderId,
+    after: { aras_integration_code: integrationCode, outcome },
+  });
+
+  const cleared = outcome === "cancelled" ? (await clearArasShipment(orderId)).ok : false;
+  return { outcome, message, cleared };
+}
+
+/**
+ * "Aras kaydını iptal et": delete the record at Aras but keep the order —
+ * e.g. the parcel went out by hand, or it was sent to Aras by mistake.
+ */
+export async function cancelArasShipmentAs(
+  actor: { readonly id: string },
+  orderId: string,
+): Promise<Result<void, AppError>> {
+  const creds = arasCreds();
+  if (!creds) {
+    return err(
+      new AppError(ErrorCode.BUSINESS_RULE_VIOLATION, {
+        message: "Aras Kargo entegrasyonu ayarlanmamış.",
+      }),
+    );
+  }
+
+  const code = await findArasIntegrationCode(orderId);
+  if (!code.ok) return code;
+  if (code.value === null) {
+    return err(new InvalidTransitionError({ message: "Bu sipariş Aras'a gönderilmemiş." }));
+  }
+
+  const { outcome, message, cleared } = await cancelAtAras(actor, creds, orderId, code.value);
+  if (outcome === "already_accepted") {
+    return err(
+      new InvalidTransitionError({
+        message: "Aras şubesi paketi kabul etmiş; bu kayıt artık buradan silinemez.",
+      }),
+    );
+  }
+  if (outcome === "failed") {
+    return err(new ExternalApiError({ message: `Aras kaydı silinemedi: ${message}` }));
+  }
+  if (!cleared) {
+    return err(
+      new ExternalApiError({
+        message: "Aras'taki kayıt silindi ama bizde güncellenemedi. Lütfen tekrar deneyin.",
+      }),
+    );
+  }
+  return ok(undefined);
+}
+
+/**
  * When an order is cancelled, delete its record at Aras too — but only if it
  * was sent there and the branch hasn't accepted the parcel yet. Best effort:
  * the cancellation itself already happened, so a failure here is logged and
@@ -160,20 +236,5 @@ export async function cancelArasShipmentIfSent(
     return;
   }
 
-  const result = await cancelArasDispatch(creds, code.value);
-  const outcome = result.ok ? arasCancelOutcome(result.value.resultCode) : "failed";
-  if (outcome !== "cancelled") {
-    logger.error(
-      { orderId, integrationCode: code.value, outcome },
-      "aras_cancel_not_done",
-    );
-  }
-
-  await logAudit({
-    actor_id: actor.id,
-    action: "order.aras_cancelled",
-    entity_type: "order",
-    entity_id: orderId,
-    after: { aras_integration_code: code.value, outcome },
-  });
+  await cancelAtAras(actor, creds, orderId, code.value);
 }

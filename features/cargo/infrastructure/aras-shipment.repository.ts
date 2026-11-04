@@ -128,3 +128,18 @@ export async function findArasIntegrationCode(
   const code = (data as { aras_integration_code?: unknown } | null)?.aras_integration_code;
   return ok(typeof code === "string" ? code : null);
 }
+
+/** Forget an order's Aras record after Aras deleted it (CancelDispatch). */
+export async function clearArasShipment(orderId: string): Promise<Result<void, ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from("orders")
+    .update({ aras_integration_code: null, aras_sent_at: null })
+    .eq("id", orderId);
+  if (error) {
+    logger.error({ orderId, code: error.code }, "aras_clear_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(undefined);
+}
