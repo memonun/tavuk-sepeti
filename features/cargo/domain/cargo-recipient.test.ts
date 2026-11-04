@@ -17,6 +17,7 @@ describe("composeCargoRecipient", () => {
       phone: "+905321234567",
       address: "Atatürk Mah. 5. Sok. No:3 D:2, Battalgazi / Malatya",
       addressNote: null,
+      arasCode: null,
     });
   });
 
@@ -47,7 +48,21 @@ describe("composeCargoRecipient", () => {
       phone: null,
       address: "—",
       addressNote: null,
+      arasCode: null,
     });
+  });
+
+  it("carries the Aras code once the order was sent to Aras", () => {
+    expect(
+      composeCargoRecipient({
+        orderId: "o7",
+        firstName: "Ali",
+        lastName: "Vural",
+        phone: null,
+        snapshot: {},
+        arasCode: "26081800477",
+      }).arasCode,
+    ).toBe("26081800477");
   });
 
   it("falls back to the snapshot description when raw_text is missing", () => {

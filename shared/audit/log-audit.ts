@@ -28,6 +28,10 @@ export type AuditAction =
   | "order.transitioned"
   | "order.delivery_reverted"
   | "order.cargo_info_updated"
+  // Aras Kargo integration (features/cargo): order data sent via SetOrder,
+  // and the best-effort CancelDispatch when a sent order is cancelled.
+  | "order.sent_to_aras"
+  | "order.aras_cancelled"
   | "order.updated"
   | "order.deleted"
   | "product.created"

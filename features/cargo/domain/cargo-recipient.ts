@@ -21,6 +21,9 @@ export interface CargoRecipient {
   /** Free-text label/description, shown under the address only when it is
    *  additional to it (not when it IS the address). */
   readonly addressNote: string | null;
+  /** Aras Kargo integration code once the order was sent to Aras (staff
+   *  type or scan it at the branch instead of reading the address), else null. */
+  readonly arasCode: string | null;
 }
 
 export interface RawCargoRecipient {
@@ -29,6 +32,7 @@ export interface RawCargoRecipient {
   readonly lastName: unknown;
   readonly phone: unknown;
   readonly snapshot: unknown;
+  readonly arasCode?: unknown;
 }
 
 export function composeCargoRecipient(raw: RawCargoRecipient): CargoRecipient {
@@ -52,5 +56,10 @@ export function composeCargoRecipient(raw: RawCargoRecipient): CargoRecipient {
   const address = rawText || description || "—";
   const addressNote = rawText && description ? description : null;
 
-  return { orderId: raw.orderId, name, phone, address, addressNote };
+  const arasCode =
+    typeof raw.arasCode === "string" && raw.arasCode.trim().length > 0
+      ? raw.arasCode.trim()
+      : null;
+
+  return { orderId: raw.orderId, name, phone, address, addressNote, arasCode };
 }
