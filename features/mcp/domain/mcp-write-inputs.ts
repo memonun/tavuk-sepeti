@@ -11,6 +11,7 @@
 import { z } from "zod";
 
 import { ORDER_STATUSES } from "@/features/mcp/domain/mcp-tool-inputs";
+import { ACCENT_COLORS } from "@/shared/palette/accent-colors";
 
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarih YYYY-AA-GG biçiminde olmalı.");
 const uuid = z.string().uuid();
@@ -202,8 +203,29 @@ const reminderBody = {
   repeat_every: repeatEvery.nullish().describe("Kaç birimde bir (örn. repeat_unit=month, repeat_every=3 → 3 ayda bir). Boşsa 1."),
 };
 
+const reminderListName = z.string().min(1).max(60);
+const reminderListColor = z.enum(ACCENT_COLORS);
+
+export const createReminderListInput = {
+  name: reminderListName.describe("Liste adı."),
+  color: reminderListColor.optional().describe("Liste rengi. Boşsa mavi (blue)."),
+};
+
+export const updateReminderListInput = {
+  id: uuid.describe("get_reminders çıktısındaki lists[].id."),
+  name: reminderListName.optional(),
+  color: reminderListColor.optional(),
+};
+
+export const deleteReminderListInput = {
+  id: uuid,
+  confirm: confirmDelete,
+};
+
 export const createReminderInput = {
-  list_id: uuid.describe("get_reminders çıktısındaki lists[].id."),
+  list_id: uuid.describe(
+    "get_reminders çıktısındaki lists[].id. Uygun liste yoksa önce create_reminder_list ile oluştur.",
+  ),
   title: z.string().min(1).max(200),
   ...reminderBody,
 };
@@ -582,8 +604,8 @@ export const updateStorefrontSettingsInput = {
     .optional()
     .describe("Ara toplam bu tutara ulaşınca (dahil) kargo ücretsiz, kuruş. 0 = eşik yok, kargo ücreti her zaman eklenir."),
   // Length limits live in the storefront schema the action parses with.
-  hero_title: z.string().optional().describe("Ana sayfanın en üstündeki başlık. En fazla 80 karakter, boş olamaz."),
-  hero_subtitle: z.string().optional().describe("Ana sayfa başlığının altındaki cümle. En fazla 240 karakter, boş olamaz."),
+  hero_title: z.string().optional().describe("Ana sayfanın en üstündeki slogan. En fazla 80 karakter, boş olamaz."),
+  hero_subtitle: z.string().optional().describe("Ana sayfadaki kayan vitrinde, fotoğrafların üstündeki cümle. En fazla 140 karakter, boş olamaz."),
 };
 
 export const dateRangeInput = {
@@ -595,6 +617,17 @@ export const productTallyInput = {
   from: ymd,
   to: ymd,
   dateBasis: z.enum(["scheduled_for", "created_at"]).default("scheduled_for"),
+};
+
+const ym = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Ay YYYY-AA biçiminde olmalı.");
+
+export const productTallyByMonthInput = {
+  from_month: ym.describe("İlk ay (dahil), YYYY-AA."),
+  to_month: ym.describe("Son ay (dahil), YYYY-AA. Aralık en fazla 24 ay."),
+  dateBasis: z
+    .enum(["scheduled_for", "created_at"])
+    .default("scheduled_for")
+    .describe("scheduled_for = teslim tarihine göre, created_at = oluşturulma tarihine göre."),
 };
 
 export const upcomingRecurringExpensesInput = {

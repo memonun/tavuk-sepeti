@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  monthSpan,
+  productTallyByMonthQuerySchema,
+} from "@/features/finance/domain/finance-query.schema";
+import {
+  buildMonthlyProductTally,
+  monthRangeDays,
   buildProductTallyRows,
   groupGiftedByUnit,
   groupSoldByUnit,
@@ -140,5 +146,43 @@ describe("parsePiecesPerUnit", () => {
 
   it("returns null for a bare number label (data-quality artifact, not a real unit)", () => {
     expect(parsePiecesPerUnit("1")).toBeNull();
+  });
+});
+
+describe("monthly product tally", () => {
+  it("covers whole months, including a leap February", () => {
+    expect(monthRangeDays("2028-01", "2028-02")).toEqual({ from: "2028-01-01", to: "2028-02-29" });
+    expect(monthRangeDays("2026-11", "2026-12")).toEqual({ from: "2026-11-01", to: "2026-12-31" });
+  });
+
+  it("lists every month in range, folding each like a single-range tally", () => {
+    const months = buildMonthlyProductTally("2026-11", "2027-01", [
+      { month: "2026-11-01", product_key: "eggs", display_name: "Yumurta", kind: "sold", unit_label: "paket", quantity: 40 },
+      { month: "2026-11-01", product_key: "eggs", display_name: "Yumurta", kind: "gift", unit_label: "paket", quantity: 2 },
+      { month: "2027-01-01", product_key: "milk", display_name: "Süt", kind: "sold", unit_label: "lt", quantity: 12 },
+    ]);
+    expect(months.map((m) => m.month)).toEqual(["2026-11", "2026-12", "2027-01"]);
+    expect(months[0]?.products).toEqual([
+      {
+        product_key: "eggs",
+        display_name: "Yumurta",
+        sold: { unit_label: "paket", quantity: 40 },
+        gifted: [{ unit_label: "paket", quantity: 2 }],
+      },
+    ]);
+    expect(months[1]?.products).toEqual([]);
+    expect(months[2]?.products[0]?.sold).toEqual({ unit_label: "lt", quantity: 12 });
+  });
+
+  it("caps the range at 24 months and keeps from <= to", () => {
+    expect(monthSpan("2025-01", "2026-12")).toBe(24);
+    const ok = productTallyByMonthQuerySchema.safeParse({ from_month: "2025-01", to_month: "2026-12" });
+    const tooLong = productTallyByMonthQuerySchema.safeParse({ from_month: "2025-01", to_month: "2027-01" });
+    const reversed = productTallyByMonthQuerySchema.safeParse({ from_month: "2026-05", to_month: "2026-04" });
+    const badMonth = productTallyByMonthQuerySchema.safeParse({ from_month: "2026-13", to_month: "2026-13" });
+    expect(ok.success).toBe(true);
+    expect(tooLong.success).toBe(false);
+    expect(reversed.success).toBe(false);
+    expect(badMonth.success).toBe(false);
   });
 });

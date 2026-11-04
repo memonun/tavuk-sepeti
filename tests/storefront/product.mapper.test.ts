@@ -55,6 +55,14 @@ describe("product row mapping", () => {
     const withLong = mapProductRows([{ ...row, web_long_description: "Uzun." }], new Map());
     expect(withLong.ok && withLong.value[0]?.web_long_description).toBe("Uzun.");
   });
+  it("maps the sale price; missing (admin RPC row) or null means not on sale", () => {
+    const onSale = mapProductRows([{ ...row, discount_unit_price_minor: "11000" }], new Map());
+    expect(onSale.ok && onSale.value[0]?.discount_unit_price_minor).toBe(11000);
+    const cleared = mapProductRows([{ ...row, discount_unit_price_minor: null }], new Map());
+    expect(cleared.ok && cleared.value[0]?.discount_unit_price_minor).toBe(null);
+    const missing = mapProductRows([row], new Map());
+    expect(missing.ok && missing.value[0]?.discount_unit_price_minor).toBe(null);
+  });
   it("preserves a nullable URL for legacy inserts", () => {
     const result = mapProductRows([{ ...row, web_slug: null }], new Map());
     expect(result.ok && result.value[0]?.web_slug).toBe(null);

@@ -44,6 +44,7 @@ import {
   trackProductQuantityDecreased,
 } from "@/features/storefront/ui/meta-events";
 import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
+import { LineTotal } from "@/features/storefront/ui/line-total";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 import { ShopNotice } from "@/features/storefront/ui/kit/shop-notice";
@@ -249,8 +250,12 @@ export function CartSheet({
                         <p className="text-lg leading-snug font-bold break-words">
                           {product.display_name}
                         </p>
-                        <p className="shop-money text-lg font-bold text-primary">
-                          {formatTRY(lineTotalMinor(product, quantity))}
+                        <p className="text-lg font-bold">
+                          <LineTotal
+                            product={product}
+                            quantity={quantity}
+                            className="shop-money text-primary"
+                          />
                         </p>
                       </div>
                     </div>

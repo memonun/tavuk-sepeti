@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ListChecks,
   type LucideIcon,
+  Images,
   Map,
   Megaphone,
   Package,
@@ -40,6 +41,7 @@ const HARITA: AdminNavItem = { href: "/map", label: "Harita", icon: Map, exact: 
 const ROTA: AdminNavItem = { href: "/routes", label: "Rota", icon: CalendarRange, exact: false };
 const KARGO: AdminNavItem = { href: "/kargo", label: "Kargo", icon: Truck, exact: false };
 const REKLAM: AdminNavItem = { href: "/reklam", label: "Reklam", icon: Megaphone, exact: false };
+const VITRIN: AdminNavItem = { href: "/vitrin", label: "Vitrin", icon: Images, exact: false };
 const MAGAZA_AYARLARI: AdminNavItem = { href: "/magaza-ayarlari", label: "Mağaza ayarları", icon: Store, exact: false };
 
 /** Desktop sidebar order (unchanged from before the phone shell existed). */
@@ -55,6 +57,7 @@ export const navItems: readonly AdminNavItem[] = [
   ROTA,
   KARGO,
   REKLAM,
+  VITRIN,
   MAGAZA_AYARLARI,
 ];
 
@@ -106,7 +109,7 @@ export const menuGroups: readonly { readonly title: string; readonly items: read
   },
   {
     title: "Satış",
-    items: [REKLAM],
+    items: [REKLAM, VITRIN],
   },
 ];
 

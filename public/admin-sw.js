@@ -45,6 +45,7 @@ const ADMIN_PREFIXES = [
   "/reklam",
   "/routes",
   "/takvim",
+  "/vitrin",
 ];
 
 function isAdminNavigation(request, url) {

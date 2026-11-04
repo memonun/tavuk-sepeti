@@ -27,6 +27,7 @@ const product: Product = {
   image_path: null,
   image_alt: null,
   current_unit_price_minor: 12500,
+  discount_unit_price_minor: null,
   price_tiers: [],
   active: true,
   sort_order: 0,

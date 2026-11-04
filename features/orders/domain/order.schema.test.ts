@@ -167,3 +167,20 @@ describe("orderCargoInfoSchema", () => {
     expect(r.success).toBe(false);
   });
 });
+
+describe("orderListQuerySchema status / payment_status", () => {
+  it("accepts one value or a list", () => {
+    expect(orderListQuerySchema.safeParse({ payment_status: "paid" }).success).toBe(true);
+    const r = orderListQuerySchema.safeParse({
+      payment_status: ["pending", "partial"],
+      status: ["confirmed", "delivered"],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects unknown values and an empty list", () => {
+    expect(orderListQuerySchema.safeParse({ payment_status: "unpaid" }).success).toBe(false);
+    expect(orderListQuerySchema.safeParse({ payment_status: [] }).success).toBe(false);
+    expect(orderListQuerySchema.safeParse({ status: ["open"] }).success).toBe(false);
+  });
+});

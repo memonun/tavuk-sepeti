@@ -18,12 +18,15 @@ import { getExpenseCategoryBreakdown } from "@/features/finance/application/get-
 import { getExpenseSummary } from "@/features/finance/application/get-expense-summary";
 import { getMarketReport } from "@/features/finance/application/get-market-report";
 import { getProductTally } from "@/features/finance/application/get-product-tally";
+import { getProductTallyByMonth } from "@/features/finance/application/get-product-tally-by-month";
 import { getUpcomingRecurringExpenses } from "@/features/finance/application/get-upcoming-recurring-expenses";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
+import { updateHeroTextAction } from "@/features/storefront/application/update-hero-text";
 import { updateStorefrontSettingsAction } from "@/features/storefront/application/update-storefront-settings";
 import {
   dateRangeInput,
   markNotificationReadInput,
+  productTallyByMonthInput,
   productTallyInput,
   updateStorefrontSettingsInput,
   upcomingRecurringExpensesInput,
@@ -98,7 +101,7 @@ export function registerAdminMiscTools(server: McpServer): void {
     {
       title: "Mağaza ayarları",
       description:
-        "Canlı mağaza kurallarını getirir: eve servis günleri (0=Pazar … 6=Cumartesi), kargo ve eve servis alt limitleri, eve servis ücreti, kargo ücreti ve ücretsiz kargo limiti (kuruş), ana sayfa başlığı ve açıklaması.",
+        "Canlı mağaza kurallarını getirir: eve servis günleri (0=Pazar … 6=Cumartesi), kargo ve eve servis alt limitleri, eve servis ücreti, kargo ücreti ve ücretsiz kargo limiti (kuruş), ana sayfa sloganı ve vitrin açıklaması.",
       annotations: { ...READ_ONLY, title: "Mağaza ayarları" },
     },
     async () => {
@@ -115,13 +118,28 @@ export function registerAdminMiscTools(server: McpServer): void {
     {
       title: "Mağaza ayarlarını değiştir",
       description:
-        "CANLI mağaza kurallarını değiştirir: eve servis günleri, kargo/eve servis alt limiti, eve servis ücreti, kargo ücreti, ücretsiz kargo limiti (kuruş), ana sayfa başlığı ve açıklaması. Müşterilerin ödeme ekranını hemen etkiler. Sadece gönderdiğin alanlar değişir. Önce get_storefront_settings ile mevcut değerleri göster, değişikliği kullanıcıya açıkça söyle.",
+        "CANLI mağaza kurallarını değiştirir: eve servis günleri, kargo/eve servis alt limiti, eve servis ücreti, kargo ücreti, ücretsiz kargo limiti (kuruş), ana sayfa sloganı ve vitrin açıklaması. Müşterilerin ödeme ekranını hemen etkiler. Sadece gönderdiğin alanlar değişir. Önce get_storefront_settings ile mevcut değerleri göster, değişikliği kullanıcıya açıkça söyle.",
       inputSchema: updateStorefrontSettingsInput,
       annotations: { ...WRITE, title: "Mağaza ayarlarını değiştir" },
     },
     async (input) => {
       try {
         const current = await getStorefrontSettings();
+        // The home page text and the shop rules are saved by separate actions
+        // (two admin pages). Call only the one(s) the input touches; with no
+        // field at all, re-save the rules as before.
+        const heroTouched = input.hero_title !== undefined || input.hero_subtitle !== undefined;
+        const { hero_title: _title, hero_subtitle: _subtitle, ...ruleFields } = input;
+        const rulesTouched = Object.values(ruleFields).some((value) => value !== undefined);
+
+        if (heroTouched) {
+          const heroFd = new FormData();
+          heroFd.set("hero_title", input.hero_title ?? current.heroTitle);
+          heroFd.set("hero_subtitle", input.hero_subtitle ?? current.heroSubtitle);
+          const heroState = await updateHeroTextAction({ status: "idle" }, heroFd);
+          if (heroState.status !== "success" || !rulesTouched) return toolFromState(heroState);
+        }
+
         const fd = new FormData();
         for (const day of input.home_delivery_days ?? current.homeDeliveryDays) fd.append("home_delivery_days", String(day));
         fd.set("cargo_min_order_minor", String(input.cargo_min_order_minor ?? current.cargoMinOrderMinor));
@@ -132,8 +150,6 @@ export function registerAdminMiscTools(server: McpServer): void {
           "cargo_free_shipping_threshold_minor",
           String(input.cargo_free_shipping_threshold_minor ?? current.cargoFreeShippingThresholdMinor),
         );
-        fd.set("hero_title", input.hero_title ?? current.heroTitle);
-        fd.set("hero_subtitle", input.hero_subtitle ?? current.heroSubtitle);
         return toolFromState(await updateStorefrontSettingsAction({ status: "idle" }, fd));
       } catch (cause) {
         return toolError("update_storefront_settings", cause);
@@ -180,7 +196,8 @@ export function registerAdminMiscTools(server: McpServer): void {
     "get_product_tally",
     {
       title: "Ürün satış sayımı",
-      description: "Tarih aralığında hangi üründen kaç adet/kg satıldığını (sipariş bazlı) döner.",
+      description:
+        "Tarih aralığında hangi üründen kaç adet/kg satıldığını (sipariş bazlı) döner. Ay ay döküm için get_product_tally_by_month kullan.",
       inputSchema: productTallyInput,
       annotations: { ...READ_ONLY, title: "Ürün satış sayımı" },
     },
@@ -189,6 +206,24 @@ export function registerAdminMiscTools(server: McpServer): void {
         return toolFromResult("get_product_tally", await getProductTally(input));
       } catch (cause) {
         return toolError("get_product_tally", cause);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_product_tally_by_month",
+    {
+      title: "Ürün satışları (ay ay)",
+      description:
+        "Seçilen aylar için her ayın ürün satışlarını tek çağrıda döner (en fazla 24 ay). Her ay: products[] — sold (satılan miktar ve birimi) ve gifted (hediye). Satış olmayan ay products=[] ile gelir. İptal edilen siparişler sayılmaz; get_product_tally ile aynı kural.",
+      inputSchema: productTallyByMonthInput,
+      annotations: { ...READ_ONLY, title: "Ürün satışları (ay ay)" },
+    },
+    async (input) => {
+      try {
+        return toolFromResult("get_product_tally_by_month", await getProductTallyByMonth(input));
+      } catch (cause) {
+        return toolError("get_product_tally_by_month", cause);
       }
     },
   );

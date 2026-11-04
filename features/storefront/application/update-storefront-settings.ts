@@ -13,7 +13,7 @@ import { revalidatePath } from "next/cache";
 
 import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { STOREFRONT_SETTINGS_TAG } from "@/features/storefront/application/get-storefront-settings";
-import { storefrontSettingsSchema } from "@/features/storefront/domain/storefront-settings";
+import { storefrontRulesSchema } from "@/features/storefront/domain/storefront-settings";
 import { saveStorefrontSettings } from "@/features/storefront/infrastructure/storefront-settings.repository";
 import { invalidateCacheTag } from "@/shared/cache/invalidate-tag";
 import { logAudit, SINGLETON_ENTITY_ID } from "@/shared/audit/log-audit";
@@ -33,7 +33,7 @@ export async function updateStorefrontSettingsAction(
     return { status: "error", message: auth.error.message };
   }
 
-  const parsed = storefrontSettingsSchema.safeParse({
+  const parsed = storefrontRulesSchema.safeParse({
     // Checkbox group → every checked weekday arrives under the same name.
     home_delivery_days: formData.getAll("home_delivery_days"),
     cargo_min_order_minor: formData.get("cargo_min_order_minor"),
@@ -43,8 +43,6 @@ export async function updateStorefrontSettingsAction(
     cargo_free_shipping_threshold_minor: formData.get(
       "cargo_free_shipping_threshold_minor",
     ),
-    hero_title: formData.get("hero_title"),
-    hero_subtitle: formData.get("hero_subtitle"),
   });
 
   if (!parsed.success) {
@@ -72,8 +70,6 @@ export async function updateStorefrontSettingsAction(
       home_delivery_fee_minor: saved.value.homeDeliveryFeeMinor,
       cargo_fee_minor: saved.value.cargoFeeMinor,
       cargo_free_shipping_threshold_minor: saved.value.cargoFreeShippingThresholdMinor,
-      hero_title: saved.value.heroTitle,
-      hero_subtitle: saved.value.heroSubtitle,
     },
   });
 

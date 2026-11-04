@@ -9,9 +9,10 @@ import { productPageDescription } from "@/features/storefront/domain/product-str
 import { PriceTag } from "@/features/storefront/ui/kit/price-tag";
 import {
   fromPriceMinor,
+  fromPriceSale,
   hasVolumeDiscount,
-  lineTotalMinor,
 } from "@/features/storefront/ui/line-pricing";
+import { LineTotal } from "@/features/storefront/ui/line-total";
 import { ProductCard } from "@/features/storefront/ui/product-card";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { ProductPurchaseControls } from "@/features/storefront/ui/product-purchase-controls";
@@ -29,12 +30,11 @@ export function ProductDetails({
   const longParagraphs = splitDescriptionParagraphs(product.web_long_description);
   const references = getProductDescriptionReferences(product.key, product.web_description);
   // Customers see line TOTALS only, never a per-unit rate: one row per tier
-  // start plus the next two quantities, so the pattern past the last tier
-  // (eggs: … 450, 550, 650) is visible.
-  const tierStarts = [...new Set(product.price_tiers.map((t) => t.min_qty))].sort((a, b) => a - b);
-  const lastStart = tierStarts.at(-1);
-  const tableQuantities =
-    lastStart === undefined ? [] : [...tierStarts, lastStart + 1, lastStart + 2];
+  // start (eggs: 1, 2, 3, 4 → 130, 250, 350, 450).
+  const tableQuantities = [...new Set(product.price_tiers.map((t) => t.min_qty))].sort(
+    (a, b) => a - b,
+  );
+  const sale = fromPriceSale(product);
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       <nav
@@ -101,6 +101,7 @@ export function ProductDetails({
             amount={formatTRY(fromPriceMinor(product))}
             unit={product.unit_label}
             prefix={hasVolumeDiscount(product) ? "Başlangıç fiyatı" : undefined}
+            sale={sale && { regularAmount: formatTRY(sale.regularMinor), percent: sale.percent }}
           />
           <p className="mt-4 flex items-center gap-2 text-lg font-semibold">
             {product.fulfillment_type === "shipping" ? (
@@ -121,7 +122,7 @@ export function ProductDetails({
                 <thead className="bg-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3">
-                      Miktar ({product.unit_label})
+                      Miktar
                     </th>
                     <th scope="col" className="px-4 py-3">
                       Toplam
@@ -132,8 +133,8 @@ export function ProductDetails({
                   {tableQuantities.map((qty) => (
                     <tr key={qty} className="border-t border-border">
                       <td className="px-4 py-3">{qty.toLocaleString("tr-TR")}</td>
-                      <td className="shop-money px-4 py-3 font-semibold">
-                        {formatTRY(lineTotalMinor(product, qty))}
+                      <td className="px-4 py-3">
+                        <LineTotal product={product} quantity={qty} className="shop-money font-semibold" />
                       </td>
                     </tr>
                   ))}

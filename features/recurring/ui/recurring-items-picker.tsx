@@ -17,7 +17,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isMultipleOfStep } from "@/features/orders/application/order-item-pricing";
-import { priceOrderLine } from "@/features/products/application/pricing";
+import { priceOrderLine, productLinePricing } from "@/features/products/application/pricing";
 import { formatTRY } from "@/shared/utils/money";
 
 import type { Product } from "@/features/products/application/list-products";
@@ -52,10 +52,7 @@ function LineRow({
   const stepInvalid = !isMultipleOfStep(quantity, product.step);
   const minInvalid = quantity < product.min_qty;
 
-  const approxPrice = priceOrderLine(quantity, {
-    tiers: product.price_tiers,
-    basePriceMinor: product.current_unit_price_minor,
-  });
+  const approxPrice = priceOrderLine(quantity, productLinePricing(product));
 
   return (
     <div className="grid grid-cols-1 items-start gap-2 rounded-md border bg-card px-3 py-2 text-sm sm:grid-cols-12">

@@ -37,6 +37,9 @@ const m = {
   updateReminderAction: vi.fn(),
   setReminderCompletedAction: vi.fn(),
   deleteReminderAction: vi.fn(),
+  createReminderListAction: vi.fn(),
+  updateReminderListAction: vi.fn(),
+  deleteReminderListAction: vi.fn(),
   createEventAction: vi.fn(),
   deleteEventAction: vi.fn(),
   deleteEventOccurrenceAction: vi.fn(),
@@ -70,6 +73,7 @@ const m = {
   markNotificationReadAction: vi.fn(),
   getStorefrontSettings: vi.fn(),
   updateStorefrontSettingsAction: vi.fn(),
+  updateHeroTextAction: vi.fn(),
   getOrderById: vi.fn(),
 };
 
@@ -128,9 +132,13 @@ vi.mock("@/features/finance/application/get-expense-category-breakdown", () => (
 vi.mock("@/features/finance/application/get-expense-summary", () => ({ getExpenseSummary: vi.fn() }));
 vi.mock("@/features/finance/application/get-market-report", () => ({ getMarketReport: vi.fn() }));
 vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductTally: vi.fn() }));
+vi.mock("@/features/finance/application/get-product-tally-by-month", () => ({
+  getProductTallyByMonth: vi.fn(),
+}));
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: (...a: unknown[]) => m.getStorefrontSettings(...a) }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: (...a: unknown[]) => m.updateStorefrontSettingsAction(...a) }));
+vi.mock("@/features/storefront/application/update-hero-text", () => ({ updateHeroTextAction: (...a: unknown[]) => m.updateHeroTextAction(...a) }));
 // Meta ad tools: covered in register-panel-tools.test.ts; stubbed here so the
 // ads feature (and the env it reads) never loads.
 vi.mock("@/features/ads/application/get-ads-overview", () => ({ getAdsOverview: vi.fn() }));
@@ -142,6 +150,11 @@ vi.mock("@/features/reminders/application/reminder-actions", () => ({
   updateReminderAction: (...a: unknown[]) => m.updateReminderAction(...a),
   setReminderCompletedAction: (...a: unknown[]) => m.setReminderCompletedAction(...a),
   deleteReminderAction: (...a: unknown[]) => m.deleteReminderAction(...a),
+}));
+vi.mock("@/features/reminders/application/reminder-list-actions", () => ({
+  createReminderListAction: (...a: unknown[]) => m.createReminderListAction(...a),
+  updateReminderListAction: (...a: unknown[]) => m.updateReminderListAction(...a),
+  deleteReminderListAction: (...a: unknown[]) => m.deleteReminderListAction(...a),
 }));
 vi.mock("@/features/calendar/application/calendar-event-actions", () => ({
   createEventAction: (...a: unknown[]) => m.createEventAction(...a),
@@ -273,6 +286,7 @@ describe("write tool adapters", () => {
       ["delete_customers", { customer_ids: [UUID] }],
       ["delete_product", { product_key: "x" }],
       ["delete_reminder", { id: UUID }],
+      ["delete_reminder_list", { id: UUID }],
       ["delete_order_payment", { order_id: UUID, payment_id: UUID2 }],
       ["delete_expense", { id: UUID }],
       ["delete_market_sale", { id: UUID }],
@@ -290,6 +304,7 @@ describe("write tool adapters", () => {
     expect(m.bulkDeleteCustomersAction).not.toHaveBeenCalled();
     expect(m.deleteProductAction).not.toHaveBeenCalled();
     expect(m.deleteReminderAction).not.toHaveBeenCalled();
+    expect(m.deleteReminderListAction).not.toHaveBeenCalled();
     expect(m.deletePaymentAction).not.toHaveBeenCalled();
     expect(m.deleteExpenseAction).not.toHaveBeenCalled();
     expect(m.deleteMarketSaleAction).not.toHaveBeenCalled();
@@ -650,6 +665,35 @@ describe("write tool adapters", () => {
     expect(m.updateReminderAction).toHaveBeenLastCalledWith({ id: UUID, due_date: null });
   });
 
+  it("reminder-list tools hand the panel's list actions what the panel sends", async () => {
+    const client = await connect();
+
+    m.createReminderListAction.mockResolvedValue(ok({ id: UUID }));
+    const created = await client.callTool({
+      name: "create_reminder_list",
+      arguments: { name: "Aşılar", color: "green" },
+    });
+    expect(m.createReminderListAction).toHaveBeenCalledWith({ name: "Aşılar", color: "green" });
+    expect(JSON.parse(text(created))).toEqual({ ok: true, result: { id: UUID } });
+
+    m.updateReminderListAction.mockResolvedValue(ok({ id: UUID }));
+    await client.callTool({ name: "update_reminder_list", arguments: { id: UUID, name: "Yem" } });
+    expect(m.updateReminderListAction).toHaveBeenCalledWith({ id: UUID, name: "Yem" });
+
+    m.deleteReminderListAction.mockResolvedValue(ok({ id: UUID }));
+    await client.callTool({ name: "delete_reminder_list", arguments: { id: UUID, confirm: true } });
+    expect(m.deleteReminderListAction).toHaveBeenCalledWith({ id: UUID });
+  });
+
+  it("create_reminder_list rejects an unknown color before reaching the action", async () => {
+    const res = await (await connect()).callTool({
+      name: "create_reminder_list",
+      arguments: { name: "Aşılar", color: "magenta" },
+    });
+    expect(res.isError).toBe(true);
+    expect(m.createReminderListAction).not.toHaveBeenCalled();
+  });
+
   it("delete_calendar_event deletes one occurrence when a date is given, else the whole event", async () => {
     m.deleteEventAction.mockResolvedValue(ok({ id: UUID }));
     m.deleteEventOccurrenceAction.mockResolvedValue(ok({ id: UUID }));
@@ -687,8 +731,31 @@ describe("write tool adapters", () => {
     expect(fd.get("cargo_min_order_minor")).toBe("100000");
     expect(fd.get("home_min_order_minor")).toBe("30000");
     expect(fd.get("home_delivery_fee_minor")).toBe("5000");
-    expect(fd.get("hero_title")).toBe("Çiftlikten sofranıza");
+    // Only rules were sent: the home page text is not re-saved.
+    expect(fd.get("hero_title")).toBeNull();
+    expect(m.updateHeroTextAction).not.toHaveBeenCalled();
+  });
+
+  it("update_storefront_settings saves the home page text through its own action and leaves the rules alone", async () => {
+    m.getStorefrontSettings.mockResolvedValue({
+      homeDeliveryDays: [6],
+      cargoMinOrderMinor: 0,
+      homeMinOrderMinor: 25000,
+      homeDeliveryFeeMinor: 5000,
+      cargoFeeMinor: 15000,
+      cargoFreeShippingThresholdMinor: 100000,
+      heroTitle: "Çiftlikten sofranıza",
+      heroSubtitle: "Köy yumurtası.",
+    });
+    m.updateHeroTextAction.mockResolvedValue({ status: "success", savedAt: 1 });
+    await (await connect()).callTool({
+      name: "update_storefront_settings",
+      arguments: { hero_title: "Yeni slogan" },
+    });
+    const fd = m.updateHeroTextAction.mock.calls[0]?.[1] as FormData;
+    expect(fd.get("hero_title")).toBe("Yeni slogan");
     expect(fd.get("hero_subtitle")).toBe("Köy yumurtası.");
+    expect(m.updateStorefrontSettingsAction).not.toHaveBeenCalled();
   });
 
   it("mark_notification_read reports the real unread count afterwards", async () => {

@@ -490,7 +490,7 @@
       transform: translateY(100%);
     }
   }
-  /* The home page's opening picture (HomeHero). The shop's one staged
+  /* The first photo of the home page showcase (HomeHero). The shop's one staged
      page-load moment, and deliberately a quiet one: it fades up and eases back
      4% to its real size. Nothing waits on it. The starting style is skipped
      when <html> carries `data-shop-intro-seen` — set before paint by an inline

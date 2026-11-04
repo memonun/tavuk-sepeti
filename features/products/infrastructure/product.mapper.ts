@@ -24,6 +24,8 @@ const productRowSchema = z.object({
   min_qty: z.coerce.number().positive(),
   step: z.coerce.number().positive(),
   current_unit_price_minor: z.coerce.number().nonnegative(),
+  // Optional: the admin RPC row predates the column (merged in separately).
+  discount_unit_price_minor: z.coerce.number().positive().nullable().optional(),
   active: z.boolean(),
   fulfillment_type: fulfillmentTypeSchema,
   is_web_visible: z.boolean().nullable(),
@@ -72,6 +74,7 @@ export function mapProductRows(
       ...row,
       web_slug: toValidWebSlug(row.key, row.web_slug),
       web_long_description: row.web_long_description ?? null,
+      discount_unit_price_minor: row.discount_unit_price_minor ?? null,
       is_web_visible: row.is_web_visible ?? true,
       is_featured: row.is_featured ?? false,
       price_tiers: [...(tiersByProduct.get(row.key) ?? [])].sort(

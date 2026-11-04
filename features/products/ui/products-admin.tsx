@@ -3,8 +3,10 @@
 /**
  * Products catalog manager. Lists the full catalog (active + archived) as
  * cards. Each card lets the admin edit content fields (via a dialog), archive
- * or restore the product, and edit its pricing inline: a flat/base unit price
- * plus optional graduated volume tiers (from the min_qty-th unit on → unit price).
+ * or restore the product, and edit its pricing inline: a flat/base unit price,
+ * an optional sale price ("indirimli fiyat" — the shop strikes through the
+ * regular price) plus optional graduated volume tiers (from the min_qty-th
+ * unit on → unit price).
  *
  * Saving affects FUTURE orders only — existing orders keep their frozen line
  * prices (snapshot model). Hard delete is offered too, but only ever
@@ -27,6 +29,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { deleteProductAction } from "@/features/products/application/delete-product";
+import { discountPercent } from "@/features/products/application/pricing";
 import { saveProductPricingAction } from "@/features/products/application/save-product-pricing";
 import { setProductActiveAction } from "@/features/products/application/set-product-active";
 import { updateProductFlagsAction } from "@/features/products/application/set-product-flags";
@@ -55,9 +58,19 @@ interface TierRow {
   price: string; // TRY
 }
 
+/** Kuruş → "125,50" for an editable price field. */
+function toPriceText(minor: number): string {
+  return (minor / 100).toFixed(2).replace(".", ",");
+}
+
 function PricingEditor({ product }: { product: Product }) {
   const [baseText, setBaseText] = useState(() =>
-    (product.current_unit_price_minor / 100).toFixed(2).replace(".", ","),
+    toPriceText(product.current_unit_price_minor),
+  );
+  const [saleText, setSaleText] = useState(() =>
+    product.discount_unit_price_minor === null
+      ? ""
+      : toPriceText(product.discount_unit_price_minor),
   );
   const [tiers, setTiers] = useState<TierRow[]>(() =>
     product.price_tiers.map((t) => ({
@@ -80,6 +93,16 @@ function PricingEditor({ product }: { product: Product }) {
       toast.error("Geçersiz birim fiyat.");
       return;
     }
+    // Empty field = not on sale (clears an existing sale).
+    const discount_unit_price_minor = saleText.trim() === "" ? null : parseTRY2(saleText);
+    if (saleText.trim() !== "" && (discount_unit_price_minor === null || discount_unit_price_minor <= 0)) {
+      toast.error("Geçersiz indirimli fiyat.");
+      return;
+    }
+    if (discount_unit_price_minor !== null && discount_unit_price_minor >= base_price_minor) {
+      toast.error("İndirimli fiyat, normal birim fiyattan düşük olmalı.");
+      return;
+    }
     const parsedTiers: { min_qty: number; unit_price_minor: number }[] = [];
     for (const t of tiers) {
       const min_qty = Number(t.min_qty.replace(",", "."));
@@ -94,6 +117,7 @@ function PricingEditor({ product }: { product: Product }) {
       const result = await saveProductPricingAction({
         product_key: product.key,
         base_price_minor,
+        discount_unit_price_minor,
         tiers: parsedTiers,
       });
       if (result.ok) {
@@ -103,6 +127,11 @@ function PricingEditor({ product }: { product: Product }) {
       }
     });
   };
+
+  const baseMinor = parseTRY2(baseText);
+  const saleMinor = saleText.trim() === "" ? null : parseTRY2(saleText);
+  const salePercent =
+    baseMinor !== null && saleMinor !== null ? discountPercent(baseMinor, saleMinor) : null;
 
   return (
     <div className="space-y-3">
@@ -123,18 +152,38 @@ function PricingEditor({ product }: { product: Product }) {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-1.5 sm:max-w-48">
-        <Label htmlFor={`base-${product.key}`} className="text-xs">
-          Birim fiyat (₺ / {product.unit_label})
-        </Label>
-        <Input
-          id={`base-${product.key}`}
-          inputMode="decimal"
-          value={baseText}
-          onChange={(e) => setBaseText(e.target.value)}
-          placeholder="0,00"
-        />
+      <div className="grid grid-cols-2 gap-3 sm:max-w-96">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor={`base-${product.key}`} className="text-xs">
+            Birim fiyat (₺ / {product.unit_label})
+          </Label>
+          <Input
+            id={`base-${product.key}`}
+            inputMode="decimal"
+            value={baseText}
+            onChange={(e) => setBaseText(e.target.value)}
+            placeholder="0,00"
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor={`sale-${product.key}`} className="text-xs">
+            İndirimli fiyat (₺ / {product.unit_label})
+          </Label>
+          <Input
+            id={`sale-${product.key}`}
+            inputMode="decimal"
+            value={saleText}
+            onChange={(e) => setSaleText(e.target.value)}
+            placeholder="İndirim yok"
+            aria-describedby={`sale-hint-${product.key}`}
+          />
+        </div>
       </div>
+      <p id={`sale-hint-${product.key}`} className="text-xs text-muted-foreground">
+        {salePercent !== null
+          ? `Mağazada normal fiyat üstü çizili, yanında %${salePercent} indirim görünür. Kaldırmak için alanı boşaltıp kaydet.`
+          : "Boş bırakırsan indirim yok. Doldurursan mağazada normal fiyat üstü çizili görünür; kademeli fiyat daha ucuzsa müşteri yine onu öder."}
+      </p>
 
       <div className="space-y-2">
         <p className="text-xs text-muted-foreground">
@@ -282,6 +331,9 @@ function ProductCard({ product }: { product: Product }) {
             <Badge variant={archived ? "secondary" : "outline"}>
               {archived ? "Arşiv" : "Aktif"}
             </Badge>
+            {product.discount_unit_price_minor !== null ? (
+              <Badge variant="destructive">İndirimde</Badge>
+            ) : null}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {product.unit_label}

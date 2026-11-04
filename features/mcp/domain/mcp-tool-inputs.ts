@@ -25,8 +25,19 @@ export const ORDER_STATUSES = [
   "cancelled",
 ] as const;
 
+export const PAYMENT_STATUSES = ["pending", "partial", "paid", "failed", "refunded"] as const;
+
 export const listOrdersInput = {
-  status: z.enum(ORDER_STATUSES).optional().describe("Sipariş durumu filtresi."),
+  status: z
+    .union([z.enum(ORDER_STATUSES), z.array(z.enum(ORDER_STATUSES)).min(1).max(5)])
+    .optional()
+    .describe("Sipariş durumu; tek değer ya da liste (listedekilerden herhangi biri)."),
+  payment_status: z
+    .union([z.enum(PAYMENT_STATUSES), z.array(z.enum(PAYMENT_STATUSES)).min(1).max(5)])
+    .optional()
+    .describe(
+      "Ödeme durumu; tek değer ya da liste. Ödenmemiş siparişler için [\"pending\",\"partial\"] ver, iptalleri dışlamak için status'u da [\"pending\",\"confirmed\",\"shipped\",\"delivered\"] yap.",
+    ),
   fulfillment_channel: z
     .enum(["delivery", "shipping"])
     .optional()

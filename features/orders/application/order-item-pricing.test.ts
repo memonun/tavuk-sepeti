@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   enrichOrderItems,
   isMultipleOfStep,
+  priceDeliveredOrderEdit,
 } from "@/features/orders/application/order-item-pricing";
+import { isEditableOrderStatus } from "@/features/orders/domain/order";
 
 import type { Product } from "@/features/products/application/list-products";
 
@@ -19,6 +21,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     min_qty: 0.5,
     step: 0.5,
     current_unit_price_minor: 10000,
+    discount_unit_price_minor: null,
     price_tiers: [],
     active: true,
     fulfillment_type: "delivery",
@@ -98,6 +101,15 @@ describe("enrichOrderItems", () => {
     expect(result.value[1]!.line_total_minor).toBe(45000);
   });
 
+  it("charges the product sale price (server re-pricing uses it)", () => {
+    const onSale = makeProduct({ discount_unit_price_minor: 8000 }); // ₺100 → ₺80/kg
+    const result = enrichOrderItems([{ product_key: "cheese", quantity: 1.5 }], [onSale]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value[0]!.unit_price_minor).toBe(8000);
+    expect(result.value[0]!.line_total_minor).toBe(12000);
+  });
+
   it("uses an explicit special price (flat, ignores tiers)", () => {
     const result = enrichOrderItems(
       [{ product_key: "eggs", quantity: 4, unit_price_minor: 11000 }],
@@ -164,5 +176,61 @@ describe("enrichOrderItems", () => {
       "delivery",
       "shipping",
     ]);
+  });
+});
+
+describe("priceDeliveredOrderEdit", () => {
+  // Delivered at ₺80/kg; the catalog has since moved to ₺100/kg.
+  const storedCheese = {
+    product_key: "cheese",
+    quantity: 1,
+    unit_price_minor: 8000,
+    line_total_minor: 8000,
+    product_snapshot: { display_name: "Peynir (eski ad)", unit: "kilogram", unit_label: "kg" },
+    fulfillment_type: "delivery" as const,
+  };
+
+  it("keeps untouched lines at the delivered price and prices new ones today, in order", () => {
+    const result = priceDeliveredOrderEdit(
+      [
+        { product_key: "milk", quantity: 1 },
+        { product_key: "cheese", quantity: 1 },
+      ],
+      [storedCheese],
+      {},
+      [CHEESE, MILK],
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.map((l) => [l.product_key, l.line_total_minor])).toEqual([
+      ["milk", MILK.current_unit_price_minor],
+      ["cheese", 8000],
+    ]);
+    expect(result.value[1]?.product_snapshot.display_name).toBe("Peynir (eski ad)");
+  });
+
+  it("re-prices a line whose quantity changed", () => {
+    const result = priceDeliveredOrderEdit(
+      [{ product_key: "cheese", quantity: 2 }],
+      [storedCheese],
+      {},
+      [CHEESE],
+    );
+    expect(result.ok && result.value[0]?.line_total_minor).toBe(20000);
+  });
+
+  it("does not need the product in the active catalog for an untouched line", () => {
+    const result = priceDeliveredOrderEdit([{ product_key: "cheese", quantity: 1 }], [storedCheese], {}, []);
+    expect(result.ok && result.value[0]?.line_total_minor).toBe(8000);
+  });
+});
+
+describe("isEditableOrderStatus", () => {
+  it("allows pending, confirmed and delivered; not shipped or cancelled", () => {
+    expect(isEditableOrderStatus("pending")).toBe(true);
+    expect(isEditableOrderStatus("confirmed")).toBe(true);
+    expect(isEditableOrderStatus("delivered")).toBe(true);
+    expect(isEditableOrderStatus("shipped")).toBe(false);
+    expect(isEditableOrderStatus("cancelled")).toBe(false);
   });
 });

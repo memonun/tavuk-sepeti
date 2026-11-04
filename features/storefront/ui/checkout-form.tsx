@@ -131,7 +131,8 @@ import { hapticTick } from "@/features/storefront/ui/kit/haptic";
 import { ShopButton, ShopLinkButton } from "@/features/storefront/ui/kit/shop-button";
 import { ShopInput, shopFieldClass } from "@/features/storefront/ui/kit/shop-field";
 import { ShopNotice } from "@/features/storefront/ui/kit/shop-notice";
-import { fromPriceMinor, lineTotalMinor } from "@/features/storefront/ui/line-pricing";
+import { lineTotalMinor } from "@/features/storefront/ui/line-pricing";
+import { FromPrice, LineTotal } from "@/features/storefront/ui/line-total";
 import { productEmoji } from "@/features/storefront/ui/product-emoji";
 import { QuantityStepper } from "@/features/storefront/ui/quantity-stepper";
 import { revealField } from "@/features/storefront/ui/reveal-field";
@@ -1240,8 +1241,12 @@ function OrderSummary({
                   <p className="text-lg leading-snug font-bold break-words">
                     {product.display_name}
                   </p>
-                  <p className="shop-money text-lg font-bold text-primary">
-                    {formatTRY(lineTotalMinor(product, quantity))}
+                  <p className="text-lg font-bold">
+                    <LineTotal
+                      product={product}
+                      quantity={quantity}
+                      className="shop-money text-primary"
+                    />
                   </p>
                 </div>
               </div>
@@ -1299,8 +1304,8 @@ function OrderSummary({
                       <span className="block text-base leading-snug font-bold break-words">
                         {product.display_name}
                       </span>
-                      <span className="shop-money block text-base text-muted-foreground">
-                        {formatTRY(fromPriceMinor(product))}
+                      <span className="block text-base text-muted-foreground">
+                        <FromPrice product={product} className="shop-money" />
                       </span>
                     </span>
                     <ShopButton

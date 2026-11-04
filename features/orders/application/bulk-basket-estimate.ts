@@ -6,7 +6,7 @@
  * bulk-order-pricing.ts): a customer's saved special price is a flat per-unit
  * price and wins over the product's volume tiers.
  */
-import { priceOrderLine } from "@/features/products/application/pricing";
+import { priceOrderLine, productLinePricing } from "@/features/products/application/pricing";
 
 import type { DraftBatch } from "@/features/orders/domain/draft-batch";
 import type { Product } from "@/features/products/application/list-products";
@@ -40,8 +40,7 @@ export function estimateBasket(
       const special = overrides?.[line.product_key];
       if (special != null) specialLineCount += 1;
       subtotalMinor += priceOrderLine(line.quantity, {
-        tiers: product.price_tiers,
-        basePriceMinor: product.current_unit_price_minor,
+        ...productLinePricing(product),
         overrideUnitPriceMinor: special,
       }).line_total_minor;
     }

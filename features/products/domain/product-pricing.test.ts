@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  discountPercent,
   priceOrderLine,
+  productLinePricing,
   type ProductPriceTier,
 } from "@/features/products/domain/product-pricing";
 
@@ -91,5 +93,61 @@ describe("priceOrderLine — customer override", () => {
     expect(
       priceOrderLine(3, { tiers: [], basePriceMinor: 0, overrideUnitPriceMinor: 11666.6667 }),
     ).toEqual({ unit_price_minor: 11667, line_total_minor: 35000 });
+  });
+});
+
+describe("priceOrderLine — product sale price (indirimli fiyat)", () => {
+  it("prices a flat product at the sale price", () => {
+    const milk = { tiers: [], basePriceMinor: 4000, saleUnitPriceMinor: 3500 };
+    expect(priceOrderLine(2, milk)).toEqual({ unit_price_minor: 3500, line_total_minor: 7000 });
+    expect(priceOrderLine(0.5, milk).line_total_minor).toBe(1750);
+  });
+
+  it("caps tiered lines but never makes a bulk line dearer", () => {
+    const sale = { ...eggs, saleUnitPriceMinor: 11000 };
+    expect(priceOrderLine(1, sale).line_total_minor).toBe(11000); // 130 → 110
+    expect(priceOrderLine(3, sale).line_total_minor).toBe(33000); // 350 → 330
+    expect(priceOrderLine(5, sale).line_total_minor).toBe(55000); // 550 vs 550 → 550
+    expect(priceOrderLine(10, sale).line_total_minor).toBe(105000); // tiers win
+  });
+
+  it("a sale price above the regular price changes nothing", () => {
+    const milk = { tiers: [], basePriceMinor: 4000, saleUnitPriceMinor: 5000 };
+    expect(priceOrderLine(2, milk).line_total_minor).toBe(8000);
+  });
+
+  it("null means not on sale", () => {
+    expect(priceOrderLine(2, { ...eggs, saleUnitPriceMinor: null }).line_total_minor).toBe(25000);
+  });
+
+  it("a customer special price wins over the sale price", () => {
+    expect(
+      priceOrderLine(2, { ...eggs, saleUnitPriceMinor: 9000, overrideUnitPriceMinor: 11000 }),
+    ).toEqual({ unit_price_minor: 11000, line_total_minor: 22000 });
+  });
+});
+
+describe("productLinePricing", () => {
+  it("maps a product's pricing fields to engine input", () => {
+    expect(
+      productLinePricing({
+        price_tiers: eggTiers,
+        current_unit_price_minor: 13000,
+        discount_unit_price_minor: 11000,
+      }),
+    ).toEqual({ tiers: eggTiers, basePriceMinor: 13000, saleUnitPriceMinor: 11000 });
+  });
+});
+
+describe("discountPercent", () => {
+  it("rounds down so the label never overstates", () => {
+    expect(discountPercent(13000, 11000)).toBe(15); // 15.38 %
+    expect(discountPercent(4000, 3000)).toBe(25);
+  });
+  it("is null without a saving", () => {
+    expect(discountPercent(4000, 4000)).toBeNull();
+    expect(discountPercent(4000, 5000)).toBeNull();
+    expect(discountPercent(0, 0)).toBeNull();
+    expect(discountPercent(10000, 9999)).toBeNull(); // < 1 %
   });
 });
