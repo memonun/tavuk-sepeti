@@ -12,6 +12,7 @@ import {
   groupOverridesByCustomer,
 } from "@/features/orders/application/bulk-order-pricing";
 import { bulkOrderSchema } from "@/features/orders/domain/bulk-order.schema";
+import { applyFreeEggDelivery } from "@/features/orders/domain/free-delivery";
 import { createOrdersBulk } from "@/features/orders/infrastructure/order.repository";
 import { listActiveProducts } from "@/features/products/application/list-products";
 import { logAudit } from "@/shared/audit/log-audit";
@@ -82,11 +83,12 @@ export async function createOrdersBulkAction(
     scheduled_for,
     time_slot,
     payment_method,
-    delivery_fee_minor,
     created_by: user.id,
     orders: enriched.value.map((o) => ({
       customer_id: o.customer_id,
       delivery_notes: null,
+      // 10+ paket yumurta olan siparişin teslimatı ücretsiz (domain/free-delivery.ts).
+      delivery_fee_minor: applyFreeEggDelivery(delivery_fee_minor, o.items),
       items: o.items,
     })),
   });

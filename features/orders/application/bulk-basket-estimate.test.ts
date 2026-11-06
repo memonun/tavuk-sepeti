@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { estimateBasket } from "@/features/orders/application/bulk-basket-estimate";
+import {
+  countFeePayingOrders,
+  estimateBasket,
+} from "@/features/orders/application/bulk-basket-estimate";
 import { emptyBatch, applyLine } from "@/features/orders/domain/draft-batch";
 
 import type { Product } from "@/features/products/application/list-products";
@@ -65,5 +68,24 @@ describe("estimateBasket", () => {
   it("ignores a product that is no longer in the catalog", () => {
     const e = estimateBasket([A], batchWith([A], 5), new Map(), new Map());
     expect(e.subtotalMinor).toBe(0);
+  });
+});
+
+describe("countFeePayingOrders", () => {
+  it("counts every order that has lines when nobody reaches 10 paket", () => {
+    expect(countFeePayingOrders([A, B], batchWith([A, B], 9), PRODUCTS)).toBe(2);
+  });
+
+  it("waives the fee for an order with 10+ paket yumurta", () => {
+    expect(countFeePayingOrders([A, B], batchWith([A, B], 10), PRODUCTS)).toBe(0);
+  });
+
+  it("waives per order, not per batch", () => {
+    const batch = applyLine(batchWith([A], 12), [B], { product_key: "eggs", quantity: 3 });
+    expect(countFeePayingOrders([A, B], batch, PRODUCTS)).toBe(1);
+  });
+
+  it("ignores selected customers with no lines", () => {
+    expect(countFeePayingOrders([A, B], batchWith([A], 5), PRODUCTS)).toBe(1);
   });
 });

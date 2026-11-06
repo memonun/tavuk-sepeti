@@ -15,6 +15,7 @@ import { revalidatePath } from "next/cache";
 import { reconcileCustomerProductPrices } from "@/features/customers/application/customer-prices";
 import { getCurrentUser } from "@/features/auth/application/get-session";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
+import { applyFreeEggDelivery } from "@/features/orders/domain/free-delivery";
 import { orderFormSchema } from "@/features/orders/domain/order.schema";
 import { createOrder as repoCreate } from "@/features/orders/infrastructure/order.repository";
 import { listActiveProducts } from "@/features/products/application/list-products";
@@ -83,7 +84,11 @@ export async function createOrderAction(
     time_slot: parsed.data.time_slot,
     payment_method: parsed.data.payment_method,
     delivery_notes: parsed.data.delivery_notes,
-    delivery_fee_minor: parsed.data.delivery_fee_minor,
+    // 10+ paket yumurta → teslimat ücretsiz (domain/free-delivery.ts).
+    delivery_fee_minor: applyFreeEggDelivery(
+      parsed.data.delivery_fee_minor,
+      enrichedResult.value,
+    ),
     created_by: user.id,
     items: enrichedResult.value,
   });

@@ -30,6 +30,7 @@ import {
   priceDeliveredOrderEdit,
 } from "@/features/orders/application/order-item-pricing";
 import { getOrderById } from "@/features/orders/application/get-order";
+import { applyFreeEggDelivery } from "@/features/orders/domain/free-delivery";
 import { orderEditSchema } from "@/features/orders/domain/order.schema";
 import {
   updateOrderWithItems,
@@ -89,13 +90,19 @@ export async function updateOrderAction(
     : enrichOrderItems(parsed.data.items, productsResult.value);
   if (!enriched.ok) return err(enriched.error);
 
+  // 10+ paket yumurta → teslimat ücretsiz (domain/free-delivery.ts). Teslim
+  // edilmiş siparişte tahsil edilen ücret olduğu gibi kalır.
+  const deliveryFeeMinor = delivered
+    ? parsed.data.delivery_fee_minor
+    : applyFreeEggDelivery(parsed.data.delivery_fee_minor, enriched.value);
+
   const result = await updateOrderWithItems({
     order_id: orderId,
     scheduled_for: parsed.data.scheduled_for,
     time_slot: parsed.data.time_slot,
     payment_method: parsed.data.payment_method,
     delivery_notes: parsed.data.delivery_notes,
-    delivery_fee_minor: parsed.data.delivery_fee_minor,
+    delivery_fee_minor: deliveryFeeMinor,
     items: enriched.value,
   });
   if (!result.ok) return err(result.error);
@@ -125,7 +132,7 @@ export async function updateOrderAction(
     },
     after: {
       subtotal_minor: enriched.value.reduce((sum, i) => sum + i.line_total_minor, 0),
-      delivery_fee_minor: parsed.data.delivery_fee_minor,
+      delivery_fee_minor: deliveryFeeMinor,
       items_count: enriched.value.length,
     },
     metadata: { source: "order_detail_edit", status: order.status },
