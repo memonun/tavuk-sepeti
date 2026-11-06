@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { seedEditLines } from "@/features/orders/application/edit-line-seed";
 import { updateOrderAction } from "@/features/orders/application/update-order";
 import {
   ProductPicker,
@@ -295,15 +296,21 @@ function OrderEditForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // Prefill each line's "Özel fiyat" from the customer's persisted special
-  // (not the frozen line price) so editing it adjusts the customer's price.
+  // The customer's saved prices, kept in step with what a save changes so the
+  // save / remove controls stay accurate without reloading the order.
+  const [savedPrices, setSavedPrices] = useState<Record<string, number>>(customerPrices);
+  // Saved prices to remove when the order is saved ("Kayıtlı fiyatı kaldır").
+  const [removedSavedKeys, setRemovedSavedKeys] = useState<string[]>([]);
+
+  const productByKey = useMemo(
+    () => new Map(products.map((p) => [p.key, p])),
+    [products],
+  );
+
+  // Each line starts at the price the order already has: its own special price
+  // (this order only) or the customer's saved one — never silently the catalog.
   const [items, setItems] = useState<OrderItemDraft[]>(() =>
-    order.items.map((i) => {
-      const special = customerPrices[i.product_key];
-      return special != null
-        ? { product_key: i.product_key, quantity: i.quantity, unit_price_minor: special }
-        : { product_key: i.product_key, quantity: i.quantity };
-    }),
+    seedEditLines(order.items, customerPrices, productByKey),
   );
   const [scheduledFor, setScheduledFor] = useState(order.scheduled_for);
   const [timeSlot, setTimeSlot] = useState<string>(order.time_slot ?? NO_TIME_SLOT);
@@ -311,11 +318,6 @@ function OrderEditForm({
   const [deliveryNotes, setDeliveryNotes] = useState(order.delivery_notes ?? "");
   const [deliveryFeeText, setDeliveryFeeText] = useState(() =>
     (order.delivery_fee_minor / 100).toFixed(2).replace(".", ","),
-  );
-
-  const productByKey = useMemo(
-    () => new Map(products.map((p) => [p.key, p])),
-    [products],
   );
 
   // Blank = no fee. Text that isn't an amount is an error, NOT a silent 0 —
@@ -369,18 +371,38 @@ function OrderEditForm({
         delivery_notes: deliveryNotes,
         delivery_fee_minor: deliveryFeeMinor,
         items,
+        remove_saved_price_keys: removedSavedKeys,
       });
       if (result.ok) {
         const fresh = result.value;
-        // Re-seed from the saved order but KEEP each line's special price: the
-        // save just persisted it for the customer, and dropping it from the form
-        // made the next edit (e.g. changing only the delivery fee) re-price the
-        // order at catalog prices and delete the customer's saved price.
+        // Mirror what the server just did to the customer's saved prices (only
+        // open orders change them), so the controls below stay accurate.
+        if (!delivered) {
+          setSavedPrices((prev) => {
+            const next = { ...prev };
+            for (const key of removedSavedKeys) delete next[key];
+            for (const line of items) {
+              if (line.save_for_customer === true && line.unit_price_minor != null) {
+                next[line.product_key] = line.unit_price_minor;
+              }
+            }
+            return next;
+          });
+          setRemovedSavedKeys([]);
+        }
+        // Re-seed from the saved order but KEEP each line's special price and its
+        // "Müşteri için kaydet" mark: dropping them made the next edit (e.g.
+        // changing only the delivery fee) re-price the order at catalog prices.
         setItems((previous) =>
           fresh.items.map((i) => {
-            const special = previous.find((p) => p.product_key === i.product_key)?.unit_price_minor;
-            return special != null
-              ? { product_key: i.product_key, quantity: i.quantity, unit_price_minor: special }
+            const before = previous.find((p) => p.product_key === i.product_key);
+            return before?.unit_price_minor != null
+              ? {
+                  product_key: i.product_key,
+                  quantity: i.quantity,
+                  unit_price_minor: before.unit_price_minor,
+                  ...(before.save_for_customer === true ? { save_for_customer: true } : {}),
+                }
               : { product_key: i.product_key, quantity: i.quantity };
           }),
         );
@@ -406,7 +428,9 @@ function OrderEditForm({
           products={products}
           items={items}
           onChange={setItems}
-          customerPrices={customerPrices}
+          customerPrices={savedPrices}
+          removedSavedKeys={removedSavedKeys}
+          onRemovedSavedChange={setRemovedSavedKeys}
           lockedPrices={lockedPrices}
         />
       </div>
