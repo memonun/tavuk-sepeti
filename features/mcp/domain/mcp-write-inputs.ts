@@ -30,7 +30,15 @@ const orderItem = z.object({
     .int()
     .nonnegative()
     .optional()
-    .describe("Kuruş. Verilmezse katalog/kademe veya müşteriye özel fiyat kullanılır."),
+    .describe(
+      "Bu kaleme özel BİRİM fiyat, kuruş. Verilmezse katalog/kademe fiyatı uygulanır (kademeli ürünlerde, ör. yumurtada, hiç verme: toplamı sunucu hesaplar). Müşterinin kayıtlı özel fiyatı otomatik uygulanmaz; get_customer_prices ile okuyup gerekirse burada gönder. Verilen fiyat varsayılan olarak SADECE bu siparişe özeldir.",
+    ),
+  save_for_customer: z
+    .boolean()
+    .optional()
+    .describe(
+      "true ise unit_price_minor, müşterinin kalıcı kayıtlı fiyatı olur ve sonraki siparişlerde de gelir. Varsayılan false: fiyat yalnızca bu siparişte geçerli, müşteriye kaydedilmez. Müşteri açıkça 'bu müşteriye hep bu fiyattan' demedikçe true yapma.",
+    ),
 });
 
 const orderBody = {
@@ -50,6 +58,13 @@ export const createOrderInput = {
 export const updateOrderInput = {
   order_id: uuid,
   ...orderBody,
+  remove_saved_price_keys: z
+    .array(z.string().min(1))
+    .max(50)
+    .optional()
+    .describe(
+      "Bu siparişin müşterisinde KAYITLI özel fiyatı silinecek ürün anahtarları. Yalnızca bekleyen/onaylı siparişte işler; teslim edilmiş siparişte müşterinin kayıtlı fiyatları değişmez.",
+    ),
 };
 
 export const deleteOrdersInput = {

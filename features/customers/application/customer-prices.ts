@@ -21,32 +21,43 @@ export async function loadCustomerProductPriceMap(
 }
 
 /**
- * Reconcile a customer's special prices against the products on an order:
- * a line with an explicit price upserts that special; a line whose special
- * was cleared (no price) deletes any persisted one. Products not on the order
- * are left untouched. Best-effort — failures are swallowed by the repo's
- * logging (the order itself already priced correctly via enrichOrderItems).
+ * Apply the customer's saved ("standing") special prices that an order save asked
+ * for. Nothing is saved or removed implicitly: a price typed on an order line is
+ * for that order only.
+ *   - a line with `save_for_customer` and a price saves it as the customer's price;
+ *   - every key in `removeKeys` deletes the saved price (unless the same call
+ *     just saved a new one for it).
+ * Best-effort — failures are logged by the repository (the order itself already
+ * saved and priced correctly via enrichOrderItems).
  */
 export async function reconcileCustomerProductPrices(
   customerId: string,
-  lines: ReadonlyArray<{ product_key: string; unit_price_minor?: number | undefined }>,
-  opts: { allowDelete?: boolean } = {},
+  lines: ReadonlyArray<{
+    product_key: string;
+    unit_price_minor?: number | undefined;
+    save_for_customer?: boolean | undefined;
+  }>,
+  removeKeys: ReadonlyArray<string> = [],
 ): Promise<void> {
+  const wanted = new Map<string, number>();
+  for (const line of lines) {
+    if (line.save_for_customer === true && line.unit_price_minor != null) {
+      wanted.set(line.product_key, line.unit_price_minor);
+    }
+  }
+  if (wanted.size === 0 && removeKeys.length === 0) return;
+
   const persisted = await loadCustomerProductPriceMap(customerId);
 
   const toUpsert: Array<{ product_key: string; unit_price_minor: number }> = [];
-  const toDelete: string[] = [];
-  for (const line of lines) {
-    if (line.unit_price_minor != null) {
-      if (persisted.get(line.product_key) !== line.unit_price_minor) {
-        toUpsert.push({ product_key: line.product_key, unit_price_minor: line.unit_price_minor });
-      }
-    } else if (opts.allowDelete && persisted.has(line.product_key)) {
-      // A line whose special was explicitly cleared (edit path only — the
-      // create form fetches specials async, so "empty" there isn't reliable).
-      toDelete.push(line.product_key);
+  for (const [product_key, unit_price_minor] of wanted) {
+    if (persisted.get(product_key) !== unit_price_minor) {
+      toUpsert.push({ product_key, unit_price_minor });
     }
   }
+  const toDelete = [...new Set(removeKeys)].filter(
+    (key) => persisted.has(key) && !wanted.has(key),
+  );
 
   if (toUpsert.length > 0) await upsertCustomerProductPrices(customerId, toUpsert);
   if (toDelete.length > 0) await deleteCustomerProductPrices(customerId, toDelete);

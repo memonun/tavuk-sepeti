@@ -3,10 +3,11 @@
  * product display order and a customer's special prices. Thin adapters over the
  * panel's own Server Actions.
  *
- * Customer special prices have no editor of their own in the panel: a unit price
- * typed on an order line is what gets remembered for that customer (see
- * `reconcileCustomerProductPrices`). `create_order` / `update_order` /
- * `create_orders_bulk` therefore already set them; `get_customer_prices` reads them.
+ * Customer saved prices have no editor of their own in the panel: an order line
+ * saves its price for the customer only when marked "Müşteri için kaydet"
+ * (`save_for_customer`; see `reconcileCustomerProductPrices`), and
+ * `update_order` removes one with `remove_saved_price_keys`. A price typed on a
+ * line without the mark is that order only. `get_customer_prices` reads the saved ones.
  */
 import "server-only";
 
@@ -216,7 +217,7 @@ export function registerOrderExtraTools(server: McpServer): void {
     {
       title: "Müşteriye özel fiyatlar",
       description:
-        "Müşteriye kayıtlı özel birim fiyatları (ürün anahtarı → kuruş) getirir. Özel fiyat, siparişte o kaleme yazılan fiyattan hatırlanır; ayrı düzenleme ekranı yoktur.",
+        "Müşteriye kayıtlı özel birim fiyatları (ürün anahtarı → kuruş) getirir. Özel fiyat yalnızca siparişte kalem save_for_customer (Müşteri için kaydet) ile işaretlenirse saklanır; kaydı silmek için update_order remove_saved_price_keys kullanılır. Siparişe yazılan diğer özel fiyatlar sadece o siparişe özeldir.",
       inputSchema: getCustomerPricesInput,
       annotations: { ...READ_ONLY, title: "Müşteriye özel fiyatlar" },
     },
