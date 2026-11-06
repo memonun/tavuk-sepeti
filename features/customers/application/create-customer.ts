@@ -14,6 +14,7 @@
 import { revalidatePath } from "next/cache";
 
 import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
+import { loadPhoneHolders, type PhoneHolder } from "@/features/customers/application/phone-holders";
 import { customerFormSchema } from "@/features/customers/domain/customer.schema";
 import { createCustomer as repoCreate } from "@/features/customers/infrastructure/customer.repository";
 import { getCurrentUser } from "@/features/auth/application/get-session";
@@ -26,6 +27,9 @@ export type CreateCustomerActionState =
   | { status: "idle" }
   | { status: "success"; customerId: string }
   | { status: "validation_error"; fieldErrors: Record<string, string[]> }
+  /** The number is already on another customer; resend with
+   *  `confirm_duplicate_phone=true` ("Yine de ekle") to add it anyway. */
+  | { status: "phone_in_use"; holders: PhoneHolder[] }
   | { status: "error"; message: string };
 
 export async function createCustomerAction(
@@ -68,6 +72,13 @@ export async function createCustomerAction(
       status: "validation_error",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
+  }
+
+  // The same number on two customers is allowed, but only on purpose.
+  if (parsed.data.phone && formData.get("confirm_duplicate_phone") !== "true") {
+    const holders = await loadPhoneHolders(parsed.data.phone);
+    if (!holders.ok) return { status: "error", message: holders.error.message };
+    if (holders.value.length > 0) return { status: "phone_in_use", holders: holders.value };
   }
 
   // Compose the legacy raw_text from the structured fields. Stored for

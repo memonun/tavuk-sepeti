@@ -71,6 +71,9 @@ export function CustomerForm({ mapsBrowserKey, mode, onCreated, onCancel }: Cust
   const router = useRouter();
   const [submitting, startSubmitting] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Customers already carrying the typed phone number; set when the server
+  // answers `phone_in_use`, cleared as soon as the number is edited.
+  const [phoneHolders, setPhoneHolders] = useState<{ id: string; name: string }[] | null>(null);
   const [geocodingState, setGeocodingState] = useState<
     | { kind: "idle" }
     | { kind: "loading" }
@@ -134,6 +137,10 @@ const addressLat = watch("address.lat");
 const addressLng = watch("address.lng");
 const addressSource = watch("address.source");
 const addressAccuracy = watch("address.accuracy");
+  const phoneValue = watch("phone");
+  useEffect(() => {
+    setPhoneHolders(null);
+  }, [phoneValue]);
 
   const hasCoordinate =
     typeof addressLat === "number" &&
@@ -237,8 +244,12 @@ const addressAccuracy = watch("address.accuracy");
     });
   };
 
-  const onSubmit = handleSubmit((parsed) => {
+  // `confirmDuplicatePhone` is the "Yine de ekle/kaydet" answer to the server's
+  // `phone_in_use` warning; the number is only added a second time on purpose.
+  const submitForm = (confirmDuplicatePhone: boolean) =>
+    handleSubmit((parsed) => {
     setSubmitError(null);
+    setPhoneHolders(null);
     startSubmitting(async () => {
       const formData = new FormData();
       const addr = parsed.address ?? null;
@@ -260,6 +271,7 @@ const addressAccuracy = watch("address.accuracy");
       formData.set("address.lng", String(addr?.lng ?? 0));
       formData.set("address.source", addr?.source ?? "");
       formData.set("address.accuracy", addr?.accuracy ?? "");
+      if (confirmDuplicatePhone) formData.set("confirm_duplicate_phone", "true");
 
       const result =
         mode.kind === "create"
@@ -283,6 +295,9 @@ const addressAccuracy = watch("address.accuracy");
         case "validation_error":
           setSubmitError("Form alanlarını kontrol et.");
           return;
+        case "phone_in_use":
+          setPhoneHolders(result.holders);
+          return;
         case "error":
           setSubmitError(result.message);
           return;
@@ -293,6 +308,7 @@ const addressAccuracy = watch("address.accuracy");
       }
     });
   });
+  const onSubmit = submitForm(false);
 
   return (
     <form onSubmit={onSubmit} className="@container space-y-6">
@@ -460,6 +476,28 @@ const addressAccuracy = watch("address.accuracy");
           </section>
         </AddressSection>
       </div>
+
+      {phoneHolders && phoneHolders.length > 0 ? (
+        <div
+          className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm"
+          role="alert"
+        >
+          <p>
+            Bu numara başka bir müşteride kayıtlı:{" "}
+            <span className="font-medium">{phoneHolders.map((h) => h.name).join(", ")}</span>.
+            Aynı numarayı bilerek ekleyecekseniz onaylayın.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={submitting}
+            onClick={() => void submitForm(true)()}
+          >
+            {isEdit ? "Yine de kaydet" : "Yine de ekle"}
+          </Button>
+        </div>
+      ) : null}
 
       {submitError ? (
         <p className="text-sm text-destructive" role="alert">

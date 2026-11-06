@@ -95,6 +95,7 @@ export function toolFromState(
     | { status: "success"; [key: string]: unknown }
     | { status: "validation_error"; fieldErrors: Record<string, string[]> }
     | { status: "error"; message: string }
+    | { status: "phone_in_use"; holders: ReadonlyArray<{ name: string }> }
     | { status: "idle" },
 ): CallToolResult {
   switch (state.status) {
@@ -114,6 +115,10 @@ export function toolFromState(
       };
     case "error":
       return toolRefusal(state.message);
+    case "phone_in_use":
+      return toolRefusal(
+        `Bu numara başka bir müşteride kayıtlı: ${state.holders.map((h) => h.name).join(", ")}. Aynı numarayı bilerek eklemek için kullanıcıya sor, onaylarsa allow_duplicate_phone: true ile tekrar dene.`,
+      );
     default:
       return toolRefusal("İşlem tamamlanamadı.");
   }

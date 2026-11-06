@@ -211,6 +211,45 @@ export async function createCustomer(
   return findCustomerById(customerRow.id);
 }
 
+// ---- phone holders --------------------------------------------------------
+
+export interface PhoneHolderRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+/**
+ * Customers (any origin) already carrying this exact phone number, so the panel
+ * can warn before a second one is added. Capped: the warning only names a few.
+ */
+export async function findCustomersByPhone(
+  phone: string,
+  excludeCustomerId?: string,
+): Promise<Result<PhoneHolderRow[], ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from("customers")
+    .select("id, first_name, last_name")
+    .eq("phone", phone)
+    .limit(5);
+  if (excludeCustomerId) query = query.neq("id", excludeCustomerId);
+
+  const { data, error } = await query;
+  if (error) {
+    // The phone number itself is PII: log the code only.
+    logger.error({ code: error.code }, "find_customers_by_phone_failed");
+    return err(new ExternalApiError({ message: error.message, cause: error }));
+  }
+  return ok(
+    (data ?? []).map((row) => ({
+      id: row.id,
+      first_name: row.first_name,
+      last_name: row.last_name,
+    })),
+  );
+}
+
 // ---- read ----------------------------------------------------------------
 
 export async function findCustomerById(

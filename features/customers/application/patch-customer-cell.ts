@@ -25,6 +25,7 @@ import {
 import {
   patchCustomerCell as repoPatchCell,
 } from "@/features/customers/infrastructure/customer.repository";
+import { describePhoneHolders, loadPhoneHolders } from "@/features/customers/application/phone-holders";
 import { assertAdmin } from "@/features/auth/application/assert-admin";
 import { invalidateCacheTag } from "@/shared/cache/invalidate-tag";
 import { logAudit } from "@/shared/audit/log-audit";
@@ -65,6 +66,22 @@ export async function patchCustomerCellAction(
   }
 
   const { field, value } = parsed.data;
+
+  // A number can be shared between customers, but only on purpose: the card
+  // form asks "Yine de kaydet"; an inline grid edit has no place to ask, so it
+  // stays protective and points there.
+  if (field === "phone") {
+    const holders = await loadPhoneHolders(typeof value === "string" ? value : null, customerId);
+    if (!holders.ok) return err(holders.error);
+    if (holders.value.length > 0) {
+      return err(
+        new ValidationError({
+          message: `Bu numara ${describePhoneHolders(holders.value)} müşterisinde kayıtlı. Aynı numarayı eklemek için müşteri kartından "Yine de kaydet" ile kaydedin.`,
+        }),
+      );
+    }
+  }
+
   const result = await repoPatchCell(customerId, field, value);
 
   if (!result.ok) {
