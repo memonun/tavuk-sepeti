@@ -174,6 +174,7 @@ vi.mock("@/features/calendar/application/calendar-event-actions", () => ({
 }));
 
 const { registerPanelTools } = await import("@/features/mcp/application/register-panel-tools");
+const { listAllProducts } = await import("@/features/products/application/list-products");
 
 const ORDER_ID = "4f1c2b9e-8a7d-4c3b-9e2f-1a2b3c4d5e6f";
 
@@ -472,5 +473,58 @@ describe("Meta ad tools", () => {
       expect(tool?.annotations?.readOnlyHint, name).toBe(false);
       expect(tool?.annotations?.openWorldHint, name).toBe(true);
     }
+  });
+});
+
+describe("list_products price_examples", () => {
+  const catalogProduct = (over: Record<string, unknown>) => ({
+    key: "eggs",
+    min_qty: 1,
+    step: 1,
+    current_unit_price_minor: 13000,
+    discount_unit_price_minor: null,
+    price_tiers: [],
+    ...over,
+  });
+
+  it("gives tiered products their real graduated totals (3 pkg = ₺350)", async () => {
+    vi.mocked(listAllProducts).mockResolvedValue(
+      ok([
+        catalogProduct({
+          price_tiers: [
+            { min_qty: 1, unit_price_minor: 13000 },
+            { min_qty: 2, unit_price_minor: 12000 },
+            { min_qty: 3, unit_price_minor: 10000 },
+            { min_qty: 4, unit_price_minor: 10000 },
+          ],
+        }),
+      ] as never),
+    );
+    const res = await (await connect()).callTool({ name: "list_products", arguments: {} });
+    const [eggs] = JSON.parse(firstText(res)) as Array<{
+      price_tiers: unknown[];
+      price_examples: Array<{ quantity: number; total_minor: number }>;
+    }>;
+    expect(eggs?.price_tiers).toHaveLength(4);
+    expect(eggs?.price_examples.find((e) => e.quantity === 3)?.total_minor).toBe(35000);
+    expect(eggs?.price_examples.map((e) => e.total_minor)).toEqual([
+      13000, 25000, 35000, 45000, 55000, 65000,
+    ]);
+  });
+
+  it("leaves flat-priced products unchanged", async () => {
+    vi.mocked(listAllProducts).mockResolvedValue(
+      ok([catalogProduct({ key: "milk", current_unit_price_minor: 4000 })] as never),
+    );
+    const res = await (await connect()).callTool({ name: "list_products", arguments: {} });
+    const [milk] = JSON.parse(firstText(res)) as Array<Record<string, unknown>>;
+    expect(milk).not.toHaveProperty("price_examples");
+  });
+
+  it("tells clients that tiers are graduated, not per-package prices", async () => {
+    const { tools } = await (await connect()).listTools();
+    const description = tools.find((t) => t.name === "list_products")?.description ?? "";
+    expect(description).toContain("KADEMELİDİR");
+    expect(description).toContain("price_examples");
   });
 });

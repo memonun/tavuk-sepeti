@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   discountPercent,
+  priceExamples,
   priceOrderLine,
   productLinePricing,
   type ProductPriceTier,
@@ -149,5 +150,62 @@ describe("discountPercent", () => {
     expect(discountPercent(4000, 5000)).toBeNull();
     expect(discountPercent(0, 0)).toBeNull();
     expect(discountPercent(10000, 9999)).toBeNull(); // < 1 %
+  });
+});
+
+describe("priceExamples", () => {
+  const eggProduct = {
+    price_tiers: [
+      { min_qty: 1, unit_price_minor: 13000 },
+      { min_qty: 2, unit_price_minor: 12000 },
+      { min_qty: 3, unit_price_minor: 10000 },
+      { min_qty: 4, unit_price_minor: 10000 },
+    ],
+    current_unit_price_minor: 13000,
+    discount_unit_price_minor: null,
+    min_qty: 1,
+    step: 1,
+  };
+
+  it("lists the real graduated totals — 3 pkg is ₺350, not 3 × ₺100", () => {
+    expect(priceExamples(eggProduct)).toEqual([
+      { quantity: 1, total_minor: 13000 },
+      { quantity: 2, total_minor: 25000 },
+      { quantity: 3, total_minor: 35000 },
+      { quantity: 4, total_minor: 45000 },
+      { quantity: 5, total_minor: 55000 },
+      { quantity: 6, total_minor: 65000 },
+    ]);
+  });
+
+  it("agrees with priceOrderLine for every quantity it lists", () => {
+    for (const { quantity, total_minor } of priceExamples(eggProduct, 12)) {
+      expect(total_minor).toBe(
+        priceOrderLine(quantity, productLinePricing(eggProduct)).line_total_minor,
+      );
+    }
+  });
+
+  it("walks min_qty and step, so half-kilo products start at their minimum", () => {
+    const cheese = {
+      price_tiers: [],
+      current_unit_price_minor: 40000,
+      discount_unit_price_minor: null,
+      min_qty: 0.5,
+      step: 0.5,
+    };
+    expect(priceExamples(cheese, 3)).toEqual([
+      { quantity: 0.5, total_minor: 20000 },
+      { quantity: 1, total_minor: 40000 },
+      { quantity: 1.5, total_minor: 60000 },
+    ]);
+  });
+
+  it("respects a sale price cap", () => {
+    const onSale = { ...eggProduct, price_tiers: [], discount_unit_price_minor: 12000 };
+    expect(priceExamples(onSale, 2)).toEqual([
+      { quantity: 1, total_minor: 12000 },
+      { quantity: 2, total_minor: 24000 },
+    ]);
   });
 });
