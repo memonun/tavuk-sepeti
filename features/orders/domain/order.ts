@@ -13,6 +13,13 @@ export type OrderStatus =
   | "shipped"
   | "delivered"
   | "cancelled";
+
+/** Statuses whose items and fees can still be edited. Must match the status
+ *  check in the update_order_with_items RPC. */
+export function isEditableOrderStatus(status: OrderStatus): boolean {
+  return status === "pending" || status === "confirmed" || status === "delivered";
+}
+
 export type TimeSlot = "morning" | "afternoon" | "evening";
 /** Mirrors the DB `payment_method` enum. `credit_card` arrives from the
  *  storefront's PayTR flow — it was in the DB enum since 20260728120000 but

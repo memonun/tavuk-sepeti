@@ -136,6 +136,9 @@ vi.mock("@/features/finance/application/get-expense-category-breakdown", () => (
 vi.mock("@/features/finance/application/get-expense-summary", () => ({ getExpenseSummary: vi.fn() }));
 vi.mock("@/features/finance/application/get-market-report", () => ({ getMarketReport: vi.fn() }));
 vi.mock("@/features/finance/application/get-product-tally", () => ({ getProductTally: vi.fn() }));
+vi.mock("@/features/finance/application/get-product-tally-by-month", () => ({
+  getProductTallyByMonth: vi.fn(),
+}));
 vi.mock("@/features/finance/application/get-upcoming-recurring-expenses", () => ({ getUpcomingRecurringExpenses: vi.fn() }));
 vi.mock("@/features/storefront/application/get-storefront-settings", () => ({ getStorefrontSettings: vi.fn() }));
 vi.mock("@/features/storefront/application/update-storefront-settings", () => ({ updateStorefrontSettingsAction: vi.fn() }));
@@ -157,6 +160,11 @@ vi.mock("@/features/reminders/application/reminder-actions", () => ({
   updateReminderAction: vi.fn(),
   setReminderCompletedAction: vi.fn(),
   deleteReminderAction: vi.fn(),
+}));
+vi.mock("@/features/reminders/application/reminder-list-actions", () => ({
+  createReminderListAction: vi.fn(),
+  updateReminderListAction: vi.fn(),
+  deleteReminderListAction: vi.fn(),
 }));
 vi.mock("@/features/calendar/application/calendar-event-actions", () => ({
   createEventAction: vi.fn(),
@@ -221,6 +229,7 @@ describe("panel MCP tools", () => {
         "get_market_report",
         "get_order_gifts",
         "get_product_tally",
+        "get_product_tally_by_month",
         "get_recurring_order",
         "get_storefront_settings",
         "get_upcoming_recurring_expenses",
@@ -243,6 +252,7 @@ describe("panel MCP tools", () => {
         "complete_reminder",
         "confirm_orders",
         "create_reminder",
+        "create_reminder_list",
         "create_customer",
         "create_expense",
         "create_expense_category",
@@ -252,6 +262,7 @@ describe("panel MCP tools", () => {
         "create_product",
         "create_recurring_expense_template",
         "delete_reminder",
+        "delete_reminder_list",
         "delete_customers",
         "delete_expense",
         "delete_market_location",
@@ -272,6 +283,7 @@ describe("panel MCP tools", () => {
         "set_recurring_expense_template_active",
         "transition_order",
         "update_reminder",
+        "update_reminder_list",
         "update_customer",
         "update_expense",
         "update_expense_category",
@@ -310,7 +322,7 @@ describe("panel MCP tools", () => {
   it("flags every delete (and cancel) as destructive and requires confirm:true", async () => {
     const { tools } = await (await connect()).listTools();
     const deletes = tools.filter((t) => t.name.startsWith("delete_") || t.name.startsWith("remove_"));
-    expect(deletes.length).toBe(13);
+    expect(deletes.length).toBe(14);
     for (const tool of deletes) {
       expect(tool.annotations?.destructiveHint, tool.name).toBe(true);
       const schema = tool.inputSchema as { required?: string[]; properties?: Record<string, unknown> };
@@ -334,6 +346,24 @@ describe("panel MCP tools", () => {
     const client = await connect();
     await client.callTool({ name: "list_orders", arguments: { status: "pending" } });
     expect(listOrders).toHaveBeenCalledWith({ status: "pending", page: 1, pageSize: 25 });
+  });
+
+  it("forwards a payment-status list so unpaid orders are one filtered call", async () => {
+    listOrders.mockResolvedValue(ok({ items: [], total: 0, page: 1, pageSize: 25 }));
+    const client = await connect();
+    await client.callTool({
+      name: "list_orders",
+      arguments: { payment_status: ["pending", "partial"], status: ["confirmed", "delivered"] },
+    });
+    expect(listOrders).toHaveBeenCalledWith({
+      payment_status: ["pending", "partial"],
+      status: ["confirmed", "delivered"],
+      page: 1,
+      pageSize: 25,
+    });
+
+    const bad = await client.callTool({ name: "list_orders", arguments: { payment_status: ["unpaid"] } });
+    expect(bad.isError).toBe(true);
   });
 
   it("acts as the verified admin, tagged source=mcp", async () => {

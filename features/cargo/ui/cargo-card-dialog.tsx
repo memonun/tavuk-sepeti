@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { CancelArasButton } from "@/features/cargo/ui/cancel-aras-button";
 import { formatTRPhone } from "@/shared/utils/phone";
 
 import type { CargoRecipient } from "@/features/cargo/domain/cargo-recipient";
@@ -34,7 +35,7 @@ interface CargoCardDialogProps {
 export function CargoCardDialog({ orderNumber, recipient }: CargoCardDialogProps) {
   if (!recipient) return null;
 
-  const { name, phone, address, addressNote } = recipient;
+  const { name, phone, address, addressNote, arasCode } = recipient;
   const phoneDisplay = formatTRPhone(phone);
   const allText = [name, phoneDisplay, address, addressNote]
     .filter((line): line is string => Boolean(line) && line !== "—")
@@ -58,6 +59,25 @@ export function CargoCardDialog({ orderNumber, recipient }: CargoCardDialogProps
         </DialogHeader>
 
         <div className="space-y-4">
+          {arasCode ? (
+            <div className="space-y-1 rounded-lg border bg-muted/40 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Aras kodu
+                </span>
+                <CopyButton value={arasCode} className="h-7 px-2 text-xs" />
+              </div>
+              <p className="font-mono text-3xl font-semibold tracking-wider tabular-nums">
+                {arasCode}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Bilgiler Aras&apos;a gönderildi. Şubede bu kodu söyleyin.
+              </p>
+              <div className="flex justify-end">
+                <CancelArasButton orderId={recipient.orderId} arasCode={arasCode} />
+              </div>
+            </div>
+          ) : null}
           <Field label="Ad Soyad" value={name} copyValue={name} />
           <Field
             label="Telefon"

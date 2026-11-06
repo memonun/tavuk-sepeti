@@ -4,10 +4,12 @@
  * Order detail panel — the single editable detail surface, used by BOTH the
  * grid's right-side Sheet (via order-detail-loader) and the /orders/[id] page.
  *
- * Editable iff status is "pending" or "confirmed": line items + delivery /
- * payment fields can be saved via `updateOrderAction`, mirroring the customer
- * detail panel's edit-in-place pattern. Delivered / cancelled orders render the
- * same regions read-only (lifted from the retired order-detail.tsx).
+ * Editable iff isEditableOrderStatus (pending, confirmed, delivered): line
+ * items + delivery / payment fields can be saved via `updateOrderAction`,
+ * mirroring the customer detail panel's edit-in-place pattern. On a delivered
+ * order the lines left alone keep the price they were charged
+ * (splitDeliveredEdit). Shipped / cancelled orders render the same regions
+ * read-only (lifted from the retired order-detail.tsx).
  *
  * The local `order` state is seeded from the prop and replaced on a successful
  * save so the panel reflects the fresh aggregate (server-recomputed totals)
@@ -35,6 +37,7 @@ import {
 } from "@/features/orders/domain/free-delivery";
 import {
   ProductPicker,
+  type LockedLinePrice,
   type OrderItemDraft,
 } from "@/features/orders/ui/product-picker";
 import { OrderStatusActions } from "@/features/orders/ui/order-status-actions";
@@ -50,7 +53,11 @@ import {
   type OrderPayment,
 } from "@/features/orders/domain/payment";
 import type { Product } from "@/features/products/application/list-products";
-import { FULFILLMENT_CHANNEL_LABELS } from "@/features/orders/domain/order";
+import { splitDeliveredEdit } from "@/features/orders/domain/delivered-order-edit";
+import {
+  FULFILLMENT_CHANNEL_LABELS,
+  isEditableOrderStatus,
+} from "@/features/orders/domain/order";
 import type { OrderGiftItem } from "@/features/orders/domain/order-gift";
 import type {
   Order,
@@ -146,7 +153,7 @@ export function OrderDetailPanel({
     setOrder(initialOrder);
   }
 
-  const editable = order.status === "pending" || order.status === "confirmed";
+  const editable = isEditableOrderStatus(order.status);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -317,28 +324,43 @@ function OrderEditForm({
 
   // 10+ paket yumurta → teslimat ücretsiz. The server applies the same rule on
   // save (update-order.ts); this keeps the preview and the saved fee identical.
-  const freeEggDelivery = qualifiesForFreeEggDelivery(
-    items.flatMap((i) => {
-      const p = productByKey.get(i.product_key);
-      return p
-        ? [{ product_key: i.product_key, quantity: i.quantity, fulfillment_type: p.fulfillment_type }]
-        : [];
-    }),
-  );
+  // A delivered order keeps the fee that was charged, so the rule skips it.
+  const freeEggDelivery =
+    order.status !== "delivered" &&
+    qualifiesForFreeEggDelivery(
+      items.flatMap((i) => {
+        const p = productByKey.get(i.product_key);
+        return p
+          ? [{ product_key: i.product_key, quantity: i.quantity, fulfillment_type: p.fulfillment_type }]
+          : [];
+      }),
+    );
 
   // Blank = no fee. Text that isn't an amount is an error, NOT a silent 0 —
   // otherwise a typo like "50 TL" would save the order with free delivery.
   const parsedFee = parseOptionalTRYInput(deliveryFeeText);
   const feeInvalid = !freeEggDelivery && parsedFee === null;
   const deliveryFeeMinor = freeEggDelivery ? 0 : (parsedFee ?? 0);
-  const subtotalMinor = items.reduce((acc, i) => {
-    const p = productByKey.get(i.product_key);
+  // Delivered: the same split the server saves with, so the preview matches.
+  const delivered = order.status === "delivered";
+  const lines = delivered
+    ? splitDeliveredEdit(items, order.items, customerPrices)
+    : items.map((line) => ({ kind: "priced" as const, line }));
+  // Row-aligned with `items`: an order can hold the same product on two lines
+  // (e.g. 2 + 1 packs at different prices), so a product_key lookup would show
+  // one line's figures on both rows.
+  const lockedPrices: (LockedLinePrice | undefined)[] = lines.map((l) =>
+    l.kind === "kept" ? l.stored : undefined,
+  );
+  const subtotalMinor = lines.reduce((acc, l) => {
+    if (l.kind === "kept") return acc + l.stored.line_total_minor;
+    const p = productByKey.get(l.line.product_key);
     if (!p) return acc;
     return (
       acc +
-      priceOrderLine(i.quantity, {
+      priceOrderLine(l.line.quantity, {
         ...productLinePricing(p),
-        overrideUnitPriceMinor: i.unit_price_minor,
+        overrideUnitPriceMinor: l.line.unit_price_minor,
       }).line_total_minor
     );
   }, 0);
@@ -394,11 +416,18 @@ function OrderEditForm({
     <section className="space-y-4">
       <div className={SECTION_CARD}>
         <h3 className={SECTION_TITLE}>Ürünler</h3>
+        {delivered ? (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Teslim edilmiş sipariş: değiştirmediğin ürünler teslim edildiği fiyatla kalır. Yeni
+            eklenen veya miktarı değişen ürün bugünkü fiyatla hesaplanır.
+          </p>
+        ) : null}
         <ProductPicker
           products={products}
           items={items}
           onChange={setItems}
           customerPrices={customerPrices}
+          lockedPrices={lockedPrices}
         />
       </div>
 

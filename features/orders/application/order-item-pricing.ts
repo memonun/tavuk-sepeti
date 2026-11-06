@@ -5,12 +5,17 @@
  * an explicit per-line price (the "Özel fiyat" field — a per-customer special
  * price) wins; otherwise the product's volume tiers / flat base apply. There
  * is no per-line price freezing — what the editor previews is exactly what is
- * saved, and the stored total always reflects current pricing. (Delivered /
- * cancelled orders are immutable, so they keep their last-saved figures.)
+ * saved, and the stored total always reflects current pricing. Delivered
+ * orders are the exception — see priceDeliveredOrderEdit; cancelled orders are
+ * immutable.
  *
  * The line total is exact (round once); the unit price is the rounded
  * per-unit figure stored for the record.
  */
+import {
+  splitDeliveredEdit,
+  type StoredLine,
+} from "@/features/orders/domain/delivered-order-edit";
 import { priceOrderLine, productLinePricing } from "@/features/products/application/pricing";
 import { ValidationError } from "@/shared/errors/app-error";
 import { err, ok, type Result } from "@/shared/result";
@@ -107,4 +112,39 @@ export function enrichOrderItems(
   }
 
   return ok(enriched);
+}
+
+/**
+ * Prices an edit of a DELIVERED order: untouched lines keep their stored
+ * figures (no catalog lookup, so a since-deactivated product doesn't block the
+ * edit); every other line goes through enrichOrderItems as usual. Line order
+ * is preserved.
+ */
+export function priceDeliveredOrderEdit(
+  items: ReadonlyArray<{ product_key: string; quantity: number; unit_price_minor?: number | undefined }>,
+  stored: readonly StoredLine[],
+  customerPrices: Readonly<Record<string, number>>,
+  products: ReadonlyArray<Product>,
+): Result<EnrichedOrderItem[], ValidationError> {
+  const split = splitDeliveredEdit(items, stored, customerPrices);
+  const priced = enrichOrderItems(
+    split.flatMap((s) => (s.kind === "priced" ? [s.line] : [])),
+    products,
+  );
+  if (!priced.ok) return priced;
+
+  const fresh = [...priced.value];
+  return ok(
+    split.map((s): EnrichedOrderItem => {
+      if (s.kind === "priced") return fresh.shift() as EnrichedOrderItem;
+      return {
+        product_key: s.stored.product_key,
+        quantity: s.stored.quantity,
+        unit_price_minor: s.stored.unit_price_minor,
+        line_total_minor: s.stored.line_total_minor,
+        product_snapshot: { ...s.stored.product_snapshot },
+        fulfillment_type: s.stored.fulfillment_type,
+      };
+    }),
+  );
 }

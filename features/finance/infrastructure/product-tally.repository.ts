@@ -11,7 +11,10 @@ import { err, ok, type Result } from "@/shared/result";
 import { createSupabaseServerClient } from "@/shared/supabase/server";
 
 import type { FinanceDateBasis } from "@/features/finance/domain/finance-summary";
-import type { ProductTallyRpcRow } from "@/features/finance/domain/product-tally";
+import type {
+  ProductTallyByMonthRpcRow,
+  ProductTallyRpcRow,
+} from "@/features/finance/domain/product-tally";
 
 export async function fetchProductTallyRows(
   from: string,
@@ -35,4 +38,29 @@ export async function fetchProductTallyRows(
   }
 
   return ok((data ?? []) as ProductTallyRpcRow[]);
+}
+
+/** product_tally_by_month() — same rule as product_tally, grouped by month. */
+export async function fetchProductTallyByMonthRows(
+  from: string,
+  to: string,
+  dateBasis: FinanceDateBasis,
+): Promise<Result<ProductTallyByMonthRpcRow[], ExternalApiError>> {
+  const supabase = await createSupabaseServerClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any).rpc("product_tally_by_month", {
+    p_from: from,
+    p_to: to,
+    p_date_basis: dateBasis,
+  });
+
+  if (error) {
+    logger.error(
+      { rpc: "product_tally_by_month", code: error.code, message: error.message },
+      "product_tally_by_month_rpc_failed",
+    );
+    return err(new ExternalApiError({ message: "Aylık ürün satışları alınamadı.", cause: error }));
+  }
+
+  return ok((data ?? []) as ProductTallyByMonthRpcRow[]);
 }
