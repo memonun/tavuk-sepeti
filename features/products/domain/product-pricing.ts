@@ -124,3 +124,28 @@ export function discountPercent(regularMinor: number, saleMinor: number): number
   const pct = Math.floor((1 - saleMinor / regularMinor) * 100);
   return pct > 0 ? pct : null;
 }
+
+export interface PriceExample {
+  readonly quantity: number;
+  /** What the catalog charges for this whole quantity, in kuruş. */
+  readonly total_minor: number;
+}
+
+/**
+ * What the catalog charges for the first `count` orderable quantities
+ * (min_qty, min_qty + step, …), computed by the same engine that prices real
+ * orders. Tiers are graduated, so reading a tier's rate as a per-unit price
+ * gets totals wrong (eggs 3 pkg = 130 + 120 + 100 = ₺350, not 3 × 100); this
+ * gives clients the real totals instead of making them do that arithmetic.
+ */
+export function priceExamples(
+  product: ProductPricingFields & { readonly min_qty: number; readonly step: number },
+  count = 6,
+): PriceExample[] {
+  const input = productLinePricing(product);
+  return Array.from({ length: count }, (_, i) => {
+    // Rounded so a fractional step (0.5) never accumulates float noise.
+    const quantity = Math.round((product.min_qty + i * product.step) * 1000) / 1000;
+    return { quantity, total_minor: priceOrderLine(quantity, input).line_total_minor };
+  });
+}

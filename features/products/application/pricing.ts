@@ -8,10 +8,12 @@
  */
 export {
   discountPercent,
+  priceExamples,
   priceOrderLine,
   productLinePricing,
 } from "@/features/products/domain/product-pricing";
 export type {
+  PriceExample,
   ProductPriceTier,
   LinePrice,
   LinePricingInput,
