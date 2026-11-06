@@ -4,7 +4,15 @@ import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  newDraftLine,
+  removeSavedFromLines,
+  setProductSave,
+  setProductSpecial,
+  undoRemoveSavedOnLines,
+} from "@/features/orders/application/picker-lines";
 import { priceOrderLine, productLinePricing } from "@/features/products/application/pricing";
 import { formatTRY, parseTRYInput } from "@/shared/utils/money";
 
@@ -13,16 +21,23 @@ import type { Product } from "@/features/products/application/list-products";
 export interface OrderItemDraft {
   product_key: string;
   quantity: number;
-  /** Per-customer special price (kuruş). Absent = automatic tier pricing. */
+  /** Special price (kuruş) for THIS order line. Absent = automatic tier pricing. */
   unit_price_minor?: number;
+  /** true = also keep this price as the customer's saved price. Default: this order only. */
+  save_for_customer?: boolean;
 }
 
 interface ProductPickerProps {
   products: Product[];
   items: OrderItemDraft[];
   onChange: (items: OrderItemDraft[]) => void;
-  /** product_key → flat special price (kuruş) for the order's customer. */
+  /** product_key → the customer's saved price (kuruş). Added lines start at it. */
   customerPrices?: Record<string, number>;
+  /** Products whose saved price will be removed when the order is saved. When
+   *  both this and `onRemovedSavedChange` are given, each row offers the save /
+   *  remove controls (open orders only — a delivered order never changes them). */
+  removedSavedKeys?: readonly string[];
+  onRemovedSavedChange?: (keys: string[]) => void;
   /** Delivered order: the charged figures of each row that keeps its price,
    *  aligned with `items` by index (undefined = priced today). */
   lockedPrices?: readonly (LockedLinePrice | undefined)[];
@@ -41,6 +56,17 @@ interface LineRowProps {
   onQuantity: (q: number) => void;
   onSpecial: (minor: number | undefined) => void;
   onRemove: () => void;
+  /** The customer's saved price for this product, if any. */
+  saved: number | undefined;
+  /** Undefined = this picker does not offer save/remove (e.g. delivered order). */
+  saveControls:
+    | {
+        savedRemoved: boolean;
+        onSaveChange: (save: boolean) => void;
+        onRemoveSaved: () => void;
+        onUndoRemoveSaved: () => void;
+      }
+    | undefined;
 }
 
 function isMultipleOfStep(quantity: number, step: number): boolean {
@@ -52,7 +78,16 @@ function specialTextOf(minor: number | undefined): string {
   return minor != null ? (minor / 100).toFixed(2).replace(".", ",") : "";
 }
 
-function LineRow({ product, draft, locked, onQuantity, onSpecial, onRemove }: LineRowProps) {
+function LineRow({
+  product,
+  draft,
+  locked,
+  onQuantity,
+  onSpecial,
+  onRemove,
+  saved,
+  saveControls,
+}: LineRowProps) {
   const [specialText, setSpecialText] = useState(() => specialTextOf(draft.unit_price_minor));
   const [specialInvalid, setSpecialInvalid] = useState(false);
 
@@ -142,7 +177,7 @@ function LineRow({ product, draft, locked, onQuantity, onSpecial, onRemove }: Li
             .replace(".", ",")}`}
           aria-label={`${product.display_name} özel fiyat`}
           aria-invalid={specialInvalid}
-          title="Bu müşteriye özel fiyat (boş = otomatik)"
+          title="Bu siparişe özel fiyat (boş = otomatik)"
         />
         {specialInvalid ? (
           <p className="mt-1 text-xs text-destructive">Geçerli tutar girin (ör. 90,00).</p>
@@ -163,6 +198,50 @@ function LineRow({ product, draft, locked, onQuantity, onSpecial, onRemove }: Li
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+      {saveControls && !locked && (draft.unit_price_minor != null || saved != null) ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground sm:col-span-12">
+          {draft.unit_price_minor != null && !saveControls.savedRemoved ? (
+            <label className="inline-flex cursor-pointer items-center gap-1.5">
+              <Checkbox
+                checked={draft.save_for_customer === true}
+                onCheckedChange={(checked) => saveControls.onSaveChange(checked === true)}
+                aria-label={`${product.display_name}: müşteri için kaydet`}
+              />
+              <span className="text-foreground">Müşteri için kaydet</span>
+              <span>
+                {draft.save_for_customer === true
+                  ? "· sonraki siparişlerde de bu fiyat gelir"
+                  : "· sadece bu siparişe özel"}
+              </span>
+            </label>
+          ) : null}
+          {saved != null ? (
+            saveControls.savedRemoved ? (
+              <span>
+                Kayıtlı fiyat ({formatTRY(saved)}) kaydedince kaldırılacak ·{" "}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={saveControls.onUndoRemoveSaved}
+                >
+                  Geri al
+                </button>
+              </span>
+            ) : (
+              <span>
+                Kayıtlı fiyat: {formatTRY(saved)} ·{" "}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={saveControls.onRemoveSaved}
+                >
+                  Kayıtlı fiyatı kaldır
+                </button>
+              </span>
+            )
+          ) : null}
+        </div>
+      ) : null}
       {(stepInvalid || minInvalid) && (
         <p className="text-xs text-destructive sm:col-span-12">
           {minInvalid
@@ -179,6 +258,8 @@ export function ProductPicker({
   items,
   onChange,
   customerPrices,
+  removedSavedKeys,
+  onRemovedSavedChange,
   lockedPrices,
   error,
 }: ProductPickerProps) {
@@ -192,15 +273,18 @@ export function ProductPicker({
     return products.filter((p) => !used.has(p.key));
   }, [products, items]);
 
+  const removedSaved = removedSavedKeys ?? [];
+  // Save/remove controls apply to open orders only; a delivered order (locked
+  // rows) never touches the customer's saved prices.
+  const offerSaveControls =
+    onRemovedSavedChange !== undefined && lockedPrices === undefined;
+
   const addItem = (key: string) => {
     const product = productByKey.get(key);
     if (!product) return;
-    const special = customerPrices?.[key];
     onChange([
       ...items,
-      special != null
-        ? { product_key: key, quantity: product.min_qty, unit_price_minor: special }
-        : { product_key: key, quantity: product.min_qty },
+      newDraftLine(key, product.min_qty, customerPrices?.[key], removedSaved.includes(key)),
     ]);
   };
 
@@ -211,20 +295,23 @@ export function ProductPicker({
     onChange(items.map((i, at) => (at === index ? { ...i, quantity: q } : i)));
   };
 
-  // The special is the customer's price for the product (saved per product),
-  // so it applies to every row of that product.
-  const setSpecial = (key: string, minor: number | undefined) => {
+  // Rules for the special price / save mark / saved-price controls live in
+  // application/picker-lines.ts.
+  const setSpecial = (key: string, minor: number | undefined) =>
     onChange(
-      items.map((i) => {
-        if (i.product_key !== key) return i;
-        if (minor == null) {
-          const next = { ...i };
-          delete next.unit_price_minor;
-          return next;
-        }
-        return { ...i, unit_price_minor: minor };
-      }),
+      setProductSpecial(items, key, minor, customerPrices?.[key], removedSaved.includes(key)),
     );
+
+  const setSave = (key: string, save: boolean) => onChange(setProductSave(items, key, save));
+
+  const removeSaved = (key: string) => {
+    onRemovedSavedChange?.([...removedSaved.filter((k) => k !== key), key]);
+    onChange(removeSavedFromLines(items, key, customerPrices?.[key]));
+  };
+
+  const undoRemoveSaved = (key: string) => {
+    onRemovedSavedChange?.(removedSaved.filter((k) => k !== key));
+    onChange(undoRemoveSavedOnLines(items, key, customerPrices?.[key]));
   };
 
   const removeItem = (index: number) => {
@@ -251,6 +338,17 @@ export function ProductPicker({
                 onQuantity={(q) => setQuantity(index, q)}
                 onSpecial={(m) => setSpecial(item.product_key, m)}
                 onRemove={() => removeItem(index)}
+                saved={customerPrices?.[item.product_key]}
+                saveControls={
+                  offerSaveControls
+                    ? {
+                        savedRemoved: removedSaved.includes(item.product_key),
+                        onSaveChange: (save) => setSave(item.product_key, save),
+                        onRemoveSaved: () => removeSaved(item.product_key),
+                        onUndoRemoveSaved: () => undoRemoveSaved(item.product_key),
+                      }
+                    : undefined
+                }
               />
             );
           })}

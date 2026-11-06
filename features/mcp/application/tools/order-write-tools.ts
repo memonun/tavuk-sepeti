@@ -31,7 +31,7 @@ export function registerOrderWriteTools(server: McpServer): void {
     {
       title: "Sipariş oluştur",
       description:
-        "Bir müşteri için yeni sipariş oluşturur. Fiyatlar oluşturma anında dondurulur (katalog/kademe veya müşteriye özel fiyat). Önce müşteriyi list_customers, ürün anahtarlarını list_products ile bul.",
+        "Bir müşteri için yeni sipariş oluşturur. Fiyatlar oluşturma anında dondurulur (katalog/kademe veya müşteriye özel fiyat). Kademeli fiyatı (ör. yumurta) sunucu kendisi uygular: aynı ürünü TEK kalemde gir, kalemleri bölmeye veya birim fiyat yazmaya gerek yok. Önce müşteriyi list_customers, ürün anahtarlarını list_products ile bul.",
       inputSchema: createOrderInput,
       annotations: { ...WRITE, title: "Sipariş oluştur" },
     },

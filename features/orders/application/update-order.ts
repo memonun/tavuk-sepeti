@@ -107,14 +107,17 @@ export async function updateOrderAction(
   });
   if (!result.ok) return err(result.error);
 
-  // Persist any per-line special-price changes for this customer. Edit path:
-  // a cleared field reliably means "remove this special" (allowDelete).
+  // Saved customer prices change only on request: a line marked "Müşteri için
+  // kaydet" saves its price, and `remove_saved_price_keys` removes saved ones.
+  // A special price typed on a line without the mark is this order only.
   // Correcting a delivered order is a fix to a past sale, not a new price for
-  // the customer, so it leaves their specials alone.
+  // the customer, so it leaves their saved prices alone.
   if (!delivered) {
-    await reconcileCustomerProductPrices(order.customer_id, parsed.data.items, {
-      allowDelete: true,
-    });
+    await reconcileCustomerProductPrices(
+      order.customer_id,
+      parsed.data.items,
+      parsed.data.remove_saved_price_keys ?? [],
+    );
   }
 
   await logAudit({

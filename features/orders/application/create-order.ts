@@ -98,8 +98,9 @@ export async function createOrderAction(
     return { status: "error", message: created.error.message };
   }
 
-  // Persist any per-line special prices for this customer (set/cleared on the
-  // order editor). Best-effort — the order already priced correctly.
+  // Save the prices the caller explicitly marked "Müşteri için kaydet" as the
+  // customer's standing price; every other special price is this order only.
+  // Best-effort — the order already priced correctly.
   await reconcileCustomerProductPrices(parsed.data.customer_id, parsed.data.items);
 
   await logAudit({

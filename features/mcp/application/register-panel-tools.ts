@@ -32,6 +32,7 @@ import { getOrderById, getOrderEvents } from "@/features/orders/application/get-
 import { listOrders } from "@/features/orders/application/list-orders";
 import { transitionOrderAs } from "@/features/orders/application/transition-order-as";
 import { listAllProducts } from "@/features/products/application/list-products";
+import { priceExamples } from "@/features/products/application/pricing";
 import { logger } from "@/shared/logger";
 
 import { registerAdminMiscTools } from "./tools/admin-misc-tools";
@@ -141,12 +142,21 @@ export function registerPanelTools(server: McpServer, actor: McpActor): void {
     {
       title: "Ürünleri listele",
       description:
-        "Tüm ürün kataloğunu (aktif ve arşivli) fiyat kademeleriyle getirir. total_quantity_sold TÜM ZAMANLARIN toplamıdır; bir dönemin satışı için get_product_tally, ay ay döküm için get_product_tally_by_month kullan.",
+        "Tüm ürün kataloğunu (aktif ve arşivli) fiyat kademeleriyle getirir. total_quantity_sold TÜM ZAMANLARIN toplamıdır; bir dönemin satışı için get_product_tally, ay ay döküm için get_product_tally_by_month kullan. " +
+        "price_tiers KADEMELİDİR, paket başı sabit fiyat DEĞİLDİR: min_qty=m olan kademenin unit_price_minor değeri m. birimden itibaren her birimin fiyatıdır (ör. 1→13000, 2→12000, 3→10000 ise 3 paket 13000+12000+10000 = 35000 kuruş). " +
+        "Kademeli ürünlerde price_examples, katalogun gerçekte tahsil edeceği toplamları (kuruş) verir; toplamı kademelerden kendin hesaplama, price_examples'a bak.",
       annotations: { ...READ_ONLY, title: "Ürünleri listele" },
     },
     async () => {
       const result = await listAllProducts();
-      return result.ok ? toolJson(result.value) : toolError("list_products", result.error);
+      if (!result.ok) return toolError("list_products", result.error);
+      return toolJson(
+        result.value.map((product) =>
+          product.price_tiers.length > 0
+            ? { ...product, price_examples: priceExamples(product) }
+            : product,
+        ),
+      );
     },
   );
 

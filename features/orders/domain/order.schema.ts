@@ -23,8 +23,11 @@ const trimmed = (min: number, max: number, message?: string) =>
 export const orderItemInputSchema = z.object({
   product_key: z.string().min(1),
   quantity: z.coerce.number().positive(),
-  /** Optional flat special price (kuruş) for this customer + product. */
+  /** Optional flat special price (kuruş) for this order line. */
   unit_price_minor: z.coerce.number().int().nonnegative().optional(),
+  /** true → also save `unit_price_minor` as the customer's standing price for
+   *  this product. Default (absent/false): the price applies to this order only. */
+  save_for_customer: z.boolean().optional(),
 });
 
 /** Full order create form input. */
@@ -60,7 +63,10 @@ export type OrderFormParsed = z.output<typeof orderFormSchema>;
  * The customer on an existing order is immutable; only fields + line
  * items may change (pending/confirmed orders only).
  */
-export const orderEditSchema = orderFormSchema.omit({ customer_id: true });
+export const orderEditSchema = orderFormSchema.omit({ customer_id: true }).extend({
+  /** Products whose saved customer price is removed with this save. */
+  remove_saved_price_keys: z.array(z.string().min(1)).max(50).optional(),
+});
 export type OrderEditInput = z.input<typeof orderEditSchema>;
 export type OrderEditParsed = z.output<typeof orderEditSchema>;
 
