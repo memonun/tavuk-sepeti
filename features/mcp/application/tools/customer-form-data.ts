@@ -32,6 +32,8 @@ export interface CustomerInput {
   notes?: string | null | undefined;
   status?: "active" | "inactive" | "blocked" | undefined;
   address?: CustomerAddressInput | undefined;
+  /** Add/save a phone number that another customer already has. */
+  allow_duplicate_phone?: boolean | undefined;
 }
 
 const ADDRESS_TEXT_KEYS = [
@@ -83,6 +85,7 @@ export function buildCreateCustomerFormData(input: CustomerInput): FormData {
   setText(fd, "notes", input.notes);
   fd.set("status", input.status ?? "active");
   if (input.address) writeAddress(fd, input.address, null);
+  if (input.allow_duplicate_phone) fd.set("confirm_duplicate_phone", "true");
   return fd;
 }
 
@@ -99,5 +102,6 @@ export function buildUpdateCustomerFormData(
   fd.set("status", input.status ?? existing.status);
   // No address in the input → none in the form → the action leaves the stored one alone.
   if (input.address) writeAddress(fd, input.address, existing.address);
+  if (input.allow_duplicate_phone) fd.set("confirm_duplicate_phone", "true");
   return fd;
 }

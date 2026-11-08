@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { CUSTOMER_FILTER_TAG } from "@/features/customers/application/get-filter-options";
+import { loadPhoneHolders, type PhoneHolder } from "@/features/customers/application/phone-holders";
 import { customerFormSchema } from "@/features/customers/domain/customer.schema";
 import {
   findCustomerById,
@@ -18,6 +19,9 @@ export type UpdateCustomerActionState =
   | { status: "idle" }
   | { status: "success"; customerId: string }
   | { status: "validation_error"; fieldErrors: Record<string, string[]> }
+  /** The new number is already on another customer; resend with
+   *  `confirm_duplicate_phone=true` ("Yine de kaydet") to save it anyway. */
+  | { status: "phone_in_use"; holders: PhoneHolder[] }
   | { status: "error"; message: string };
 
 export async function updateCustomerAction(
@@ -59,6 +63,28 @@ export async function updateCustomerAction(
       status: "validation_error",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
+  }
+
+  // The row as it was BEFORE this update: the audit "before" payload, and the
+  // current number, so only a CHANGED phone triggers the duplicate warning (a
+  // customer who already shares a number can still be edited freely).
+  const beforeRow = await findCustomerById(customerId);
+  const beforeSnapshot = beforeRow.ok
+    ? {
+        first_name: beforeRow.value.first_name,
+        last_name: beforeRow.value.last_name,
+        status: beforeRow.value.status,
+        phone: beforeRow.value.phone,
+      }
+    : null;
+
+  const newPhone = parsed.data.phone;
+  const phoneChanged =
+    newPhone !== null && (!beforeRow.ok || beforeRow.value.phone !== newPhone);
+  if (phoneChanged && formData.get("confirm_duplicate_phone") !== "true") {
+    const holders = await loadPhoneHolders(newPhone, customerId);
+    if (!holders.ok) return { status: "error", message: holders.error.message };
+    if (holders.value.length > 0) return { status: "phone_in_use", holders: holders.value };
   }
 
   const addr = parsed.data.address ?? null;
@@ -111,19 +137,6 @@ export async function updateCustomerAction(
   };
 
   const updated = await repoUpdate(customerId, updateInput);
-
-  // Snapshot the pre-update row for the audit "before" payload. Best-
-  // effort: if it can't be loaded for some reason, we still log the
-  // "after" + skip "before" rather than blocking the update.
-  const beforeRow = await findCustomerById(customerId);
-  const beforeSnapshot = beforeRow.ok
-    ? {
-        first_name: beforeRow.value.first_name,
-        last_name: beforeRow.value.last_name,
-        status: beforeRow.value.status,
-        phone: beforeRow.value.phone,
-      }
-    : null;
 
   if (!updated.ok) {
     logger.error({ code: updated.error.code, customerId }, "update_customer_failed");

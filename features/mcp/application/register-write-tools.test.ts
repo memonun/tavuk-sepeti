@@ -327,6 +327,32 @@ describe("write tool adapters", () => {
     expect(JSON.parse(text(res))).toEqual({ ok: true, result: { deleted: 2 } });
   });
 
+  it("create_customer stops on a shared phone and says how to confirm", async () => {
+    m.createCustomerAction.mockResolvedValue({
+      status: "phone_in_use",
+      holders: [{ id: UUID, name: "Ayşe Turhan" }],
+    });
+    const res = await (await connect()).callTool({
+      name: "create_customer",
+      arguments: { first_name: "Ali", phone: "0532 123 45 67" },
+    });
+    expect(res.isError).toBe(true);
+    expect(text(res)).toContain("Ayşe Turhan");
+    expect(text(res)).toContain("allow_duplicate_phone");
+    const [, fd] = m.createCustomerAction.mock.calls[0] as [unknown, FormData];
+    expect(fd.get("confirm_duplicate_phone")).toBeNull();
+  });
+
+  it("create_customer sends the confirmation only when allow_duplicate_phone is true", async () => {
+    m.createCustomerAction.mockResolvedValue({ status: "success", customerId: UUID });
+    await (await connect()).callTool({
+      name: "create_customer",
+      arguments: { first_name: "Ali", phone: "0532 123 45 67", allow_duplicate_phone: true },
+    });
+    const [, fd] = m.createCustomerAction.mock.calls[0] as [unknown, FormData];
+    expect(fd.get("confirm_duplicate_phone")).toBe("true");
+  });
+
   it("update_customer reads the record first and preserves unmentioned fields", async () => {
     m.getCustomerById.mockResolvedValue(
       ok({

@@ -124,6 +124,12 @@ const customerBody = {
   notes: z.string().max(2000).nullish(),
   status: z.enum(["active", "inactive", "blocked"]).optional(),
   address: customerAddress.optional(),
+  allow_duplicate_phone: z
+    .boolean()
+    .optional()
+    .describe(
+      "Varsayılan false: numara başka bir müşteride kayıtlıysa işlem DURUR ve kimde olduğu söylenir. Kullanıcı aynı numarayı bilerek eklemek istiyorsa true gönder.",
+    ),
 };
 
 export const createCustomerInput = customerBody;

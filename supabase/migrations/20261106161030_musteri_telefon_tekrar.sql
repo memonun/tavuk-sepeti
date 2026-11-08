@@ -1,0 +1,26 @@
+-- musteri_telefon_tekrar
+--
+-- Panelden eklenen iki ayrı müşteri aynı telefon numarasını taşıyabilsin (aynı
+-- aileden/işyerinden farklı kişiler, ortak numara). Bugün
+-- customers_phone_unique_admin (yalnızca origin = 'admin_manual' müşterilerde
+-- telefon benzersiz) ikinci kaydı veritabanı hatasıyla reddediyor.
+--
+-- Benzersizlik kuralı kalkıyor; yanlışlıkla çift kayıt açmayı uygulama katmanı
+-- engelliyor: numara başka müşteride kayıtlıysa panel kimde olduğunu gösterir ve
+-- "Yine de ekle" onayı ister (create-customer / update-customer).
+--
+-- Siteden kayıt olan müşteriler için olan customers_phone_unique_web DOKUNULMADI:
+-- hesap/sipariş akışları o kümede numarayla tek müşteri bulmaya dayanıyor.
+--
+-- Geriye dönük uyumlu: yalnızca bir kısıt gevşer, hiçbir veri silinmez. Yayın
+-- penceresinde çalışan eski kod, çift numarayı veritabanı hatası yerine sessizce
+-- kabul eder (kod yayınlanınca uyarı devreye girer); başka hiçbir şey eski
+-- imzaya ya da kısıta dayanmıyor.
+--
+-- Dizin gerekçesi (CLAUDE.md §7): yerine yeni dizin AÇILMIYOR. "Numaradan müşteri
+-- bul" aramaları (sipariş sorgulama c.phone = ..., panel çift numara kontrolü)
+-- zaten customers_phone_id_idx (phone, id) ile dizinli
+-- (20260612170000_grid_fullload_perf); aynı kolon için ikinci bir dizin her
+-- yazmada boşuna güncellenirdi.
+
+drop index if exists customers_phone_unique_admin;
