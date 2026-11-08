@@ -12,18 +12,15 @@
 -- Siteden kayıt olan müşteriler için olan customers_phone_unique_web DOKUNULMADI:
 -- hesap/sipariş akışları o kümede numarayla tek müşteri bulmaya dayanıyor.
 --
--- Geriye dönük uyumlu: yalnızca bir kısıt gevşer. Yayın penceresinde çalışan eski
--- kod, çift numarayı veritabanı hatası yerine sessizce kabul eder (kod yayınlanınca
--- uyarı devreye girer); başka hiçbir şey eski imzaya ya da kısıta dayanmıyor.
+-- Geriye dönük uyumlu: yalnızca bir kısıt gevşer, hiçbir veri silinmez. Yayın
+-- penceresinde çalışan eski kod, çift numarayı veritabanı hatası yerine sessizce
+-- kabul eder (kod yayınlanınca uyarı devreye girer); başka hiçbir şey eski
+-- imzaya ya da kısıta dayanmıyor.
 --
--- Dizin gerekçesi (CLAUDE.md §7): benzersiz dizin aynı zamanda "numaradan müşteri
--- bul" aramalarının dizini idi (sipariş sorgulama c.phone = ..., panel çift numara
--- kontrolü). Kaldırınca bu aramalar tablo taramasına dönerdi; bu yüzden benzersiz
--- olmayan, aynı kapsamda bir dizin onun yerine geçiyor. Önce yenisi açılır, sonra
--- eskisi kaldırılır, böylece arada dizinsiz an olmaz.
-
-create index if not exists customers_phone_admin_idx
-  on customers (phone)
-  where phone is not null and origin = 'admin_manual';
+-- Dizin gerekçesi (CLAUDE.md §7): yerine yeni dizin AÇILMIYOR. "Numaradan müşteri
+-- bul" aramaları (sipariş sorgulama c.phone = ..., panel çift numara kontrolü)
+-- zaten customers_phone_id_idx (phone, id) ile dizinli
+-- (20260612170000_grid_fullload_perf); aynı kolon için ikinci bir dizin her
+-- yazmada boşuna güncellenirdi.
 
 drop index if exists customers_phone_unique_admin;
