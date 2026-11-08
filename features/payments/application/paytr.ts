@@ -18,6 +18,7 @@ import {
 } from "@/features/payments/domain/paytr";
 import { requestPaytrToken } from "@/features/payments/infrastructure/paytr-client";
 import { recordCardPayment } from "@/features/payments/infrastructure/payment.repository";
+import { reportPurchaseToMeta } from "@/features/storefront/application/report-meta-purchase";
 import { sendOrderConfirmationEmail } from "@/features/storefront/application/send-order-confirmation";
 import { logAudit } from "@/shared/audit/log-audit";
 import { ExternalApiError } from "@/shared/errors/app-error";
@@ -241,6 +242,11 @@ export async function handlePaytrCallback(payload: {
   if (recorded.value === "recorded") {
     const outcome = await sendOrderConfirmationEmail(orderId);
     logger.info({ orderId, outcome }, "paytr_confirmation_email");
+
+    // The card sale is real only now. Reported from here because a customer
+    // who closes the tab at the bank never reaches the return page's Pixel.
+    const metaOutcome = await reportPurchaseToMeta(orderId);
+    logger.info({ orderId, outcome: metaOutcome }, "paytr_meta_purchase");
   }
 
   return { ok: true };

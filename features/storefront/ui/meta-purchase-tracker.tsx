@@ -18,8 +18,9 @@
  *      double count.
  *
  * A customer who pays but never comes back to this page (closes the tab at the
- * bank) is not reported — only a server-side Conversions API send can cover
- * that, and its dedupe key is already in place (`purchase:<order number>`).
+ * bank) is not reported HERE — the PayTR callback reports that sale from the
+ * server (report-meta-purchase.ts) with the same `purchase:<order number>` key,
+ * so a customer who does come back is still counted once.
  */
 import { useEffect } from "react";
 

@@ -177,7 +177,8 @@ const RETURN_DETAILS = [
 ] as const;
 
 const SALES_LEGAL_UPDATED = "2026-08-20";
-const UPDATED_2 = "2026-08-18";
+/** Meta reklam ölçümünün (Pixel + Conversions API) metinlere eklendiği gün. */
+const PRIVACY_UPDATED = "2026-11-08";
 
 export const LEGAL_DOCS: readonly LegalDoc[] = [
   {
@@ -295,8 +296,8 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     title: "Gizlilik Politikası",
     longTitle: "Gizlilik Politikası",
     description:
-      "Apuhan Çiftliği'nin kişisel verilerin işlenmesi, sipariş, ödeme, teslimat, çerezler ve KVKK kapsamındaki kullanıcı haklarına ilişkin bilgilendirme metni.",
-    updated: SALES_LEGAL_UPDATED,
+      "Apuhan Çiftliği'nin sipariş, ödeme, teslimat, reklam ölçümü ve çerezlerle ilgili kişisel veri işleme ve KVKK haklarınıza ilişkin bilgilendirme metni.",
+    updated: PRIVACY_UPDATED,
     relatedSlugs: [
       "kvkk",
       "cerez-politikasi",
@@ -345,8 +346,13 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
         "Sitenin güvenli ve düzgün çalışmasını sağlamak amacıyla IP adresi, tarayıcı bilgisi ve erişim kayıtları gibi teknik veriler, barındırma altyapımız (Vercel) tarafından işlenebilir.",
       ),
       s(
+        "Reklam Ölçümü (Meta)",
+        "Facebook ve Instagram reklamlarımızın hangi ziyaret ve satışlarla sonuçlandığını ölçmek için Meta Platforms'un Pixel aracı ve sunucudan sunucuya bildirim hizmeti (Conversions API) kullanılır. Bu kapsamda Meta'ya şu bilgiler iletilir: gezdiğiniz sayfalar ve sepet adımları; sipariş verildiğinde sipariş numarası, ürünler, miktarlar ve tutar; satışın bir reklamla eşleştirilebilmesi için e-posta adresinizin ve telefon numaranızın geri çevrilemeyen biçimde şifrelenmiş hali (SHA-256 özeti), IP adresiniz, tarayıcı bilgisi ve Meta'nın ölçüm çerezleri.",
+        "Adınız, adresiniz ve sipariş notlarınız Meta'ya iletilmez. Eşleştirme için kullanılan bilgiler sistemimizde yalnızca satış Meta'ya bildirilene kadar, en fazla 7 gün tutulur. Tarayıcınız Global Privacy Control (GPC) sinyali gönderiyorsa bu ölçüm yapılmaz ve bu bilgiler toplanmaz.",
+      ),
+      s(
         "Kişisel Verilerin İşlenme Amaçları",
-        "Verileriniz; sipariş oluşturma ve yürütme, ödeme işlemlerinin gerçekleştirilmesi, teslimatın yapılması, sipariş durumunun sorgulanabilmesi, müşteri hesabının yönetilmesi, sipariş onayı ve bilgilendirme e-postalarının gönderilmesi, müşteri talep ve şikâyetlerinin yanıtlanması ile yasal yükümlülüklerin yerine getirilmesi amacıyla işlenir.",
+        "Verileriniz; sipariş oluşturma ve yürütme, ödeme işlemlerinin gerçekleştirilmesi, teslimatın yapılması, sipariş durumunun sorgulanabilmesi, müşteri hesabının yönetilmesi, sipariş onayı ve bilgilendirme e-postalarının gönderilmesi, reklamlarımızın performansının ölçülmesi, müşteri talep ve şikâyetlerinin yanıtlanması ile yasal yükümlülüklerin yerine getirilmesi amacıyla işlenir.",
       ),
       s(
         "Hukuki Sebepler",
@@ -354,11 +360,11 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Çerezler ve Yerel Depolama",
-        "Oturum açtığınızda kimlik doğrulama bilginiz, Supabase altyapısı tarafından güvenli çerezlerde tutulur. Sepetinizdeki ürünler ise çerez değildir; yalnızca kendi tarayıcınızda (localStorage) saklanır ve sunucularımıza gönderilmez. Sitemizde reklam veya pazarlama amaçlı çerez ya da izleme teknolojisi kullanılmaz. Ayrıntılar için Çerez Politikamıza bakabilirsiniz.",
+        "Oturum açtığınızda kimlik doğrulama bilginiz, Supabase altyapısı tarafından güvenli çerezlerde tutulur. Sepetinizdeki ürünler ise çerez değildir; yalnızca kendi tarayıcınızda (localStorage) saklanır ve sunucularımıza gönderilmez. Reklamlarımızın etkisini ölçmek için kullanılan Meta Pixel, tarayıcınıza Meta'ya ait ölçüm çerezleri (_fbp, _fbc) yerleştirebilir; ayrıntılar Reklam Ölçümü bölümünde ve Çerez Politikamızdadır.",
       ),
       s(
         "Üçüncü Taraf Hizmet Sağlayıcılar",
-        `Teknik işleyişte kullanılan sağlayıcılar ve işledikleri veri kategorileri, hizmete göre farklılaşır: Supabase, müşteri hesabı/oturum, iletişim, adres ve sipariş kayıtlarının altyapısında; PayTR, kartla ödeme seçildiğinde ödeme işlemi için gerekli iletişim, sipariş, tutar ve kart ödeme verilerinde; Resend, e-posta adresi verilmiş ve e-posta gönderimi yapılandırılmış siparişlerde onay e-postasında; Google Haritalar, harita veya adres arama kullanıldığında konum ve adres arama verilerinde; ${CONTRACTED_CARGO_CARRIER}, kargolu siparişlerde taşıma ve teslimat için gerekli ad, telefon, adres ve sipariş/gönderi bilgilerinde; Vercel ise siteye erişimin sunulmasıyla bağlantılı teknik günlük verilerinde rol alabilir.`,
+        `Teknik işleyişte kullanılan sağlayıcılar ve işledikleri veri kategorileri, hizmete göre farklılaşır: Supabase, müşteri hesabı/oturum, iletişim, adres ve sipariş kayıtlarının altyapısında; PayTR, kartla ödeme seçildiğinde ödeme işlemi için gerekli iletişim, sipariş, tutar ve kart ödeme verilerinde; Resend, e-posta adresi verilmiş ve e-posta gönderimi yapılandırılmış siparişlerde onay e-postasında; Google Haritalar, harita veya adres arama kullanıldığında konum ve adres arama verilerinde; ${CONTRACTED_CARGO_CARRIER}, kargolu siparişlerde taşıma ve teslimat için gerekli ad, telefon, adres ve sipariş/gönderi bilgilerinde; Meta Platforms, reklam ölçümü için Reklam Ölçümü bölümünde sayılan verilerde; Vercel ise siteye erişimin sunulmasıyla bağlantılı teknik günlük verilerinde rol alabilir.`,
         "Bu metin, her sağlayıcının her siparişte aynı veri kategorisini işlediği anlamına gelmez. Sağlayıcıya yalnızca ilgili hizmetin çalışması için gerekli veri aktarılır.",
       ),
       s(
@@ -403,7 +409,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     longTitle: "KVKK Aydınlatma Metni",
     description:
       "Apuhan Çiftliği'nin hangi kişisel verileri hangi amaçla işlediğini ve 6698 sayılı KVKK kapsamındaki haklarınızı anlatan aydınlatma metni.",
-    updated: SALES_LEGAL_UPDATED,
+    updated: PRIVACY_UPDATED,
     relatedSlugs: [
       "mesafeli-satis-sozlesmesi",
       "on-bilgilendirme-formu",
@@ -420,11 +426,11 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "İşlenen Veri Kategorileri",
-        "Sipariş, hesap veya düzenli sipariş talebi sürecinde ad, soyad, telefon, e-posta, teslimat adresi ve konum bilgisi, sipariş/ürün/tutar bilgisi, seçilen ödeme yöntemi, teslimat bilgileri ve sipariş sorgulama verileri işlenebilir. Hesap kullanıldığında kimlik doğrulama ve oturum bilgileri; hizmetin güvenliği ve çalışması için IP adresi, tarayıcı ve erişim kayıtları gibi teknik veriler de işlenebilir.",
+        "Sipariş, hesap veya düzenli sipariş talebi sürecinde ad, soyad, telefon, e-posta, teslimat adresi ve konum bilgisi, sipariş/ürün/tutar bilgisi, seçilen ödeme yöntemi, teslimat bilgileri ve sipariş sorgulama verileri işlenebilir. Hesap kullanıldığında kimlik doğrulama ve oturum bilgileri; hizmetin güvenliği ve çalışması için IP adresi, tarayıcı ve erişim kayıtları gibi teknik veriler de işlenebilir. Reklam ölçümü için Meta ölçüm çerezleri ile e-posta adresi ve telefon numarasının şifrelenmiş (SHA-256) özeti işlenir.",
       ),
       s(
         "İşleme Amaçları",
-        "Veriler; müşteri hesabının yönetilmesi, siparişin kurulması ve yürütülmesi, ödeme ve teslimat süreçlerinin işletilmesi, sipariş durumunun sorgulanması, düzenli sipariş talebinin değerlendirilmesi ve onaylanması, iletişim kurulması, güvenliğin sağlanması, muhasebe ile yasal yükümlülüklerin yerine getirilmesi amaçlarıyla işlenir.",
+        "Veriler; müşteri hesabının yönetilmesi, siparişin kurulması ve yürütülmesi, ödeme ve teslimat süreçlerinin işletilmesi, sipariş durumunun sorgulanması, düzenli sipariş talebinin değerlendirilmesi ve onaylanması, iletişim kurulması, reklam performansının ölçülmesi, güvenliğin sağlanması, muhasebe ile yasal yükümlülüklerin yerine getirilmesi amaçlarıyla işlenir.",
       ),
       s(
         "Toplama Yöntemi ve Hukuki Sebepler",
@@ -432,7 +438,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Aktarım Alıcıları ve Amaçları",
-        `Veriler, hizmetin yürütülmesi için gerekli olduğu ölçüde ve kullanılan hizmete bağlı olarak aktarılabilir: Supabase'e hesap/oturum, iletişim, adres ve sipariş verileri; PayTR'ye kartla ödeme seçildiğinde iletişim, sipariş, tutar ve ödeme verileri; Resend'e e-posta gönderimi yapılandırılmış ve e-posta adresi verilmiş siparişlerde e-posta iletimi için gerekli veriler; Google Haritalar'a harita veya adres arama kullanıldığında konum/adres arama verileri; kargolu siparişlerde ${CONTRACTED_CARGO_CARRIER}'na taşıma ve teslimat için gerekli ad, telefon, adres ve sipariş/gönderi verileri; Vercel'e sitenin sunulmasıyla bağlantılı teknik günlük verileri aktarılabilir. Mevzuatın gerektirdiği hallerde yetkili kamu kurum ve kuruluşlarına da aktarım yapılabilir.`,
+        `Veriler, hizmetin yürütülmesi için gerekli olduğu ölçüde ve kullanılan hizmete bağlı olarak aktarılabilir: Supabase'e hesap/oturum, iletişim, adres ve sipariş verileri; PayTR'ye kartla ödeme seçildiğinde iletişim, sipariş, tutar ve ödeme verileri; Resend'e e-posta gönderimi yapılandırılmış ve e-posta adresi verilmiş siparişlerde e-posta iletimi için gerekli veriler; Google Haritalar'a harita veya adres arama kullanıldığında konum/adres arama verileri; kargolu siparişlerde ${CONTRACTED_CARGO_CARRIER}'na taşıma ve teslimat için gerekli ad, telefon, adres ve sipariş/gönderi verileri; Meta Platforms'a reklam ölçümü için gezdiğiniz sayfalar ve sepet adımları; sipariş verildiğinde sipariş numarası, ürünler, miktarlar ve tutar; satışın bir reklamla eşleştirilebilmesi için e-posta adresinizin ve telefon numaranızın geri çevrilemeyen biçimde şifrelenmiş hali (SHA-256 özeti), IP adresiniz, tarayıcı bilgisi ve Meta'nın ölçüm çerezleri (ad, adres ve sipariş notları hariç); Vercel'e sitenin sunulmasıyla bağlantılı teknik günlük verileri aktarılabilir. Mevzuatın gerektirdiği hallerde yetkili kamu kurum ve kuruluşlarına da aktarım yapılabilir.`,
       ),
       s(
         "Kişisel Verilerin Yurt Dışına Aktarılması",
@@ -451,15 +457,16 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
     title: "Çerez Politikası",
     longTitle: "Çerez (Cookie) Politikası",
     description:
-      "Sitemizde yalnızca oturum için zorunlu çerez kullanılır, reklam çerezi yoktur. Sepetin nerede tutulduğu ve çerezleri nasıl yönetebileceğiniz.",
-    updated: UPDATED_2,
+      "Sitemizde oturum için zorunlu çerez ve reklam ölçümü için Meta çerezleri kullanılır. Sepetin nerede tutulduğu ve çerezleri nasıl yönetebileceğiniz.",
+    updated: PRIVACY_UPDATED,
     sections: [
       p(
-        "Sitemiz, yalnızca oturumunuzun açık kalması gibi temel işlevler için zorunlu çerez kullanır. Reklam veya pazarlama amaçlı çerez ya da izleme teknolojisi kullanılmaz.",
+        "Sitemiz, oturumunuzun açık kalması gibi temel işlevler için zorunlu çerez; Facebook ve Instagram reklamlarımızın etkisini ölçmek için de Meta Platforms'a ait ölçüm çerezleri kullanır.",
       ),
       s(
         "Kullanılan Çerezler",
         "Zorunlu çerez: giriş yaptıysanız oturumunuzun açık kalması için kullanılır (site olmazsa olmaz). Bu çerez kişisel pazarlama amacıyla kullanılmaz.",
+        "Reklam ölçüm çerezleri (_fbp, _fbc): Meta Pixel tarafından yerleştirilir; bir reklamı görüp siteye gelen ziyaretçinin sayfa, sepet ve satış adımlarının o reklamla eşleştirilmesi için kullanılır. Tarayıcınız Global Privacy Control (GPC) sinyali gönderiyorsa Meta Pixel çalışmaz. Meta'ya iletilen bilgiler Gizlilik Politikamızın Reklam Ölçümü bölümünde açıklanır.",
       ),
       s(
         "Sepet ve Yerel Depolama",
@@ -467,7 +474,7 @@ export const LEGAL_DOCS: readonly LegalDoc[] = [
       ),
       s(
         "Çerez Yönetimi",
-        "Tarayıcı ayarlarınızdan çerezleri silebilir veya engelleyebilirsiniz; ancak zorunlu oturum çerezi engellenirse giriş yapmış olarak kalamayabilirsiniz.",
+        "Tarayıcı ayarlarınızdan çerezleri silebilir veya engelleyebilirsiniz; ancak zorunlu oturum çerezi engellenirse giriş yapmış olarak kalamayabilirsiniz. Meta ölçüm çerezlerini engellemeniz sitenin çalışmasını etkilemez.",
       ),
     ],
   },
