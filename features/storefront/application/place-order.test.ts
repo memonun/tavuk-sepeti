@@ -21,6 +21,15 @@ vi.mock("@/shared/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const afterTasks: Array<() => unknown> = [];
+vi.mock("next/server", () => ({ after: (task: () => unknown) => afterTasks.push(task) }));
+
+const captureOrderAdSignals = vi.fn();
+const reportPurchaseToMeta = vi.fn();
+vi.mock("@/features/storefront/application/report-meta-purchase", () => ({
+  captureOrderAdSignals: (...a: unknown[]) => captureOrderAdSignals(...a),
+  reportPurchaseToMeta: (...a: unknown[]) => reportPurchaseToMeta(...a),
+}));
 vi.mock("next/headers", () => ({
   headers: async () => new Map<string, string>() as unknown as Headers,
 }));
@@ -664,6 +673,21 @@ describe("placeOrderAction — pricing and payment", () => {
     });
     expect(placeWebOrder).toHaveBeenCalledTimes(1);
   });
+
+  // Meta Conversions API: the card sale is reported by PayTR's callback, not
+  // here — the payment has not happened yet. Its signals are kept for then.
+  it("keeps the Meta signals of a card order but does not report it yet", async () => {
+    afterTasks.length = 0;
+    createPaytrPaymentSession.mockResolvedValue({
+      ok: true,
+      value: { paymentUrl: "https://paytr.example/pay/abc" },
+    });
+
+    await placeOrderAction(idle, buildForm({ payment_method: "credit_card" }));
+
+    expect(captureOrderAdSignals).toHaveBeenCalledTimes(1);
+    expect(afterTasks).toHaveLength(0);
+  });
 });
 
 describe("placeOrderAction — eve servis günleri", () => {
@@ -676,6 +700,19 @@ describe("placeOrderAction — eve servis günleri", () => {
       status: "success",
       items: [{ productKey: "eggs", quantity: 2 }],
     });
+  });
+
+  // Kapıda ödeme / havale is a sale the moment it is placed: reported to
+  // Meta from the server too, after the response.
+  it("reports a committed order to Meta after responding", async () => {
+    afterTasks.length = 0;
+    await placeOrderAction(idle, buildForm());
+
+    expect(captureOrderAdSignals).toHaveBeenCalledTimes(1);
+    expect(reportPurchaseToMeta).not.toHaveBeenCalled();
+    expect(afterTasks).toHaveLength(1);
+    await afterTasks[0]?.();
+    expect(reportPurchaseToMeta).toHaveBeenCalledTimes(1);
   });
 
   it("accepts a day the van drives", async () => {

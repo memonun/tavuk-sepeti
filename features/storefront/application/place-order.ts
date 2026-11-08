@@ -55,6 +55,7 @@
  */
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { notifyAdminOfNewOrder } from "@/features/admin-notifications/application/notify-admin-new-order";
 import { enrichOrderItems } from "@/features/orders/application/order-item-pricing";
@@ -68,6 +69,10 @@ import {
   resolveCheckoutSession,
 } from "@/features/storefront/application/checkout-account";
 import { getStorefrontSettings } from "@/features/storefront/application/get-storefront-settings";
+import {
+  captureOrderAdSignals,
+  reportPurchaseToMeta,
+} from "@/features/storefront/application/report-meta-purchase";
 import { resolveCheckoutCustomer } from "@/features/storefront/application/resolve-checkout-customer";
 import {
   validateCheckoutAddress,
@@ -566,6 +571,12 @@ export async function placeOrderAction(
   revalidatePath("/hesap");
   revalidatePath("/orders");
 
+  // Meta Conversions API: keep what Meta needs to match this sale while the
+  // customer's own request is still here. A card order is only reported once
+  // PayTR's callback books it — a request with no browser behind it.
+  const orderId = placed.value.order_id;
+  await captureOrderAdSignals({ orderId, email: emailTo, phone: actor.phone });
+
   const totalMinor = subtotalMinor + deliveryFeeMinor;
   const addressText = composeFullAddress(address);
   const customerName = [actor.firstName, actor.lastName]
@@ -675,6 +686,10 @@ export async function placeOrderAction(
     channel: placed.value.fulfillment_channel,
     totalMinor,
   });
+
+  // Kapıda ödeme / havale: the sale is committed now. Reported after the
+  // response is sent, so the customer never waits on Meta.
+  after(() => reportPurchaseToMeta(orderId));
 
   return {
     status: "success",

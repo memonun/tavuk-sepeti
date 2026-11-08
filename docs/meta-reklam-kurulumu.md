@@ -66,6 +66,26 @@ Her değişiklik `meta_ads_changes` tablosuna yazılır: ne yapıldı, eski ve y
    - Kaydettikten sonra son yayını yeniden başlat (Deployments → … → Redeploy). Ortam değişkenleri ancak yeniden yayınla devreye girer.
 8. **Kontrol et:** /reklam → "Bağlantı" bölümünde dört satır da ✓ olmalı.
 
+## Satışların sunucudan da Meta'ya gitmesi (Conversions API)
+
+Owner kararı 2026-11-08. Tarayıcıdaki Pixel, müşteri bankada sekmeyi kapatınca ya da reklam engelleyici kullanınca satışı kaçırıyor (Ekim–Kasım 2026: 8 web siparişinin 2'si Meta'ya hiç ulaşmadı). Bu yüzden satış ayrıca sunucudan bildirilir:
+
+- **Kapıda ödeme / havale:** sipariş verildiği anda.
+- **Kart:** PayTR ödemeyi onayladığı anda (müşteri sayfaya geri dönmese bile).
+- Meta'ya giden: sipariş numarası, ürünler, tutar, e-posta ve telefonun **şifrelenmiş özeti** (SHA-256), IP, tarayıcı, Meta çerezleri. Ad, adres, not **gitmez**.
+- Tarayıcı ve sunucu aynı olay kimliğini (`purchase:<sipariş no>`) kullanır; Meta aynı satışı iki kez saymaz.
+- Eşleştirme bilgisi `order_ad_signals` tablosunda gönderilene kadar, en fazla 7 gün durur.
+
+**Kurulum (işletme sahibi yapar):**
+
+1. Meta Etkinlik Yöneticisi → **Apuhan Ciftligi Pixel** → Ayarlar → Conversions API → **Erişim jetonu oluştur**.
+2. Vercel → Settings → Environment Variables → Production → `META_CAPI_ACCESS_TOKEN` = bu jeton ("Sensitive" işaretli). Jetonu başka hiçbir yere yapıştırma.
+3. Deneme için ayrıca `META_CAPI_TEST_EVENT_CODE` = Etkinlik Yöneticisi → **Etkinlikleri test et** sekmesindeki kod (`TEST…`). Redeploy.
+4. Bir test siparişi ver (kapıda ödeme yeterli). "Etkinlikleri test et" sekmesinde **Sunucu** kaynaklı bir `Purchase` görünmeli. Sonra test siparişini admin panelinden iptal et.
+5. `META_CAPI_TEST_EVENT_CODE`'u **sil** ve tekrar Redeploy et. Silinmezse gerçek satışlar "test" olarak sayılır ve reklamlara yansımaz.
+
+Jeton yoksa hiçbir şey değişmez: tablo boş kalır, sadece tarayıcı Pixel'i çalışır.
+
 ## Claude'a nasıl iş verilir
 
 claude.ai'de panel bağlantısı açıkken (Ayarlar → Bağlayıcılar), örneğin:

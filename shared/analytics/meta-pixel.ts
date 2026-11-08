@@ -41,10 +41,13 @@
  *  EVERY event carries the page URL (Meta's `dl`), not just PageView — an event
  *  must never be sent from a URL that holds a credential. See `trackPurchase`.
  *
- * ── Conversions API later ──────────────────────────────────────────────────────
- *  Every event accepts an `eventId` and is sent with Meta's `eventID` option, the
- *  deduplication key a future server-side (CAPI) send must reuse. Secrets such as
- *  META_CAPI_ACCESS_TOKEN belong server-side only and must never be NEXT_PUBLIC_.
+ * ── Conversions API ────────────────────────────────────────────────────────────
+ *  Every event accepts an `eventId` and is sent with Meta's `eventID` option.
+ *  `Purchase` is ALSO sent from the server (owner decision 2026-11-08), with the
+ *  same `purchase:<order number>` key so Meta counts it once — see
+ *  features/storefront/application/report-meta-purchase.ts. That server send
+ *  carries hashed e-mail/phone; THIS browser layer still sends no personal data.
+ *  META_CAPI_ACCESS_TOKEN is server-only and must never be NEXT_PUBLIC_.
  */
 import { getMetaPixelId } from "@/shared/analytics/meta-pixel-config";
 

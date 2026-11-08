@@ -705,6 +705,47 @@ export type Database = {
           },
         ]
       }
+      order_ad_signals: {
+        Row: {
+          client_ip: unknown
+          created_at: string
+          email_hash: string | null
+          fbc: string | null
+          fbp: string | null
+          order_id: string
+          phone_hash: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          client_ip?: unknown
+          created_at?: string
+          email_hash?: string | null
+          fbc?: string | null
+          fbp?: string | null
+          order_id: string
+          phone_hash?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          client_ip?: unknown
+          created_at?: string
+          email_hash?: string | null
+          fbc?: string | null
+          fbp?: string | null
+          order_id?: string
+          phone_hash?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_ad_signals_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string

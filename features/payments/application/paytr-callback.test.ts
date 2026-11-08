@@ -47,6 +47,11 @@ vi.mock("@/features/storefront/application/send-order-confirmation", () => ({
   sendOrderConfirmationEmail: (...a: unknown[]) => sendOrderConfirmationEmail(...a),
 }));
 
+const reportPurchaseToMeta = vi.fn();
+vi.mock("@/features/storefront/application/report-meta-purchase", () => ({
+  reportPurchaseToMeta: (...a: unknown[]) => reportPurchaseToMeta(...a),
+}));
+
 vi.mock("@/features/payments/infrastructure/paytr-client", () => ({
   requestPaytrToken: vi.fn(),
 }));
@@ -81,6 +86,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   recordCardPayment.mockResolvedValue({ ok: true, value: "recorded" });
   sendOrderConfirmationEmail.mockResolvedValue("sent");
+  reportPurchaseToMeta.mockResolvedValue("sent");
 });
 
 describe("handlePaytrCallback — verification", () => {
@@ -125,6 +131,24 @@ describe("handlePaytrCallback — successful payment", () => {
     });
     expect(sendOrderConfirmationEmail).toHaveBeenCalledTimes(1);
     expect(sendOrderConfirmationEmail).toHaveBeenCalledWith(ORDER_ID);
+  });
+
+  // The server-side Meta Purchase: the only one a customer who closed the
+  // tab at the bank produces.
+  it("reports the sale to Meta once, on the first booking only", async () => {
+    await handlePaytrCallback(signedPayload());
+    expect(reportPurchaseToMeta).toHaveBeenCalledTimes(1);
+    expect(reportPurchaseToMeta).toHaveBeenCalledWith(ORDER_ID);
+
+    reportPurchaseToMeta.mockClear();
+    recordCardPayment.mockResolvedValue({ ok: true, value: "already_recorded" });
+    await handlePaytrCallback(signedPayload());
+    expect(reportPurchaseToMeta).not.toHaveBeenCalled();
+  });
+
+  it("still acknowledges when reporting to Meta fails", async () => {
+    reportPurchaseToMeta.mockResolvedValue("failed");
+    await expect(handlePaytrCallback(signedPayload())).resolves.toEqual({ ok: true });
   });
 
   it("does not re-send the receipt when PayTR retries an already-booked payment", async () => {
