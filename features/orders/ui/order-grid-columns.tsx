@@ -20,6 +20,7 @@ import type { DataGridColumn } from "@/components/data-grid/data-grid-types";
 import { orderCellPatchSchemas } from "@/features/orders/domain/order.schema";
 import { orderStatusEditor } from "@/features/orders/ui/order-status-cell";
 import { PaymentStatusCell } from "@/features/orders/ui/payment-status-cell";
+import { WhatsAppLink } from "@/features/orders/ui/whatsapp-link";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 
@@ -92,12 +93,15 @@ export function buildOrderColumns(
       cell: ({ row }) => {
         const name = row.original.customer_name?.trim();
         return (
-          <Link
-            href={`/customers/${row.original.customer_id}`}
-            className="text-sm underline-offset-2 hover:underline"
-          >
-            {name && name.length > 0 ? name : "(isimsiz)"}
-          </Link>
+          <div className="flex min-w-0 items-center gap-1">
+            <Link
+              href={`/customers/${row.original.customer_id}`}
+              className="min-w-0 truncate text-sm underline-offset-2 hover:underline"
+            >
+              {name && name.length > 0 ? name : "(isimsiz)"}
+            </Link>
+            <WhatsAppLink phone={row.original.customer_phone} name={name} />
+          </div>
         );
       },
     },
