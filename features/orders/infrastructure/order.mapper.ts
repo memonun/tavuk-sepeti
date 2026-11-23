@@ -155,7 +155,7 @@ interface ListOrderRow {
   cargo_tracking_number: string | null;
   cargo_tracking_url: string | null;
   recurring_template_id: string | null;
-  customers: { first_name: string | null; last_name: string | null } | null;
+  customers: { first_name: string | null; last_name: string | null; phone: string | null } | null;
 }
 
 export function rowToListItem(row: ListOrderRow): OrderListItem {
@@ -168,6 +168,7 @@ export function rowToListItem(row: ListOrderRow): OrderListItem {
     order_number: row.order_number,
     customer_id: row.customer_id,
     customer_name: customerName,
+    customer_phone: customer?.phone ?? null,
     status: row.status as OrderStatus,
     scheduled_for: row.scheduled_for,
     time_slot: row.time_slot as TimeSlot | null,

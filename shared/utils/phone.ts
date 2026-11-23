@@ -36,6 +36,18 @@ export function normalizeTRPhone(input: string): string | null {
   return `+90${subscriber}`;
 }
 
+/**
+ * Link that opens a WhatsApp chat with this number: `https://wa.me/905321234567`.
+ * wa.me wants the international digits only — no `+`, spaces or leading zero —
+ * so a stored E.164 value and a hand-typed `0532 123 45 67` give the same link.
+ * `null` when there is no usable number (blank, or not a valid TR number).
+ */
+export function whatsappChatUrl(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const e164 = normalizeTRPhone(phone);
+  return e164 ? `https://wa.me/${e164.slice(1)}` : null;
+}
+
 /** `+905321234567` → `+90 532 123 45 67` for display. `null` → `"—"`. */
 export function formatTRPhone(e164: string | null | undefined): string {
   if (!e164) return "—";

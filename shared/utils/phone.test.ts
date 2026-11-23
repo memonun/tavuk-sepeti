@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTRPhoneInput, normalizeTRPhone } from "@/shared/utils/phone";
+import { formatTRPhoneInput, normalizeTRPhone, whatsappChatUrl } from "@/shared/utils/phone";
 
 describe("formatTRPhoneInput", () => {
   it("groups a national number as it is typed", () => {
@@ -41,5 +41,25 @@ describe("formatTRPhoneInput", () => {
     for (const raw of ["05321234567", "+905321234567", "5321234567"]) {
       expect(normalizeTRPhone(formatTRPhoneInput(raw))).toBe(normalizeTRPhone(raw));
     }
+  });
+});
+
+describe("whatsappChatUrl", () => {
+  it("builds the wa.me link from a stored E.164 number — digits only, no plus", () => {
+    expect(whatsappChatUrl("+905321234567")).toBe("https://wa.me/905321234567");
+  });
+
+  it("gives the same link for every way the number may be written", () => {
+    for (const written of ["0532 123 45 67", "532 123 45 67", "+90 532 123 45 67", "905321234567"]) {
+      expect(whatsappChatUrl(written)).toBe("https://wa.me/905321234567");
+    }
+  });
+
+  it("has no link without a usable number", () => {
+    expect(whatsappChatUrl(null)).toBeNull();
+    expect(whatsappChatUrl(undefined)).toBeNull();
+    expect(whatsappChatUrl("")).toBeNull();
+    expect(whatsappChatUrl("123")).toBeNull();
+    expect(whatsappChatUrl("not a number")).toBeNull();
   });
 });

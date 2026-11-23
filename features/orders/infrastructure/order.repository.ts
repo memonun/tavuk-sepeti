@@ -48,7 +48,7 @@ type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
  * from silently drifting apart.
  */
 const ORDER_LIST_SELECT =
-  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_method, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, fulfillment_channel, cargo_carrier, cargo_tracking_number, cargo_tracking_url, recurring_template_id, customers!inner(first_name, last_name)" as const;
+  "id, order_number, customer_id, status, scheduled_for, time_slot, total_minor, payment_method, payment_status, amount_paid_minor, delivery_notes, delivery_fee_minor, created_at, source, fulfillment_channel, cargo_carrier, cargo_tracking_number, cargo_tracking_url, recurring_template_id, customers!inner(first_name, last_name, phone)" as const;
 
 export interface CreateOrderInput {
   customer_id: string;

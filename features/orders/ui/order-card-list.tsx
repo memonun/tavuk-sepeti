@@ -18,6 +18,7 @@ import { TIME_SLOT_OPTIONS } from "@/features/orders/ui/order-grid-columns";
 import { getOrderRowBackground } from "@/features/orders/ui/order-row-color";
 import { orderStatusEditor } from "@/features/orders/ui/order-status-cell";
 import { PaymentStatusCell } from "@/features/orders/ui/payment-status-cell";
+import { WhatsAppLink } from "@/features/orders/ui/whatsapp-link";
 import { formatDate } from "@/shared/utils/date";
 import { formatTRY } from "@/shared/utils/money";
 
@@ -96,8 +97,15 @@ export function OrderCardList({
                 {order.source === "recurring_generated" ? (
                   <Badge variant="outline">Abonelik</Badge>
                 ) : null}
-                <div className="ml-auto px-2 py-1">
-                  <PaymentStatusCell order={order} />
+                <div className="ml-auto flex items-center gap-1">
+                  <WhatsAppLink
+                    phone={order.customer_phone}
+                    name={name}
+                    className="size-9 [&_svg]:h-5 [&_svg]:w-5"
+                  />
+                  <div className="px-2 py-1">
+                    <PaymentStatusCell order={order} />
+                  </div>
                 </div>
               </div>
             </li>
